@@ -1,0 +1,284 @@
+<div class="container">
+  <section class="header">
+    <span class="badge">2025-2026 School Year</span>
+    <h1>St. Matthew Catholic Church Religious Education</h1>
+    <p>
+      Register children for grades 1-9, view the class schedule, and help administrators track documents and
+      admissions.
+    </p>
+    <div class="notice">
+      Registration deadline: <strong>August 15, 2025</strong>. Late fee after deadline. No registrations after
+      classes begin on <strong>Sept. 8, 2025</strong>.
+    </div>
+  </section>
+
+  <div class="grid two">
+    <section class="card">
+      <h2 class="section-title">Parent Registration Form</h2>
+      <form (ngSubmit)="submit()">
+        <div class="form-grid two">
+          <div>
+            <label for="parentName">Parent's name</label>
+            <input id="parentName" name="parentName" [(ngModel)]="formData.parentName" required />
+          </div>
+          <div>
+            <label for="homePhone">Home phone</label>
+            <input id="homePhone" name="homePhone" [(ngModel)]="formData.homePhone" />
+          </div>
+          <div>
+            <label for="address">Address</label>
+            <input id="address" name="address" [(ngModel)]="formData.address" required />
+          </div>
+          <div>
+            <label for="cityStateZip">City, state, zip</label>
+            <input id="cityStateZip" name="cityStateZip" [(ngModel)]="formData.cityStateZip" required />
+          </div>
+        </div>
+
+        <div class="form-grid two" style="margin-top: 16px">
+          <div>
+            <label for="fatherName">Father's name</label>
+            <input id="fatherName" name="fatherName" [(ngModel)]="formData.fatherName" required />
+          </div>
+          <div>
+            <label for="fatherReligion">Father's religion</label>
+            <input id="fatherReligion" name="fatherReligion" [(ngModel)]="formData.fatherReligion" />
+          </div>
+          <div>
+            <label for="fatherCellPhone">Father's cell phone</label>
+            <input id="fatherCellPhone" name="fatherCellPhone" [(ngModel)]="formData.fatherCellPhone" />
+          </div>
+          <div>
+            <label for="motherMaidenName">Mother's maiden name</label>
+            <input id="motherMaidenName" name="motherMaidenName" [(ngModel)]="formData.motherMaidenName" />
+          </div>
+          <div>
+            <label for="motherReligion">Mother's religion</label>
+            <input id="motherReligion" name="motherReligion" [(ngModel)]="formData.motherReligion" />
+          </div>
+          <div>
+            <label for="motherCellPhone">Mother's cell phone</label>
+            <input id="motherCellPhone" name="motherCellPhone" [(ngModel)]="formData.motherCellPhone" />
+          </div>
+        </div>
+
+        <div class="form-grid two" style="margin-top: 16px">
+          <div>
+            <label for="childLivesWith">Child lives with</label>
+            <select id="childLivesWith" name="childLivesWith" [(ngModel)]="formData.childLivesWith">
+              <option>Both</option>
+              <option>Father</option>
+              <option>Mother</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div>
+            <label for="stepParentName">Step-parent name</label>
+            <input id="stepParentName" name="stepParentName" [(ngModel)]="formData.stepParentName" />
+          </div>
+          <div>
+            <label for="stepParentReligion">Step-parent religion</label>
+            <input id="stepParentReligion" name="stepParentReligion" [(ngModel)]="formData.stepParentReligion" />
+          </div>
+        </div>
+
+        <div class="form-grid three" style="margin-top: 16px">
+          <div>
+            <label for="studentFullName">Student full name</label>
+            <input id="studentFullName" name="studentFullName" [(ngModel)]="formData.studentFullName" required />
+          </div>
+          <div>
+            <label for="gender">Gender</label>
+            <select id="gender" name="gender" [(ngModel)]="formData.gender" required>
+              <option value="">Select</option>
+              <option>Male</option>
+              <option>Female</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div>
+            <label for="age">Age</label>
+            <input id="age" name="age" type="number" [(ngModel)]="formData.age" required />
+          </div>
+          <div>
+            <label for="dateOfBirth">Date of birth</label>
+            <input id="dateOfBirth" name="dateOfBirth" type="date" [(ngModel)]="formData.dateOfBirth" required />
+          </div>
+          <div>
+            <label for="placeOfBirth">Place of birth</label>
+            <input id="placeOfBirth" name="placeOfBirth" [(ngModel)]="formData.placeOfBirth" />
+          </div>
+          <div>
+            <label for="ccdGradeLevel">CCD grade level</label>
+            <input id="ccdGradeLevel" name="ccdGradeLevel" [(ngModel)]="formData.ccdGradeLevel" required />
+          </div>
+        </div>
+
+        <div class="form-grid two" style="margin-top: 16px">
+          <div>
+            <label for="schoolAttending">School attending</label>
+            <input id="schoolAttending" name="schoolAttending" [(ngModel)]="formData.schoolAttending" required />
+          </div>
+          <div>
+            <label for="schoolGradeLevel">School grade level</label>
+            <input id="schoolGradeLevel" name="schoolGradeLevel" [(ngModel)]="formData.schoolGradeLevel" />
+          </div>
+        </div>
+
+        <div class="form-grid two" style="margin-top: 16px">
+          <div>
+            <h3 class="section-title">Baptism</h3>
+            <label for="baptismDate">Date</label>
+            <input id="baptismDate" name="baptismDate" [(ngModel)]="formData.baptism.date" />
+            <label for="baptismChurch">Church name</label>
+            <input id="baptismChurch" name="baptismChurch" [(ngModel)]="formData.baptism.churchName" />
+            <label for="baptismCity">City</label>
+            <input id="baptismCity" name="baptismCity" [(ngModel)]="formData.baptism.city" />
+            <label for="baptismState">State</label>
+            <input id="baptismState" name="baptismState" [(ngModel)]="formData.baptism.state" />
+          </div>
+          <div>
+            <h3 class="section-title">First Communion</h3>
+            <label for="communionDate">Date</label>
+            <input id="communionDate" name="communionDate" [(ngModel)]="formData.firstCommunion.date" />
+            <label for="communionChurch">Church name</label>
+            <input id="communionChurch" name="communionChurch" [(ngModel)]="formData.firstCommunion.churchName" />
+            <label for="communionCity">City</label>
+            <input id="communionCity" name="communionCity" [(ngModel)]="formData.firstCommunion.city" />
+            <label for="communionState">State</label>
+            <input id="communionState" name="communionState" [(ngModel)]="formData.firstCommunion.state" />
+          </div>
+        </div>
+
+        <div style="margin-top: 16px">
+          <label for="learningNotes">Handicaps, learning disabilities, or comments</label>
+          <textarea id="learningNotes" name="learningNotes" rows="3" [(ngModel)]="formData.learningNotes"></textarea>
+        </div>
+
+        <div class="form-grid two" style="margin-top: 16px">
+          <div>
+            <label for="firstYear">First year in program?</label>
+            <select id="firstYear" name="firstYear" [(ngModel)]="formData.firstYear">
+              <option [ngValue]="false">No</option>
+              <option [ngValue]="true">Yes</option>
+            </select>
+          </div>
+          <div>
+            <label for="email">Email</label>
+            <input id="email" name="email" type="email" [(ngModel)]="formData.email" />
+          </div>
+        </div>
+
+        <div style="margin-top: 16px">
+          <label for="parentSignature">Signature of parent/guardian</label>
+          <input id="parentSignature" name="parentSignature" [(ngModel)]="formData.parentSignature" />
+        </div>
+
+        <div style="margin-top: 20px; display: flex; gap: 12px; align-items: center">
+          <button class="primary" type="submit">Submit registration</button>
+          <span class="success" *ngIf="submittedMessage">{{ submittedMessage }}</span>
+        </div>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2 class="section-title">Schedule & Fees</h2>
+      <p>
+        Registration fee: <strong>$150</strong> for one child or <strong>$200</strong> per family. Sacramental fees:
+        <strong>$25</strong> for 2nd grade/SS2, <strong>$50</strong> for 2nd year confirmation.
+      </p>
+      <div *ngIf="schedule">
+        <div *ngFor="let block of schedule.blocks" style="margin-bottom: 20px">
+          <strong>{{ block.day }} | {{ block.time }}</strong>
+          <div class="badge" style="margin-top: 6px">Grades: {{ block.grades.join(', ') }}</div>
+          <table class="table" style="margin-top: 10px">
+            <tr *ngFor="let month of block.months">
+              <td style="width: 120px">{{ month.month }}</td>
+              <td>{{ month.dates }}</td>
+            </tr>
+          </table>
+        </div>
+        <div>
+          <h3 class="section-title">Special Events</h3>
+          <ul>
+            <li *ngFor="let event of schedule.events">
+              <strong>{{ event.title }}</strong> — {{ event.date }} at {{ event.time }}
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section class="card" style="margin-top: 24px">
+    <h2 class="section-title">Administrator Actions</h2>
+    <p>
+      Administrators can request documents and admit students once registration is reviewed. Use the registration
+      list below to pick an ID.
+    </p>
+    <div class="form-grid three">
+      <div>
+        <label for="registrationId">Registration ID</label>
+        <input id="registrationId" name="registrationId" [(ngModel)]="adminRequest.registrationId" />
+      </div>
+      <div>
+        <label for="documentType">Document request</label>
+        <select id="documentType" name="documentType" [(ngModel)]="adminRequest.documentType">
+          <option>Baptismal Certificate</option>
+          <option>First Holy Communion Certificate</option>
+          <option>Proof of Address</option>
+        </select>
+      </div>
+      <div>
+        <label for="documentNotes">Notes</label>
+        <input id="documentNotes" name="documentNotes" [(ngModel)]="adminRequest.notes" />
+      </div>
+    </div>
+    <div style="margin-top: 12px">
+      <button class="secondary" type="button" (click)="requestDocuments()">Request documents</button>
+    </div>
+
+    <div class="form-grid three" style="margin-top: 16px">
+      <div>
+        <label for="classCode">Admit to class code</label>
+        <input id="classCode" name="classCode" [(ngModel)]="adminRequest.classCode" />
+      </div>
+      <div>
+        <label for="status">Status</label>
+        <select id="status" name="status" [(ngModel)]="adminRequest.status">
+          <option>Admitted</option>
+          <option>Waitlisted</option>
+          <option>Needs Review</option>
+        </select>
+      </div>
+      <div>
+        <label for="adminNotes">Admin notes</label>
+        <input id="adminNotes" name="adminNotes" [(ngModel)]="adminRequest.adminNotes" />
+      </div>
+    </div>
+    <div style="margin-top: 12px">
+      <button class="secondary" type="button" (click)="admitStudent()">Update admission</button>
+    </div>
+
+    <div style="margin-top: 20px">
+      <h3 class="section-title">Submitted Registrations</h3>
+      <table class="table" *ngIf="registrations.length">
+        <tr>
+          <th>Parent</th>
+          <th>Student</th>
+          <th>Grade</th>
+          <th>Registration ID</th>
+          <th>Status</th>
+        </tr>
+        <tr *ngFor="let record of registrations">
+          <td>{{ record.details.parentName }}</td>
+          <td>{{ record.details.studentFullName }}</td>
+          <td>{{ record.details.ccdGradeLevel }}</td>
+          <td>{{ record.id }}</td>
+          <td>{{ record.admission?.status || 'Pending' }}</td>
+        </tr>
+      </table>
+      <p *ngIf="!registrations.length">No registrations submitted yet.</p>
+    </div>
+  </section>
+</div>
