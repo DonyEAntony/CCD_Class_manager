@@ -1,0 +1,27 @@
+<!doctype html><html><head><title>Dashboard</title><link rel="stylesheet" href="/styles.css"></head><body>
+<h1>Dashboard</h1>
+<p>Logged in as <strong><%= user.email %></strong> (<%= user.role %>)</p>
+<nav>
+  <a href="/registration/new">New Registration</a> |
+  <% if (user.role === 'admin') { %><a href="/admin/users">Manage Users</a> |<% } %>
+  <a href="/logout">Logout</a>
+</nav>
+<% if (success.length) { %><p class="success"><%= success[0] %></p><% } %>
+<% if (error.length) { %><p class="error"><%= error[0] %></p><% } %>
+<h2>Submitted Registrations</h2>
+<table>
+<tr><th>Student</th><th>Grade</th><th>Parent</th><th>Fees</th><th>Certificates</th></tr>
+<% registrations.forEach(r => { %>
+<tr>
+  <td><%= r.student_full_name %></td>
+  <td><%= r.ccd_grade_level %></td>
+  <td><%= r.parent_name %></td>
+  <td>$<%= r.registration_fee + r.sacramental_fee + r.late_fee %></td>
+  <td>
+    <% if (r.baptism_certificate_path) { %><a href="/<%= r.baptism_certificate_path %>">Baptism</a><% } %>
+    <% if (r.first_communion_certificate_path) { %> | <a href="/<%= r.first_communion_certificate_path %>">Communion</a><% } %>
+  </td>
+</tr>
+<% }) %>
+</table>
+</body></html>

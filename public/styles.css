@@ -1,0 +1,8 @@
+body { font-family: Arial, sans-serif; margin: 2rem; max-width: 980px; }
+form { display: grid; gap: 0.7rem; margin: 1rem 0; }
+label { display: grid; gap: 0.2rem; }
+input, textarea, select, button { padding: 0.45rem; font-size: 1rem; }
+table { border-collapse: collapse; width: 100%; }
+th, td { border: 1px solid #ccc; padding: 0.5rem; }
+.error { color: #a40000; }
+.success { color: #096b09; }
