@@ -1,0 +1,15 @@
+<!doctype html>
+<html>
+<head><title>St Matthew CCD</title><link rel="stylesheet" href="/styles.css"></head>
+<body>
+  <h1>Saint Matthew Catholic Church</h1>
+  <h2>Registration for Religious Education - School Year 2025-2026</h2>
+  <p>
+    <% if (user) { %>
+      Welcome, <%= user.email %> (<%= user.role %>) — <a href="/dashboard">Dashboard</a> | <a href="/logout">Logout</a>
+    <% } else { %>
+      <a href="/signup">Create account</a> | <a href="/login">Login</a>
+    <% } %>
+  </p>
+</body>
+</html>

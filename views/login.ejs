@@ -1,0 +1,15 @@
+<!doctype html><html><head><title>Login</title><link rel="stylesheet" href="/styles.css"></head><body>
+<h1>Login</h1>
+<% if (error.length) { %><p class="error"><%= error[0] %></p><% } %>
+<% if (success.length) { %><p class="success"><%= success[0] %></p><% } %>
+<form method="post" action="/login">
+  <label>Email <input type="email" name="email" required></label>
+  <label>Password <input type="password" name="password" required></label>
+  <button type="submit">Login</button>
+</form>
+<p>Or sign in with free providers:</p>
+<ul>
+  <li><a href="/auth/google">Continue with Google</a></li>
+  <li><a href="/auth/github">Continue with GitHub</a></li>
+</ul>
+</body></html>

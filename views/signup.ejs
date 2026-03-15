@@ -1,0 +1,19 @@
+<!doctype html><html><head><title>Sign Up</title><link rel="stylesheet" href="/styles.css"></head><body>
+<h1>Create Login</h1>
+<% if (error.length) { %><p class="error"><%= error[0] %></p><% } %>
+<form method="post" action="/signup">
+  <label>Email <input type="email" name="email" required></label>
+  <label>Full Name <input type="text" name="fullName"></label>
+  <label>Password <input type="password" name="password" required></label>
+  <label>Role Request
+    <select name="requestedRole">
+      <option value="parent">Parent</option>
+      <option value="catechist">Catechist</option>
+      <option value="admin">Admin</option>
+    </select>
+  </label>
+  <label>Invite Code (required for admin/catechist) <input type="text" name="inviteCode"></label>
+  <button type="submit">Create account</button>
+</form>
+<a href="/login">Already have an account?</a>
+</body></html>

@@ -1,0 +1,51 @@
+<!doctype html><html><head><title>CCD Registration</title><link rel="stylesheet" href="/styles.css"></head><body>
+<h1>Saint Matthew Catholic Church</h1>
+<h2>Registration for Religious Education - School Year 2025-2026</h2>
+<p>(PLEASE PRINT CLEARLY)</p>
+<form method="post" action="/registration" enctype="multipart/form-data">
+  <input type="hidden" name="school_year" value="2025-2026">
+  <label>Registration Date <input type="date" name="registration_date"></label>
+  <label>PARENT’S NAME <input type="text" name="parent_name" required></label>
+  <label>ADDRESS <input type="text" name="address"></label>
+  <label>CITY, STATE AND ZIP <input type="text" name="city_state_zip"></label>
+  <label>HOME PHONE # <input type="text" name="home_phone"></label>
+  <label>FATHER’S NAME <input type="text" name="father_name"></label>
+  <label>FATHER RELIGION <input type="text" name="father_religion"></label>
+  <label>FATHER’S CELL PHONE # <input type="text" name="father_cell"></label>
+  <label>MOTHER’S MAIDEN NAME <input type="text" name="mother_maiden_name"></label>
+  <label>MOTHER RELIGION <input type="text" name="mother_religion"></label>
+  <label>MOTHER’S CELL PHONE # <input type="text" name="mother_cell"></label>
+  <label>CHILD LIVES WITH
+    <select name="child_lives_with"><option>Both</option><option>Father</option><option>Mother</option></select>
+  </label>
+  <label>STEP-PARENT’S NAME <input type="text" name="step_parent_name"></label>
+  <label>STEP-PARENT RELIGION <input type="text" name="step_parent_religion"></label>
+  <label>STUDENT’S FULL NAME <input type="text" name="student_full_name" required></label>
+  <label>GENDER <select name="student_gender"><option>Male</option><option>Female</option></select></label>
+  <label>AGE <input type="number" name="student_age"></label>
+  <label>DATE OF BIRTH <input type="date" name="student_dob"></label>
+  <label>CHILD’S PLACE OF BIRTH <input type="text" name="child_place_of_birth"></label>
+  <label>CCD GRADE LEVEL IN SEPTEMBER (CLASS CODE) <input type="text" name="ccd_grade_level"></label>
+  <label>SCHOOL ATTENDING <input type="text" name="school_attending"></label>
+  <label>SCHOOL GRADE LEVEL <input type="text" name="school_grade_level"></label>
+  <label>BAPTISM DATE <input type="date" name="baptism_date"></label>
+  <label>BAPTISM CHURCH / CITY / STATE <input type="text" name="baptism_church"></label>
+  <label>FIRST COMMUNION DATE <input type="date" name="first_communion_date"></label>
+  <label>FIRST COMMUNION CHURCH / CITY / STATE <input type="text" name="first_communion_church"></label>
+  <label>COMMENTS / LEARNING NEEDS <textarea name="disabilities_comments"></textarea></label>
+  <label>Family children count (for fee) <input type="number" name="family_count" value="1" min="1"></label>
+  <label>SIGNATURE OF PARENT / GUARDIAN <input type="text" name="parent_signature"></label>
+  <label>E-Mail <input type="email" name="email"></label>
+
+  <h3>Upload Certificate Scans</h3>
+  <label>Baptism Certificate (required if first year)
+    <input type="file" name="baptism_certificate" accept=".pdf,image/*">
+  </label>
+  <label>First Holy Communion Certificate (required for 3rd grade+)
+    <input type="file" name="first_communion_certificate" accept=".pdf,image/*">
+  </label>
+
+  <p>Fees: $150 one child / $200 family; sacramental fee $25 for second grade/SS2, $50 for second year Confirmation. Late fee $50 after Aug 15, 2025. No registrations accepted after Sept 8, 2025.</p>
+  <button type="submit">Submit Registration</button>
+</form>
+</body></html>

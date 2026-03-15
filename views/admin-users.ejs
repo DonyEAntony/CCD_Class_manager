@@ -1,0 +1,25 @@
+<!doctype html><html><head><title>Admin Users</title><link rel="stylesheet" href="/styles.css"></head><body>
+<h1>User Administration</h1>
+<a href="/dashboard">Back</a>
+<% if (success.length) { %><p class="success"><%= success[0] %></p><% } %>
+<table>
+  <tr><th>Email</th><th>Role</th><th>Provider</th><th>Update Role</th></tr>
+  <% users.forEach(u => { %>
+    <tr>
+      <td><%= u.email %></td>
+      <td><%= u.role %></td>
+      <td><%= u.provider %></td>
+      <td>
+        <form method="post" action="/admin/users/<%= u.id %>/role">
+          <select name="role">
+            <option value="parent">Parent</option>
+            <option value="catechist">Catechist</option>
+            <option value="admin">Admin</option>
+          </select>
+          <button type="submit">Save</button>
+        </form>
+      </td>
+    </tr>
+  <% }) %>
+</table>
+</body></html>
