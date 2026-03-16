@@ -1,0 +1,5 @@
+node_modules/
+.env
+ccd.db
+uploads/*
+!uploads/.gitkeep
