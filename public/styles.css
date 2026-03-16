@@ -27,10 +27,15 @@ body {
 }
 
 .page-card .card-header {
-  background: #fff;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border-bottom: 1px solid #eef2f6;
   border-top-left-radius: 1rem;
   border-top-right-radius: 1rem;
+  color: white;
+}
+
+.page-card .card-header h2 {
+  color: white;
 }
 
 .table thead th {
@@ -46,6 +51,25 @@ body {
 
 .form-text {
   color: var(--muted);
+}
+
+fieldset {
+  border-color: #667eea;
+  border-width: 2px;
+}
+
+legend {
+  color: #667eea;
+  font-weight: 600;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
 }
 
 .badge-role {

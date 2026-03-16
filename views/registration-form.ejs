@@ -73,6 +73,9 @@
           <div class="col-md-4"><label class="form-label"><%= t('step_parent_name') %></label><input class="form-control" type="text" name="step_parent_name"></div>
           <div class="col-md-4"><label class="form-label"><%= t('step_parent_religion') %></label><input class="form-control" type="text" name="step_parent_religion"></div>
 
+          <fieldset class="col-12 border rounded p-3">
+            <legend class="float-none w-auto px-2 h6 mb-2">Student Information</legend>
+            <div class="row g-3">
           <div class="col-md-6"><label class="form-label"><%= t('student_full_name') %></label><input class="form-control" type="text" name="student_full_name" required></div>
           <div class="col-md-2"><label class="form-label"><%= t('gender') %></label><select class="form-select" name="student_gender"><option><%= t('male') %></option><option><%= t('female') %></option></select></div>
           <div class="col-md-2"><label class="form-label"><%= t('age') %></label><input class="form-control" type="number" name="student_age"></div>
@@ -92,6 +95,8 @@
             <label class="form-label"><%= t('comments') %></label>
             <textarea class="form-control" rows="3" name="disabilities_comments"></textarea>
           </div>
+            </div>
+          </fieldset>
 
           <div class="col-md-4"><label class="form-label"><%= t('family_count') %></label><input class="form-control" type="number" name="family_count" value="1" min="1"></div>
           <div class="col-md-4"><label class="form-label"><%= t('parent_signature') %></label><input class="form-control" type="text" name="parent_signature"></div>
