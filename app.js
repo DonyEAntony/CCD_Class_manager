@@ -210,6 +210,11 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 app.set('view engine', 'ejs');
+app.locals.lang = 'en';
+app.locals.t = (key) => translations.en[key] || key;
+app.locals.user = null;
+app.locals.success = [];
+app.locals.error = [];
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
