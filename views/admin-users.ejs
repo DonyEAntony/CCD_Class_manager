@@ -9,9 +9,14 @@
 </head>
 <body>
   <main class="container py-4 app-shell">
+    <div class="d-flex justify-content-end gap-2 mb-3">
+      <span class="text-secondary"><%= t('language') %>:</span>
+      <a href="/lang/en" class="btn btn-sm <%= lang === 'en' ? 'btn-primary' : 'btn-outline-primary' %>"><%= t('english') %></a>
+      <a href="/lang/es" class="btn btn-sm <%= lang === 'es' ? 'btn-primary' : 'btn-outline-primary' %>"><%= t('spanish') %></a>
+    </div>
     <div class="d-flex justify-content-between align-items-center mb-3">
-      <h1 class="h3 mb-0">User Administration</h1>
-      <a class="btn btn-outline-secondary" href="/dashboard">Back to Dashboard</a>
+      <h1 class="h3 mb-0"><%= t('user_administration') %></h1>
+      <a class="btn btn-outline-secondary" href="/dashboard"><%= t('back_to_dashboard') %></a>
     </div>
 
     <% if (success.length) { %><div class="alert alert-success"><%= success[0] %></div><% } %>
@@ -21,7 +26,7 @@
         <div class="table-responsive">
           <table class="table table-hover mb-0 align-middle">
             <thead>
-              <tr><th>Email</th><th>Role</th><th>Provider</th><th>Update Role</th></tr>
+              <tr><th><%= t('email') %></th><th><%= t('role') %></th><th><%= t('provider') %></th><th><%= t('update_role') %></th></tr>
             </thead>
             <tbody>
               <% users.forEach(u => { %>
@@ -36,7 +41,7 @@
                         <option value="catechist">Catechist</option>
                         <option value="admin">Admin</option>
                       </select>
-                      <button class="btn btn-primary" type="submit">Save</button>
+                      <button class="btn btn-primary" type="submit"><%= t('save') %></button>
                     </form>
                   </td>
                 </tr>

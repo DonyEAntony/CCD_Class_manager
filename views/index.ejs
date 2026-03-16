@@ -9,26 +9,32 @@
 </head>
 <body>
   <main class="container py-5 app-shell">
+    <div class="d-flex justify-content-end gap-2 mb-3">
+      <span class="text-secondary"><%= t('language') %>:</span>
+      <a href="/lang/en" class="btn btn-sm <%= lang === 'en' ? 'btn-primary' : 'btn-outline-primary' %>"><%= t('english') %></a>
+      <a href="/lang/es" class="btn btn-sm <%= lang === 'es' ? 'btn-primary' : 'btn-outline-primary' %>"><%= t('spanish') %></a>
+    </div>
+
     <section class="hero p-4 p-md-5 mb-4">
-      <h1 class="display-6 fw-bold brand-title mb-2">Saint Matthew Catholic Church</h1>
-      <p class="lead mb-1">Registration for Religious Education</p>
-      <p class="mb-0">School Year 2025-2026</p>
+      <h1 class="display-6 fw-bold brand-title mb-2"><%= t('app_title') %></h1>
+      <p class="lead mb-1"><%= t('reg_title') %></p>
+      <p class="mb-0"><%= t('school_year') %></p>
     </section>
 
     <div class="card page-card">
       <div class="card-body p-4">
-        <p class="text-secondary">Secure online registration for families, catechists, and administrators.</p>
+        <p class="text-secondary"><%= t('secure_online') %></p>
         <% if (user) { %>
           <div class="d-flex flex-wrap gap-2 align-items-center">
             <span class="badge text-bg-primary badge-role"><%= user.role %></span>
-            <span class="text-secondary">Signed in as <strong><%= user.email %></strong></span>
-            <a class="btn btn-primary" href="/dashboard">Open Dashboard</a>
-            <a class="btn btn-outline-secondary" href="/logout">Logout</a>
+            <span class="text-secondary"><%= t('signed_in_as') %> <strong><%= user.email %></strong></span>
+            <a class="btn btn-primary" href="/dashboard"><%= t('open_dashboard') %></a>
+            <a class="btn btn-outline-secondary" href="/logout"><%= t('logout') %></a>
           </div>
         <% } else { %>
           <div class="d-flex flex-wrap gap-2">
-            <a class="btn btn-primary" href="/signup">Create Account</a>
-            <a class="btn btn-outline-primary" href="/login">Login</a>
+            <a class="btn btn-primary" href="/signup"><%= t('create_account') %></a>
+            <a class="btn btn-outline-primary" href="/login"><%= t('login') %></a>
           </div>
         <% } %>
       </div>

@@ -19,7 +19,11 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
     school_year TEXT NOT NULL,
-    parent_name TEXT NOT NULL,
+    parent_name TEXT,
+    primary_contact_phone TEXT,
+    primary_contact_email TEXT,
+    primary_contact_relationship TEXT,
+    primary_contact_relationship_other TEXT,
     address TEXT,
     city_state_zip TEXT,
     home_phone TEXT,
@@ -56,5 +60,21 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(id)
   );
 `);
+
+const columnExists = (table, column) => {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all();
+  return columns.some((c) => c.name === column);
+};
+
+const ensureColumn = (table, column, definition) => {
+  if (!columnExists(table, column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
+};
+
+ensureColumn('student_registrations', 'primary_contact_phone', 'TEXT');
+ensureColumn('student_registrations', 'primary_contact_email', 'TEXT');
+ensureColumn('student_registrations', 'primary_contact_relationship', 'TEXT');
+ensureColumn('student_registrations', 'primary_contact_relationship_other', 'TEXT');
 
 module.exports = db;

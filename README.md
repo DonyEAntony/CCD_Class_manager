@@ -43,3 +43,11 @@ Web app for **Saint Matthew Catholic Church Religious Education (School Year 202
   - `http://localhost:3000/auth/github/callback`
 
 If OAuth variables are blank, email/password authentication still works.
+
+## Recent registration form updates
+- Registration date is auto-set by the server and shown on the form as read-only context.
+- Parent name manual input was removed from the registration page.
+- Added a **Primary Parent Contact** section with required phone + email.
+- Added relationship choices: **Father/Mother**, **Stepfather/Stepmother**, or **Other**.
+- When **Other** is selected, a description field appears.
+- Added English/Spanish labels for the new contact and relationship fields.
