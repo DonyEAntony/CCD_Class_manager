@@ -9,132 +9,98 @@
 </head>
 <body>
   <main class="container py-4 app-shell">
-    <div class="d-flex justify-content-end gap-2 mb-3">
-      <span class="text-secondary"><%= t('language') %>:</span>
-      <a href="/lang/en" class="btn btn-sm <%= lang === 'en' ? 'btn-primary' : 'btn-outline-primary' %>"><%= t('english') %></a>
-      <a href="/lang/es" class="btn btn-sm <%= lang === 'es' ? 'btn-primary' : 'btn-outline-primary' %>"><%= t('spanish') %></a>
-    </div>
     <div class="d-flex justify-content-between align-items-center mb-3">
       <div>
-        <h1 class="h3 mb-1"><%= t('app_title') %></h1>
-        <p class="text-secondary mb-0"><%= t('reg_title') %> — <%= t('school_year') %></p>
+        <h1 class="h3 mb-1">Saint Matthew Catholic Church</h1>
+        <p class="text-secondary mb-0">Registration for Religious Education — School Year 2025-2026</p>
       </div>
-      <a class="btn btn-outline-secondary" href="/dashboard"><%= t('back') %></a>
+      <a class="btn btn-outline-secondary" href="/dashboard">Back</a>
     </div>
 
     <div class="card page-card">
-      <div class="card-header p-3"><h2 class="h5 mb-0"><%= t('registration_form_title') %></h2></div>
+      <div class="card-header p-3"><h2 class="h5 mb-0">Parent & Student Registration Form</h2></div>
       <div class="card-body p-4">
         <form method="post" action="/registration" enctype="multipart/form-data" class="row g-3">
           <input type="hidden" name="school_year" value="2025-2026">
 
-          <fieldset class="col-12 border rounded p-3">
-            <legend class="float-none w-auto px-2 h6 mb-2"><%= t('primary_parent_contact') %></legend>
-            <div class="row g-3">
-              <div class="col-md-4"><label class="form-label"><%= t('primary_contact_phone') %></label><input class="form-control" type="text" name="primary_contact_phone" required></div>
-              <div class="col-md-4"><label class="form-label"><%= t('primary_contact_email') %></label><input class="form-control" type="email" name="primary_contact_email" required></div>
-              <div class="col-md-4">
-                <label class="form-label"><%= t('relationship') %></label>
-                <select class="form-select" name="primary_contact_relationship" id="primary_contact_relationship" required>
-                  <option value="Father/Mother"><%= t('father_mother') %></option>
-                  <option value="Stepfather/Stepmother"><%= t('step_parent_rel') %></option>
-                  <option value="Other"><%= t('other') %></option>
-                </select>
-              </div>
-              <div class="col-12 d-none" id="relationship-other-wrap">
-                <label class="form-label"><%= t('relationship_other') %></label>
-                <input class="form-control" type="text" name="primary_contact_relationship_other" id="primary_contact_relationship_other">
-              </div>
-            </div>
-          </fieldset>
+          <div class="col-md-4">
+            <label class="form-label">Registration Date</label>
+            <input class="form-control" type="date" name="registration_date">
+          </div>
+          <div class="col-md-8">
+            <label class="form-label">PARENT’S NAME</label>
+            <input class="form-control" type="text" name="parent_name" required>
+          </div>
 
-          <div class="col-md-6"><label class="form-label"><%= t('address') %></label><input class="form-control" type="text" name="address"></div>
-          <div class="col-md-6"><label class="form-label"><%= t('city_state_zip') %></label><input class="form-control" type="text" name="city_state_zip"></div>
-          <div class="col-md-4"><label class="form-label"><%= t('home_phone') %></label><input class="form-control" type="text" name="home_phone"></div>
+          <div class="col-md-6"><label class="form-label">ADDRESS</label><input class="form-control" type="text" name="address"></div>
+          <div class="col-md-6"><label class="form-label">CITY, STATE AND ZIP</label><input class="form-control" type="text" name="city_state_zip"></div>
+          <div class="col-md-4"><label class="form-label">HOME PHONE #</label><input class="form-control" type="text" name="home_phone"></div>
 
-          <div class="col-md-4"><label class="form-label"><%= t('father_name') %></label><input class="form-control" type="text" name="father_name"></div>
-          <div class="col-md-4"><label class="form-label"><%= t('father_religion') %></label><input class="form-control" type="text" name="father_religion"></div>
-          <div class="col-md-4"><label class="form-label"><%= t('father_cell') %></label><input class="form-control" type="text" name="father_cell"></div>
+          <div class="col-md-4"><label class="form-label">FATHER’S NAME</label><input class="form-control" type="text" name="father_name"></div>
+          <div class="col-md-4"><label class="form-label">FATHER RELIGION</label><input class="form-control" type="text" name="father_religion"></div>
+          <div class="col-md-4"><label class="form-label">FATHER’S CELL PHONE #</label><input class="form-control" type="text" name="father_cell"></div>
 
-          <div class="col-md-4"><label class="form-label"><%= t('mother_maiden_name') %></label><input class="form-control" type="text" name="mother_maiden_name"></div>
-          <div class="col-md-4"><label class="form-label"><%= t('mother_religion') %></label><input class="form-control" type="text" name="mother_religion"></div>
-          <div class="col-md-4"><label class="form-label"><%= t('mother_cell') %></label><input class="form-control" type="text" name="mother_cell"></div>
+          <div class="col-md-4"><label class="form-label">MOTHER’S MAIDEN NAME</label><input class="form-control" type="text" name="mother_maiden_name"></div>
+          <div class="col-md-4"><label class="form-label">MOTHER RELIGION</label><input class="form-control" type="text" name="mother_religion"></div>
+          <div class="col-md-4"><label class="form-label">MOTHER’S CELL PHONE #</label><input class="form-control" type="text" name="mother_cell"></div>
 
           <div class="col-md-4">
-            <label class="form-label"><%= t('child_lives_with') %></label>
-            <select class="form-select" name="child_lives_with"><option><%= t('both') %></option><option><%= t('father') %></option><option><%= t('mother') %></option></select>
+            <label class="form-label">CHILD LIVES WITH</label>
+            <select class="form-select" name="child_lives_with"><option>Both</option><option>Father</option><option>Mother</option></select>
           </div>
-          <div class="col-md-4"><label class="form-label"><%= t('step_parent_name') %></label><input class="form-control" type="text" name="step_parent_name"></div>
-          <div class="col-md-4"><label class="form-label"><%= t('step_parent_religion') %></label><input class="form-control" type="text" name="step_parent_religion"></div>
+          <div class="col-md-4"><label class="form-label">STEP-PARENT’S NAME</label><input class="form-control" type="text" name="step_parent_name"></div>
+          <div class="col-md-4"><label class="form-label">STEP-PARENT RELIGION</label><input class="form-control" type="text" name="step_parent_religion"></div>
 
-          <div class="col-md-6"><label class="form-label"><%= t('student_full_name') %></label><input class="form-control" type="text" name="student_full_name" required></div>
-          <div class="col-md-2"><label class="form-label"><%= t('gender') %></label><select class="form-select" name="student_gender"><option><%= t('male') %></option><option><%= t('female') %></option></select></div>
-          <div class="col-md-2"><label class="form-label"><%= t('age') %></label><input class="form-control" type="number" name="student_age"></div>
-          <div class="col-md-2"><label class="form-label"><%= t('dob') %></label><input class="form-control" type="date" name="student_dob"></div>
+          <div class="col-md-6"><label class="form-label">STUDENT’S FULL NAME</label><input class="form-control" type="text" name="student_full_name" required></div>
+          <div class="col-md-2"><label class="form-label">GENDER</label><select class="form-select" name="student_gender"><option>Male</option><option>Female</option></select></div>
+          <div class="col-md-2"><label class="form-label">AGE</label><input class="form-control" type="number" name="student_age"></div>
+          <div class="col-md-2"><label class="form-label">DATE OF BIRTH</label><input class="form-control" type="date" name="student_dob"></div>
 
-          <div class="col-md-6"><label class="form-label"><%= t('place_of_birth') %></label><input class="form-control" type="text" name="child_place_of_birth"></div>
-          <div class="col-md-3"><label class="form-label"><%= t('ccd_grade_level') %></label><input class="form-control" type="text" name="ccd_grade_level"></div>
-          <div class="col-md-3"><label class="form-label"><%= t('school_grade_level') %></label><input class="form-control" type="text" name="school_grade_level"></div>
-          <div class="col-md-6"><label class="form-label"><%= t('school_attending') %></label><input class="form-control" type="text" name="school_attending"></div>
+          <div class="col-md-6"><label class="form-label">CHILD’S PLACE OF BIRTH</label><input class="form-control" type="text" name="child_place_of_birth"></div>
+          <div class="col-md-3"><label class="form-label">CCD GRADE LEVEL (CLASS CODE)</label><input class="form-control" type="text" name="ccd_grade_level"></div>
+          <div class="col-md-3"><label class="form-label">SCHOOL GRADE LEVEL</label><input class="form-control" type="text" name="school_grade_level"></div>
+          <div class="col-md-6"><label class="form-label">SCHOOL ATTENDING</label><input class="form-control" type="text" name="school_attending"></div>
 
-          <div class="col-md-3"><label class="form-label"><%= t('baptism_date') %></label><input class="form-control" type="date" name="baptism_date"></div>
-          <div class="col-md-9"><label class="form-label"><%= t('baptism_church') %></label><input class="form-control" type="text" name="baptism_church"></div>
-          <div class="col-md-3"><label class="form-label"><%= t('first_communion_date') %></label><input class="form-control" type="date" name="first_communion_date"></div>
-          <div class="col-md-9"><label class="form-label"><%= t('first_communion_church') %></label><input class="form-control" type="text" name="first_communion_church"></div>
+          <div class="col-md-3"><label class="form-label">BAPTISM DATE</label><input class="form-control" type="date" name="baptism_date"></div>
+          <div class="col-md-9"><label class="form-label">BAPTISM CHURCH / CITY / STATE</label><input class="form-control" type="text" name="baptism_church"></div>
+          <div class="col-md-3"><label class="form-label">FIRST COMMUNION DATE</label><input class="form-control" type="date" name="first_communion_date"></div>
+          <div class="col-md-9"><label class="form-label">FIRST COMMUNION CHURCH / CITY / STATE</label><input class="form-control" type="text" name="first_communion_church"></div>
 
           <div class="col-12">
-            <label class="form-label"><%= t('comments') %></label>
+            <label class="form-label">HANDICAPS / LEARNING DISABILITIES / COMMENTS</label>
             <textarea class="form-control" rows="3" name="disabilities_comments"></textarea>
           </div>
 
-          <div class="col-md-4"><label class="form-label"><%= t('family_count') %></label><input class="form-control" type="number" name="family_count" value="1" min="1"></div>
-          <div class="col-md-4"><label class="form-label"><%= t('parent_signature') %></label><input class="form-control" type="text" name="parent_signature"></div>
-          <div class="col-md-4"><label class="form-label"><%= t('email') %></label><input class="form-control" type="email" name="email"></div>
+          <div class="col-md-4"><label class="form-label">Family children count (for fee)</label><input class="form-control" type="number" name="family_count" value="1" min="1"></div>
+          <div class="col-md-4"><label class="form-label">SIGNATURE OF PARENT / GUARDIAN</label><input class="form-control" type="text" name="parent_signature"></div>
+          <div class="col-md-4"><label class="form-label">E-Mail</label><input class="form-control" type="email" name="email"></div>
 
           <div class="col-12"><hr></div>
-          <div class="col-12"><h3 class="h5"><%= t('upload_scans') %></h3></div>
+          <div class="col-12"><h3 class="h5">Upload Certificate Scans</h3></div>
           <div class="col-md-6">
-            <label class="form-label"><%= t('baptism_required') %></label>
+            <label class="form-label">Baptism Certificate (required if first year)</label>
             <input class="form-control" type="file" name="baptism_certificate" accept=".pdf,image/*">
           </div>
           <div class="col-md-6">
-            <label class="form-label"><%= t('communion_required') %></label>
+            <label class="form-label">First Holy Communion Certificate (required for 3rd grade+)</label>
             <input class="form-control" type="file" name="first_communion_certificate" accept=".pdf,image/*">
           </div>
 
           <div class="col-12">
             <div class="alert alert-info mb-0">
-              <%= t('fee_notice') %>
+              Fees: $150 one child / $200 family; sacramental fee $25 for second grade/SS2, $50 for second-year Confirmation. Late fee $50 after Aug 15, 2025. No registrations accepted after Sept 8, 2025.
             </div>
           </div>
 
           <div class="col-12 d-flex gap-2">
-            <button class="btn btn-primary" type="submit"><%= t('submit_registration') %></button>
-            <a class="btn btn-outline-secondary" href="/dashboard"><%= t('cancel') %></a>
+            <button class="btn btn-primary" type="submit">Submit Registration</button>
+            <a class="btn btn-outline-secondary" href="/dashboard">Cancel</a>
           </div>
         </form>
       </div>
     </div>
 
-    <p class="footer-note mt-3 mb-0"><%= t('footer_note') %></p>
+    <p class="footer-note mt-3 mb-0">Please print clearly and verify sacramental records before submission.</p>
   </main>
-  <script>
-    (function () {
-      const select = document.getElementById('primary_contact_relationship');
-      const wrap = document.getElementById('relationship-other-wrap');
-      const otherInput = document.getElementById('primary_contact_relationship_other');
-      if (!select || !wrap || !otherInput) return;
-
-      const toggleOther = () => {
-        const show = select.value === 'Other';
-        wrap.classList.toggle('d-none', !show);
-        otherInput.required = show;
-        if (!show) otherInput.value = '';
-      };
-
-      select.addEventListener('change', toggleOther);
-      toggleOther();
-    }());
-  </script>
 </body>
 </html>
