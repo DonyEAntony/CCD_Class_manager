@@ -23,12 +23,94 @@
 
     <div class="card page-card">
       <div class="card-body p-4">
-        <p class="text-secondary"><%= t('secure_online') %></p>
+        <h3 class="h5 mb-3">Faith Formation at St. Matthew Parish</h3>
+        <p>At St. Matthew Catholic Church, faith formation is more than a program—it is a journey of growing as disciples of Jesus Christ. Our parish seeks to help children, parents, and families deepen their relationship with Christ and live their Catholic faith in everyday life.</p>
+        <p>Inspired by the vision of Family Faith Formation Catholic Ministries, St. Matthew Parish embraces a family-centered approach to faith formation, recognizing parents as the first and most important teachers of the faith.</p>
+        
+        <div class="accordion" id="faithFormationAccordion">
+          <div class="accordion-item">
+            <h2 class="accordion-header">
+              <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
+                A Family-Centered Vision
+              </button>
+            </h2>
+            <div id="collapseOne" class="accordion-collapse collapse show" data-bs-parent="#faithFormationAccordion">
+              <div class="accordion-body">
+                <p>Faith is best learned and lived within the family. For this reason, our parish faith formation model encourages parents and children to grow in faith together.</p>
+                <p>Rather than seeing religious education as only a classroom experience for children, St. Matthew Parish supports families by providing:</p>
+                <ul>
+                  <li>Formation opportunities for both parents and children</li>
+                  <li>Resources to help families practice and discuss their faith at home</li>
+                  <li>Parish gatherings that foster prayer, learning, and community</li>
+                </ul>
+                <p>This approach reflects the Church’s teaching that the family is the “domestic church,” where the faith is first experienced and shared.</p>
+              </div>
+            </div>
+          </div>
+          <div class="accordion-item">
+            <h2 class="accordion-header">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+                Parish and Family Working Together
+              </button>
+            </h2>
+            <div id="collapseTwo" class="accordion-collapse collapse" data-bs-parent="#faithFormationAccordion">
+              <div class="accordion-body">
+                <p>Faith formation at St. Matthew Parish is a partnership between the parish community and the family. Our parish supports parents by providing guidance, catechetical resources, and opportunities for formation throughout the year.</p>
+                <p>Families participate in:</p>
+                <ul>
+                  <li>Periodic family catechesis gatherings</li>
+                  <li>Sacramental preparation programs</li>
+                  <li>Opportunities for prayer, fellowship, and service</li>
+                  <li>Faith-centered activities that strengthen family life and community bonds</li>
+                </ul>
+                <p>Through this partnership, the parish accompanies families as they grow together in faith.</p>
+              </div>
+            </div>
+          </div>
+          <div class="accordion-item">
+            <h2 class="accordion-header">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThree" aria-expanded="false" aria-controls="collapseThree">
+                Sacramental Preparation
+              </button>
+            </h2>
+            <div id="collapseThree" class="accordion-collapse collapse" data-bs-parent="#faithFormationAccordion">
+              <div class="accordion-body">
+                <p>Preparation for the Sacraments—especially First Reconciliation, First Holy Communion, and Confirmation—is an important part of our faith formation process.</p>
+                <p>Parents are actively involved in preparing their children to receive these sacraments. Through retreats, parish sessions, and home-based formation, families are invited to deepen their understanding of the sacraments and grow in their relationship with Christ.</p>
+              </div>
+            </div>
+          </div>
+          <div class="accordion-item">
+            <h2 class="accordion-header">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFour" aria-expanded="false" aria-controls="collapseFour">
+                Growing as Missionary Disciples
+              </button>
+            </h2>
+            <div id="collapseFour" class="accordion-collapse collapse" data-bs-parent="#faithFormationAccordion">
+              <div class="accordion-body">
+                <p>The goal of faith formation at St. Matthew Parish is not only to teach about the faith but to form missionary disciples who live the Gospel.</p>
+                <p>Through prayer, catechesis, community life, and service, we strive to help our parish community:</p>
+                <ul>
+                  <li>Develop a personal relationship with Jesus Christ</li>
+                  <li>Grow in love for Sacred Scripture and the Sacraments</li>
+                  <li>Experience the support of the parish community</li>
+                  <li>Live the Gospel through service and witness</li>
+                </ul>
+                <p>Faith formation is a lifelong journey, and St. Matthew Parish is committed to accompanying individuals and families at every stage of that journey.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <hr>
+        <p class="text-secondary mb-3"><%= t('secure_online') %></p>
         <% if (user) { %>
           <div class="d-flex flex-wrap gap-2 align-items-center">
             <span class="badge text-bg-primary badge-role"><%= user.role %></span>
             <span class="text-secondary"><%= t('signed_in_as') %> <strong><%= user.email %></strong></span>
             <a class="btn btn-primary" href="/dashboard"><%= t('open_dashboard') %></a>
+            <a class="btn btn-success" href="/registration/new"><%= t('register_child') %></a>
+            <a class="btn btn-info" href="/registration/adult"><%= t('register_adult') %></a>
             <a class="btn btn-outline-secondary" href="/logout"><%= t('logout') %></a>
           </div>
         <% } else { %>
@@ -40,5 +122,6 @@
       </div>
     </div>
   </main>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

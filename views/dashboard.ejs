@@ -22,6 +22,7 @@
       <div class="d-flex gap-2">
         <span class="badge text-bg-primary badge-role align-self-center"><%= user.role %></span>
         <a class="btn btn-primary" href="/registration/new"><%= t('new_registration') %></a>
+        <a class="btn btn-info" href="/registration/adult"><%= t('register_adult') %></a>
         <% if (user.role === 'admin') { %><a class="btn btn-outline-primary" href="/admin/users"><%= t('manage_users') %></a><% } %>
         <a class="btn btn-outline-secondary" href="/logout"><%= t('logout') %></a>
       </div>
@@ -56,6 +57,31 @@
         </div>
       </div>
     </div>
+
+    <% if (adultRegistrations && adultRegistrations.length) { %>
+    <div class="card page-card mt-3">
+      <div class="card-header p-3"><h2 class="h5 mb-0">Adult Registrations</h2></div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0 align-middle">
+            <thead>
+              <tr><th>Name</th><th>Email</th><th>Phone</th><th>Event Type</th></tr>
+            </thead>
+            <tbody>
+            <% adultRegistrations.forEach(r => { %>
+              <tr>
+                <td><%= r.full_name %></td>
+                <td><%= r.email %></td>
+                <td><%= r.phone %></td>
+                <td><%= r.event_type %></td>
+              </tr>
+            <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <% } %>
   </main>
 </body>
 </html>

@@ -15,7 +15,7 @@ const PORT = process.env.PORT || 3000;
 const translations = {
   en: {
     app_title: 'Saint Matthew Catholic Church',
-    reg_title: 'Registration for Religious Education',
+    reg_title: 'Register for Faith Formation and Sacramental Preparation',
     school_year: 'School Year 2025-2026',
     landing_focus_title: 'Faith Formation & Sacramental Readiness',
     landing_focus_subtitle: 'For children, OCIA candidates, and adult faith formation events',
@@ -62,10 +62,19 @@ const translations = {
     relationship_other: 'If Other, please describe',
     father_mother: 'Father/Mother',
     step_parent_rel: 'Stepfather/Stepmother',
+    father: 'Father',
+    mother: 'Mother',
+    stepfather: 'Stepfather',
+    stepmother: 'Stepmother',
+    grandfather: 'Grandfather',
+    grandmother: 'Grandmother',
+    grandparents: 'Grandparents',
+    other_lives_with: 'Other',
     other: 'Other',
     address: 'ADDRESS',
     city_state_zip: 'CITY, STATE AND ZIP',
     home_phone: 'HOME PHONE #',
+    primary_contact_religion: 'Primary Contact Religion',
     father_name: 'FATHER’S NAME',
     father_religion: 'FATHER RELIGION',
     father_cell: 'FATHER’S CELL PHONE #',
@@ -105,11 +114,18 @@ const translations = {
     language: 'Language',
     english: 'English',
     spanish: 'Spanish',
-    registration_date_auto: 'Registration Date (auto-set by system)'
+    registration_date_auto: 'Registration Date (auto-set by system)',
+    register_child: 'Register Child for Faith Formation',
+    register_adult: 'Register for Adult Faith Formation / OCIA',
+    adult_registration_form_title: 'Adult Faith Formation Registration',
+    phone: 'Phone',
+    event_type: 'Event Type',
+    ocio: 'OCIA',
+    other_adult: 'Other Adult Faith Formation'
   },
   es: {
     app_title: 'Iglesia Católica San Mateo',
-    reg_title: 'Inscripción para Educación Religiosa',
+    reg_title: 'Inscríbete para Formación en la Fe y Preparación Sacramental',
     school_year: 'Año Escolar 2025-2026',
     landing_focus_title: 'Formación en la fe y preparación sacramental',
     landing_focus_subtitle: 'Para niños, candidatos de OCIA y eventos de formación en la fe para adultos',
@@ -156,10 +172,19 @@ const translations = {
     relationship_other: 'Si elige Otro, describa',
     father_mother: 'Padre/Madre',
     step_parent_rel: 'Padrastro/Madrastra',
+    father: 'Padre',
+    mother: 'Madre',
+    stepfather: 'Padrastro',
+    stepmother: 'Madrastra',
+    grandfather: 'Abuelo',
+    grandmother: 'Abuela',
+    grandparents: 'Abuelos',
+    other_lives_with: 'Otro',
     other: 'Otro',
     address: 'DIRECCIÓN',
     city_state_zip: 'CIUDAD, ESTADO Y CÓDIGO POSTAL',
     home_phone: 'TELÉFONO DE CASA #',
+    primary_contact_religion: 'Religión del Contacto Primario',
     father_name: 'NOMBRE DEL PADRE',
     father_religion: 'RELIGIÓN DEL PADRE',
     father_cell: 'CELULAR DEL PADRE #',
@@ -199,7 +224,14 @@ const translations = {
     language: 'Idioma',
     english: 'Inglés',
     spanish: 'Español',
-    registration_date_auto: 'Fecha de inscripción (asignada automáticamente por el sistema)'
+    registration_date_auto: 'Fecha de inscripción (asignada automáticamente por el sistema)',
+    register_child: 'Inscribir Niño para Formación en la Fe',
+    register_adult: 'Inscribir para Formación en la Fe para Adultos / OCIA',
+    adult_registration_form_title: 'Inscripción para Formación en la Fe para Adultos',
+    phone: 'Teléfono',
+    event_type: 'Tipo de Evento',
+    ocio: 'OCIA',
+    other_adult: 'Otra Formación en la Fe para Adultos'
   }
 };
 
@@ -345,7 +377,14 @@ app.get('/dashboard', requireAuth, (req, res) => {
     registrations = db.prepare('SELECT * FROM student_registrations ORDER BY created_at DESC').all();
   }
 
-  res.render('dashboard', { registrations });
+  let adultRegistrations = [];
+  if (req.user.role === 'parent' || req.user.role === 'admin') {
+    adultRegistrations = db.prepare('SELECT * FROM adult_registrations WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
+  } else {
+    adultRegistrations = db.prepare('SELECT * FROM adult_registrations ORDER BY created_at DESC').all();
+  }
+
+  res.render('dashboard', { registrations, adultRegistrations });
 });
 
 app.get('/registration/new', requireAuth, requireRole('parent', 'admin', 'catechist'), (req, res) => {
@@ -427,6 +466,23 @@ app.post(
     return res.redirect('/dashboard');
   },
 );
+
+app.get('/registration/adult', requireAuth, (req, res) => {
+  res.render('adult-registration-form');
+});
+
+app.post('/registration/adult', requireAuth, (req, res) => {
+  db.prepare('INSERT INTO adult_registrations (user_id, full_name, email, phone, event_type, comments) VALUES (?, ?, ?, ?, ?, ?)').run(
+    req.user.id,
+    req.body.full_name,
+    req.body.email,
+    req.body.phone,
+    req.body.event_type,
+    req.body.comments
+  );
+  req.flash('success', 'Adult registration submitted.');
+  res.redirect('/dashboard');
+});
 
 app.get('/admin/users', requireAuth, requireRole('admin'), (req, res) => {
   const users = db.prepare('SELECT id, email, role, provider, created_at FROM users ORDER BY created_at DESC').all();

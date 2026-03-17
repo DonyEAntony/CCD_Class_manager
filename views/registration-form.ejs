@@ -17,7 +17,7 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
       <div>
         <h1 class="h3 mb-1"><%= t('app_title') %></h1>
-        <p class="text-secondary mb-0"><%= t('reg_title') %> — <%= t('school_year') %></p>
+        <p class="text-secondary mb-0"><%= t('reg_title') %></p>
       </div>
       <a class="btn btn-outline-secondary" href="/dashboard"><%= t('back') %></a>
     </div>
@@ -42,8 +42,12 @@
               <div class="col-md-4">
                 <label class="form-label"><%= t('relationship') %></label>
                 <select class="form-select" name="primary_contact_relationship" id="primary_contact_relationship" required>
-                  <option value="Father/Mother"><%= t('father_mother') %></option>
-                  <option value="Stepfather/Stepmother"><%= t('step_parent_rel') %></option>
+                  <option value="Father"><%= t('father') %></option>
+                  <option value="Mother"><%= t('mother') %></option>
+                  <option value="Stepfather"><%= t('stepfather') %></option>
+                  <option value="Stepmother"><%= t('stepmother') %></option>
+                  <option value="Grandfather"><%= t('grandfather') %></option>
+                  <option value="Grandmother"><%= t('grandmother') %></option>
                   <option value="Other"><%= t('other') %></option>
                 </select>
               </div>
@@ -51,27 +55,33 @@
                 <label class="form-label"><%= t('relationship_other') %></label>
                 <input class="form-control" type="text" name="primary_contact_relationship_other" id="primary_contact_relationship_other">
               </div>
+              <div class="col-md-6"><label class="form-label"><%= t('address') %></label><input class="form-control" type="text" name="address"></div>
+              <div class="col-md-6"><label class="form-label"><%= t('city_state_zip') %></label><input class="form-control" type="text" name="city_state_zip"></div>
+              <div class="col-md-6"><label class="form-label"><%= t('primary_contact_religion') %></label><input class="form-control" type="text" name="primary_contact_religion"></div>
             </div>
           </fieldset>
 
-          <div class="col-md-6"><label class="form-label"><%= t('address') %></label><input class="form-control" type="text" name="address"></div>
-          <div class="col-md-6"><label class="form-label"><%= t('city_state_zip') %></label><input class="form-control" type="text" name="city_state_zip"></div>
-          <div class="col-md-4"><label class="form-label"><%= t('home_phone') %></label><input class="form-control" type="text" name="home_phone"></div>
+          <div id="father-fields" class="row g-3 d-none">
+            <div class="col-md-4"><label class="form-label"><%= t('father_name') %></label><input class="form-control" type="text" name="father_name"></div>
+            <div class="col-md-4"><label class="form-label"><%= t('father_religion') %></label><input class="form-control" type="text" name="father_religion"></div>
+            <div class="col-md-4"><label class="form-label"><%= t('father_cell') %></label><input class="form-control" type="text" name="father_cell"></div>
+          </div>
 
-          <div class="col-md-4"><label class="form-label"><%= t('father_name') %></label><input class="form-control" type="text" name="father_name"></div>
-          <div class="col-md-4"><label class="form-label"><%= t('father_religion') %></label><input class="form-control" type="text" name="father_religion"></div>
-          <div class="col-md-4"><label class="form-label"><%= t('father_cell') %></label><input class="form-control" type="text" name="father_cell"></div>
-
-          <div class="col-md-4"><label class="form-label"><%= t('mother_maiden_name') %></label><input class="form-control" type="text" name="mother_maiden_name"></div>
-          <div class="col-md-4"><label class="form-label"><%= t('mother_religion') %></label><input class="form-control" type="text" name="mother_religion"></div>
-          <div class="col-md-4"><label class="form-label"><%= t('mother_cell') %></label><input class="form-control" type="text" name="mother_cell"></div>
+          <div id="mother-fields" class="row g-3 d-none">
+            <div class="col-md-4"><label class="form-label"><%= t('mother_maiden_name') %></label><input class="form-control" type="text" name="mother_maiden_name"></div>
+            <div class="col-md-4"><label class="form-label"><%= t('mother_religion') %></label><input class="form-control" type="text" name="mother_religion"></div>
+            <div class="col-md-4"><label class="form-label"><%= t('mother_cell') %></label><input class="form-control" type="text" name="mother_cell"></div>
+          </div>
 
           <div class="col-md-4">
             <label class="form-label"><%= t('child_lives_with') %></label>
-            <select class="form-select" name="child_lives_with"><option><%= t('both') %></option><option><%= t('father') %></option><option><%= t('mother') %></option></select>
+            <select class="form-select" name="child_lives_with"><option><%= t('both') %></option><option><%= t('father') %></option><option><%= t('mother') %></option><option><%= t('grandparents') %></option><option><%= t('other_lives_with') %></option></select>
           </div>
-          <div class="col-md-4"><label class="form-label"><%= t('step_parent_name') %></label><input class="form-control" type="text" name="step_parent_name"></div>
-          <div class="col-md-4"><label class="form-label"><%= t('step_parent_religion') %></label><input class="form-control" type="text" name="step_parent_religion"></div>
+
+          <div id="step-parent-fields" class="row g-3 d-none">
+            <div class="col-md-4"><label class="form-label"><%= t('step_parent_name') %></label><input class="form-control" type="text" name="step_parent_name"></div>
+            <div class="col-md-4"><label class="form-label"><%= t('step_parent_religion') %></label><input class="form-control" type="text" name="step_parent_religion"></div>
+          </div>
 
           <fieldset class="col-12 border rounded p-3">
             <legend class="float-none w-auto px-2 h6 mb-2">Student Information</legend>
@@ -143,8 +153,20 @@
         if (!show) otherInput.value = '';
       };
 
+      const toggleParentFields = () => {
+        const value = select.value;
+        const showFather = value !== 'Father';
+        const showMother = value !== 'Mother';
+        const showStepParent = value === 'Stepfather' || value === 'Stepmother';
+        document.getElementById('father-fields').classList.toggle('d-none', !showFather);
+        document.getElementById('mother-fields').classList.toggle('d-none', !showMother);
+        document.getElementById('step-parent-fields').classList.toggle('d-none', !showStepParent);
+      };
+
       select.addEventListener('change', toggleOther);
+      select.addEventListener('change', toggleParentFields);
       toggleOther();
+      toggleParentFields();
     }());
   </script>
 </body>
