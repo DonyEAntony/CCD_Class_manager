@@ -20,13 +20,15 @@ const translations = {
     landing_focus_title: 'Faith Formation & Sacramental Readiness',
     landing_focus_subtitle: 'For children, OCIA candidates, and adult faith formation events',
     secure_online: 'Secure online registration for families, catechists, administrators, and formation participants.',
+    reg_requires_account: 'To register children for faith formation, sign up for baptism preparation, or enroll in other faith formation events, please create an account first.',
     create_account: 'Create Account',
+
     login: 'Login',
     logout: 'Logout',
     open_dashboard: 'Open Dashboard',
     dashboard: 'Dashboard',
     signed_in_as: 'Signed in as',
-    new_registration: 'New Registration',
+    new_registration: 'Register Child for Faith Formation or Sacramental Preparation',
     manage_users: 'Manage Users',
     submitted_registrations: 'Submitted Registrations',
     student: 'Student',
@@ -116,7 +118,7 @@ const translations = {
     spanish: 'Spanish',
     registration_date_auto: 'Registration Date (auto-set by system)',
     register_child: 'Register Child for Faith Formation',
-    register_adult: 'Register for Adult Faith Formation / OCIA',
+    register_adult: 'Register for Adult Faith Formation Events',
     adult_registration_form_title: 'Adult Faith Formation Registration',
     phone: 'Phone',
     event_type: 'Event Type',
@@ -130,7 +132,9 @@ const translations = {
     landing_focus_title: 'Formación en la fe y preparación sacramental',
     landing_focus_subtitle: 'Para niños, candidatos de OCIA y eventos de formación en la fe para adultos',
     secure_online: 'Inscripción segura en línea para familias, catequistas, administradores y participantes de formación.',
+    reg_requires_account: 'Para inscribir a sus hijos en la formación en la fe, registrarse en la preparación para el bautismo o inscribirse en otros eventos de formación en la fe, cree primero una cuenta.',
     create_account: 'Crear Cuenta',
+
     login: 'Iniciar sesión',
     logout: 'Cerrar sesión',
     open_dashboard: 'Abrir Panel',
@@ -400,7 +404,23 @@ app.post(
     { name: 'first_communion_certificate', maxCount: 1 },
   ]),
   (req, res) => {
-    const fees = calculateFees(req.body.family_count, req.body.ccd_grade_level, null);
+    const toArray = (val) => (Array.isArray(val) ? val : val !== undefined ? [val] : []);
+
+    const studentFullNames = toArray(req.body.student_full_name);
+    const studentGenders = toArray(req.body.student_gender);
+    const studentAges = toArray(req.body.student_age);
+    const studentDobs = toArray(req.body.student_dob);
+    const studentPlaces = toArray(req.body.child_place_of_birth);
+    const studentCcdGrades = toArray(req.body.ccd_grade_level);
+    const studentSchoolGrades = toArray(req.body.school_grade_level);
+    const studentSchools = toArray(req.body.school_attending);
+    const baptismDates = toArray(req.body.baptism_date);
+    const baptismChurches = toArray(req.body.baptism_church);
+    const communionDates = toArray(req.body.first_communion_date);
+    const communionChurches = toArray(req.body.first_communion_church);
+    const disabilitiesComments = toArray(req.body.disabilities_comments);
+
+    const fees = calculateFees(req.body.family_count, studentCcdGrades[0] || '', null);
     if (fees.afterStart) {
       req.flash('error', 'Registration closed: no registrations accepted after classes begin on Sept. 8, 2025.');
       return res.redirect('/registration/new');
@@ -409,7 +429,9 @@ app.post(
     const baptismCert = req.files?.baptism_certificate?.[0]?.path || null;
     const communionCert = req.files?.first_communion_certificate?.[0]?.path || null;
 
-    db.prepare(`
+    const count = Math.max(studentFullNames.length, 1);
+
+    const insert = db.prepare(`
       INSERT INTO student_registrations (
         user_id, school_year, parent_name, primary_contact_phone, primary_contact_email,
         primary_contact_relationship, primary_contact_relationship_other, address, city_state_zip, home_phone,
@@ -420,47 +442,51 @@ app.post(
         disabilities_comments, parent_signature, email, registration_fee, sacramental_fee, late_fee,
         baptism_certificate_path, first_communion_certificate_path
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      req.user.id,
-      req.body.school_year || '2025-2026',
-      req.user.full_name || req.body.primary_contact_email || req.user.email,
-      req.body.primary_contact_phone,
-      req.body.primary_contact_email,
-      req.body.primary_contact_relationship,
-      req.body.primary_contact_relationship === 'Other' ? req.body.primary_contact_relationship_other : null,
-      req.body.address,
-      req.body.city_state_zip,
-      req.body.home_phone,
-      req.body.father_name,
-      req.body.father_religion,
-      req.body.father_cell,
-      req.body.mother_maiden_name,
-      req.body.mother_religion,
-      req.body.mother_cell,
-      req.body.child_lives_with,
-      req.body.step_parent_name,
-      req.body.step_parent_religion,
-      req.body.student_full_name,
-      req.body.student_gender,
-      req.body.student_age || null,
-      req.body.student_dob,
-      req.body.child_place_of_birth,
-      req.body.ccd_grade_level,
-      req.body.school_attending,
-      req.body.school_grade_level,
-      req.body.baptism_date,
-      req.body.baptism_church,
-      req.body.first_communion_date,
-      req.body.first_communion_church,
-      req.body.disabilities_comments,
-      req.body.parent_signature,
-      req.body.email,
-      fees.registrationFee,
-      fees.sacramentalFee,
-      fees.lateFee,
-      baptismCert,
-      communionCert,
-    );
+    `);
+
+    for (let i = 0; i < count; i += 1) {
+      insert.run(
+        req.user.id,
+        req.body.school_year || '2025-2026',
+        req.user.full_name || req.body.primary_contact_email || req.user.email,
+        req.body.primary_contact_phone,
+        req.body.primary_contact_email,
+        req.body.primary_contact_relationship,
+        req.body.primary_contact_relationship === 'Other' ? req.body.primary_contact_relationship_other : null,
+        req.body.address,
+        req.body.city_state_zip,
+        req.body.home_phone,
+        req.body.father_name,
+        req.body.father_religion,
+        req.body.father_cell,
+        req.body.mother_maiden_name,
+        req.body.mother_religion,
+        req.body.mother_cell,
+        req.body.child_lives_with,
+        req.body.step_parent_name,
+        req.body.step_parent_religion,
+        studentFullNames[i] || null,
+        studentGenders[i] || null,
+        studentAges[i] || null,
+        studentDobs[i] || null,
+        studentPlaces[i] || null,
+        studentCcdGrades[i] || null,
+        studentSchools[i] || null,
+        studentSchoolGrades[i] || null,
+        baptismDates[i] || null,
+        baptismChurches[i] || null,
+        communionDates[i] || null,
+        communionChurches[i] || null,
+        disabilitiesComments[i] || null,
+        req.body.parent_signature,
+        req.body.email,
+        i === 0 ? fees.registrationFee : 0,
+        i === 0 ? fees.sacramentalFee : 0,
+        i === 0 ? fees.lateFee : 0,
+        baptismCert,
+        communionCert,
+      );
+    }
 
     req.flash('success', `Registration submitted. Fees: $${fees.registrationFee + fees.sacramentalFee + fees.lateFee}`);
     return res.redirect('/dashboard');
