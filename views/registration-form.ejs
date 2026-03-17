@@ -1,173 +1,345 @@
 <!doctype html>
-<html lang="en">
+<html lang="<%= lang %>">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CCD Registration</title>
+  <title>Child Registration &mdash; St. Matthew CCD</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,400&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <main class="container py-4 app-shell">
-    <div class="d-flex justify-content-end gap-2 mb-3">
-      <span class="text-secondary"><%= t('language') %>:</span>
-      <a href="/lang/en" class="btn btn-sm <%= lang === 'en' ? 'btn-primary' : 'btn-outline-primary' %>"><%= t('english') %></a>
-      <a href="/lang/es" class="btn btn-sm <%= lang === 'es' ? 'btn-primary' : 'btn-outline-primary' %>"><%= t('spanish') %></a>
-    </div>
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <div>
-        <h1 class="h3 mb-1"><%= t('app_title') %></h1>
-        <p class="text-secondary mb-0"><%= t('reg_title') %></p>
-      </div>
-      <a class="btn btn-outline-secondary" href="/dashboard"><%= t('back') %></a>
-    </div>
 
-    <div class="card page-card">
-      <div class="card-header p-3"><h2 class="h5 mb-0"><%= t('registration_form_title') %></h2></div>
-      <div class="card-body p-4">
-        <form method="post" action="/registration" enctype="multipart/form-data" class="row g-3">
-          <input type="hidden" name="school_year" value="2025-2026">
+<%- include('_topbar') %>
 
-          <div class="col-12">
-            <div class="alert alert-secondary mb-0">
-              <strong><%= t('registration_date_auto') %>:</strong> <%= today %>
+<main class="container py-4 app-shell mx-auto">
+
+  <div class="page-heading d-flex flex-wrap justify-content-between align-items-end gap-2">
+    <div>
+      <h1><%= t('registration_form_title') %></h1>
+      <p class="sub mb-0"><%= t('app_title') %> &mdash; <%= t('school_year') %></p>
+    </div>
+    <a class="btn btn-outline-secondary" href="/dashboard"><%= t('back') %></a>
+  </div>
+
+  <div class="page-card">
+    <div class="card-body p-4">
+      <form method="post" action="/registration" enctype="multipart/form-data" class="row g-3">
+        <input type="hidden" name="school_year" value="2025-2026">
+
+        <!-- Registration date -->
+        <div class="col-12">
+          <div class="alert alert-secondary mb-0" style="font-size:.88rem">
+            <strong><%= t('registration_date_auto') %>:</strong> <%= today %>
+          </div>
+        </div>
+
+        <!-- Primary contact -->
+        <fieldset class="col-12">
+          <legend><%= t('primary_parent_contact') %></legend>
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label"><%= t('primary_contact_phone') %></label>
+              <input class="form-control" type="text" name="primary_contact_phone" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label"><%= t('primary_contact_email') %></label>
+              <input class="form-control" type="email" name="primary_contact_email" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label"><%= t('relationship') %></label>
+              <select class="form-select" name="primary_contact_relationship" id="primary_contact_relationship" required>
+                <option value="Father"><%= t('father') %></option>
+                <option value="Mother"><%= t('mother') %></option>
+                <option value="Stepfather"><%= t('stepfather') %></option>
+                <option value="Stepmother"><%= t('stepmother') %></option>
+                <option value="Grandfather"><%= t('grandfather') %></option>
+                <option value="Grandmother"><%= t('grandmother') %></option>
+                <option value="Other"><%= t('other') %></option>
+              </select>
+            </div>
+            <div class="col-12 d-none" id="relationship-other-wrap">
+              <label class="form-label"><%= t('relationship_other') %></label>
+              <input class="form-control" type="text" name="primary_contact_relationship_other" id="primary_contact_relationship_other">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label"><%= t('address') %></label>
+              <input class="form-control" type="text" name="address">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label"><%= t('city_state_zip') %></label>
+              <input class="form-control" type="text" name="city_state_zip">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label"><%= t('primary_contact_religion') %></label>
+              <input class="form-control" type="text" name="primary_contact_religion">
             </div>
           </div>
+        </fieldset>
 
-          <fieldset class="col-12 border rounded p-3">
-            <legend class="float-none w-auto px-2 h6 mb-2"><%= t('primary_parent_contact') %></legend>
+        <!-- Father fields (conditional) -->
+        <div id="father-fields" class="col-12 d-none">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label"><%= t('father_name') %></label>
+              <input class="form-control" type="text" name="father_name">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label"><%= t('father_religion') %></label>
+              <input class="form-control" type="text" name="father_religion">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label"><%= t('father_cell') %></label>
+              <input class="form-control" type="text" name="father_cell">
+            </div>
+          </div>
+        </div>
+
+        <!-- Mother fields (conditional) -->
+        <div id="mother-fields" class="col-12 d-none">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label"><%= t('mother_maiden_name') %></label>
+              <input class="form-control" type="text" name="mother_maiden_name">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label"><%= t('mother_religion') %></label>
+              <input class="form-control" type="text" name="mother_religion">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label"><%= t('mother_cell') %></label>
+              <input class="form-control" type="text" name="mother_cell">
+            </div>
+          </div>
+        </div>
+
+        <!-- Child lives with -->
+        <div class="col-md-4">
+          <label class="form-label"><%= t('child_lives_with') %></label>
+          <select class="form-select" name="child_lives_with">
+            <option><%= t('both') %></option>
+            <option><%= t('father') %></option>
+            <option><%= t('mother') %></option>
+            <option><%= t('grandparents') %></option>
+            <option><%= t('other_lives_with') %></option>
+          </select>
+        </div>
+
+        <!-- Step parent fields (conditional) -->
+        <div id="step-parent-fields" class="col-12 d-none">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label"><%= t('step_parent_name') %></label>
+              <input class="form-control" type="text" name="step_parent_name">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label"><%= t('step_parent_religion') %></label>
+              <input class="form-control" type="text" name="step_parent_religion">
+            </div>
+          </div>
+        </div>
+
+        <!-- Student information -->
+        <div id="children-container" class="col-12">
+          <fieldset class="child-block border rounded p-3 mb-3">
+            <legend class="d-flex justify-content-between align-items-center">
+              <span>Student Information</span>
+              <button type="button" class="btn btn-sm btn-outline-danger remove-child-btn d-none">Remove</button>
+            </legend>
             <div class="row g-3">
-              <div class="col-md-4"><label class="form-label"><%= t('primary_contact_phone') %></label><input class="form-control" type="text" name="primary_contact_phone" required></div>
-              <div class="col-md-4"><label class="form-label"><%= t('primary_contact_email') %></label><input class="form-control" type="email" name="primary_contact_email" required></div>
-              <div class="col-md-4">
-                <label class="form-label"><%= t('relationship') %></label>
-                <select class="form-select" name="primary_contact_relationship" id="primary_contact_relationship" required>
-                  <option value="Father"><%= t('father') %></option>
-                  <option value="Mother"><%= t('mother') %></option>
-                  <option value="Stepfather"><%= t('stepfather') %></option>
-                  <option value="Stepmother"><%= t('stepmother') %></option>
-                  <option value="Grandfather"><%= t('grandfather') %></option>
-                  <option value="Grandmother"><%= t('grandmother') %></option>
-                  <option value="Other"><%= t('other') %></option>
+              <div class="col-md-6">
+                <label class="form-label"><%= t('student_full_name') %></label>
+                <input class="form-control" type="text" name="student_full_name[]" required>
+              </div>
+              <div class="col-md-2">
+                <label class="form-label"><%= t('gender') %></label>
+                <select class="form-select" name="student_gender[]">
+                  <option><%= t('male') %></option>
+                  <option><%= t('female') %></option>
                 </select>
               </div>
-              <div class="col-12 d-none" id="relationship-other-wrap">
-                <label class="form-label"><%= t('relationship_other') %></label>
-                <input class="form-control" type="text" name="primary_contact_relationship_other" id="primary_contact_relationship_other">
+              <div class="col-md-2">
+                <label class="form-label"><%= t('age') %></label>
+                <input class="form-control" type="number" name="student_age[]" min="1" max="25">
               </div>
-              <div class="col-md-6"><label class="form-label"><%= t('address') %></label><input class="form-control" type="text" name="address"></div>
-              <div class="col-md-6"><label class="form-label"><%= t('city_state_zip') %></label><input class="form-control" type="text" name="city_state_zip"></div>
-              <div class="col-md-6"><label class="form-label"><%= t('primary_contact_religion') %></label><input class="form-control" type="text" name="primary_contact_religion"></div>
+              <div class="col-md-2">
+                <label class="form-label"><%= t('dob') %></label>
+                <input class="form-control" type="date" name="student_dob[]">
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label"><%= t('place_of_birth') %></label>
+                <input class="form-control" type="text" name="child_place_of_birth[]">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label"><%= t('ccd_grade_level') %></label>
+                <input class="form-control" type="text" name="ccd_grade_level[]">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label"><%= t('school_grade_level') %></label>
+                <input class="form-control" type="text" name="school_grade_level[]">
+              </div>
+              <div class="col-12">
+                <label class="form-label"><%= t('school_attending') %></label>
+                <input class="form-control" type="text" name="school_attending[]">
+              </div>
             </div>
           </fieldset>
 
-          <div id="father-fields" class="row g-3 d-none">
-            <div class="col-md-4"><label class="form-label"><%= t('father_name') %></label><input class="form-control" type="text" name="father_name"></div>
-            <div class="col-md-4"><label class="form-label"><%= t('father_religion') %></label><input class="form-control" type="text" name="father_religion"></div>
-            <div class="col-md-4"><label class="form-label"><%= t('father_cell') %></label><input class="form-control" type="text" name="father_cell"></div>
-          </div>
+          <button type="button" id="add-child" class="btn btn-sm btn-outline-primary">Add another child</button>
+        </div>
 
-          <div id="mother-fields" class="row g-3 d-none">
-            <div class="col-md-4"><label class="form-label"><%= t('mother_maiden_name') %></label><input class="form-control" type="text" name="mother_maiden_name"></div>
-            <div class="col-md-4"><label class="form-label"><%= t('mother_religion') %></label><input class="form-control" type="text" name="mother_religion"></div>
-            <div class="col-md-4"><label class="form-label"><%= t('mother_cell') %></label><input class="form-control" type="text" name="mother_cell"></div>
-          </div>
-
-          <div class="col-md-4">
-            <label class="form-label"><%= t('child_lives_with') %></label>
-            <select class="form-select" name="child_lives_with"><option><%= t('both') %></option><option><%= t('father') %></option><option><%= t('mother') %></option><option><%= t('grandparents') %></option><option><%= t('other_lives_with') %></option></select>
-          </div>
-
-          <div id="step-parent-fields" class="row g-3 d-none">
-            <div class="col-md-4"><label class="form-label"><%= t('step_parent_name') %></label><input class="form-control" type="text" name="step_parent_name"></div>
-            <div class="col-md-4"><label class="form-label"><%= t('step_parent_religion') %></label><input class="form-control" type="text" name="step_parent_religion"></div>
-          </div>
-
-          <fieldset class="col-12 border rounded p-3">
-            <legend class="float-none w-auto px-2 h6 mb-2">Student Information</legend>
-            <div class="row g-3">
-          <div class="col-md-6"><label class="form-label"><%= t('student_full_name') %></label><input class="form-control" type="text" name="student_full_name" required></div>
-          <div class="col-md-2"><label class="form-label"><%= t('gender') %></label><select class="form-select" name="student_gender"><option><%= t('male') %></option><option><%= t('female') %></option></select></div>
-          <div class="col-md-2"><label class="form-label"><%= t('age') %></label><input class="form-control" type="number" name="student_age"></div>
-          <div class="col-md-2"><label class="form-label"><%= t('dob') %></label><input class="form-control" type="date" name="student_dob"></div>
-
-          <div class="col-md-6"><label class="form-label"><%= t('place_of_birth') %></label><input class="form-control" type="text" name="child_place_of_birth"></div>
-          <div class="col-md-3"><label class="form-label"><%= t('ccd_grade_level') %></label><input class="form-control" type="text" name="ccd_grade_level"></div>
-          <div class="col-md-3"><label class="form-label"><%= t('school_grade_level') %></label><input class="form-control" type="text" name="school_grade_level"></div>
-          <div class="col-md-6"><label class="form-label"><%= t('school_attending') %></label><input class="form-control" type="text" name="school_attending"></div>
-
-          <div class="col-md-3"><label class="form-label"><%= t('baptism_date') %></label><input class="form-control" type="date" name="baptism_date"></div>
-          <div class="col-md-9"><label class="form-label"><%= t('baptism_church') %></label><input class="form-control" type="text" name="baptism_church"></div>
-          <div class="col-md-3"><label class="form-label"><%= t('first_communion_date') %></label><input class="form-control" type="date" name="first_communion_date"></div>
-          <div class="col-md-9"><label class="form-label"><%= t('first_communion_church') %></label><input class="form-control" type="text" name="first_communion_church"></div>
-
-          <div class="col-12">
-            <label class="form-label"><%= t('comments') %></label>
-            <textarea class="form-control" rows="3" name="disabilities_comments"></textarea>
-          </div>
+        <!-- Sacramental records -->
+        <fieldset class="col-12">
+          <legend>Sacramental Records</legend>
+          <div class="row g-3">
+            <div class="col-md-3">
+              <label class="form-label"><%= t('baptism_date') %></label>
+              <input class="form-control" type="date" name="baptism_date">
             </div>
-          </fieldset>
-
-          <div class="col-md-4"><label class="form-label"><%= t('family_count') %></label><input class="form-control" type="number" name="family_count" value="1" min="1"></div>
-          <div class="col-md-4"><label class="form-label"><%= t('parent_signature') %></label><input class="form-control" type="text" name="parent_signature"></div>
-          <div class="col-md-4"><label class="form-label"><%= t('email') %></label><input class="form-control" type="email" name="email"></div>
-
-          <div class="col-12"><hr></div>
-          <div class="col-12"><h3 class="h5"><%= t('upload_scans') %></h3></div>
-          <div class="col-md-6">
-            <label class="form-label"><%= t('baptism_required') %></label>
-            <input class="form-control" type="file" name="baptism_certificate" accept=".pdf,image/*">
-          </div>
-          <div class="col-md-6">
-            <label class="form-label"><%= t('communion_required') %></label>
-            <input class="form-control" type="file" name="first_communion_certificate" accept=".pdf,image/*">
-          </div>
-
-          <div class="col-12">
-            <div class="alert alert-info mb-0">
-              <%= t('fee_notice') %>
+            <div class="col-md-9">
+              <label class="form-label"><%= t('baptism_church') %></label>
+              <input class="form-control" type="text" name="baptism_church">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label"><%= t('first_communion_date') %></label>
+              <input class="form-control" type="date" name="first_communion_date">
+            </div>
+            <div class="col-md-9">
+              <label class="form-label"><%= t('first_communion_church') %></label>
+              <input class="form-control" type="text" name="first_communion_church">
             </div>
           </div>
+        </fieldset>
 
-          <div class="col-12 d-flex gap-2">
-            <button class="btn btn-primary" type="submit"><%= t('submit_registration') %></button>
-            <a class="btn btn-outline-secondary" href="/dashboard"><%= t('cancel') %></a>
+        <!-- Comments -->
+        <div class="col-12">
+          <label class="form-label"><%= t('comments') %></label>
+          <textarea class="form-control" rows="3" name="disabilities_comments"></textarea>
+        </div>
+
+        <!-- Misc -->
+        <div class="col-md-4">
+          <label class="form-label"><%= t('family_count') %></label>
+          <input class="form-control" type="number" name="family_count" value="1" min="1">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label"><%= t('parent_signature') %></label>
+          <input class="form-control" type="text" name="parent_signature">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label"><%= t('email') %></label>
+          <input class="form-control" type="email" name="email">
+        </div>
+
+        <!-- Certificate uploads -->
+        <div class="col-12">
+          <hr class="section-rule">
+          <h3 class="h6 mb-3" style="font-family:'Cormorant Garamond',serif;font-size:1.1rem;color:var(--forest)"><%= t('upload_scans') %></h3>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label"><%= t('baptism_required') %></label>
+              <input class="form-control" type="file" name="baptism_certificate" accept=".pdf,image/*">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label"><%= t('communion_required') %></label>
+              <input class="form-control" type="file" name="first_communion_certificate" accept=".pdf,image/*">
+            </div>
           </div>
-        </form>
-      </div>
+        </div>
+
+        <!-- Fee notice -->
+        <div class="col-12">
+          <div class="alert alert-info">
+            <strong>Fee Schedule &mdash;</strong> <%= t('fee_notice') %>
+          </div>
+        </div>
+
+        <!-- Submit -->
+        <div class="col-12 d-flex gap-2">
+          <button class="btn btn-primary" type="submit"><%= t('submit_registration') %></button>
+          <a class="btn btn-outline-secondary" href="/dashboard"><%= t('cancel') %></a>
+        </div>
+
+      </form>
     </div>
+  </div>
 
-    <p class="footer-note mt-3 mb-0"><%= t('footer_note') %></p>
-  </main>
-  <script>
-    (function () {
-      const select = document.getElementById('primary_contact_relationship');
-      const wrap = document.getElementById('relationship-other-wrap');
-      const otherInput = document.getElementById('primary_contact_relationship_other');
-      if (!select || !wrap || !otherInput) return;
+  <p class="footer-note"><%= t('footer_note') %></p>
+</main>
 
-      const toggleOther = () => {
-        const show = select.value === 'Other';
-        wrap.classList.toggle('d-none', !show);
-        otherInput.required = show;
-        if (!show) otherInput.value = '';
-      };
+<script>
+  (function () {
+    const select = document.getElementById('primary_contact_relationship');
+    const wrap   = document.getElementById('relationship-other-wrap');
+    const other  = document.getElementById('primary_contact_relationship_other');
+    const childrenContainer = document.getElementById('children-container');
+    const addChildBtn = document.getElementById('add-child');
 
-      const toggleParentFields = () => {
-        const value = select.value;
-        const showFather = value !== 'Father';
-        const showMother = value !== 'Mother';
-        const showStepParent = value === 'Stepfather' || value === 'Stepmother';
-        document.getElementById('father-fields').classList.toggle('d-none', !showFather);
-        document.getElementById('mother-fields').classList.toggle('d-none', !showMother);
-        document.getElementById('step-parent-fields').classList.toggle('d-none', !showStepParent);
-      };
+    const update = () => {
+      const v = select.value;
+      wrap.classList.toggle('d-none', v !== 'Other');
+      other.required = v === 'Other';
+      if (v !== 'Other') other.value = '';
 
-      select.addEventListener('change', toggleOther);
-      select.addEventListener('change', toggleParentFields);
-      toggleOther();
-      toggleParentFields();
-    }());
-  </script>
+      document.getElementById('father-fields').classList.toggle('d-none', v === 'Father');
+      document.getElementById('mother-fields').classList.toggle('d-none', v === 'Mother');
+      document.getElementById('step-parent-fields').classList.toggle('d-none',
+        v !== 'Stepfather' && v !== 'Stepmother');
+    };
+
+    const updateRemoveButtons = () => {
+      const blocks = childrenContainer.querySelectorAll('.child-block');
+      blocks.forEach((block, idx) => {
+        const btn = block.querySelector('.remove-child-btn');
+        if (!btn) return;
+        btn.classList.toggle('d-none', blocks.length === 1);
+        btn.dataset.index = idx;
+      });
+    };
+
+    const createChildBlock = () => {
+      const first = childrenContainer.querySelector('.child-block');
+      if (!first) return null;
+      const clone = first.cloneNode(true);
+      clone.querySelectorAll('input, select, textarea').forEach((el) => {
+        if (el.type === 'checkbox' || el.type === 'radio') {
+          el.checked = false;
+        } else {
+          el.value = '';
+        }
+      });
+      return clone;
+    };
+
+    const addChild = () => {
+      const block = createChildBlock();
+      if (!block) return;
+      childrenContainer.insertBefore(block, addChildBtn);
+      updateRemoveButtons();
+    };
+
+    const removeChild = (evt) => {
+      const btn = evt.target.closest('.remove-child-btn');
+      if (!btn) return;
+      const block = btn.closest('.child-block');
+      if (!block) return;
+      block.remove();
+      updateRemoveButtons();
+    };
+
+    addChildBtn.addEventListener('click', addChild);
+
+    childrenContainer.addEventListener('click', (evt) => {
+      if (evt.target.closest('.remove-child-btn')) {
+        removeChild(evt);
+      }
+    });
+
+    select.addEventListener('change', update);
+    update();
+    updateRemoveButtons();
+  }());
+</script>
 </body>
 </html>
