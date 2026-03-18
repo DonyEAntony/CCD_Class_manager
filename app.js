@@ -11,6 +11,14 @@ const { requireAuth, requireRole } = require('./middleware');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const STUDENT_REGISTRATION_STATUSES = [
+  'in_progress',
+  'conditionally_accepted',
+  'completed',
+  'cancelled',
+  'discontinued',
+  'graduated',
+];
 
 const translations = {
   en: {
@@ -27,7 +35,8 @@ const translations = {
     dashboard: 'Dashboard',
     signed_in_as: 'Signed in as',
     new_registration: 'New Registration',
-    manage_users: 'Manage Users',
+    calendar: 'Calendar',
+    manage_users: 'Admin Panel',
     submitted_registrations: 'Submitted Registrations',
     student: 'Student',
     grade: 'Grade',
@@ -55,9 +64,9 @@ const translations = {
     sign_up: 'Sign up',
     registration_form_title: 'Faith Formation Registration — Children',
     back: 'Back',
-    primary_parent_contact: 'Primary Parent / Guardian Contact',
-    primary_contact_phone: 'Primary Contact Phone',
-    primary_contact_email: 'Primary Contact Email',
+    primary_parent_contact: 'Parent / Guardian Contact',
+    primary_contact_phone: 'Contact Phone',
+    primary_contact_email: 'Contact Email',
     relationship: 'Relationship to Child',
     relationship_other: 'If Other, please describe',
     father: 'Father',
@@ -88,6 +97,11 @@ const translations = {
     step_parent_name: 'Step-Parent Name',
     step_parent_religion: 'Step-Parent Religion',
     student_full_name: "Student's Full Name",
+    student_first_name: 'Student First Name',
+    student_middle_name: 'Student Middle Name',
+    student_last_name: 'Student Last Name',
+    birth_city: 'Birth City',
+    birth_country: 'Birth Country',
     gender: 'Gender',
     male: 'Male',
     female: 'Female',
@@ -104,6 +118,8 @@ const translations = {
     comments: 'Disabilities / Learning Needs / Comments',
     family_count: 'Number of children in family (for fee calculation)',
     parent_signature: 'Signature of Parent / Guardian',
+    first_name: 'First Name',
+    last_name: 'Last Name',
     upload_scans: 'Upload Certificate Scans',
     baptism_required: 'Baptism Certificate (required if first year)',
     communion_required: 'First Holy Communion Certificate (required for 3rd grade+)',
@@ -156,6 +172,45 @@ const translations = {
     role_parent: 'Parent',
     role_godparent: 'Godparent / Sponsor',
     role_both: 'Both parent and godparent',
+    class_date: 'Class Date',
+    choose_class_date: 'Choose Baptism Preparation Class Date',
+    no_class_dates_available: 'No class dates are currently available. Please contact the parish office.',
+    baptism_prep_dates: 'Baptism Preparation Dates',
+    add_class_date: 'Add Class Date',
+    configured_class_dates: 'Configured Class Dates',
+    class_time: 'Class Time',
+    classroom: 'Classroom',
+    ccd_classes: 'Faith Formation Events',
+    add_ccd_class: 'Add Class',
+    configured_ccd_classes: 'Configured Classes',
+    grade_level: 'Event Name',
+    no_ccd_classes: 'No faith formation events configured yet.',
+    manage_events: 'Manage Events',
+    faith_formation_events: 'Faith Formation Events',
+    event_definitions: 'Event Definitions',
+    event_schedule: 'Event Schedule',
+    schedule_event: 'Schedule Event',
+    schedule_type: 'Schedule Type',
+    one_time_event: 'One-Time Event',
+    recurring_event: 'Recurring Event',
+    recurrence_pattern: 'Recurrence Pattern',
+    weekday: 'Weekday',
+    add_event: 'Add Event',
+    event_title: 'Event Title',
+    event_date: 'Event Date',
+    event_time: 'Event Time',
+    event_end_time: 'End Time',
+    event_location: 'Location',
+    audience: 'Audience',
+    no_events_configured: 'No events configured yet.',
+    no_event_definitions: 'No event definitions created yet.',
+    children_faith_formation: "Children's Faith Formation",
+    general_events: 'General Events for Everyone',
+    monthly_calendar: 'Monthly Calendar',
+    no_events_this_month: 'No scheduled events for this month.',
+    previous_month: 'Previous Month',
+    next_month: 'Next Month',
+    remove: 'Remove',
     spouse_coparent_name: 'Spouse / Co-parent name',
     if_attending_together: '(if attending together)',
     sacramental_history: 'Sacramental History',
@@ -200,7 +255,7 @@ const translations = {
     save_draft: 'Save Draft',
     actions: 'Actions',
     edit: 'Edit',
-    application: 'Application',
+    in_progress: 'In Progress',
     conditionally_accepted: 'Conditionally Accepted',
     completed: 'Completed',
     cancelled: 'Cancelled',
@@ -221,7 +276,8 @@ const translations = {
     dashboard: 'Panel',
     signed_in_as: 'Conectado como',
     new_registration: 'Nueva Inscripción',
-    manage_users: 'Administrar Usuarios',
+    calendar: 'Calendario',
+    manage_users: 'Panel de Administracion',
     submitted_registrations: 'Inscripciones Enviadas',
     student: 'Estudiante',
     grade: 'Grado',
@@ -249,9 +305,9 @@ const translations = {
     sign_up: 'Regístrate',
     registration_form_title: 'Inscripción para Formación en la Fe — Niños',
     back: 'Volver',
-    primary_parent_contact: 'Contacto Primario del Padre/Madre/Tutor',
-    primary_contact_phone: 'Teléfono del Contacto Primario',
-    primary_contact_email: 'Correo del Contacto Primario',
+    primary_parent_contact: 'Contacto del Padre/Madre/Tutor',
+    primary_contact_phone: 'Teléfono de Contacto',
+    primary_contact_email: 'Correo de Contacto',
     relationship: 'Relación con el Niño',
     relationship_other: 'Si elige Otro, describa',
     father: 'Padre',
@@ -282,6 +338,11 @@ const translations = {
     step_parent_name: 'Nombre del Padrastro/Madrastra',
     step_parent_religion: 'Religión del Padrastro/Madrastra',
     student_full_name: 'Nombre Completo del Estudiante',
+    student_first_name: 'Nombre del Estudiante',
+    student_middle_name: 'Segundo Nombre del Estudiante',
+    student_last_name: 'Apellido del Estudiante',
+    birth_city: 'Ciudad de Nacimiento',
+    birth_country: 'País de Nacimiento',
     gender: 'Género',
     male: 'Masculino',
     female: 'Femenino',
@@ -298,6 +359,8 @@ const translations = {
     comments: 'Discapacidades / Dificultades de Aprendizaje / Comentarios',
     family_count: 'Cantidad de hijos en la familia (para cuota)',
     parent_signature: 'Firma del Padre / Tutor',
+    first_name: 'Nombre',
+    last_name: 'Apellido',
     upload_scans: 'Subir Escaneos de Certificados',
     baptism_required: 'Certificado de Bautismo (requerido si es el primer año)',
     communion_required: 'Certificado de Primera Comunión (requerido para 3er grado en adelante)',
@@ -350,6 +413,45 @@ const translations = {
     role_parent: 'Padre/Madre',
     role_godparent: 'Padrino/Madrina / Patrocinador',
     role_both: 'Padre/Madre y padrino/madrina',
+    class_date: 'Fecha de Clase',
+    choose_class_date: 'Seleccione la Fecha de la Clase de Preparacion Bautismal',
+    no_class_dates_available: 'No hay fechas de clase disponibles actualmente. Por favor contacte a la oficina parroquial.',
+    baptism_prep_dates: 'Fechas de Preparacion Bautismal',
+    add_class_date: 'Agregar Fecha de Clase',
+    configured_class_dates: 'Fechas Configuradas',
+    class_time: 'Hora de Clase',
+    classroom: 'Salon',
+    ccd_classes: 'Eventos de Formacion en la Fe',
+    add_ccd_class: 'Agregar Clase',
+    configured_ccd_classes: 'Clases Configuradas',
+    grade_level: 'Nombre del Evento',
+    no_ccd_classes: 'No hay eventos de formacion en la fe configurados todavia.',
+    manage_events: 'Administrar Eventos',
+    faith_formation_events: 'Eventos de Formacion en la Fe',
+    event_definitions: 'Definiciones de Eventos',
+    event_schedule: 'Programacion de Eventos',
+    schedule_event: 'Programar Evento',
+    schedule_type: 'Tipo de Programacion',
+    one_time_event: 'Evento Unico',
+    recurring_event: 'Evento Recurrente',
+    recurrence_pattern: 'Patron de Recurrencia',
+    weekday: 'Dia de la Semana',
+    add_event: 'Agregar Evento',
+    event_title: 'Titulo del Evento',
+    event_date: 'Fecha del Evento',
+    event_time: 'Hora del Evento',
+    event_end_time: 'Hora de Finalizacion',
+    event_location: 'Ubicacion',
+    audience: 'Audiencia',
+    no_events_configured: 'No hay eventos configurados todavia.',
+    no_event_definitions: 'No hay definiciones de eventos creadas todavia.',
+    children_faith_formation: 'Formacion en la Fe para Ninos',
+    general_events: 'Eventos Generales para Todos',
+    monthly_calendar: 'Calendario Mensual',
+    no_events_this_month: 'No hay eventos programados para este mes.',
+    previous_month: 'Mes Anterior',
+    next_month: 'Mes Siguiente',
+    remove: 'Eliminar',
     spouse_coparent_name: 'Nombre del cónyuge / co-padre',
     if_attending_together: '(si asisten juntos)',
     sacramental_history: 'Historial Sacramental',
@@ -394,7 +496,7 @@ const translations = {
     save_draft: 'Guardar Borrador',
     actions: 'Acciones',
     edit: 'Editar',
-    application: 'Solicitud',
+    in_progress: 'En progreso',
     conditionally_accepted: 'Aceptado Condicionalmente',
     completed: 'Completado',
     cancelled: 'Cancelado',
@@ -429,6 +531,119 @@ const getAdultPrograms = (t) => ({
     color: 'var(--gold)',
   },
 });
+
+const getCcdClasses = () =>
+  db.prepare('SELECT id, grade_level, class_time, classroom FROM ccd_classes ORDER BY grade_level ASC').all();
+const getFaithFormationEventDefinitions = () =>
+  db.prepare('SELECT id, title, audience FROM faith_formation_event_definitions ORDER BY title ASC').all();
+const getAllScheduledFaithFormationEvents = () =>
+  db.prepare(
+    `SELECT schedules.id, definitions.title, definitions.audience, schedules.schedule_type, schedules.recurrence_pattern,
+            schedules.event_date, schedules.event_time, schedules.event_end_time, schedules.location
+     FROM faith_formation_event_schedules schedules
+     INNER JOIN faith_formation_event_definitions definitions
+       ON definitions.id = schedules.event_definition_id
+     ORDER BY schedules.event_date ASC, schedules.event_time ASC, definitions.title ASC`
+  ).all();
+const getFaithFormationEvents = (audiences = []) => {
+  const audienceList = Array.from(new Set((Array.isArray(audiences) ? audiences : [audiences]).filter(Boolean)));
+  if (!audienceList.length) return [];
+  const placeholders = audienceList.map(() => '?').join(', ');
+  return db.prepare(
+    `SELECT schedules.id, definitions.title, definitions.audience, schedules.schedule_type, schedules.recurrence_pattern, schedules.event_date, schedules.event_time, schedules.event_end_time, schedules.location
+     FROM faith_formation_event_schedules schedules
+     INNER JOIN faith_formation_event_definitions definitions
+       ON definitions.id = schedules.event_definition_id
+     WHERE definitions.audience IN (${placeholders})
+     ORDER BY event_date ASC, event_time ASC, title ASC`
+  ).all(...audienceList);
+};
+const getBaptismPrepSchedules = () => getFaithFormationEvents(['baptism_prep']);
+const formatScheduledEventLabel = (eventItem) => {
+  const parts = [eventItem.title];
+  if (eventItem.schedule_type === 'recurring' && eventItem.recurrence_pattern) {
+    parts.push(eventItem.recurrence_pattern);
+  } else if (eventItem.event_date) {
+    parts.push(eventItem.event_date);
+  }
+  if (eventItem.event_time) {
+    parts.push(eventItem.event_end_time ? `${eventItem.event_time} - ${eventItem.event_end_time}` : eventItem.event_time);
+  }
+  if (eventItem.location) {
+    parts.push(eventItem.location);
+  }
+  return parts.join(' · ');
+};
+
+const WEEKDAY_INDEX = {
+  Sunday: 0,
+  Monday: 1,
+  Tuesday: 2,
+  Wednesday: 3,
+  Thursday: 4,
+  Friday: 5,
+  Saturday: 6,
+};
+
+const expandScheduledEventsForMonth = (scheduledEvents, year, monthIndex) => {
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+  const occurrences = [];
+
+  scheduledEvents.forEach((eventItem) => {
+    if (eventItem.schedule_type === 'recurring') {
+      const weekdayIndex = WEEKDAY_INDEX[eventItem.recurrence_pattern];
+      if (weekdayIndex == null) return;
+      for (let day = 1; day <= daysInMonth; day += 1) {
+        const currentDate = new Date(year, monthIndex, day);
+        if (currentDate.getDay() !== weekdayIndex) continue;
+        const dateKey = `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        occurrences.push({ ...eventItem, occurrence_date: dateKey });
+      }
+      return;
+    }
+
+    if (!eventItem.event_date) return;
+    const eventDate = new Date(`${eventItem.event_date}T00:00:00`);
+    if (eventDate.getFullYear() !== year || eventDate.getMonth() !== monthIndex) return;
+    occurrences.push({ ...eventItem, occurrence_date: eventItem.event_date });
+  });
+
+  return occurrences.sort((a, b) => {
+    if (a.occurrence_date !== b.occurrence_date) return a.occurrence_date.localeCompare(b.occurrence_date);
+    if ((a.event_time || '') !== (b.event_time || '')) return (a.event_time || '').localeCompare(b.event_time || '');
+    return a.title.localeCompare(b.title);
+  });
+};
+
+const buildCalendarWeeks = (occurrences, year, monthIndex) => {
+  const firstOfMonth = new Date(year, monthIndex, 1);
+  const startOffset = firstOfMonth.getDay();
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+  const byDate = occurrences.reduce((acc, eventItem) => {
+    const key = eventItem.occurrence_date;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(eventItem);
+    return acc;
+  }, {});
+
+  const cells = [];
+  for (let i = 0; i < startOffset; i += 1) {
+    cells.push({ dayNumber: null, dateKey: null, events: [] });
+  }
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const dateKey = `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    cells.push({ dayNumber: day, dateKey, events: byDate[dateKey] || [] });
+  }
+  while (cells.length % 7 !== 0) {
+    cells.push({ dayNumber: null, dateKey: null, events: [] });
+  }
+
+  const weeks = [];
+  for (let idx = 0; idx < cells.length; idx += 7) {
+    weeks.push(cells.slice(idx, idx + 7));
+  }
+  return weeks;
+};
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, 'uploads/'),
@@ -575,13 +790,53 @@ app.get('/dashboard', requireAuth, (req, res) => {
   res.render('dashboard', { studentRegs, adultRegs, ADULT_PROGRAMS });
 });
 
+app.get('/calendar', requireAuth, (req, res) => {
+  const monthParam = typeof req.query.month === 'string' ? req.query.month.trim() : '';
+  const monthMatch = /^(\d{4})-(\d{2})$/.exec(monthParam);
+  const baseDate = monthMatch
+    ? new Date(Number(monthMatch[1]), Number(monthMatch[2]) - 1, 1)
+    : new Date();
+  const year = baseDate.getFullYear();
+  const monthIndex = baseDate.getMonth();
+  const monthStart = new Date(year, monthIndex, 1);
+  const previousMonth = new Date(year, monthIndex - 1, 1);
+  const nextMonth = new Date(year, monthIndex + 1, 1);
+  const scheduledEvents = getAllScheduledFaithFormationEvents();
+  const occurrences = expandScheduledEventsForMonth(scheduledEvents, year, monthIndex);
+  const weeks = buildCalendarWeeks(occurrences, year, monthIndex);
+
+  res.render('calendar', {
+    calendarMonthLabel: monthStart.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+    previousMonthParam: `${previousMonth.getFullYear()}-${String(previousMonth.getMonth() + 1).padStart(2, '0')}`,
+    nextMonthParam: `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}`,
+    weeks,
+    weekdayLabels: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+    monthEvents: occurrences,
+  });
+});
+
 // ── Children Faith Formation ─────────────────────────────────
 app.get('/registration/children', requireAuth, (req, res) => {
   const today = new Date().toISOString().slice(0, 10);
-  res.render('registration-form', { today, reg: null, editing: false, isStaff: false });
+  res.render('registration-form', {
+    today,
+    reg: null,
+    editing: false,
+    isStaff: false,
+    statusOptions: STUDENT_REGISTRATION_STATUSES,
+    relevantEvents: getFaithFormationEvents(['children', 'general']),
+  });
 });
 
 const handleChildrenRegistration = (req, res) => {
+    const isAdmin = req.user.role === 'admin';
+    const requestedStatus = typeof req.body.status === 'string' ? req.body.status.trim() : '';
+    if (requestedStatus && !STUDENT_REGISTRATION_STATUSES.includes(requestedStatus)) {
+      req.flash('error', 'Invalid registration status.');
+      const redirectUrl = req.body.registration_id ? `/registration/children/edit/${req.body.registration_id}` : '/registration/children';
+      return res.redirect(redirectUrl);
+    }
+
     // Calculate family_count from number of students entered
     const studentNamesForFees = Array.isArray(req.body.student_full_name) ? req.body.student_full_name : (req.body.student_full_name ? [req.body.student_full_name] : []);
     const familyCount = studentNamesForFees.filter(name => (name || '').trim()).length || 1;
@@ -605,19 +860,22 @@ const handleChildrenRegistration = (req, res) => {
       return res.redirect(redirectUrl);
     }
 
-    // Ensure every entered student has gender + birthdate
+    // Ensure every entered student has first/last name + gender + birthdate
     const toArray = (v) => (Array.isArray(v) ? v : v == null ? [] : [v]);
-    const studentNames = toArray(req.body.student_full_name);
+    const studentFirstNames = toArray(req.body.student_first_name);
+    const studentMiddleNames = toArray(req.body.student_middle_name);
+    const studentLastNames = toArray(req.body.student_last_name);
     const studentGenders = toArray(req.body.student_gender);
     const studentDobs = toArray(req.body.student_dob);
 
-    for (let i = 0; i < studentNames.length; i++) {
-      const name = (studentNames[i] || '').trim();
-      if (!name) continue;
+    for (let i = 0; i < studentFirstNames.length; i++) {
+      const firstName = (studentFirstNames[i] || '').trim();
+      const lastName = (studentLastNames[i] || '').trim();
+      if (!firstName && !lastName) continue;
       const gender = (studentGenders[i] || '').trim();
       const dob = (studentDobs[i] || '').trim();
-      if (!gender || !dob) {
-        req.flash('error', 'Each student must have gender and date of birth.');
+      if (!firstName || !lastName || !gender || !dob) {
+        req.flash('error', 'Each student must have first name, last name, gender, and date of birth.');
         const redirectUrl = req.body.registration_id ? `/registration/children/edit/${req.body.registration_id}` : '/registration/children';
         return res.redirect(redirectUrl);
       }
@@ -625,10 +883,36 @@ const handleChildrenRegistration = (req, res) => {
 
     req.body.ccd_grade_level = req.body.ccd_grade_level || [];
 
+    // Build student_full_name array for storage (historic)/display
+    const studentFullNames = studentFirstNames.map((first, idx) => {
+      const middle = (studentMiddleNames[idx] || '').trim();
+      const last = (studentLastNames[idx] || '').trim();
+      if (!first && !last) return '';
+      return [first.trim(), middle, last].filter(Boolean).join(' ');
+    });
+
+    // Build birthplace merged string for legacy and keep new columns
+    const childPlaceOfBirthCity = toArray(req.body.child_place_of_birth_city);
+    const childPlaceOfBirthCountry = toArray(req.body.child_place_of_birth_country);
+    const childPlaceOfBirthLegacy = childPlaceOfBirthCity.map((city, idx) => {
+      const country = (childPlaceOfBirthCountry[idx] || '').trim();
+      if (!city && !country) return '';
+      return [city.trim(), country].filter(Boolean).join(', ');
+    });
+
     const baptismCert = req.files?.baptism_certificate?.[0]?.path || null;
     const communionCert = req.files?.first_communion_certificate?.[0]?.path || null;
 
     if (req.body.registration_id) {
+      const existingReg = db.prepare(
+        'SELECT id, status FROM student_registrations WHERE id = ? AND (user_id = ? OR ? = 1)'
+      ).get(req.body.registration_id, req.user.id, isAdmin ? 1 : 0);
+      if (!existingReg) {
+        return res.status(404).send('Registration not found.');
+      }
+
+      const nextStatus = isAdmin && requestedStatus ? requestedStatus : existingReg.status;
+
       // Update existing
       db.prepare(`
         UPDATE student_registrations SET
@@ -640,14 +924,14 @@ const handleChildrenRegistration = (req, res) => {
           mother_maiden_name = ?, mother_religion = ?, mother_cell = ?,
           child_lives_with = ?, step_parent_name = ?, step_parent_religion = ?,
           student_full_name = ?, student_gender = ?,
-          student_dob = ?, child_place_of_birth = ?, ccd_grade_level = ?,
+          student_dob = ?, child_place_of_birth = ?, child_place_of_birth_city = ?, child_place_of_birth_country = ?, ccd_grade_level = ?,
           school_attending = ?, school_grade_level = ?,
           baptism_date = ?, baptism_church = ?,
           first_communion_date = ?, first_communion_church = ?,
           disabilities_comments = ?, parent_signature = ?, email = ?,
           registration_fee = ?, sacramental_fee = ?, late_fee = ?,
-          baptism_certificate_path = ?, first_communion_certificate_path = ?
-        WHERE id = ? AND user_id = ?
+          baptism_certificate_path = ?, first_communion_certificate_path = ?, status = ?
+        WHERE id = ? AND (user_id = ? OR ? = 1)
       `).run(
         `${req.body.primary_contact_first_name} ${req.body.primary_contact_last_name}`,
         req.body.primary_contact_first_name, req.body.primary_contact_last_name,
@@ -658,15 +942,15 @@ const handleChildrenRegistration = (req, res) => {
         req.body.father_name, req.body.father_religion, req.body.father_cell,
         req.body.mother_maiden_name, req.body.mother_religion, req.body.mother_cell,
         req.body.child_lives_with, req.body.step_parent_name, req.body.step_parent_religion,
-        req.body.student_full_name, req.body.student_gender,
-        req.body.student_dob, req.body.child_place_of_birth, req.body.ccd_grade_level,
+        studentFullNames, req.body.student_gender,
+        req.body.student_dob, childPlaceOfBirthLegacy, childPlaceOfBirthCity.join(','), childPlaceOfBirthCountry.join(','), req.body.ccd_grade_level,
         req.body.school_attending, req.body.school_grade_level,
         req.body.baptism_date, req.body.baptism_church,
         req.body.first_communion_date, req.body.first_communion_church,
         req.body.disabilities_comments, req.body.parent_signature, req.body.email,
         fees.registrationFee, fees.sacramentalFee, fees.lateFee,
-        baptismCert, communionCert,
-        req.body.registration_id, req.user.id
+        baptismCert, communionCert, nextStatus,
+        req.body.registration_id, req.user.id, isAdmin ? 1 : 0
       );
       req.flash('success', 'Registration updated.');
       return res.redirect('/dashboard');
@@ -679,7 +963,7 @@ const handleChildrenRegistration = (req, res) => {
         primary_contact_relationship, primary_contact_relationship_other, address, city_state_zip, home_phone,
         father_name, father_religion, father_cell, mother_maiden_name, mother_religion, mother_cell,
         child_lives_with, step_parent_name, step_parent_religion, student_full_name, student_gender,
-        student_dob, child_place_of_birth, ccd_grade_level, school_attending,
+        student_dob, child_place_of_birth, child_place_of_birth_city, child_place_of_birth_country, ccd_grade_level, school_attending,
         school_grade_level, baptism_date, baptism_church, first_communion_date, first_communion_church,
         disabilities_comments, parent_signature, email, registration_fee, sacramental_fee, late_fee,
         baptism_certificate_path, first_communion_certificate_path, status
@@ -695,14 +979,14 @@ const handleChildrenRegistration = (req, res) => {
       req.body.father_name, req.body.father_religion, req.body.father_cell,
       req.body.mother_maiden_name, req.body.mother_religion, req.body.mother_cell,
       req.body.child_lives_with, req.body.step_parent_name, req.body.step_parent_religion,
-      req.body.student_full_name, req.body.student_gender,
-      req.body.student_dob, req.body.child_place_of_birth, req.body.ccd_grade_level,
+      studentFullNames, req.body.student_gender,
+      req.body.student_dob, childPlaceOfBirthLegacy, childPlaceOfBirthCity.join(','), childPlaceOfBirthCountry.join(','), req.body.ccd_grade_level,
       req.body.school_attending, req.body.school_grade_level,
       req.body.baptism_date, req.body.baptism_church,
       req.body.first_communion_date, req.body.first_communion_church,
       req.body.disabilities_comments, req.body.parent_signature, req.body.email,
       fees.registrationFee, fees.sacramentalFee, fees.lateFee,
-      baptismCert, communionCert, 'application',
+      baptismCert, communionCert, 'in_progress',
     );
 
     req.flash('success', `Registration submitted. Total fees: $${fees.registrationFee + fees.sacramentalFee + fees.lateFee}`);
@@ -741,7 +1025,14 @@ app.get('/registration/children/edit/:id', requireAuth, (req, res) => {
   // For simplicity, assume single child, but since it's array, need to handle multiple
   // But for now, render with the data
   const today = new Date().toISOString().slice(0, 10);
-  res.render('registration-form', { editing: true, reg, today, isStaff });
+  res.render('registration-form', {
+    editing: true,
+    reg,
+    today,
+    isStaff,
+    statusOptions: STUDENT_REGISTRATION_STATUSES,
+    relevantEvents: getFaithFormationEvents(['children', 'general']),
+  });
 });
 
 // ── Adult Programs ───────────────────────────────────────────
@@ -750,7 +1041,13 @@ app.get('/registration/adult/:program', requireAuth, (req, res) => {
   const ADULT_PROGRAMS = getAdultPrograms(res.locals.t);
   const program = ADULT_PROGRAMS[req.params.program];
   if (!program) return res.status(404).send('Unknown program.');
-  res.render('adult-registration-form', { program, reg: null, editing: false });
+  res.render('adult-registration-form', {
+    program,
+    reg: null,
+    editing: false,
+    baptismPrepSchedules: getBaptismPrepSchedules(),
+    relevantEvents: getFaithFormationEvents([program.key, 'general']),
+  });
 });
 
 // GET /registration/adult/edit/:program/:id
@@ -758,8 +1055,11 @@ app.get('/registration/adult/edit/:program/:id', requireAuth, (req, res) => {
   const ADULT_PROGRAMS = getAdultPrograms(res.locals.t);
   const program = ADULT_PROGRAMS[req.params.program];
   if (!program) return res.status(404).send('Unknown program.');
+  const isAdmin = req.user.role === 'admin';
 
-  const reg = db.prepare('SELECT * FROM adult_registrations WHERE id = ? AND user_id = ? AND program_type = ?').get(req.params.id, req.user.id, req.params.program);
+  const reg = db.prepare(
+    'SELECT * FROM adult_registrations WHERE id = ? AND (user_id = ? OR ? = 1) AND program_type = ?'
+  ).get(req.params.id, req.user.id, isAdmin ? 1 : 0, req.params.program);
   if (!reg) return res.status(404).send('Registration not found.');
 
   // Parse address
@@ -768,7 +1068,13 @@ app.get('/registration/adult/edit/:program/:id', requireAuth, (req, res) => {
   reg.state = addressParts[1] ? addressParts[1].split(' ')[0] : '';
   reg.zip = addressParts[1] ? addressParts[1].split(' ')[1] : '';
 
-  res.render('adult-registration-form', { program, editing: true, reg });
+  res.render('adult-registration-form', {
+    program,
+    editing: true,
+    reg,
+    baptismPrepSchedules: getBaptismPrepSchedules(),
+    relevantEvents: getFaithFormationEvents([program.key, 'general']),
+  });
 });
 
 app.post('/registration/adult/:program', requireAuth, (req, res) => {
@@ -789,14 +1095,34 @@ app.post('/registration/adult/:program', requireAuth, (req, res) => {
     const redirectUrl = req.body.registration_id ? `/registration/adult/edit/${program.key}/${req.body.registration_id}` : `/registration/adult/${program.key}`;
     return res.redirect(redirectUrl);
   }
+  const selectedClassScheduleId = Number(req.body.class_schedule_id);
+  let selectedBaptismPrepSchedule = null;
+  if (program.key === 'baptism_prep') {
+    selectedBaptismPrepSchedule = Number.isInteger(selectedClassScheduleId) && selectedClassScheduleId > 0
+      ? db.prepare(
+          `SELECT schedules.id, definitions.audience, definitions.title, schedules.schedule_type, schedules.recurrence_pattern,
+                  schedules.event_date, schedules.event_time, schedules.event_end_time, schedules.location
+           FROM faith_formation_event_schedules schedules
+           INNER JOIN faith_formation_event_definitions definitions
+             ON definitions.id = schedules.event_definition_id
+           WHERE schedules.id = ? AND definitions.audience = 'baptism_prep'`
+        ).get(selectedClassScheduleId)
+      : null;
+    if (!selectedBaptismPrepSchedule) {
+      req.flash('error', 'Please select an available Baptism Preparation class date.');
+      const redirectUrl = req.body.registration_id ? `/registration/adult/edit/${program.key}/${req.body.registration_id}` : `/registration/adult/${program.key}`;
+      return res.redirect(redirectUrl);
+    }
+  }
 
   if (req.body.registration_id) {
+    const isAdmin = req.user.role === 'admin';
     // Update existing
     db.prepare(`
       UPDATE adult_registrations SET
         full_name = ?, email = ?, phone = ?, address = ?, city_state_zip = ?,
-        dob = ?, baptized = ?, baptism_church = ?, spouse_name = ?, godparent_for = ?, comments = ?
-      WHERE id = ? AND user_id = ? AND program_type = ?
+        dob = ?, baptized = ?, baptism_church = ?, spouse_name = ?, godparent_for = ?, comments = ?, class_schedule_id = ?, class_date = ?
+      WHERE id = ? AND (user_id = ? OR ? = 1) AND program_type = ?
     `).run(
       req.body.full_name,
       req.body.email,
@@ -809,7 +1135,9 @@ app.post('/registration/adult/:program', requireAuth, (req, res) => {
       req.body.spouse_name,
       req.body.godparent_for,
       req.body.comments,
-      req.body.registration_id, req.user.id, program.key
+      program.key === 'baptism_prep' ? selectedClassScheduleId : null,
+      program.key === 'baptism_prep' && selectedBaptismPrepSchedule ? formatScheduledEventLabel(selectedBaptismPrepSchedule) : null,
+      req.body.registration_id, req.user.id, isAdmin ? 1 : 0, program.key
     );
     req.flash('success', 'Registration updated.');
     return res.redirect('/dashboard');
@@ -818,8 +1146,8 @@ app.post('/registration/adult/:program', requireAuth, (req, res) => {
   db.prepare(`
     INSERT INTO adult_registrations
       (user_id, program_type, full_name, email, phone, address, city_state_zip,
-       dob, baptized, baptism_church, spouse_name, godparent_for, comments, status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       dob, baptized, baptism_church, spouse_name, godparent_for, comments, class_schedule_id, class_date, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     req.user.id,
     program.key,
@@ -834,7 +1162,9 @@ app.post('/registration/adult/:program', requireAuth, (req, res) => {
     req.body.spouse_name,
     req.body.godparent_for,
     req.body.comments,
-    'application',
+    program.key === 'baptism_prep' ? selectedClassScheduleId : null,
+    program.key === 'baptism_prep' && selectedBaptismPrepSchedule ? formatScheduledEventLabel(selectedBaptismPrepSchedule) : null,
+    'in_progress',
   );
 
   req.flash('success', `Your ${program.title} registration has been submitted. The parish office will be in touch.`);
@@ -844,13 +1174,114 @@ app.post('/registration/adult/:program', requireAuth, (req, res) => {
 // ── Admin ────────────────────────────────────────────────────
 app.get('/admin/users', requireAuth, requireRole('admin'), (req, res) => {
   const users = db.prepare('SELECT id, email, role, provider, created_at FROM users ORDER BY created_at DESC').all();
-  res.render('admin-users', { users });
+  const ccdClasses = getCcdClasses();
+  const eventDefinitions = getFaithFormationEventDefinitions();
+  const managedEvents = getFaithFormationEvents(['children', 'baptism_prep', 'ocia', 'general']);
+  res.render('admin-users', { users, ccdClasses, eventDefinitions, managedEvents });
 });
 
 app.post('/admin/users/:id/role', requireAuth, requireRole('admin'), (req, res) => {
   db.prepare('UPDATE users SET role = ? WHERE id = ?').run(req.body.role, req.params.id);
   req.flash('success', 'User role updated.');
   res.redirect('/admin/users');
+});
+
+app.post('/admin/ccd-classes', requireAuth, requireRole('admin'), (req, res) => {
+  const gradeLevel = typeof req.body.grade_level === 'string' ? req.body.grade_level.trim() : '';
+  const classTime = typeof req.body.class_time === 'string' ? req.body.class_time.trim() : '';
+  const classroom = typeof req.body.classroom === 'string' ? req.body.classroom.trim() : '';
+
+  if (!gradeLevel) {
+    req.flash('error', 'Please enter a grade level.');
+    return res.redirect('/admin/users');
+  }
+
+  db.prepare(
+    'INSERT OR REPLACE INTO ccd_classes (id, grade_level, class_time, classroom) VALUES ((SELECT id FROM ccd_classes WHERE grade_level = ?), ?, ?, ?)'
+  ).run(gradeLevel, gradeLevel, classTime, classroom);
+  req.flash('success', 'CCD class saved.');
+  return res.redirect('/admin/users');
+});
+
+app.post('/admin/ccd-classes/:id/delete', requireAuth, requireRole('admin'), (req, res) => {
+  db.prepare('DELETE FROM ccd_classes WHERE id = ?').run(req.params.id);
+  req.flash('success', 'CCD class removed.');
+  return res.redirect('/admin/users');
+});
+
+app.post('/admin/events', requireAuth, requireRole('admin'), (req, res) => {
+  const title = typeof req.body.title === 'string' ? req.body.title.trim() : '';
+  const audience = typeof req.body.audience === 'string' ? req.body.audience.trim() : '';
+  const validAudiences = ['children', 'baptism_prep', 'ocia', 'general'];
+
+  if (!title) {
+    req.flash('error', 'Please enter an event title.');
+    return res.redirect('/admin/users');
+  }
+  if (!validAudiences.includes(audience)) {
+    req.flash('error', 'Please choose a valid audience.');
+    return res.redirect('/admin/users');
+  }
+
+  db.prepare(
+    'INSERT INTO faith_formation_event_definitions (title, audience) VALUES (?, ?)'
+  ).run(title, audience);
+  req.flash('success', 'Faith formation event created.');
+  return res.redirect('/admin/users');
+});
+
+app.post('/admin/events/:id/delete', requireAuth, requireRole('admin'), (req, res) => {
+  db.prepare('DELETE FROM faith_formation_event_schedules WHERE event_definition_id = ?').run(req.params.id);
+  db.prepare('DELETE FROM faith_formation_event_definitions WHERE id = ?').run(req.params.id);
+  req.flash('success', 'Faith formation event removed.');
+  return res.redirect('/admin/users');
+});
+
+app.post('/admin/event-schedules', requireAuth, requireRole('admin'), (req, res) => {
+  const eventDefinitionId = Number(req.body.event_definition_id);
+  const scheduleType = typeof req.body.schedule_type === 'string' ? req.body.schedule_type.trim() : 'one_time';
+  const recurrencePattern = typeof req.body.recurrence_pattern === 'string' ? req.body.recurrence_pattern.trim() : '';
+  const eventDate = typeof req.body.event_date === 'string' ? req.body.event_date.trim() : '';
+  const eventTime = typeof req.body.event_time === 'string' ? req.body.event_time.trim() : '';
+  const eventEndTime = typeof req.body.event_end_time === 'string' ? req.body.event_end_time.trim() : '';
+  const location = typeof req.body.location === 'string' ? req.body.location.trim() : '';
+
+  if (!Number.isInteger(eventDefinitionId) || eventDefinitionId <= 0) {
+    req.flash('error', 'Please choose an event to schedule.');
+    return res.redirect('/admin/users');
+  }
+  if (!['one_time', 'recurring'].includes(scheduleType)) {
+    req.flash('error', 'Please choose a valid schedule type.');
+    return res.redirect('/admin/users');
+  }
+  if (scheduleType === 'recurring' && !recurrencePattern) {
+    req.flash('error', 'Please choose a weekday for recurring events.');
+    return res.redirect('/admin/users');
+  }
+  if (scheduleType === 'one_time' && !eventDate) {
+    req.flash('error', 'Please choose a date for one-time events.');
+    return res.redirect('/admin/users');
+  }
+
+  db.prepare(
+    'INSERT INTO faith_formation_event_schedules (event_definition_id, schedule_type, recurrence_pattern, event_date, event_time, event_end_time, location) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  ).run(
+    eventDefinitionId,
+    scheduleType,
+    scheduleType === 'recurring' ? recurrencePattern : null,
+    scheduleType === 'one_time' ? eventDate : null,
+    eventTime || null,
+    eventEndTime || null,
+    location || null
+  );
+  req.flash('success', 'Event schedule saved.');
+  return res.redirect('/admin/users');
+});
+
+app.post('/admin/event-schedules/:id/delete', requireAuth, requireRole('admin'), (req, res) => {
+  db.prepare('DELETE FROM faith_formation_event_schedules WHERE id = ?').run(req.params.id);
+  req.flash('success', 'Event schedule removed.');
+  return res.redirect('/admin/users');
 });
 
 // Keep old routes working — GET redirects, old POST alias

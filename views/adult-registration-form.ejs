@@ -11,6 +11,7 @@
 <body>
 <%- include('_topbar') %>
 <main class="container py-4 app-shell mx-auto">
+  <% const visibleEvents = Array.isArray(typeof relevantEvents === 'undefined' ? null : relevantEvents) ? relevantEvents : []; %>
 
   <div class="page-heading d-flex flex-wrap justify-content-between align-items-end gap-2">
     <div>
@@ -27,6 +28,23 @@
   <div class="page-card">
     <% if (error && error.length) { %><div class="alert alert-danger mb-3"><%= error[0] %></div><% } %>
     <% if (success && success.length) { %><div class="alert alert-success mb-3"><%= success[0] %></div><% } %>
+    <% if (visibleEvents.length) { %>
+      <div class="alert alert-info mb-3">
+        <strong><%= t('faith_formation_events') %>:</strong>
+        <ul class="mb-0 mt-2 ps-3">
+          <% visibleEvents.forEach((eventItem) => { %>
+            <li>
+              <strong><%= eventItem.title %></strong>
+              <% if (eventItem.schedule_type === 'recurring' && eventItem.recurrence_pattern) { %> · <%= eventItem.recurrence_pattern %><% } %>
+              <% if (eventItem.event_date) { %> · <%= eventItem.event_date %><% } %>
+              <% if (eventItem.event_time) { %> · <%= eventItem.event_time %><% } %>
+              <% if (eventItem.event_end_time) { %> - <%= eventItem.event_end_time %><% } %>
+              <% if (eventItem.location) { %> · <%= eventItem.location %><% } %>
+            </li>
+          <% }) %>
+        </ul>
+      </div>
+    <% } %>
     <div class="card-body p-4">
       <form method="post" action="/registration/adult/<%= program.key %>" class="row g-3">
         <input type="hidden" name="registration_id" value="<%= reg ? reg.id : '' %>">
@@ -93,7 +111,27 @@
         <% if (program.key === 'baptism_prep') { %>
         <fieldset class="col-12">
           <legend><%= t('baptism_details') %></legend>
+          <% const availableBaptismPrepSchedules = Array.isArray(typeof baptismPrepSchedules === 'undefined' ? null : baptismPrepSchedules) ? baptismPrepSchedules : []; %>
           <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label"><%= t('class_date') %></label>
+              <select class="form-select" name="class_schedule_id" required>
+                <option value="" <%= !reg || !reg.class_schedule_id ? 'selected' : '' %> disabled><%= t('choose_class_date') %></option>
+                <% availableBaptismPrepSchedules.forEach((scheduleOption) => { %>
+                  <option value="<%= scheduleOption.id %>" <%= reg && String(reg.class_schedule_id || '') === String(scheduleOption.id) ? 'selected' : '' %>>
+                    <%= scheduleOption.title %>
+                    <% if (scheduleOption.schedule_type === 'recurring' && scheduleOption.recurrence_pattern) { %> · <%= scheduleOption.recurrence_pattern %><% } %>
+                    <% if (scheduleOption.event_date) { %> · <%= scheduleOption.event_date %><% } %>
+                    <% if (scheduleOption.event_time) { %> · <%= scheduleOption.event_time %><% } %>
+                    <% if (scheduleOption.event_end_time) { %> - <%= scheduleOption.event_end_time %><% } %>
+                    <% if (scheduleOption.location) { %> · <%= scheduleOption.location %><% } %>
+                  </option>
+                <% }) %>
+              </select>
+              <% if (!availableBaptismPrepSchedules.length) { %>
+                <div class="form-text text-muted"><%= t('no_class_dates_available') %></div>
+              <% } %>
+            </div>
             <div class="col-md-6">
               <label class="form-label"><%= t('name_of_person_baptized') %></label>
               <input class="form-control" type="text" name="godparent_for">

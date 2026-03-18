@@ -11,8 +11,14 @@
 <body>
 <%- include('_topbar') %>
 <main class="container py-4 app-shell mx-auto">
+  <% const availableCcdClasses = Array.isArray(typeof ccdClasses === 'undefined' ? null : ccdClasses) ? ccdClasses : []; %>
+  <% const availableEventDefinitions = Array.isArray(typeof eventDefinitions === 'undefined' ? null : eventDefinitions) ? eventDefinitions : []; %>
+  <% const availableManagedEvents = Array.isArray(typeof managedEvents === 'undefined' ? null : managedEvents) ? managedEvents : []; %>
+  <% const availableClassrooms = ['Room 1', 'Room 2', 'Room 3', 'Room 4', 'Conference Room', 'Parish Center']; %>
+  <% const availableWeekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']; %>
 
   <% if (success.length) { %><div class="alert alert-success mb-3"><%= success[0] %></div><% } %>
+  <% if (error.length) { %><div class="alert alert-danger mb-3"><%= error[0] %></div><% } %>
 
   <div class="page-heading d-flex flex-wrap justify-content-between align-items-end gap-2">
     <div>
@@ -58,7 +64,186 @@
     </div>
   </div>
 
+  <div class="page-card mt-4">
+    <div class="card-header"><h2 class="h5"><%= t('event_definitions') %></h2></div>
+    <div class="card-body">
+      <form class="row g-3 align-items-end mb-4" method="post" action="/admin/events">
+        <div class="col-md-4">
+          <label class="form-label"><%= t('event_title') %></label>
+          <input class="form-control" type="text" name="title" required>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label"><%= t('audience') %></label>
+          <select class="form-select" name="audience" required>
+            <option value="children"><%= t('children_faith_formation') %></option>
+            <option value="baptism_prep"><%= t('prog_baptism_title') %></option>
+            <option value="ocia"><%= t('prog_ocia_title') %></option>
+            <option value="general"><%= t('general_events') %></option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <button class="btn btn-primary" type="submit"><%= t('add_event') %></button>
+        </div>
+      </form>
+
+      <% if (!availableEventDefinitions.length) { %>
+        <p class="mb-0 text-muted"><%= t('no_event_definitions') %></p>
+      <% } else { %>
+        <div class="table-responsive">
+          <table class="table mb-0">
+            <thead>
+              <tr>
+                <th><%= t('event_title') %></th>
+                <th><%= t('audience') %></th>
+                <th><%= t('actions') %></th>
+              </tr>
+            </thead>
+            <tbody>
+              <% availableEventDefinitions.forEach((eventDefinition) => { %>
+                <tr>
+                  <td><%= eventDefinition.title %></td>
+                  <td><%= t(eventDefinition.audience === 'children' ? 'children_faith_formation' : eventDefinition.audience === 'general' ? 'general_events' : eventDefinition.audience === 'baptism_prep' ? 'prog_baptism_title' : 'prog_ocia_title') %></td>
+                  <td>
+                    <form method="post" action="/admin/events/<%= eventDefinition.id %>/delete">
+                      <button class="btn btn-outline-secondary btn-sm" type="submit"><%= t('remove') %></button>
+                    </form>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+  </div>
+
+  <div class="page-card mt-4">
+    <div class="card-header"><h2 class="h5"><%= t('event_schedule') %></h2></div>
+    <div class="card-body">
+      <form class="row g-3 align-items-end mb-4" method="post" action="/admin/event-schedules">
+        <div class="col-md-4">
+          <label class="form-label"><%= t('event_title') %></label>
+          <select class="form-select" name="event_definition_id" required>
+            <option value="">Select event</option>
+            <% availableEventDefinitions.forEach((eventDefinition) => { %>
+              <option value="<%= eventDefinition.id %>"><%= eventDefinition.title %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label"><%= t('schedule_type') %></label>
+          <select class="form-select" name="schedule_type" required>
+            <option value="one_time"><%= t('one_time_event') %></option>
+            <option value="recurring"><%= t('recurring_event') %></option>
+          </select>
+        </div>
+        <div class="col-md-2" id="event-date-field">
+          <label class="form-label"><%= t('event_date') %></label>
+          <input class="form-control" type="date" name="event_date">
+        </div>
+        <div class="col-md-1">
+          <label class="form-label"><%= t('event_time') %></label>
+          <input class="form-control" type="time" name="event_time">
+        </div>
+        <div class="col-md-1">
+          <label class="form-label"><%= t('event_end_time') %></label>
+          <input class="form-control" type="time" name="event_end_time">
+        </div>
+        <div class="col-md-3 d-none" id="event-weekday-field">
+          <label class="form-label"><%= t('weekday') %></label>
+          <select class="form-select" name="recurrence_pattern">
+            <option value="">Select weekday</option>
+            <% availableWeekdays.forEach((day) => { %>
+              <option value="<%= day %>"><%= day %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label"><%= t('event_location') %></label>
+          <select class="form-select" name="location">
+            <option value="">Select classroom</option>
+            <% availableClassrooms.forEach((room) => { %>
+              <option value="<%= room %>"><%= room %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <button class="btn btn-primary" type="submit"><%= t('schedule_event') %></button>
+        </div>
+      </form>
+
+      <% if (!availableManagedEvents.length) { %>
+        <p class="mb-0 text-muted"><%= t('no_events_configured') %></p>
+      <% } else { %>
+        <div class="table-responsive">
+          <table class="table mb-0">
+            <thead>
+              <tr>
+                <th><%= t('event_title') %></th>
+                <th><%= t('audience') %></th>
+                <th><%= t('schedule_type') %></th>
+                <th><%= t('weekday') %></th>
+                <th><%= t('event_date') %></th>
+                <th><%= t('event_time') %></th>
+                <th><%= t('event_end_time') %></th>
+                <th><%= t('event_location') %></th>
+                <th><%= t('actions') %></th>
+              </tr>
+            </thead>
+            <tbody>
+              <% availableManagedEvents.forEach((eventItem) => { %>
+                <tr>
+                  <td><%= eventItem.title %></td>
+                  <td><%= t(eventItem.audience === 'children' ? 'children_faith_formation' : eventItem.audience === 'general' ? 'general_events' : eventItem.audience === 'baptism_prep' ? 'prog_baptism_title' : 'prog_ocia_title') %></td>
+                  <td><%= t(eventItem.schedule_type === 'recurring' ? 'recurring_event' : 'one_time_event') %></td>
+                  <td><%= eventItem.recurrence_pattern || '' %><% if (!eventItem.recurrence_pattern) { %><span style="color:var(--muted)">&mdash;</span><% } %></td>
+                  <td><%= eventItem.event_date || '' %><% if (!eventItem.event_date) { %><span style="color:var(--muted)">&mdash;</span><% } %></td>
+                  <td><%= eventItem.event_time || '' %><% if (!eventItem.event_time) { %><span style="color:var(--muted)">&mdash;</span><% } %></td>
+                  <td><%= eventItem.event_end_time || '' %><% if (!eventItem.event_end_time) { %><span style="color:var(--muted)">&mdash;</span><% } %></td>
+                  <td><%= eventItem.location || '' %><% if (!eventItem.location) { %><span style="color:var(--muted)">&mdash;</span><% } %></td>
+                  <td>
+                    <form method="post" action="/admin/event-schedules/<%= eventItem.id %>/delete">
+                      <button class="btn btn-outline-secondary btn-sm" type="submit"><%= t('remove') %></button>
+                    </form>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+  </div>
+
   <p class="footer-note"><%= t('footer_note') %></p>
 </main>
+<script>
+  (function () {
+    const scheduleType = document.querySelector('select[name="schedule_type"]');
+    const eventDateField = document.getElementById('event-date-field');
+    const weekdayField = document.getElementById('event-weekday-field');
+    const eventDateInput = document.querySelector('input[name="event_date"]');
+    const weekdaySelect = document.querySelector('select[name="recurrence_pattern"]');
+
+    if (!scheduleType || !eventDateField || !weekdayField || !eventDateInput || !weekdaySelect) return;
+
+    const updateScheduleFields = () => {
+      const isRecurring = scheduleType.value === 'recurring';
+      eventDateField.classList.toggle('d-none', isRecurring);
+      weekdayField.classList.toggle('d-none', !isRecurring);
+      eventDateInput.required = !isRecurring;
+      weekdaySelect.required = isRecurring;
+
+      if (isRecurring) {
+        eventDateInput.value = '';
+      } else {
+        weekdaySelect.value = '';
+      }
+    };
+
+    scheduleType.addEventListener('change', updateScheduleFields);
+    updateScheduleFields();
+  }());
+</script>
 </body>
 </html>

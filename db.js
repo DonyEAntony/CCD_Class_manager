@@ -56,7 +56,7 @@ db.exec(`
     late_fee INTEGER,
     baptism_certificate_path TEXT,
     first_communion_certificate_path TEXT,
-    status TEXT DEFAULT 'application',
+    status TEXT DEFAULT 'in_progress',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
   );
@@ -76,9 +76,49 @@ db.exec(`
     spouse_name TEXT,
     godparent_for TEXT,
     comments TEXT,
-    status TEXT DEFAULT 'application',
+    class_schedule_id INTEGER,
+    class_date TEXT,
+    status TEXT DEFAULT 'in_progress',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS ccd_classes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    grade_level TEXT NOT NULL UNIQUE,
+    class_time TEXT,
+    classroom TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS faith_formation_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    audience TEXT NOT NULL,
+    event_date TEXT,
+    event_time TEXT,
+    location TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS faith_formation_event_definitions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    audience TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS faith_formation_event_schedules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_definition_id INTEGER NOT NULL,
+    schedule_type TEXT NOT NULL DEFAULT 'one_time',
+    recurrence_pattern TEXT,
+    event_date TEXT,
+    event_time TEXT,
+    event_end_time TEXT,
+    location TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (event_definition_id) REFERENCES faith_formation_event_definitions(id)
   );
 `);
 
@@ -100,7 +140,9 @@ ensureColumn('student_registrations', 'primary_contact_relationship', 'TEXT');
 ensureColumn('student_registrations', 'primary_contact_relationship_other', 'TEXT');
 ensureColumn('student_registrations', 'primary_contact_first_name', 'TEXT');
 ensureColumn('student_registrations', 'primary_contact_last_name', 'TEXT');
-ensureColumn('student_registrations', 'status', "TEXT DEFAULT 'application'");
+ensureColumn('student_registrations', 'child_place_of_birth_city', 'TEXT');
+ensureColumn('student_registrations', 'child_place_of_birth_country', 'TEXT');
+ensureColumn('student_registrations', 'status', "TEXT DEFAULT 'in_progress'");
 
 // adult_registrations — new unified schema columns
 ensureColumn('adult_registrations', 'program_type', "TEXT NOT NULL DEFAULT 'ocia'");
@@ -111,13 +153,54 @@ ensureColumn('adult_registrations', 'baptized', 'TEXT');
 ensureColumn('adult_registrations', 'baptism_church', 'TEXT');
 ensureColumn('adult_registrations', 'spouse_name', 'TEXT');
 ensureColumn('adult_registrations', 'godparent_for', 'TEXT');
-ensureColumn('adult_registrations', 'status', "TEXT DEFAULT 'application'");
+ensureColumn('adult_registrations', 'class_schedule_id', 'INTEGER');
+ensureColumn('adult_registrations', 'class_date', 'TEXT');
+ensureColumn('adult_registrations', 'status', "TEXT DEFAULT 'in_progress'");
+ensureColumn('faith_formation_event_schedules', 'schedule_type', "TEXT DEFAULT 'one_time'");
+ensureColumn('faith_formation_event_schedules', 'recurrence_pattern', 'TEXT');
+ensureColumn('faith_formation_event_schedules', 'event_end_time', 'TEXT');
 
 // Migrate any existing 'parent' roles to 'user'
 db.prepare("UPDATE users SET role = 'user' WHERE role = 'parent'").run();
+db.prepare("UPDATE student_registrations SET status = 'in_progress' WHERE status = 'application'").run();
+db.prepare("UPDATE adult_registrations SET status = 'in_progress' WHERE status = 'application'").run();
 
 // Seed sample data if tables are empty
 const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
+const ccdClassCount = db.prepare('SELECT COUNT(*) as count FROM ccd_classes').get().count;
+const faithFormationEventCount = db.prepare('SELECT COUNT(*) as count FROM faith_formation_events').get().count;
+const faithFormationEventDefinitionCount = db.prepare('SELECT COUNT(*) as count FROM faith_formation_event_definitions').get().count;
+if (ccdClassCount === 0) {
+  const insertCcdClass = db.prepare('INSERT INTO ccd_classes (grade_level, class_time, classroom) VALUES (?, ?, ?)');
+  insertCcdClass.run('1st Grade', '9:00 AM', 'Room 101');
+  insertCcdClass.run('2nd Grade', '10:30 AM', 'Room 102');
+}
+
+if (faithFormationEventCount === 0) {
+  const insertEvent = db.prepare(
+    'INSERT INTO faith_formation_events (title, audience, event_date, event_time, location) VALUES (?, ?, ?, ?, ?)'
+  );
+  insertEvent.run('Parent Orientation', 'general', '2026-04-05', '18:30', 'Parish Center');
+  insertEvent.run('OCIA Welcome Session', 'ocia', '2026-04-14', '19:00', 'Conference Room');
+}
+
+if (faithFormationEventDefinitionCount === 0) {
+  const legacyEvents = db.prepare(
+    'SELECT title, audience, event_date, event_time, location FROM faith_formation_events ORDER BY created_at ASC, id ASC'
+  ).all();
+  const insertDefinition = db.prepare(
+    'INSERT INTO faith_formation_event_definitions (title, audience) VALUES (?, ?)'
+  );
+  const insertSchedule = db.prepare(
+    'INSERT INTO faith_formation_event_schedules (event_definition_id, schedule_type, recurrence_pattern, event_date, event_time, event_end_time, location) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  );
+
+  legacyEvents.forEach((eventItem) => {
+    const definition = insertDefinition.run(eventItem.title, eventItem.audience);
+    insertSchedule.run(definition.lastInsertRowid, 'one_time', null, eventItem.event_date || null, eventItem.event_time || null, null, eventItem.location || null);
+  });
+}
+
 if (userCount === 0) {
   // Insert sample users
   const insertUser = db.prepare('INSERT INTO users (email, password_hash, full_name, role) VALUES (?, ?, ?, ?)');
@@ -138,17 +221,17 @@ if (userCount === 0) {
       student_age, ccd_grade_level, status
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
-  insertStudent.run(user1Id, '2025-2026', 'John Doe', '123-456-7890', 'user1@example.com', 'Father', '123 Main St', 'Anytown, CA 12345', 'Johnny Doe', 'Male', 10, '4th Grade', 'application');
+  insertStudent.run(user1Id, '2025-2026', 'John Doe', '123-456-7890', 'user1@example.com', 'Father', '123 Main St', 'Anytown, CA 12345', 'Johnny Doe', 'Male', 10, '4th Grade', 'in_progress');
   insertStudent.run(user2Id, '2025-2026', 'Jane Smith', '987-654-3210', 'user2@example.com', 'Mother', '456 Oak Ave', 'Somewhere, NY 67890', 'Jenny Smith', 'Female', 8, '2nd Grade', 'conditionally_accepted');
 
   // Insert sample adult registrations
   const insertAdult = db.prepare(`
     INSERT INTO adult_registrations (
-      user_id, program_type, full_name, email, phone, address, city_state_zip, status
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      user_id, program_type, full_name, email, phone, address, city_state_zip, class_date, status
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
-  insertAdult.run(user1Id, 'ocia', 'John Doe', 'user1@example.com', '123-456-7890', '123 Main St', 'Anytown, CA 12345', 'completed');
-  insertAdult.run(user2Id, 'baptism_prep', 'Jane Smith', 'user2@example.com', '987-654-3210', '456 Oak Ave', 'Somewhere, NY 67890', 'application');
+  insertAdult.run(user1Id, 'ocia', 'John Doe', 'user1@example.com', '123-456-7890', '123 Main St', 'Anytown, CA 12345', null, 'completed');
+  insertAdult.run(user2Id, 'baptism_prep', 'Jane Smith', 'user2@example.com', '987-654-3210', '456 Oak Ave', 'Somewhere, NY 67890', '2026-04-12', 'in_progress');
 }
 
 module.exports = db;
