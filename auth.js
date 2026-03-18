@@ -11,7 +11,6 @@ passport.use(
     if (!user || !user.password_hash) {
       return done(null, false, { message: 'Invalid email or password.' });
     }
-
     const matches = bcrypt.compareSync(password, user.password_hash);
     if (!matches) {
       return done(null, false, { message: 'Invalid email or password.' });
@@ -30,10 +29,7 @@ const upsertOAuthUser = (provider, profile, done) => {
   const existing = db
     .prepare('SELECT * FROM users WHERE provider = ? AND provider_id = ?')
     .get(provider, providerId);
-
-  if (existing) {
-    return done(null, existing);
-  }
+  if (existing) return done(null, existing);
 
   const linkedByEmail = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
   if (linkedByEmail) {
@@ -42,7 +38,8 @@ const upsertOAuthUser = (provider, profile, done) => {
     return done(null, updated);
   }
 
-  const role = email === process.env.ADMIN_EMAIL?.toLowerCase() ? 'admin' : 'parent';
+  // New OAuth users default to 'user' role
+  const role = email === process.env.ADMIN_EMAIL?.toLowerCase() ? 'admin' : 'user';
   const fullName = profile.displayName || '';
   const result = db
     .prepare('INSERT INTO users (email, role, provider, provider_id, full_name) VALUES (?, ?, ?, ?, ?)')

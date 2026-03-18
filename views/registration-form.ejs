@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Child Registration &mdash; St. Matthew CCD</title>
+  <title><%= t('registration_form_title') %> &mdash; <%= t('app_title') %></title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,400&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
@@ -23,9 +23,12 @@
   </div>
 
   <div class="page-card">
+    <% if (error && error.length) { %><div class="alert alert-danger mb-3"><%= error[0] %></div><% } %>
+    <% if (success && success.length) { %><div class="alert alert-success mb-3"><%= success[0] %></div><% } %>
     <div class="card-body p-4">
-      <form method="post" action="/registration" enctype="multipart/form-data" class="row g-3">
+      <form method="post" action="/registration/children" enctype="multipart/form-data" class="row g-3">
         <input type="hidden" name="school_year" value="2025-2026">
+        <input type="hidden" name="registration_id" value="<%= reg ? reg.id : '' %>">
 
         <!-- Registration date -->
         <div class="col-12">
@@ -34,17 +37,27 @@
           </div>
         </div>
 
-        <!-- Primary contact -->
+        <!-- Primary contact and address -->
         <fieldset class="col-12">
-          <legend><%= t('primary_parent_contact') %></legend>
+          <legend><%= t('primary_parent_contact') %> & <%= t('address_information') %></legend>
           <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label"><%= t('first_name') %></label>
+              <input class="form-control" type="text" name="primary_contact_first_name" value="<%= reg ? reg.primary_contact_first_name : '' %>" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label"><%= t('last_name') %></label>
+              <input class="form-control" type="text" name="primary_contact_last_name" value="<%= reg ? reg.primary_contact_last_name : '' %>" required>
+            </div>
             <div class="col-md-4">
               <label class="form-label"><%= t('primary_contact_phone') %></label>
-              <input class="form-control" type="text" name="primary_contact_phone" required>
+              <input class="form-control" type="tel" name="primary_contact_phone" pattern="[0-9]{3}[.\- ]?[0-9]{3}[.\- ]?[0-9]{4}" title="Format: 123-456-7890 or 123.456.7890 or 123 456 7890" required>
+              <div class="invalid-feedback">Please enter a valid phone number (XXX-XXX-XXXX format).</div>
             </div>
             <div class="col-md-4">
               <label class="form-label"><%= t('primary_contact_email') %></label>
               <input class="form-control" type="email" name="primary_contact_email" required>
+              <div class="invalid-feedback">Please enter a valid email address.</div>
             </div>
             <div class="col-md-4">
               <label class="form-label"><%= t('relationship') %></label>
@@ -63,16 +76,24 @@
               <input class="form-control" type="text" name="primary_contact_relationship_other" id="primary_contact_relationship_other">
             </div>
             <div class="col-md-6">
-              <label class="form-label"><%= t('address') %></label>
-              <input class="form-control" type="text" name="address">
-            </div>
-            <div class="col-md-6">
-              <label class="form-label"><%= t('city_state_zip') %></label>
-              <input class="form-control" type="text" name="city_state_zip">
-            </div>
-            <div class="col-md-6">
               <label class="form-label"><%= t('primary_contact_religion') %></label>
-              <input class="form-control" type="text" name="primary_contact_religion">
+              <input class="form-control" type="text" name="primary_contact_religion" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label"><%= t('address') %></label>
+              <input class="form-control" type="text" name="address" value="<%= reg ? reg.address : '' %>">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label"><%= t('city') %></label>
+              <input class="form-control" type="text" name="city" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label"><%= t('state') %></label>
+              <input class="form-control" type="text" name="state" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label"><%= t('zip') %></label>
+              <input class="form-control" type="text" name="zip" required>
             </div>
           </div>
         </fieldset>
@@ -90,7 +111,7 @@
             </div>
             <div class="col-md-4">
               <label class="form-label"><%= t('father_cell') %></label>
-              <input class="form-control" type="text" name="father_cell">
+              <input class="form-control" type="tel" name="father_cell" pattern="[0-9]{3}[-. ]?[0-9]{3}[-. ]?[0-9]{4}" title="Format: 123-456-7890 or 123.456.7890 or 123 456 7890">
             </div>
           </div>
         </div>
@@ -108,7 +129,7 @@
             </div>
             <div class="col-md-4">
               <label class="form-label"><%= t('mother_cell') %></label>
-              <input class="form-control" type="text" name="mother_cell">
+              <input class="form-control" type="tel" name="mother_cell" pattern="[0-9]{3}[-. ]?[0-9]{3}[-. ]?[0-9]{4}" title="Format: 123-456-7890 or 123.456.7890 or 123 456 7890">
             </div>
           </div>
         </div>
@@ -143,7 +164,7 @@
         <div id="children-container" class="col-12">
           <fieldset class="child-block border rounded p-3 mb-3">
             <legend class="d-flex justify-content-between align-items-center">
-              <span>Student Information</span>
+              <span><%= t('student_info') %></span>
               <button type="button" class="btn btn-sm btn-outline-danger remove-child-btn d-none">Remove</button>
             </legend>
             <div class="row g-3">
@@ -151,29 +172,24 @@
                 <label class="form-label"><%= t('student_full_name') %></label>
                 <input class="form-control" type="text" name="student_full_name[]" required>
               </div>
-              <div class="col-md-2">
+              <div class="col-md-3">
                 <label class="form-label"><%= t('gender') %></label>
-                <select class="form-select" name="student_gender[]">
-                  <option><%= t('male') %></option>
-                  <option><%= t('female') %></option>
+                <select class="form-select" name="student_gender[]" required>
+                  <option value="" disabled selected><%= t('select_placeholder') %></option>
+                  <option value="male"><%= t('male') %></option>
+                  <option value="female"><%= t('female') %></option>
                 </select>
+                <div class="invalid-feedback"><%= t('required_field') %></div>
               </div>
-              <div class="col-md-2">
-                <label class="form-label"><%= t('age') %></label>
-                <input class="form-control" type="number" name="student_age[]" min="1" max="25">
-              </div>
-              <div class="col-md-2">
+              <div class="col-md-3">
                 <label class="form-label"><%= t('dob') %></label>
-                <input class="form-control" type="date" name="student_dob[]">
+                <input class="form-control" type="date" name="student_dob[]" required>
+                <div class="invalid-feedback"><%= t('required_field') %></div>
               </div>
 
               <div class="col-md-6">
                 <label class="form-label"><%= t('place_of_birth') %></label>
                 <input class="form-control" type="text" name="child_place_of_birth[]">
-              </div>
-              <div class="col-md-3">
-                <label class="form-label"><%= t('ccd_grade_level') %></label>
-                <input class="form-control" type="text" name="ccd_grade_level[]">
               </div>
               <div class="col-md-3">
                 <label class="form-label"><%= t('school_grade_level') %></label>
@@ -184,38 +200,38 @@
                 <input class="form-control" type="text" name="school_attending[]">
               </div>
             </div>
+
+            <!-- Sacramental records -->
+            <fieldset class="mt-3">
+              <legend><%= t('sacramental_records') %></legend>
+              <div class="row g-3">
+                <div class="col-md-3">
+                  <label class="form-label"><%= t('baptism_date') %></label>
+                  <input class="form-control" type="date" name="baptism_date[]">
+                </div>
+                <div class="col-md-9">
+                  <label class="form-label"><%= t('baptism_church') %></label>
+                  <input class="form-control" type="text" name="baptism_church[]">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label"><%= t('first_communion_date') %></label>
+                  <input class="form-control" type="date" name="first_communion_date[]">
+                </div>
+                <div class="col-md-9">
+                  <label class="form-label"><%= t('first_communion_church') %></label>
+                  <input class="form-control" type="text" name="first_communion_church[]">
+                </div>
+              </div>
+            </fieldset>
+
+            <!-- Comments -->
+            <div class="mt-3">
+              <label class="form-label"><%= t('comments') %></label>
+              <textarea class="form-control" rows="3" name="disabilities_comments[]"></textarea>
+            </div>
           </fieldset>
 
           <button type="button" id="add-child" class="btn btn-sm btn-outline-primary">Add another child</button>
-        </div>
-
-        <!-- Sacramental records -->
-        <fieldset class="col-12">
-          <legend>Sacramental Records</legend>
-          <div class="row g-3">
-            <div class="col-md-3">
-              <label class="form-label"><%= t('baptism_date') %></label>
-              <input class="form-control" type="date" name="baptism_date">
-            </div>
-            <div class="col-md-9">
-              <label class="form-label"><%= t('baptism_church') %></label>
-              <input class="form-control" type="text" name="baptism_church">
-            </div>
-            <div class="col-md-3">
-              <label class="form-label"><%= t('first_communion_date') %></label>
-              <input class="form-control" type="date" name="first_communion_date">
-            </div>
-            <div class="col-md-9">
-              <label class="form-label"><%= t('first_communion_church') %></label>
-              <input class="form-control" type="text" name="first_communion_church">
-            </div>
-          </div>
-        </fieldset>
-
-        <!-- Comments -->
-        <div class="col-12">
-          <label class="form-label"><%= t('comments') %></label>
-          <textarea class="form-control" rows="3" name="disabilities_comments"></textarea>
         </div>
 
         <!-- Misc -->
@@ -235,7 +251,7 @@
         <!-- Certificate uploads -->
         <div class="col-12">
           <hr class="section-rule">
-          <h3 class="h6 mb-3" style="font-family:'Cormorant Garamond',serif;font-size:1.1rem;color:var(--forest)"><%= t('upload_scans') %></h3>
+          <h3 class="h6 mb-3" style="font-family:'Playfair Display',Georgia,serif;font-size:1.1rem;color:var(--forest)"><%= t('upload_scans') %></h3>
           <div class="row g-3">
             <div class="col-md-6">
               <label class="form-label"><%= t('baptism_required') %></label>
@@ -257,6 +273,7 @@
 
         <!-- Submit -->
         <div class="col-12 d-flex gap-2">
+          <button class="btn btn-secondary" type="button" id="save-draft"><%= t('save_draft') %></button>
           <button class="btn btn-primary" type="submit"><%= t('submit_registration') %></button>
           <a class="btn btn-outline-secondary" href="/dashboard"><%= t('cancel') %></a>
         </div>
@@ -339,6 +356,165 @@
     select.addEventListener('change', update);
     update();
     updateRemoveButtons();
+  }());
+
+  // Save draft functionality
+  (function () {
+    const form = document.querySelector('form');
+    const saveBtn = document.getElementById('save-draft');
+
+    function saveFormData() {
+      const formData = new FormData(form);
+      const data = {};
+      for (let [key, value] of formData.entries()) {
+        if (data[key]) {
+          if (Array.isArray(data[key])) {
+            data[key].push(value);
+          } else {
+            data[key] = [data[key], value];
+          }
+        } else {
+          data[key] = value;
+        }
+      }
+      localStorage.setItem('registration-draft', JSON.stringify(data));
+      alert('Draft saved!');
+    }
+
+    function loadFormData() {
+      const data = localStorage.getItem('registration-draft');
+      if (data) {
+        const parsed = JSON.parse(data);
+        for (let key in parsed) {
+          const elements = form.querySelectorAll(`[name="${key}"]`);
+          if (elements.length > 1) {
+            // Array inputs
+            parsed[key].forEach((value, index) => {
+              if (elements[index]) {
+                if (elements[index].type === 'file') return; // Skip file inputs
+                if (elements[index].type === 'checkbox' || elements[index].type === 'radio') {
+                  elements[index].checked = value;
+                } else {
+                  elements[index].value = value;
+                }
+              }
+            });
+          } else if (elements[0]) {
+            if (elements[0].type === 'file') continue; // Skip file inputs
+            if (elements[0].type === 'checkbox' || elements[0].type === 'radio') {
+              elements[0].checked = parsed[key];
+            } else {
+              elements[0].value = parsed[key];
+            }
+          }
+        }
+        // Trigger updates
+        const select = document.getElementById('primary_contact_relationship');
+        const event = new Event('change');
+        select.dispatchEvent(event);
+      }
+    }
+
+    saveBtn.addEventListener('click', saveFormData);
+    loadFormData();
+
+    // Enable submit only if required fields are filled and valid
+    const submitBtn = document.querySelector('button[type="submit"]');
+    const validationForm = document.querySelector('form');
+    const emailInput = validationForm.querySelector('[name="primary_contact_email"]');
+    const phoneInput = validationForm.querySelector('[name="primary_contact_phone"]');
+    function checkRequired() {
+      const email = emailInput.value.trim();
+      const phone = phoneInput.value.trim();
+      const studentNames = validationForm.querySelectorAll('[name="student_full_name[]"]');
+      const studentGenders = validationForm.querySelectorAll('[name="student_gender[]"]');
+      const studentDobs = validationForm.querySelectorAll('[name="student_dob[]"]');
+
+      const hasStudent = Array.from(studentNames).some(input => input.value.trim() !== '');
+
+      // Ensure that if a student name is entered, gender + DOB are filled
+      let studentsValid = true;
+      studentNames.forEach((input, idx) => {
+        const name = input.value.trim();
+        const genderEl = studentGenders[idx];
+        const dobEl = studentDobs[idx];
+        const gender = genderEl?.value || '';
+        const dob = dobEl?.value || '';
+
+        // reset visual state for these fields
+        if (genderEl) {
+          genderEl.classList.remove('is-invalid', 'is-valid');
+        }
+        if (dobEl) {
+          dobEl.classList.remove('is-invalid', 'is-valid');
+        }
+
+        if (!name) return; // skip empty rows
+
+        const rowValid = Boolean(gender.trim() && dob.trim());
+        if (!rowValid) studentsValid = false;
+
+        if (genderEl) {
+          genderEl.classList.toggle('is-invalid', !Boolean(gender.trim()));
+          genderEl.classList.toggle('is-valid', Boolean(gender.trim()));
+        }
+        if (dobEl) {
+          dobEl.classList.toggle('is-invalid', !Boolean(dob.trim()));
+          dobEl.classList.toggle('is-valid', Boolean(dob.trim()));
+        }
+      });
+
+      // Email validation (HTML5 + regex)
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const emailValid = emailInput.checkValidity() && emailRegex.test(email);
+
+      // Phone validation (HTML5 + regex)
+      const phoneRegex = /^\d{3}[-.\s]?\d{3}[-.\s]?\d{4}$/;
+      const phoneValid = phoneInput.checkValidity() && phoneRegex.test(phone);
+
+      // Visual feedback: ensure we don't leave stale valid/invalid classes
+      emailInput.classList.remove('is-invalid', 'is-valid');
+      phoneInput.classList.remove('is-invalid', 'is-valid');
+
+      if (email) {
+        emailInput.classList.toggle('is-invalid', !emailValid);
+        emailInput.classList.toggle('is-valid', emailValid);
+      }
+      if (phone) {
+        phoneInput.classList.toggle('is-invalid', !phoneValid);
+        phoneInput.classList.toggle('is-valid', phoneValid);
+      }
+
+      const contactValid = emailValid && phoneValid;
+      submitBtn.disabled = !(contactValid && hasStudent && studentsValid);
+    }
+    validationForm.addEventListener('input', checkRequired);
+    validationForm.addEventListener('change', checkRequired);
+    validationForm.addEventListener('submit', (e) => {
+      const email = emailInput.value.trim();
+      const phone = phoneInput.value.trim();
+      const studentNames = validationForm.querySelectorAll('[name="student_full_name[]"]');
+      const studentGenders = validationForm.querySelectorAll('[name="student_gender[]"]');
+      const studentDobs = validationForm.querySelectorAll('[name="student_dob[]"]');
+      const hasStudent = Array.from(studentNames).some(input => input.value.trim() !== '');
+      const studentsValid = Array.from(studentNames).every((input, idx) => {
+        const name = input.value.trim();
+        if (!name) return true;
+        const gender = studentGenders[idx]?.value || '';
+        const dob = studentDobs[idx]?.value || '';
+        return Boolean(gender.trim() && dob.trim());
+      });
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const phoneRegex = /^\d{3}[-.\s]?\d{3}[-.\s]?\d{4}$/;
+      const emailValid = emailInput.checkValidity() && emailRegex.test(email);
+      const phoneValid = phoneInput.checkValidity() && phoneRegex.test(phone);
+      const contactValid = emailValid && phoneValid;
+      if (!contactValid || !hasStudent || !studentsValid) {
+        e.preventDefault();
+        alert('Please correct the validation errors before submitting.');
+      }
+    });
+    checkRequired(); // Initial check
   }());
 </script>
 </body>

@@ -8,7 +8,7 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     email TEXT UNIQUE NOT NULL,
     password_hash TEXT,
-    role TEXT NOT NULL DEFAULT 'parent',
+    role TEXT NOT NULL DEFAULT 'user',
     provider TEXT NOT NULL DEFAULT 'local',
     provider_id TEXT,
     full_name TEXT,
@@ -56,6 +56,7 @@ db.exec(`
     late_fee INTEGER,
     baptism_certificate_path TEXT,
     first_communion_certificate_path TEXT,
+    status TEXT DEFAULT 'application',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
   );
@@ -63,11 +64,19 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS adult_registrations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
+    program_type TEXT NOT NULL,
     full_name TEXT NOT NULL,
     email TEXT,
     phone TEXT,
-    event_type TEXT,
+    address TEXT,
+    city_state_zip TEXT,
+    dob TEXT,
+    baptized TEXT,
+    baptism_church TEXT,
+    spouse_name TEXT,
+    godparent_for TEXT,
     comments TEXT,
+    status TEXT DEFAULT 'application',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
   );
@@ -84,9 +93,62 @@ const ensureColumn = (table, column, definition) => {
   }
 };
 
+// student_registrations columns
 ensureColumn('student_registrations', 'primary_contact_phone', 'TEXT');
 ensureColumn('student_registrations', 'primary_contact_email', 'TEXT');
 ensureColumn('student_registrations', 'primary_contact_relationship', 'TEXT');
 ensureColumn('student_registrations', 'primary_contact_relationship_other', 'TEXT');
+ensureColumn('student_registrations', 'primary_contact_first_name', 'TEXT');
+ensureColumn('student_registrations', 'primary_contact_last_name', 'TEXT');
+ensureColumn('student_registrations', 'status', "TEXT DEFAULT 'application'");
+
+// adult_registrations — new unified schema columns
+ensureColumn('adult_registrations', 'program_type', "TEXT NOT NULL DEFAULT 'ocia'");
+ensureColumn('adult_registrations', 'address', 'TEXT');
+ensureColumn('adult_registrations', 'city_state_zip', 'TEXT');
+ensureColumn('adult_registrations', 'dob', 'TEXT');
+ensureColumn('adult_registrations', 'baptized', 'TEXT');
+ensureColumn('adult_registrations', 'baptism_church', 'TEXT');
+ensureColumn('adult_registrations', 'spouse_name', 'TEXT');
+ensureColumn('adult_registrations', 'godparent_for', 'TEXT');
+ensureColumn('adult_registrations', 'status', "TEXT DEFAULT 'application'");
+
+// Migrate any existing 'parent' roles to 'user'
+db.prepare("UPDATE users SET role = 'user' WHERE role = 'parent'").run();
+
+// Seed sample data if tables are empty
+const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
+if (userCount === 0) {
+  // Insert sample users
+  const insertUser = db.prepare('INSERT INTO users (email, password_hash, full_name, role) VALUES (?, ?, ?, ?)');
+  insertUser.run('admin@example.com', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Admin User', 'admin');
+  insertUser.run('user1@example.com', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'John Doe', 'user');
+  insertUser.run('user2@example.com', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Jane Smith', 'user');
+
+  // Get user IDs
+  const adminId = db.prepare('SELECT id FROM users WHERE email = ?').get('admin@example.com').id;
+  const user1Id = db.prepare('SELECT id FROM users WHERE email = ?').get('user1@example.com').id;
+  const user2Id = db.prepare('SELECT id FROM users WHERE email = ?').get('user2@example.com').id;
+
+  // Insert sample student registrations
+  const insertStudent = db.prepare(`
+    INSERT INTO student_registrations (
+      user_id, school_year, parent_name, primary_contact_phone, primary_contact_email,
+      primary_contact_relationship, address, city_state_zip, student_full_name, student_gender,
+      student_age, ccd_grade_level, status
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  insertStudent.run(user1Id, '2025-2026', 'John Doe', '123-456-7890', 'user1@example.com', 'Father', '123 Main St', 'Anytown, CA 12345', 'Johnny Doe', 'Male', 10, '4th Grade', 'application');
+  insertStudent.run(user2Id, '2025-2026', 'Jane Smith', '987-654-3210', 'user2@example.com', 'Mother', '456 Oak Ave', 'Somewhere, NY 67890', 'Jenny Smith', 'Female', 8, '2nd Grade', 'conditionally_accepted');
+
+  // Insert sample adult registrations
+  const insertAdult = db.prepare(`
+    INSERT INTO adult_registrations (
+      user_id, program_type, full_name, email, phone, address, city_state_zip, status
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  insertAdult.run(user1Id, 'ocia', 'John Doe', 'user1@example.com', '123-456-7890', '123 Main St', 'Anytown, CA 12345', 'completed');
+  insertAdult.run(user2Id, 'baptism_prep', 'Jane Smith', 'user2@example.com', '987-654-3210', '456 Oak Ave', 'Somewhere, NY 67890', 'application');
+}
 
 module.exports = db;

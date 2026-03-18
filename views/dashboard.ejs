@@ -3,31 +3,73 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dashboard &mdash; St. Matthew CCD</title>
+  <title><%= t('dashboard') %> &mdash; <%= t('app_title') %></title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
+  <style>
+    .program-card {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--white);
+      padding: 1.4rem 1.25rem 1.25rem;
+      text-decoration: none;
+      display: block;
+      transition: box-shadow 0.18s, transform 0.18s, border-color 0.18s;
+      height: 100%;
+    }
+    .program-card:hover {
+      box-shadow: 0 6px 24px var(--shadow-md);
+      transform: translateY(-2px);
+      border-color: var(--blue-sky);
+      text-decoration: none;
+    }
+    .program-card .prog-icon {
+      width: 42px; height: 42px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem;
+      margin-bottom: 0.85rem;
+    }
+    .program-card .prog-title {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 1.05rem; font-weight: 600;
+      color: var(--navy); margin-bottom: 0.15rem;
+    }
+    .program-card .prog-subtitle {
+      font-size: 0.75rem; color: var(--blue-sky);
+      font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.05em; margin-bottom: 0.5rem;
+    }
+    .program-card .prog-desc {
+      font-size: 0.82rem; color: var(--muted); line-height: 1.5; margin: 0;
+    }
+    .prog-children .prog-icon { background: rgba(26,39,68,0.08); color: var(--navy); }
+    .prog-ocia     .prog-icon { background: rgba(26,39,68,0.08); color: var(--navy); }
+    .prog-baptism  .prog-icon { background: rgba(74,127,193,0.12); color: var(--blue-sky); }
+    .prog-confirm  .prog-icon { background: rgba(200,146,42,0.12); color: var(--gold); }
+    .section-label {
+      font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.1em; color: var(--muted); margin-bottom: 0.75rem;
+    }
+  </style>
 </head>
 <body>
-
 <%- include('_topbar') %>
-
 <main class="container py-4 app-shell mx-auto">
 
   <% if (success.length) { %><div class="alert alert-success mb-3"><%= success[0] %></div><% } %>
   <% if (error.length) { %><div class="alert alert-danger mb-3"><%= error[0] %></div><% } %>
 
-  <!-- Page heading -->
   <div class="page-heading d-flex flex-wrap justify-content-between align-items-end gap-2">
     <div>
       <h1><%= t('dashboard') %></h1>
-      <p class="sub mb-0"><%= t('signed_in_as') %> <strong><%= user.email %></strong>
+      <p class="sub mb-0">
+        <%= t('signed_in_as') %> <strong><%= user.email %></strong>
         &ensp;<span class="badge badge-role badge-<%= user.role %>"><%= user.role %></span>
       </p>
     </div>
     <div class="d-flex flex-wrap gap-2">
-      <a class="btn btn-primary" href="/registration/new"><%= t('new_registration') %></a>
-      <a class="btn btn-outline-success" href="/registration/adult"><%= t('register_adult') %></a>
       <% if (user.role === 'admin') { %>
         <a class="btn btn-outline-primary" href="/admin/users"><%= t('manage_users') %></a>
       <% } %>
@@ -35,16 +77,59 @@
     </div>
   </div>
 
-  <!-- Student registrations -->
-  <div class="page-card">
-    <div class="card-header">
-      <h2 class="h5"><%= t('submitted_registrations') %></h2>
-    </div>
-    <div class="card-body p-0">
-      <% if (registrations.length === 0) { %>
-        <div class="p-4 text-center" style="color:var(--muted);font-size:.92rem">
-          <em>No registrations yet. Use the button above to register a child.</em>
+  <!-- Registration Menu -->
+  <div class="page-card mb-4">
+    <div class="card-header"><h2 class="h5"><%= t('new_registration_heading') %></h2></div>
+    <div class="card-body">
+
+      <p class="section-label"><%= t('childrens_programs') %></p>
+      <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-lg-4">
+          <a href="/registration/children" class="program-card prog-children">
+            <div class="prog-icon">🎓</div>
+            <div class="prog-title"><%= t('prog_children_title') %></div>
+            <div class="prog-subtitle"><%= t('prog_children_subtitle') %></div>
+            <p class="prog-desc"><%= t('prog_children_desc') %></p>
+          </a>
         </div>
+      </div>
+
+      <p class="section-label"><%= t('adult_programs') %></p>
+      <div class="row g-3">
+        <div class="col-sm-6 col-lg-4">
+          <a href="/registration/adult/ocia" class="program-card prog-ocia">
+            <div class="prog-icon"><%= ADULT_PROGRAMS.ocia.icon %></div>
+            <div class="prog-title"><%= ADULT_PROGRAMS.ocia.title %></div>
+            <div class="prog-subtitle"><%= ADULT_PROGRAMS.ocia.subtitle %></div>
+            <p class="prog-desc"><%= ADULT_PROGRAMS.ocia.description %></p>
+          </a>
+        </div>
+        <div class="col-sm-6 col-lg-4">
+          <a href="/registration/adult/baptism_prep" class="program-card prog-baptism">
+            <div class="prog-icon"><%= ADULT_PROGRAMS.baptism_prep.icon %></div>
+            <div class="prog-title"><%= ADULT_PROGRAMS.baptism_prep.title %></div>
+            <div class="prog-subtitle"><%= ADULT_PROGRAMS.baptism_prep.subtitle %></div>
+            <p class="prog-desc"><%= ADULT_PROGRAMS.baptism_prep.description %></p>
+          </a>
+        </div>
+        <div class="col-sm-6 col-lg-4">
+          <a href="/registration/adult/adult_confirmation" class="program-card prog-confirm">
+            <div class="prog-icon"><%= ADULT_PROGRAMS.adult_confirmation.icon %></div>
+            <div class="prog-title"><%= ADULT_PROGRAMS.adult_confirmation.title %></div>
+            <div class="prog-subtitle"><%= ADULT_PROGRAMS.adult_confirmation.subtitle %></div>
+            <p class="prog-desc"><%= ADULT_PROGRAMS.adult_confirmation.description %></p>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Children Registrations -->
+  <div class="page-card mb-4">
+    <div class="card-header"><h2 class="h5"><%= t('faith_formation_children') %></h2></div>
+    <div class="card-body p-0">
+      <% if (!studentRegs || studentRegs.length === 0) { %>
+        <div class="p-4 text-center" style="color:var(--muted);font-size:.9rem"><em><%= t('no_children_regs') %></em></div>
       <% } else { %>
       <div class="table-responsive">
         <table class="table mb-0">
@@ -55,20 +140,30 @@
               <th><%= t('primary_contact') %></th>
               <th><%= t('total_fees') %></th>
               <th><%= t('certificates') %></th>
+              <th><%= t('status') %></th>
+              <th><%= t('actions') %></th>
             </tr>
           </thead>
           <tbody>
-          <% registrations.forEach(r => { %>
+          <% studentRegs.forEach(r => { %>
             <tr>
               <td style="font-weight:600"><%= r.student_full_name %></td>
               <td><%= r.ccd_grade_level || '&mdash;' %></td>
               <td style="font-size:.85rem"><%= r.parent_name || r.primary_contact_email || '&mdash;' %></td>
-              <td><strong>$<%= r.registration_fee + r.sacramental_fee + r.late_fee %></strong></td>
+              <td><strong>$<%= (r.registration_fee||0)+(r.sacramental_fee||0)+(r.late_fee||0) %></strong></td>
               <td style="font-size:.85rem">
                 <% if (r.baptism_certificate_path) { %><a href="/<%= r.baptism_certificate_path %>"><%= t('baptism') %></a><% } %>
                 <% if (r.baptism_certificate_path && r.first_communion_certificate_path) { %> &middot; <% } %>
                 <% if (r.first_communion_certificate_path) { %><a href="/<%= r.first_communion_certificate_path %>"><%= t('communion') %></a><% } %>
                 <% if (!r.baptism_certificate_path && !r.first_communion_certificate_path) { %><span style="color:var(--muted)">&mdash;</span><% } %>
+              </td>
+              <td>
+                <span class="badge" style="background:var(--surface);color:var(--navy-soft);font-size:.7rem;border-radius:2rem;padding:.3em .8em;font-weight:700;border:1px solid var(--border)">
+                  <%= t(r.status) %>
+                </span>
+              </td>
+              <td>
+                <a href="/registration/children/edit/<%= r.id %>" class="btn btn-sm btn-outline-primary"><%= t('edit') %></a>
               </td>
             </tr>
           <% }) %>
@@ -79,33 +174,55 @@
     </div>
   </div>
 
-  <!-- Adult registrations -->
-  <% if (adultRegistrations && adultRegistrations.length) { %>
-  <div class="page-card mt-4">
-    <div class="card-header">
-      <h2 class="h5">Adult Faith Formation / OCIA Registrations</h2>
-    </div>
+  <!-- Adult Registrations -->
+  <div class="page-card">
+    <div class="card-header"><h2 class="h5"><%= t('adult_program_regs') %></h2></div>
     <div class="card-body p-0">
+      <% if (!adultRegs || adultRegs.length === 0) { %>
+        <div class="p-4 text-center" style="color:var(--muted);font-size:.9rem"><em><%= t('no_adult_regs') %></em></div>
+      <% } else { %>
       <div class="table-responsive">
         <table class="table mb-0">
           <thead>
-            <tr><th>Name</th><th>Email</th><th>Phone</th><th>Event Type</th></tr>
+            <tr>
+              <th><%= t('name_col') %></th>
+              <th><%= t('program_col') %></th>
+              <th><%= t('email') %></th>
+              <th><%= t('phone') %></th>
+              <th><%= t('date_col') %></th>
+              <th><%= t('status') %></th>
+              <th><%= t('actions') %></th>
+            </tr>
           </thead>
           <tbody>
-          <% adultRegistrations.forEach(r => { %>
+          <% adultRegs.forEach(r => { %>
+            <% const prog = ADULT_PROGRAMS[r.program_type] || { title: r.program_type }; %>
             <tr>
               <td style="font-weight:600"><%= r.full_name %></td>
+              <td>
+                <span class="badge" style="background:var(--surface);color:var(--navy-soft);font-size:.7rem;border-radius:2rem;padding:.3em .8em;font-weight:700;border:1px solid var(--border)">
+                  <%= prog.title %>
+                </span>
+              </td>
               <td style="font-size:.85rem"><%= r.email || '&mdash;' %></td>
               <td style="font-size:.85rem"><%= r.phone || '&mdash;' %></td>
-              <td><span class="badge" style="background:var(--forest);color:#fff;font-size:.7rem;border-radius:2rem;padding:.3em .8em"><%= r.event_type %></span></td>
+              <td style="font-size:.8rem;color:var(--muted)"><%= r.created_at ? r.created_at.slice(0,10) : '' %></td>
+              <td>
+                <span class="badge" style="background:var(--surface);color:var(--navy-soft);font-size:.7rem;border-radius:2rem;padding:.3em .8em;font-weight:700;border:1px solid var(--border)">
+                  <%= t(r.status) %>
+                </span>
+              </td>
+              <td>
+                <a href="/registration/adult/edit/<%= r.program_type %>/<%= r.id %>" class="btn btn-sm btn-outline-primary"><%= t('edit') %></a>
+              </td>
             </tr>
           <% }) %>
           </tbody>
         </table>
       </div>
+      <% } %>
     </div>
   </div>
-  <% } %>
 
   <p class="footer-note"><%= t('footer_note') %></p>
 </main>
