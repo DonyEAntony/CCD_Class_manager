@@ -191,6 +191,12 @@
                 <label class="form-label"><%= t('place_of_birth') %></label>
                 <input class="form-control" type="text" name="child_place_of_birth[]">
               </div>
+              <% if (isStaff) { %>
+              <div class="col-md-3">
+                <label class="form-label"><%= t('ccd_grade_level') %></label>
+                <input class="form-control" type="text" name="ccd_grade_level[]">
+              </div>
+              <% } %>
               <div class="col-md-3">
                 <label class="form-label"><%= t('school_grade_level') %></label>
                 <input class="form-control" type="text" name="school_grade_level[]">
@@ -235,11 +241,7 @@
         </div>
 
         <!-- Misc -->
-        <div class="col-md-4">
-          <label class="form-label"><%= t('family_count') %></label>
-          <input class="form-control" type="number" name="family_count" value="1" min="1">
-        </div>
-        <div class="col-md-4">
+        <div class="col-md-6">
           <label class="form-label"><%= t('parent_signature') %></label>
           <input class="form-control" type="text" name="parent_signature">
         </div>
