@@ -578,11 +578,14 @@ app.get('/dashboard', requireAuth, (req, res) => {
 // ── Children Faith Formation ─────────────────────────────────
 app.get('/registration/children', requireAuth, (req, res) => {
   const today = new Date().toISOString().slice(0, 10);
-  res.render('registration-form', { today, reg: null, editing: false });
+  res.render('registration-form', { today, reg: null, editing: false, isStaff: false });
 });
 
 const handleChildrenRegistration = (req, res) => {
-    const fees = calculateFees(req.body.family_count, req.body.ccd_grade_level, null);
+    // Calculate family_count from number of students entered
+    const studentNamesForFees = Array.isArray(req.body.student_full_name) ? req.body.student_full_name : (req.body.student_full_name ? [req.body.student_full_name] : []);
+    const familyCount = studentNamesForFees.filter(name => (name || '').trim()).length || 1;
+    const fees = calculateFees(familyCount, req.body.ccd_grade_level, null);
     if (fees.afterStart) {
       req.flash('error', 'Registration closed: no registrations accepted after classes begin on Sept. 8, 2025.');
       return res.redirect('/registration/children');
@@ -619,6 +622,8 @@ const handleChildrenRegistration = (req, res) => {
         return res.redirect(redirectUrl);
       }
     }
+
+    req.body.ccd_grade_level = req.body.ccd_grade_level || [];
 
     const baptismCert = req.files?.baptism_certificate?.[0]?.path || null;
     const communionCert = req.files?.first_communion_certificate?.[0]?.path || null;
@@ -716,7 +721,8 @@ app.post(
 
 // GET /registration/children/edit/:id
 app.get('/registration/children/edit/:id', requireAuth, (req, res) => {
-  const reg = db.prepare('SELECT * FROM student_registrations WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+  const isStaff = req.user.role === 'admin';
+  const reg = db.prepare('SELECT * FROM student_registrations WHERE id = ? AND (user_id = ? OR ? = 1)').get(req.params.id, req.user.id, isStaff ? 1 : 0);
   if (!reg) return res.status(404).send('Registration not found.');
 
   // Parse address back to city, state, zip
@@ -735,7 +741,7 @@ app.get('/registration/children/edit/:id', requireAuth, (req, res) => {
   // For simplicity, assume single child, but since it's array, need to handle multiple
   // But for now, render with the data
   const today = new Date().toISOString().slice(0, 10);
-  res.render('registration-form', { editing: true, reg, today });
+  res.render('registration-form', { editing: true, reg, today, isStaff });
 });
 
 // ── Adult Programs ───────────────────────────────────────────

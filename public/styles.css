@@ -45,7 +45,30 @@ a { color: var(--navy-soft); text-decoration: none; }
 a:hover { color: var(--blue-sky); }
 
 /* ── Layout ────────────────────────────────────────────────── */
-.app-shell { max-width: 1080px; }
+
+/* Default shell: comfortable reading width for forms & content */
+.app-shell {
+  max-width: 1080px;
+  width: 100%;
+}
+
+/* Wide shell: data-heavy pages — dashboard, admin, registration */
+.app-shell-wide {
+  max-width: 1400px;
+  width: 100%;
+}
+
+/* Narrow shell: auth pages — login, signup */
+.app-shell-narrow {
+  max-width: 680px;
+  width: 100%;
+}
+
+/* Fluid shell: use nearly full viewport with comfortable gutters */
+.app-shell-fluid {
+  max-width: min(1600px, calc(100vw - 3rem));
+  width: 100%;
+}
 
 /* ── Top Bar ───────────────────────────────────────────────── */
 .site-topbar {
@@ -398,4 +421,9 @@ legend {
   .hero { padding: 2rem 1.25rem; }
   .hero-cross-accent { display: none; }
   .page-card .card-body { padding: 1.25rem; }
+  /* All shells collapse to full width on mobile */
+  .app-shell,
+  .app-shell-wide,
+  .app-shell-narrow,
+  .app-shell-fluid { max-width: 100%; }
 }
