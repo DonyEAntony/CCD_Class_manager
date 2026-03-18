@@ -1,8 +1,8 @@
 <%# _topbar.ejs - include at top of body %>
 <div class="site-topbar">
-  <span>Saint Matthew Catholic Church &mdash; Faith Formation 2025–2026</span>
+  <span><%= t('app_title') %> &mdash; <%= t('school_year') %></span>
   <div class="lang-toggle">
-    <span style="opacity:.7"><%- t('language') %>:</span>
+    <span style="opacity:.7"><%= t('language') %>:</span>
     <a href="/lang/en" class="btn-lang <%= lang === 'en' ? 'active' : '' %>">EN</a>
     <a href="/lang/es" class="btn-lang <%= lang === 'es' ? 'active' : '' %>">ES</a>
   </div>
