@@ -9,6 +9,15 @@ const resolvedFrom = (() => {
   return `${from} <${smtpUser}>`;
 })();
 
+const smtpLogConfig = {
+  host: process.env.SMTP_HOST || '',
+  port: Number(process.env.SMTP_PORT || 587),
+  secure: process.env.SMTP_SECURE === 'true',
+  hasUser: Boolean(process.env.SMTP_USER),
+  hasPass: Boolean(process.env.SMTP_PASS),
+  from: resolvedFrom,
+};
+
 const createTransporter = () => {
   if (!hasSmtpConfig) return null;
   return nodemailer.createTransport({
@@ -24,13 +33,46 @@ const createTransporter = () => {
   });
 };
 
+const verifyMailConfiguration = async () => {
+  const transporter = createTransporter();
+  if (!transporter) {
+    return {
+      ok: false,
+      reason: 'SMTP config incomplete',
+      config: smtpLogConfig,
+    };
+  }
+
+  await transporter.verify();
+  return {
+    ok: true,
+    config: smtpLogConfig,
+  };
+};
+
 const sendVerificationEmail = async ({ to, verificationUrl, fullName }) => {
   const transporter = createTransporter();
   if (!transporter) {
+    console.warn('[mail] Verification email skipped: SMTP config incomplete', {
+      host: smtpLogConfig.host,
+      port: smtpLogConfig.port,
+      secure: smtpLogConfig.secure,
+      hasUser: smtpLogConfig.hasUser,
+      hasPass: smtpLogConfig.hasPass,
+      from: smtpLogConfig.from,
+    });
     return { delivered: false };
   }
 
-  await transporter.sendMail({
+  console.info('[mail] Sending verification email', {
+    to,
+    host: smtpLogConfig.host,
+    port: smtpLogConfig.port,
+    secure: smtpLogConfig.secure,
+    from: smtpLogConfig.from,
+  });
+
+  const info = await transporter.sendMail({
     from: resolvedFrom,
     to,
     subject: 'Verify your Saint Matthew CCD account',
@@ -50,7 +92,14 @@ const sendVerificationEmail = async ({ to, verificationUrl, fullName }) => {
     `,
   });
 
-  return { delivered: true };
+  console.info('[mail] Verification email accepted by SMTP server', {
+    to,
+    messageId: info.messageId,
+    response: info.response,
+    previewPath: verificationUrl ? '/verify-email?token=[redacted]' : null,
+  });
+
+  return { delivered: true, messageId: info.messageId, response: info.response };
 };
 
-module.exports = { hasSmtpConfig, sendVerificationEmail, resolvedFrom };
+module.exports = { hasSmtpConfig, sendVerificationEmail, resolvedFrom, smtpLogConfig, verifyMailConfiguration };

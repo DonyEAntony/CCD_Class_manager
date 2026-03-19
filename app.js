@@ -8,11 +8,20 @@ const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const passport = require('./auth');
 const db = require('./db');
-const { sendVerificationEmail } = require('./mailer');
+const { sendVerificationEmail, smtpLogConfig, verifyMailConfiguration } = require('./mailer');
 const { requireAuth, requireRole } = require('./middleware');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+console.info('[startup] Mail configuration', {
+  host: smtpLogConfig.host,
+  port: smtpLogConfig.port,
+  secure: smtpLogConfig.secure,
+  hasUser: smtpLogConfig.hasUser,
+  hasPass: smtpLogConfig.hasPass,
+  from: smtpLogConfig.from,
+  appBaseUrl: process.env.APP_BASE_URL || '',
+});
 const STUDENT_REGISTRATION_STATUSES = [
   'in_progress',
   'conditionally_accepted',
@@ -753,12 +762,24 @@ app.post('/signup', async (req, res) => {
   `).run(normalizedEmail, hash, role, 'local', trimmedFullName, verificationTokenHash, verificationExpiresAt);
 
   const verificationUrl = `${getBaseUrl(req)}/verify-email?token=${verificationToken}`;
+  console.info('[signup] Created inactive user pending verification', {
+    email: normalizedEmail,
+    role,
+    baseUrl: getBaseUrl(req),
+  });
 
   try {
     const delivery = await sendVerificationEmail({
       to: normalizedEmail,
       verificationUrl,
       fullName: trimmedFullName,
+    });
+
+    console.info('[signup] Verification email flow completed', {
+      email: normalizedEmail,
+      delivered: delivery.delivered,
+      messageId: delivery.messageId || null,
+      response: delivery.response || null,
     });
 
     return res.render('verify-email-sent', {
@@ -768,6 +789,13 @@ app.post('/signup', async (req, res) => {
         !delivery.delivered && process.env.NODE_ENV !== 'production' ? verificationUrl : null,
     });
   } catch (error) {
+    console.error('[signup] Verification email failed', {
+      email: normalizedEmail,
+      message: error?.message || String(error),
+      code: error?.code || null,
+      response: error?.response || null,
+      responseCode: error?.responseCode || null,
+    });
     db.prepare('DELETE FROM users WHERE email = ? AND is_active = 0').run(normalizedEmail);
     req.flash('error', 'Unable to send verification email. Please try again.');
     return res.redirect('/signup');
@@ -1255,6 +1283,29 @@ app.post('/admin/users/:id/role', requireAuth, requireRole('admin'), (req, res) 
   db.prepare('UPDATE users SET role = ? WHERE id = ?').run(req.body.role, req.params.id);
   req.flash('success', 'User role updated.');
   res.redirect('/admin/users');
+});
+
+app.get('/admin/health/mail', requireAuth, requireRole('admin'), async (req, res) => {
+  try {
+    const result = await verifyMailConfiguration();
+    console.info('[admin] Mail health check completed', result);
+    return res.status(result.ok ? 200 : 500).json({
+      checkedAt: new Date().toISOString(),
+      ...result,
+    });
+  } catch (error) {
+    const failure = {
+      checkedAt: new Date().toISOString(),
+      ok: false,
+      config: smtpLogConfig,
+      message: error?.message || String(error),
+      code: error?.code || null,
+      response: error?.response || null,
+      responseCode: error?.responseCode || null,
+    };
+    console.error('[admin] Mail health check failed', failure);
+    return res.status(500).json(failure);
+  }
 });
 
 app.post('/admin/users/:id/delete', requireAuth, requireRole('admin'), (req, res) => {
