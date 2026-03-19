@@ -16,7 +16,9 @@ test('user must verify email before login and can then exercise the child regist
 
   await page.goto('/signup');
   await page.locator('input[name="email"]').fill(email);
-  await page.locator('input[name="fullName"]').fill('Playwright User');
+  await page.locator('input[name="firstName"]').fill('Playwright');
+  await page.locator('input[name="lastName"]').fill('User');
+  await page.locator('input[name="phone"]').fill('555-111-2222');
   await page.locator('input[name="password"]').fill(password);
   await page.locator('form[action="/signup"] button[type="submit"]').click();
 

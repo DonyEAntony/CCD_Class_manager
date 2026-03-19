@@ -141,6 +141,9 @@ const ensureColumn = (table, column, definition) => {
 };
 
 // student_registrations columns
+ensureColumn('users', 'first_name', 'TEXT');
+ensureColumn('users', 'last_name', 'TEXT');
+ensureColumn('users', 'phone', 'TEXT');
 ensureColumn('student_registrations', 'primary_contact_phone', 'TEXT');
 ensureColumn('student_registrations', 'primary_contact_email', 'TEXT');
 ensureColumn('student_registrations', 'primary_contact_relationship', 'TEXT');

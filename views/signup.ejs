@@ -29,9 +29,17 @@
               <label class="form-label"><%= t('email') %></label>
               <input class="form-control" type="email" name="email" autocomplete="email" required>
             </div>
+            <div class="col-md-6">
+              <label class="form-label"><%= t('first_name') || 'First Name' %></label>
+              <input class="form-control" type="text" name="firstName" autocomplete="given-name" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label"><%= t('last_name') || 'Last Name' %></label>
+              <input class="form-control" type="text" name="lastName" autocomplete="family-name" required>
+            </div>
             <div class="col-12">
-              <label class="form-label"><%= t('full_name') %></label>
-              <input class="form-control" type="text" name="fullName" autocomplete="name" required>
+              <label class="form-label"><%= t('phone') %></label>
+              <input class="form-control" type="tel" name="phone" autocomplete="tel" pattern="[0-9]{3}[.\\- ]?[0-9]{3}[.\\- ]?[0-9]{4}" title="Format: 123-456-7890 or 123.456.7890 or 123 456 7890" required>
             </div>
             <div class="col-12">
               <label class="form-label"><%= t('password') %></label>

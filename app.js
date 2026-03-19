@@ -66,6 +66,8 @@ const translations = {
     save: 'Save',
     create_login: 'Create Account',
     full_name: 'Full Name',
+    first_name: 'First Name',
+    last_name: 'Last Name',
     password: 'Password',
     role_request: 'Role',
     invite_code: 'Invite Code (required for admin/catechist)',
@@ -307,6 +309,8 @@ const translations = {
     save: 'Guardar',
     create_login: 'Crear Cuenta',
     full_name: 'Nombre Completo',
+    first_name: 'Nombre',
+    last_name: 'Apellido',
     password: 'Contraseña',
     role_request: 'Rol',
     invite_code: 'Código de Invitación (requerido para admin/catequista)',
@@ -723,14 +727,22 @@ app.get('/', (req, res) => res.render('index'));
 
 app.get('/signup', (req, res) => res.render('signup'));
 app.post('/signup', async (req, res) => {
-  const { email, password, requestedRole, inviteCode, fullName } = req.body;
-  if (!email || !password || !fullName?.trim()) {
-    req.flash('error', 'Email, full name, and password are required.');
+  const { email, password, requestedRole, inviteCode, firstName, lastName, phone } = req.body;
+  if (!email || !password || !firstName?.trim() || !lastName?.trim() || !phone?.trim()) {
+    req.flash('error', 'Email, first name, last name, phone, and password are required.');
     return res.redirect('/signup');
   }
 
   const normalizedEmail = email.toLowerCase();
-  const trimmedFullName = fullName.trim();
+  const trimmedFirstName = firstName.trim();
+  const trimmedLastName = lastName.trim();
+  const trimmedPhone = phone.trim();
+  const trimmedFullName = `${trimmedFirstName} ${trimmedLastName}`.trim();
+  const phoneRegex = /^\d{3}[-.\s]?\d{3}[-.\s]?\d{4}$/;
+  if (!phoneRegex.test(trimmedPhone)) {
+    req.flash('error', 'Invalid phone format. Use XXX-XXX-XXXX, XXX.XXX.XXXX, or XXX XXX XXXX.');
+    return res.redirect('/signup');
+  }
   const exists = db.prepare('SELECT id FROM users WHERE email = ?').get(normalizedEmail);
   if (exists) {
     req.flash('error', 'Account already exists. Please log in.');
@@ -757,9 +769,20 @@ app.post('/signup', async (req, res) => {
 
   db.prepare(`
     INSERT INTO users (
-      email, password_hash, role, provider, full_name, is_active, email_verification_token, email_verification_expires_at
-    ) VALUES (?, ?, ?, ?, ?, 0, ?, ?)
-  `).run(normalizedEmail, hash, role, 'local', trimmedFullName, verificationTokenHash, verificationExpiresAt);
+      email, password_hash, role, provider, full_name, first_name, last_name, phone, is_active, email_verification_token, email_verification_expires_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
+  `).run(
+    normalizedEmail,
+    hash,
+    role,
+    'local',
+    trimmedFullName,
+    trimmedFirstName,
+    trimmedLastName,
+    trimmedPhone,
+    verificationTokenHash,
+    verificationExpiresAt,
+  );
 
   const verificationUrl = `${getBaseUrl(req)}/verify-email?token=${verificationToken}`;
   console.info('[signup] Created inactive user pending verification', {
