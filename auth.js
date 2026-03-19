@@ -11,6 +11,9 @@ passport.use(
     if (!user || !user.password_hash) {
       return done(null, false, { message: 'Invalid email or password.' });
     }
+    if (!user.is_active) {
+      return done(null, false, { message: 'Please verify your email before logging in.' });
+    }
     const matches = bcrypt.compareSync(password, user.password_hash);
     if (!matches) {
       return done(null, false, { message: 'Invalid email or password.' });
@@ -33,7 +36,13 @@ const upsertOAuthUser = (provider, profile, done) => {
 
   const linkedByEmail = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
   if (linkedByEmail) {
-    db.prepare('UPDATE users SET provider = ?, provider_id = ? WHERE id = ?').run(provider, providerId, linkedByEmail.id);
+    db.prepare(`
+      UPDATE users
+      SET provider = ?, provider_id = ?, is_active = 1,
+          email_verified_at = COALESCE(email_verified_at, CURRENT_TIMESTAMP),
+          email_verification_token = NULL, email_verification_expires_at = NULL
+      WHERE id = ?
+    `).run(provider, providerId, linkedByEmail.id);
     const updated = db.prepare('SELECT * FROM users WHERE id = ?').get(linkedByEmail.id);
     return done(null, updated);
   }
@@ -42,7 +51,10 @@ const upsertOAuthUser = (provider, profile, done) => {
   const role = email === process.env.ADMIN_EMAIL?.toLowerCase() ? 'admin' : 'user';
   const fullName = profile.displayName || '';
   const result = db
-    .prepare('INSERT INTO users (email, role, provider, provider_id, full_name) VALUES (?, ?, ?, ?, ?)')
+    .prepare(`
+      INSERT INTO users (email, role, provider, provider_id, full_name, is_active, email_verified_at)
+      VALUES (?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP)
+    `)
     .run(email, role, provider, providerId, fullName);
 
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(result.lastInsertRowid);

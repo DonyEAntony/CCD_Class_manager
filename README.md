@@ -3,7 +3,7 @@
 Web app for **Saint Matthew Catholic Church Religious Education (School Year 2025-2026)**.
 
 ## Features
-- Email/password sign-up and login.
+- Email/password sign-up and login with email verification before local accounts are activated.
 - Free social login options: **Google OAuth** and **GitHub OAuth**.
 - Role-based access:
   - **Parent**: submit child registration and view own submissions.
@@ -43,6 +43,12 @@ Web app for **Saint Matthew Catholic Church Religious Education (School Year 202
   - `http://localhost:3000/auth/github/callback`
 
 If OAuth variables are blank, email/password authentication still works.
+
+## Email verification
+- New local accounts stay inactive until the verification link is opened.
+- Set `APP_BASE_URL` to the externally reachable app URL used in verification links.
+- Configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, and `EMAIL_FROM` to send real verification emails.
+- Without SMTP configuration, the app shows a development-only activation link after signup so the flow can still be tested locally.
 
 ## Recent registration form updates
 - Registration date is auto-set by the server and shown on the form as read-only context.

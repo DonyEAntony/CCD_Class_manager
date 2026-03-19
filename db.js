@@ -1,6 +1,13 @@
+const fs = require('fs');
+const path = require('path');
 const { DatabaseSync } = require('node:sqlite');
 
-const db = new DatabaseSync('ccd.db');
+const dbPath = process.env.DB_PATH || 'ccd.db';
+const dbDir = path.dirname(dbPath);
+if (dbDir && dbDir !== '.') {
+  fs.mkdirSync(dbDir, { recursive: true });
+}
+const db = new DatabaseSync(dbPath);
 db.exec('PRAGMA journal_mode = WAL');
 
 db.exec(`
@@ -143,6 +150,10 @@ ensureColumn('student_registrations', 'primary_contact_last_name', 'TEXT');
 ensureColumn('student_registrations', 'child_place_of_birth_city', 'TEXT');
 ensureColumn('student_registrations', 'child_place_of_birth_country', 'TEXT');
 ensureColumn('student_registrations', 'status', "TEXT DEFAULT 'in_progress'");
+ensureColumn('users', 'is_active', 'INTEGER NOT NULL DEFAULT 1');
+ensureColumn('users', 'email_verified_at', 'TEXT');
+ensureColumn('users', 'email_verification_token', 'TEXT');
+ensureColumn('users', 'email_verification_expires_at', 'TEXT');
 
 // adult_registrations — new unified schema columns
 ensureColumn('adult_registrations', 'program_type', "TEXT NOT NULL DEFAULT 'ocia'");
