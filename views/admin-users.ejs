@@ -37,7 +37,7 @@
               <th><%= t('email') %></th>
               <th><%= t('role') %></th>
               <th><%= t('provider') %></th>
-              <th><%= t('update_role') %></th>
+              <th><%= t('actions') %></th>
             </tr>
           </thead>
           <tbody>
@@ -47,14 +47,21 @@
                 <td><span class="badge badge-role badge-<%= u.role %>"><%= u.role %></span></td>
                 <td style="font-size:.85rem;color:var(--muted)"><%= u.provider %></td>
                 <td>
-                  <form class="d-flex gap-2" method="post" action="/admin/users/<%= u.id %>/role">
-                    <select class="form-select" name="role" style="max-width:150px">
-                      <option value="user"      <%= u.role==='user'      ?'selected':'' %>>User</option>
-                      <option value="catechist" <%= u.role==='catechist' ?'selected':'' %>>Catechist</option>
-                      <option value="admin"     <%= u.role==='admin'     ?'selected':'' %>>Admin</option>
-                    </select>
-                    <button class="btn btn-primary" type="submit"><%= t('save') %></button>
-                  </form>
+                  <div class="d-flex gap-2 flex-wrap">
+                    <form class="d-flex gap-2" method="post" action="/admin/users/<%= u.id %>/role">
+                      <select class="form-select" name="role" style="max-width:150px">
+                        <option value="user"      <%= u.role==='user'      ?'selected':'' %>>User</option>
+                        <option value="catechist" <%= u.role==='catechist' ?'selected':'' %>>Catechist</option>
+                        <option value="admin"     <%= u.role==='admin'     ?'selected':'' %>>Admin</option>
+                      </select>
+                      <button class="btn btn-primary" type="submit"><%= t('save') %></button>
+                    </form>
+                    <% if (!user || user.id !== u.id) { %>
+                      <form method="post" action="/admin/users/<%= u.id %>/delete" onsubmit="return confirm('Remove this user and all of their registrations?');">
+                        <button class="btn btn-outline-danger" type="submit"><%= t('remove') %></button>
+                      </form>
+                    <% } %>
+                  </div>
                 </td>
               </tr>
             <% }) %>

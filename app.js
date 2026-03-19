@@ -1,5 +1,6 @@
 require('dotenv').config();
 const path = require('path');
+const crypto = require('crypto');
 const express = require('express');
 const session = require('express-session');
 const flash = require('connect-flash');
@@ -7,6 +8,7 @@ const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const passport = require('./auth');
 const db = require('./db');
+const { sendVerificationEmail } = require('./mailer');
 const { requireAuth, requireRole } = require('./middleware');
 
 const app = express();
@@ -703,18 +705,23 @@ const calculateFees = (familyCount, gradeLevel, registrationDateStr) => {
   return { registrationFee, sacramentalFee, lateFee, afterStart: registrationDate >= classesBegin };
 };
 
+const createVerificationToken = () => crypto.randomBytes(32).toString('hex');
+const hashVerificationToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
+const getBaseUrl = (req) => process.env.APP_BASE_URL || `${req.protocol}://${req.get('host')}`;
+
 // ── Public routes ────────────────────────────────────────────
 app.get('/', (req, res) => res.render('index'));
 
 app.get('/signup', (req, res) => res.render('signup'));
-app.post('/signup', (req, res) => {
+app.post('/signup', async (req, res) => {
   const { email, password, requestedRole, inviteCode, fullName } = req.body;
-  if (!email || !password) {
-    req.flash('error', 'Email and password are required.');
+  if (!email || !password || !fullName?.trim()) {
+    req.flash('error', 'Email, full name, and password are required.');
     return res.redirect('/signup');
   }
 
   const normalizedEmail = email.toLowerCase();
+  const trimmedFullName = fullName.trim();
   const exists = db.prepare('SELECT id FROM users WHERE email = ?').get(normalizedEmail);
   if (exists) {
     req.flash('error', 'Account already exists. Please log in.');
@@ -735,11 +742,75 @@ app.post('/signup', (req, res) => {
   }
 
   const hash = bcrypt.hashSync(password, 10);
-  db.prepare(
-    'INSERT INTO users (email, password_hash, role, provider, full_name) VALUES (?, ?, ?, ?, ?)',
-  ).run(normalizedEmail, hash, role, 'local', fullName || '');
+  const verificationToken = createVerificationToken();
+  const verificationTokenHash = hashVerificationToken(verificationToken);
+  const verificationExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
-  req.flash('success', 'Account created. Please log in.');
+  db.prepare(`
+    INSERT INTO users (
+      email, password_hash, role, provider, full_name, is_active, email_verification_token, email_verification_expires_at
+    ) VALUES (?, ?, ?, ?, ?, 0, ?, ?)
+  `).run(normalizedEmail, hash, role, 'local', trimmedFullName, verificationTokenHash, verificationExpiresAt);
+
+  const verificationUrl = `${getBaseUrl(req)}/verify-email?token=${verificationToken}`;
+
+  try {
+    const delivery = await sendVerificationEmail({
+      to: normalizedEmail,
+      verificationUrl,
+      fullName: trimmedFullName,
+    });
+
+    return res.render('verify-email-sent', {
+      email: normalizedEmail,
+      emailDeliveryConfigured: delivery.delivered,
+      verificationPreviewUrl:
+        !delivery.delivered && process.env.NODE_ENV !== 'production' ? verificationUrl : null,
+    });
+  } catch (error) {
+    db.prepare('DELETE FROM users WHERE email = ? AND is_active = 0').run(normalizedEmail);
+    req.flash('error', 'Unable to send verification email. Please try again.');
+    return res.redirect('/signup');
+  }
+});
+
+app.get('/verify-email', (req, res) => {
+  const token = typeof req.query.token === 'string' ? req.query.token : '';
+  if (!token) {
+    req.flash('error', 'Verification link is invalid.');
+    return res.redirect('/login');
+  }
+
+  const tokenHash = hashVerificationToken(token);
+  const user = db.prepare(`
+    SELECT id, email, is_active, email_verification_expires_at
+    FROM users
+    WHERE email_verification_token = ?
+  `).get(tokenHash);
+
+  if (!user) {
+    req.flash('error', 'Verification link is invalid or has already been used.');
+    return res.redirect('/login');
+  }
+
+  if (user.is_active) {
+    req.flash('success', 'Your account is already active. Please log in.');
+    return res.redirect('/login');
+  }
+
+  if (!user.email_verification_expires_at || new Date(user.email_verification_expires_at) < new Date()) {
+    req.flash('error', 'Verification link has expired. Please sign up again.');
+    return res.redirect('/signup');
+  }
+
+  db.prepare(`
+    UPDATE users
+    SET is_active = 1, email_verified_at = CURRENT_TIMESTAMP,
+        email_verification_token = NULL, email_verification_expires_at = NULL
+    WHERE id = ?
+  `).run(user.id);
+
+  req.flash('success', `Email verified for ${user.email}. You can now log in.`);
   return res.redirect('/login');
 });
 
@@ -1184,6 +1255,32 @@ app.post('/admin/users/:id/role', requireAuth, requireRole('admin'), (req, res) 
   db.prepare('UPDATE users SET role = ? WHERE id = ?').run(req.body.role, req.params.id);
   req.flash('success', 'User role updated.');
   res.redirect('/admin/users');
+});
+
+app.post('/admin/users/:id/delete', requireAuth, requireRole('admin'), (req, res) => {
+  const userId = Number.parseInt(req.params.id, 10);
+  if (!Number.isInteger(userId)) {
+    req.flash('error', 'Invalid user.');
+    return res.redirect('/admin/users');
+  }
+
+  if (req.user.id === userId) {
+    req.flash('error', 'You cannot delete your own account.');
+    return res.redirect('/admin/users');
+  }
+
+  const existingUser = db.prepare('SELECT id, email FROM users WHERE id = ?').get(userId);
+  if (!existingUser) {
+    req.flash('error', 'User not found.');
+    return res.redirect('/admin/users');
+  }
+
+  db.prepare('DELETE FROM student_registrations WHERE user_id = ?').run(userId);
+  db.prepare('DELETE FROM adult_registrations WHERE user_id = ?').run(userId);
+  db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+
+  req.flash('success', `Removed user ${existingUser.email}.`);
+  return res.redirect('/admin/users');
 });
 
 app.post('/admin/ccd-classes', requireAuth, requireRole('admin'), (req, res) => {
