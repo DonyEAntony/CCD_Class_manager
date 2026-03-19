@@ -8,7 +8,7 @@ const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const passport = require('./auth');
 const db = require('./db');
-const { sendVerificationEmail, smtpLogConfig } = require('./mailer');
+const { sendVerificationEmail, smtpLogConfig, verifyMailConfiguration } = require('./mailer');
 const { requireAuth, requireRole } = require('./middleware');
 
 const app = express();
@@ -1283,6 +1283,29 @@ app.post('/admin/users/:id/role', requireAuth, requireRole('admin'), (req, res) 
   db.prepare('UPDATE users SET role = ? WHERE id = ?').run(req.body.role, req.params.id);
   req.flash('success', 'User role updated.');
   res.redirect('/admin/users');
+});
+
+app.get('/admin/health/mail', requireAuth, requireRole('admin'), async (req, res) => {
+  try {
+    const result = await verifyMailConfiguration();
+    console.info('[admin] Mail health check completed', result);
+    return res.status(result.ok ? 200 : 500).json({
+      checkedAt: new Date().toISOString(),
+      ...result,
+    });
+  } catch (error) {
+    const failure = {
+      checkedAt: new Date().toISOString(),
+      ok: false,
+      config: smtpLogConfig,
+      message: error?.message || String(error),
+      code: error?.code || null,
+      response: error?.response || null,
+      responseCode: error?.responseCode || null,
+    };
+    console.error('[admin] Mail health check failed', failure);
+    return res.status(500).json(failure);
+  }
 });
 
 app.post('/admin/users/:id/delete', requireAuth, requireRole('admin'), (req, res) => {

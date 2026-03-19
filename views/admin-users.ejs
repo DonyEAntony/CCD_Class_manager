@@ -25,7 +25,10 @@
       <h1><%= t('user_administration') %></h1>
       <p class="sub mb-0"><%= t('manage_roles_desc') %></p>
     </div>
-    <a class="btn btn-outline-secondary" href="/dashboard"><%= t('back_to_dashboard') %></a>
+    <div class="d-flex gap-2">
+      <a class="btn btn-outline-primary" href="/admin/health/mail" target="_blank" rel="noreferrer">Mail Health</a>
+      <a class="btn btn-outline-secondary" href="/dashboard"><%= t('back_to_dashboard') %></a>
+    </div>
   </div>
 
   <div class="page-card">

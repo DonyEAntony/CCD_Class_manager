@@ -33,6 +33,23 @@ const createTransporter = () => {
   });
 };
 
+const verifyMailConfiguration = async () => {
+  const transporter = createTransporter();
+  if (!transporter) {
+    return {
+      ok: false,
+      reason: 'SMTP config incomplete',
+      config: smtpLogConfig,
+    };
+  }
+
+  await transporter.verify();
+  return {
+    ok: true,
+    config: smtpLogConfig,
+  };
+};
+
 const sendVerificationEmail = async ({ to, verificationUrl, fullName }) => {
   const transporter = createTransporter();
   if (!transporter) {
@@ -85,4 +102,4 @@ const sendVerificationEmail = async ({ to, verificationUrl, fullName }) => {
   return { delivered: true, messageId: info.messageId, response: info.response };
 };
 
-module.exports = { hasSmtpConfig, sendVerificationEmail, resolvedFrom, smtpLogConfig };
+module.exports = { hasSmtpConfig, sendVerificationEmail, resolvedFrom, smtpLogConfig, verifyMailConfiguration };
