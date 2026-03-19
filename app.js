@@ -8,11 +8,20 @@ const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const passport = require('./auth');
 const db = require('./db');
-const { sendVerificationEmail } = require('./mailer');
+const { sendVerificationEmail, smtpLogConfig } = require('./mailer');
 const { requireAuth, requireRole } = require('./middleware');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+console.info('[startup] Mail configuration', {
+  host: smtpLogConfig.host,
+  port: smtpLogConfig.port,
+  secure: smtpLogConfig.secure,
+  hasUser: smtpLogConfig.hasUser,
+  hasPass: smtpLogConfig.hasPass,
+  from: smtpLogConfig.from,
+  appBaseUrl: process.env.APP_BASE_URL || '',
+});
 const STUDENT_REGISTRATION_STATUSES = [
   'in_progress',
   'conditionally_accepted',
@@ -753,12 +762,24 @@ app.post('/signup', async (req, res) => {
   `).run(normalizedEmail, hash, role, 'local', trimmedFullName, verificationTokenHash, verificationExpiresAt);
 
   const verificationUrl = `${getBaseUrl(req)}/verify-email?token=${verificationToken}`;
+  console.info('[signup] Created inactive user pending verification', {
+    email: normalizedEmail,
+    role,
+    baseUrl: getBaseUrl(req),
+  });
 
   try {
     const delivery = await sendVerificationEmail({
       to: normalizedEmail,
       verificationUrl,
       fullName: trimmedFullName,
+    });
+
+    console.info('[signup] Verification email flow completed', {
+      email: normalizedEmail,
+      delivered: delivery.delivered,
+      messageId: delivery.messageId || null,
+      response: delivery.response || null,
     });
 
     return res.render('verify-email-sent', {
@@ -768,6 +789,13 @@ app.post('/signup', async (req, res) => {
         !delivery.delivered && process.env.NODE_ENV !== 'production' ? verificationUrl : null,
     });
   } catch (error) {
+    console.error('[signup] Verification email failed', {
+      email: normalizedEmail,
+      message: error?.message || String(error),
+      code: error?.code || null,
+      response: error?.response || null,
+      responseCode: error?.responseCode || null,
+    });
     db.prepare('DELETE FROM users WHERE email = ? AND is_active = 0').run(normalizedEmail);
     req.flash('error', 'Unable to send verification email. Please try again.');
     return res.redirect('/signup');
