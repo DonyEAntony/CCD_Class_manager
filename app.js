@@ -263,6 +263,15 @@ const translations = {
     about_intro2: 'Inspired by the vision of Family Faith Formation Catholic Ministries, St. Matthew Parish embraces a family-centered approach to faith formation, recognizing parents as the first and most important teachers of the faith.',
     // Admin
     manage_roles_desc: 'Manage roles and access for all registered users',
+    scan_legacy_form: 'Scan Legacy Form',
+    scan_legacy_desc: 'Use your phone camera to capture an older paper registration and prefill a draft.',
+    open_scanner: 'Open Scanner',
+    camera_capture: 'Camera Capture',
+    extract_text: 'Extract Text',
+    ocr_text: 'Scanned Text',
+    review_imported_fields: 'Review Imported Fields',
+    open_registration_draft: 'Open Registration Draft',
+    imported_draft_ready: 'Imported draft saved. Review and submit the registration form.',
     // Status
     status: 'Status',
     current_status: 'Current Status',
@@ -509,6 +518,15 @@ const translations = {
     about_intro2: 'Inspirada en la visión de los Ministerios Católicos de Formación en la Fe Familiar, la Parroquia San Mateo adopta un enfoque centrado en la familia para la formación en la fe, reconociendo a los padres como los primeros y más importantes maestros de la fe.',
     // Admin
     manage_roles_desc: 'Administrar roles y acceso para todos los usuarios registrados',
+    scan_legacy_form: 'Escanear formulario anterior',
+    scan_legacy_desc: 'Use la cÃ¡mara del telÃ©fono para capturar un formulario en papel y rellenar un borrador.',
+    open_scanner: 'Abrir escÃ¡ner',
+    camera_capture: 'Captura de cÃ¡mara',
+    extract_text: 'Extraer texto',
+    ocr_text: 'Texto escaneado',
+    review_imported_fields: 'Revisar campos importados',
+    open_registration_draft: 'Abrir borrador de registro',
+    imported_draft_ready: 'Borrador importado guardado. Revise y envÃ­e el formulario de registro.',
     // Status
     status: 'Estado',
     current_status: 'Estado actual',
@@ -1367,6 +1385,10 @@ app.get('/admin/users', requireAuth, requireRole('admin'), asyncHandler(async (r
   const managedEvents = await getFaithFormationEvents(['children', 'baptism_prep', 'ocia', 'general']);
   res.render('admin-users', { users, ccdClasses, eventDefinitions, managedEvents });
 }));
+
+app.get('/admin/scan-registration', requireAuth, requireRole('admin'), (req, res) => {
+  res.render('admin-scan-registration');
+});
 
 app.post('/admin/users/:id/role', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   await db.prepare('UPDATE users SET role = ? WHERE id = ?').run(req.body.role, req.params.id);

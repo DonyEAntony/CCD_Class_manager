@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="<%= lang %>">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= t('scan_legacy_form') %> &mdash; <%= t('app_title') %></title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<%- include('_topbar') %>
+
+<main class="container py-4 app-shell mx-auto">
+  <div class="page-heading d-flex flex-wrap justify-content-between align-items-end gap-2">
+    <div>
+      <h1><%= t('scan_legacy_form') %></h1>
+      <p class="sub mb-0"><%= t('scan_legacy_desc') %></p>
+    </div>
+    <a class="btn btn-outline-secondary" href="/admin/users"><%= t('back') %></a>
+  </div>
+
+  <div class="page-card">
+    <div class="card-body p-4">
+      <div class="row g-4">
+        <div class="col-lg-5">
+          <label class="form-label"><%= t('camera_capture') %></label>
+          <input class="form-control mb-3" type="file" id="scan-image" accept="image/*" capture="environment">
+          <button class="btn btn-primary" type="button" id="extract-text"><%= t('extract_text') %></button>
+          <div class="form-text mt-2">Use a clear photo with good lighting. One page at a time works best.</div>
+          <div id="scan-status" class="mt-3 text-muted small"></div>
+          <img id="scan-preview" class="img-fluid rounded border mt-3 d-none" alt="Scanned form preview">
+        </div>
+
+        <div class="col-lg-7">
+          <div class="mb-3">
+            <label class="form-label"><%= t('ocr_text') %></label>
+            <textarea class="form-control" id="ocr-text" rows="10" placeholder="OCR output will appear here. You can also paste text manually."></textarea>
+          </div>
+
+          <h2 class="h5 mb-3"><%= t('review_imported_fields') %></h2>
+          <div class="row g-3" id="import-fields">
+            <div class="col-md-6">
+              <label class="form-label"><%= t('first_name') %></label>
+              <input class="form-control" type="text" id="primary-contact-first-name">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label"><%= t('last_name') %></label>
+              <input class="form-control" type="text" id="primary-contact-last-name">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label"><%= t('primary_contact_phone') %></label>
+              <input class="form-control" type="text" id="primary-contact-phone">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label"><%= t('primary_contact_email') %></label>
+              <input class="form-control" type="email" id="primary-contact-email">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label"><%= t('relationship') %></label>
+              <select class="form-select" id="primary-contact-relationship">
+                <option value="Father"><%= t('father') %></option>
+                <option value="Mother"><%= t('mother') %></option>
+                <option value="Stepfather"><%= t('stepfather') %></option>
+                <option value="Stepmother"><%= t('stepmother') %></option>
+                <option value="Grandfather"><%= t('grandfather') %></option>
+                <option value="Grandmother"><%= t('grandmother') %></option>
+                <option value="Other"><%= t('other') %></option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label"><%= t('mother_maiden_name') %></label>
+              <input class="form-control" type="text" id="mother-maiden-name">
+            </div>
+            <div class="col-12">
+              <label class="form-label"><%= t('address') %></label>
+              <input class="form-control" type="text" id="address">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label"><%= t('city') %></label>
+              <input class="form-control" type="text" id="city">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label"><%= t('state') %></label>
+              <input class="form-control" type="text" id="state">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label"><%= t('zip') %></label>
+              <input class="form-control" type="text" id="zip">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label"><%= t('student_first_name') %></label>
+              <input class="form-control" type="text" id="student-first-name">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label"><%= t('student_middle_name') %></label>
+              <input class="form-control" type="text" id="student-middle-name">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label"><%= t('student_last_name') %></label>
+              <input class="form-control" type="text" id="student-last-name">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label"><%= t('gender') %></label>
+              <select class="form-select" id="student-gender">
+                <option value=""></option>
+                <option value="male"><%= t('male') %></option>
+                <option value="female"><%= t('female') %></option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label"><%= t('dob') %></label>
+              <input class="form-control" type="date" id="student-dob">
+            </div>
+          </div>
+
+          <div class="d-flex flex-wrap gap-2 mt-4">
+            <button class="btn btn-outline-primary" type="button" id="parse-text">Parse Text</button>
+            <button class="btn btn-primary" type="button" id="open-draft"><%= t('open_registration_draft') %></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script>
+  (function () {
+    const scanImageInput = document.getElementById('scan-image');
+    const extractTextBtn = document.getElementById('extract-text');
+    const parseTextBtn = document.getElementById('parse-text');
+    const openDraftBtn = document.getElementById('open-draft');
+    const preview = document.getElementById('scan-preview');
+    const statusEl = document.getElementById('scan-status');
+    const ocrText = document.getElementById('ocr-text');
+
+    const fields = {
+      primaryContactFirstName: document.getElementById('primary-contact-first-name'),
+      primaryContactLastName: document.getElementById('primary-contact-last-name'),
+      primaryContactPhone: document.getElementById('primary-contact-phone'),
+      primaryContactEmail: document.getElementById('primary-contact-email'),
+      primaryContactRelationship: document.getElementById('primary-contact-relationship'),
+      motherMaidenName: document.getElementById('mother-maiden-name'),
+      address: document.getElementById('address'),
+      city: document.getElementById('city'),
+      state: document.getElementById('state'),
+      zip: document.getElementById('zip'),
+      studentFirstName: document.getElementById('student-first-name'),
+      studentMiddleName: document.getElementById('student-middle-name'),
+      studentLastName: document.getElementById('student-last-name'),
+      studentGender: document.getElementById('student-gender'),
+      studentDob: document.getElementById('student-dob')
+    };
+
+    const setStatus = (message) => {
+      statusEl.textContent = message || '';
+    };
+
+    const splitName = (fullName) => {
+      const parts = (fullName || '').trim().split(/\s+/).filter(Boolean);
+      if (!parts.length) return { first: '', middle: '', last: '' };
+      if (parts.length === 1) return { first: parts[0], middle: '', last: '' };
+      if (parts.length === 2) return { first: parts[0], middle: '', last: parts[1] };
+      return {
+        first: parts[0],
+        middle: parts.slice(1, -1).join(' '),
+        last: parts[parts.length - 1]
+      };
+    };
+
+    const toIsoDate = (value) => {
+      const match = /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/.exec(value || '');
+      if (!match) return '';
+      const month = match[1].padStart(2, '0');
+      const day = match[2].padStart(2, '0');
+      const year = match[3].length === 2 ? `20${match[3]}` : match[3];
+      return `${year}-${month}-${day}`;
+    };
+
+    const fillFieldsFromText = (text) => {
+      const normalized = (text || '').replace(/\r/g, '');
+
+      const emailMatch = normalized.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+      const phoneMatch = normalized.match(/(?:\+?1[\s.-]?)?(?:\(?\d{3}\)?[\s.-]?)\d{3}[\s.-]?\d{4}/);
+      const dobMatch = normalized.match(/(?:dob|date of birth)[:\s]*([0-9]{1,2}[\/\-][0-9]{1,2}[\/\-][0-9]{2,4})/i) || normalized.match(/\b[0-9]{1,2}[\/\-][0-9]{1,2}[\/\-][0-9]{2,4}\b/);
+      const zipMatch = normalized.match(/\b\d{5}(?:-\d{4})?\b/);
+      const stateZipMatch = normalized.match(/\b([A-Z]{2})\s+(\d{5}(?:-\d{4})?)\b/);
+      const addressMatch = normalized.match(/\b\d{1,5}\s+[A-Za-z0-9.\- ]+\b(?:Street|St|Road|Rd|Avenue|Ave|Lane|Ln|Drive|Dr|Court|Ct|Boulevard|Blvd)\b[^\n]*/i);
+      const relationshipMatch = normalized.match(/\b(father|mother|stepfather|stepmother|grandfather|grandmother)\b/i);
+      const studentNameMatch = normalized.match(/(?:student|child)(?:'s)? name[:\s]+([A-Za-z ,.'-]+)/i);
+      const parentNameMatch = normalized.match(/(?:parent|guardian|contact)[:\s]+([A-Za-z ,.'-]+)/i);
+      const motherNameMatch = normalized.match(/mother(?:'s)? maiden name[:\s]+([A-Za-z ,.'-]+)/i);
+      const cityStateZipMatch = normalized.match(/([A-Za-z .'-]+),\s*([A-Z]{2})\s+(\d{5}(?:-\d{4})?)/);
+
+      if (emailMatch) fields.primaryContactEmail.value = emailMatch[0];
+      if (phoneMatch) fields.primaryContactPhone.value = phoneMatch[0];
+      if (dobMatch) fields.studentDob.value = toIsoDate(dobMatch[1] || dobMatch[0]);
+      if (zipMatch) fields.zip.value = zipMatch[0];
+      if (stateZipMatch) fields.state.value = stateZipMatch[1];
+      if (addressMatch) fields.address.value = addressMatch[0].trim();
+      if (cityStateZipMatch) {
+        fields.city.value = cityStateZipMatch[1].trim();
+        fields.state.value = cityStateZipMatch[2].trim();
+        fields.zip.value = cityStateZipMatch[3].trim();
+      }
+      if (relationshipMatch) {
+        const normalizedRelationship = relationshipMatch[1].toLowerCase();
+        fields.primaryContactRelationship.value = normalizedRelationship.charAt(0).toUpperCase() + normalizedRelationship.slice(1);
+      }
+      if (motherNameMatch) fields.motherMaidenName.value = motherNameMatch[1].trim();
+
+      const studentName = studentNameMatch ? studentNameMatch[1].trim() : '';
+      if (studentName) {
+        const studentParts = splitName(studentName);
+        fields.studentFirstName.value = studentParts.first;
+        fields.studentMiddleName.value = studentParts.middle;
+        fields.studentLastName.value = studentParts.last;
+      }
+
+      const parentName = parentNameMatch ? parentNameMatch[1].trim() : '';
+      if (parentName) {
+        const parentParts = splitName(parentName);
+        fields.primaryContactFirstName.value = parentParts.first;
+        fields.primaryContactLastName.value = parentParts.last;
+      }
+
+      if (!fields.studentGender.value) {
+        if (/\bmale\b/i.test(normalized)) fields.studentGender.value = 'male';
+        if (/\bfemale\b/i.test(normalized)) fields.studentGender.value = 'female';
+      }
+    };
+
+    scanImageInput.addEventListener('change', () => {
+      const file = scanImageInput.files && scanImageInput.files[0];
+      if (!file) return;
+      preview.src = URL.createObjectURL(file);
+      preview.classList.remove('d-none');
+      setStatus('');
+    });
+
+    extractTextBtn.addEventListener('click', async () => {
+      const file = scanImageInput.files && scanImageInput.files[0];
+      if (!file) {
+        setStatus('Choose a photo first.');
+        return;
+      }
+
+      setStatus('Running OCR. This can take a little while on a phone.');
+      extractTextBtn.disabled = true;
+      try {
+        const result = await Tesseract.recognize(file, 'eng');
+        ocrText.value = result.data.text || '';
+        fillFieldsFromText(ocrText.value);
+        setStatus('Text extracted. Review the fields before opening the draft.');
+      } catch (error) {
+        setStatus(`OCR failed: ${error && error.message ? error.message : error}`);
+      } finally {
+        extractTextBtn.disabled = false;
+      }
+    });
+
+    parseTextBtn.addEventListener('click', () => {
+      fillFieldsFromText(ocrText.value);
+      setStatus('Parsed the current OCR text into the draft fields.');
+    });
+
+    openDraftBtn.addEventListener('click', () => {
+      const draft = {
+        school_year: '2025-2026',
+        primary_contact_first_name: fields.primaryContactFirstName.value.trim(),
+        primary_contact_last_name: fields.primaryContactLastName.value.trim(),
+        primary_contact_phone: fields.primaryContactPhone.value.trim(),
+        primary_contact_email: fields.primaryContactEmail.value.trim(),
+        primary_contact_relationship: fields.primaryContactRelationship.value,
+        mother_maiden_name: fields.motherMaidenName.value.trim(),
+        address: fields.address.value.trim(),
+        city: fields.city.value.trim(),
+        state: fields.state.value.trim(),
+        zip: fields.zip.value.trim(),
+        'student_first_name[]': [fields.studentFirstName.value.trim()],
+        'student_middle_name[]': [fields.studentMiddleName.value.trim()],
+        'student_last_name[]': [fields.studentLastName.value.trim()],
+        'student_gender[]': [fields.studentGender.value],
+        'student_dob[]': [fields.studentDob.value],
+        imported_ocr_text: ocrText.value.trim()
+      };
+
+      localStorage.setItem('registration-draft', JSON.stringify(draft));
+      alert('<%= t('imported_draft_ready') %>');
+      window.location.href = '/registration/children';
+    });
+  }());
+</script>
+</body>
+</html>
