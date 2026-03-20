@@ -1,6 +1,6 @@
 # St Matthew CCD Class Manager (Node.js)
 
-Web app for **Saint Matthew Catholic Church Religious Education (School Year 2025-2026)**.
+Web app for **Saint Matthew Catholic Church Faith Formation**.
 
 ## Features
 - Email/password sign-up and login with email verification before local accounts are activated.
@@ -29,11 +29,25 @@ Web app for **Saint Matthew Catholic Church Religious Education (School Year 202
    ```bash
    cp .env.example .env
    ```
-3. Run:
+3. Configure MySQL in `.env`:
+   ```env
+   DB_HOST=127.0.0.1
+   DB_PORT=3306
+   DB_USER=root
+   DB_PASSWORD=your-password
+   DB_NAME=ccd_class_manager
+   ```
+4. Run:
    ```bash
    npm start
    ```
-4. Open `http://localhost:3000`
+5. Open `http://localhost:3000`
+
+## Database
+- The app now uses **MySQL** via `mysql2`.
+- On startup it creates the configured database if it does not already exist.
+- It also creates the required tables and applies additive column migrations automatically.
+- Seed data is inserted only when the main tables are empty.
 
 ## OAuth setup (free)
 - **Google**: create OAuth credentials in Google Cloud Console.
