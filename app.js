@@ -8,6 +8,7 @@ const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const passport = require('./auth');
 const db = require('./db');
+const { processScanDocument, verifyDocumentAiConfiguration } = require('./document-ai');
 const { sendVerificationEmail, smtpLogConfig, verifyMailConfiguration } = require('./mailer');
 const { requireAuth, requireRole } = require('./middleware');
 
@@ -268,6 +269,10 @@ const translations = {
     open_scanner: 'Open Scanner',
     camera_capture: 'Camera Capture',
     extract_text: 'Extract Text',
+    processing_scan: 'Processing scan with Google Document AI...',
+    scan_google_ready: 'Google Document AI',
+    document_ai_health: 'Document AI Health',
+    document_ai_failed: 'Unable to process the scanned document.',
     ocr_text: 'Scanned Text',
     review_imported_fields: 'Review Imported Fields',
     open_registration_draft: 'Open Registration Draft',
@@ -523,6 +528,10 @@ const translations = {
     open_scanner: 'Abrir escÃ¡ner',
     camera_capture: 'Captura de cÃ¡mara',
     extract_text: 'Extraer texto',
+    processing_scan: 'Procesando escaneo con Google Document AI...',
+    scan_google_ready: 'Google Document AI',
+    document_ai_health: 'Estado de Document AI',
+    document_ai_failed: 'No se pudo procesar el documento escaneado.',
     ocr_text: 'Texto escaneado',
     review_imported_fields: 'Revisar campos importados',
     open_registration_draft: 'Abrir borrador de registro',
@@ -692,6 +701,12 @@ const storage = multer.diskStorage({
   },
 });
 const upload = multer({ storage });
+const scanUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 15 * 1024 * 1024,
+  },
+});
 
 app.set('view engine', 'ejs');
 app.locals.lang = 'en';
@@ -1390,6 +1405,36 @@ app.get('/admin/scan-registration', requireAuth, requireRole('admin'), (req, res
   res.render('admin-scan-registration');
 });
 
+app.post('/admin/scan-registration/process', requireAuth, requireRole('admin'), scanUpload.single('scan_image'), asyncHandler(async (req, res) => {
+  if (!req.file?.buffer?.length) {
+    return res.status(400).json({ ok: false, message: 'No scan image was uploaded.' });
+  }
+
+  const allowedMimeTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']);
+  if (!allowedMimeTypes.has(req.file.mimetype)) {
+    return res.status(400).json({ ok: false, message: 'Unsupported scan file type.' });
+  }
+
+  try {
+    const result = await processScanDocument({
+      buffer: req.file.buffer,
+      mimeType: req.file.mimetype,
+    });
+
+    return res.json({
+      ok: true,
+      text: result.text,
+      formFields: result.formFields,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      ok: false,
+      message: error?.message || 'Unable to process the scanned document.',
+      code: error?.code || null,
+    });
+  }
+}));
+
 app.post('/admin/users/:id/role', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   await db.prepare('UPDATE users SET role = ? WHERE id = ?').run(req.body.role, req.params.id);
   req.flash('success', 'User role updated.');
@@ -1416,6 +1461,23 @@ app.get('/admin/health/mail', requireAuth, requireRole('admin'), async (req, res
     };
     console.error('[admin] Mail health check failed', failure);
     return res.status(500).json(failure);
+  }
+});
+
+app.get('/admin/health/document-ai', requireAuth, requireRole('admin'), async (req, res) => {
+  try {
+    const result = await verifyDocumentAiConfiguration();
+    return res.status(result.ok ? 200 : 500).json({
+      checkedAt: new Date().toISOString(),
+      ...result,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      checkedAt: new Date().toISOString(),
+      ok: false,
+      message: error?.message || String(error),
+      code: error?.code || null,
+    });
   }
 });
 
