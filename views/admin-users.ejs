@@ -26,8 +26,19 @@
       <p class="sub mb-0"><%= t('manage_roles_desc') %></p>
     </div>
     <div class="d-flex gap-2">
+      <a class="btn btn-primary" href="/admin/scan-registration"><%= t('scan_legacy_form') %></a>
       <a class="btn btn-outline-primary" href="/admin/health/mail" target="_blank" rel="noreferrer">Mail Health</a>
       <a class="btn btn-outline-secondary" href="/dashboard"><%= t('back_to_dashboard') %></a>
+    </div>
+  </div>
+
+  <div class="page-card mb-4">
+    <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
+      <div>
+        <h2 class="h5 mb-1"><%= t('scan_legacy_form') %></h2>
+        <p class="mb-0 text-muted"><%= t('scan_legacy_desc') %></p>
+      </div>
+      <a class="btn btn-outline-primary" href="/admin/scan-registration"><%= t('open_scanner') %></a>
     </div>
   </div>
 
