@@ -265,6 +265,9 @@ const translations = {
     manage_roles_desc: 'Manage roles and access for all registered users',
     // Status
     status: 'Status',
+    current_status: 'Current Status',
+    update_status: 'Update Status',
+    status_updated: 'Registration status updated.',
     save_draft: 'Save Draft',
     actions: 'Actions',
     edit: 'Edit',
@@ -508,6 +511,9 @@ const translations = {
     manage_roles_desc: 'Administrar roles y acceso para todos los usuarios registrados',
     // Status
     status: 'Estado',
+    current_status: 'Estado actual',
+    update_status: 'Actualizar estado',
+    status_updated: 'Estado de registro actualizado.',
     save_draft: 'Guardar Borrador',
     actions: 'Acciones',
     edit: 'Editar',
@@ -547,11 +553,11 @@ const getAdultPrograms = (t) => ({
   },
 });
 
-const getCcdClasses = () =>
+const getCcdClasses = async () =>
   db.prepare('SELECT id, grade_level, class_time, classroom FROM ccd_classes ORDER BY grade_level ASC').all();
-const getFaithFormationEventDefinitions = () =>
+const getFaithFormationEventDefinitions = async () =>
   db.prepare('SELECT id, title, audience FROM faith_formation_event_definitions ORDER BY title ASC').all();
-const getAllScheduledFaithFormationEvents = () =>
+const getAllScheduledFaithFormationEvents = async () =>
   db.prepare(
     `SELECT schedules.id, definitions.title, definitions.audience, schedules.schedule_type, schedules.recurrence_pattern,
             schedules.event_date, schedules.event_time, schedules.event_end_time, schedules.location
@@ -560,7 +566,7 @@ const getAllScheduledFaithFormationEvents = () =>
        ON definitions.id = schedules.event_definition_id
      ORDER BY schedules.event_date ASC, schedules.event_time ASC, definitions.title ASC`
   ).all();
-const getFaithFormationEvents = (audiences = []) => {
+const getFaithFormationEvents = async (audiences = []) => {
   const audienceList = Array.from(new Set((Array.isArray(audiences) ? audiences : [audiences]).filter(Boolean)));
   if (!audienceList.length) return [];
   const placeholders = audienceList.map(() => '?').join(', ');
@@ -573,7 +579,7 @@ const getFaithFormationEvents = (audiences = []) => {
      ORDER BY event_date ASC, event_time ASC, title ASC`
   ).all(...audienceList);
 };
-const getBaptismPrepSchedules = () => getFaithFormationEvents(['baptism_prep']);
+const getBaptismPrepSchedules = async () => getFaithFormationEvents(['baptism_prep']);
 const formatScheduledEventLabel = (eventItem) => {
   const parts = [eventItem.title];
   if (eventItem.schedule_type === 'recurring' && eventItem.recurrence_pattern) {
@@ -721,12 +727,47 @@ const calculateFees = (familyCount, gradeLevel, registrationDateStr) => {
 const createVerificationToken = () => crypto.randomBytes(32).toString('hex');
 const hashVerificationToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
 const getBaseUrl = (req) => process.env.APP_BASE_URL || `${req.protocol}://${req.get('host')}`;
+const asyncHandler = (handler) => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
+const hasValue = (value) => value != null && `${value}`.trim() !== '';
+const getListValues = (value) => `${value || ''}`
+  .split(',')
+  .map((item) => item.trim())
+  .filter(Boolean);
+const getIncompleteStudentRegistrationFields = (reg) => {
+  const missing = [];
+
+  if (!hasValue(reg.primary_contact_first_name)) missing.push('primary contact first name');
+  if (!hasValue(reg.primary_contact_last_name)) missing.push('primary contact last name');
+  if (!hasValue(reg.primary_contact_phone)) missing.push('primary contact phone');
+  if (!hasValue(reg.primary_contact_email)) missing.push('primary contact email');
+  if (!hasValue(reg.primary_contact_relationship)) missing.push('relationship to child');
+  if (reg.primary_contact_relationship === 'Other' && !hasValue(reg.primary_contact_relationship_other)) {
+    missing.push('relationship description');
+  }
+  if (!hasValue(reg.address)) missing.push('street address');
+  if (!hasValue(reg.city_state_zip)) missing.push('city, state, and zip');
+  if (!hasValue(reg.mother_maiden_name)) missing.push('mother maiden name');
+
+  const studentNames = getListValues(reg.student_full_name);
+  const studentGenders = getListValues(reg.student_gender);
+  const studentDobs = getListValues(reg.student_dob);
+
+  if (!studentNames.length) missing.push('student name');
+  if (!studentGenders.length) missing.push('student gender');
+  if (!studentDobs.length) missing.push('student date of birth');
+
+  if (studentNames.length && (studentGenders.length < studentNames.length || studentDobs.length < studentNames.length)) {
+    missing.push('all student gender and birth date entries');
+  }
+
+  return missing;
+};
 
 // ── Public routes ────────────────────────────────────────────
 app.get('/', (req, res) => res.render('index'));
 
 app.get('/signup', (req, res) => res.render('signup'));
-app.post('/signup', async (req, res) => {
+app.post('/signup', asyncHandler(async (req, res) => {
   const { email, password, requestedRole, inviteCode, firstName, lastName, phone } = req.body;
   if (!email || !password || !firstName?.trim() || !lastName?.trim() || !phone?.trim()) {
     req.flash('error', 'Email, first name, last name, phone, and password are required.');
@@ -743,7 +784,7 @@ app.post('/signup', async (req, res) => {
     req.flash('error', 'Invalid phone format. Use XXX-XXX-XXXX, XXX.XXX.XXXX, or XXX XXX XXXX.');
     return res.redirect('/signup');
   }
-  const exists = db.prepare('SELECT id FROM users WHERE email = ?').get(normalizedEmail);
+  const exists = await db.prepare('SELECT id FROM users WHERE email = ?').get(normalizedEmail);
   if (exists) {
     req.flash('error', 'Account already exists. Please log in.');
     return res.redirect('/login');
@@ -767,7 +808,7 @@ app.post('/signup', async (req, res) => {
   const verificationTokenHash = hashVerificationToken(verificationToken);
   const verificationExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
-  db.prepare(`
+  await db.prepare(`
     INSERT INTO users (
       email, password_hash, role, provider, full_name, first_name, last_name, phone, is_active, email_verification_token, email_verification_expires_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
@@ -819,13 +860,13 @@ app.post('/signup', async (req, res) => {
       response: error?.response || null,
       responseCode: error?.responseCode || null,
     });
-    db.prepare('DELETE FROM users WHERE email = ? AND is_active = 0').run(normalizedEmail);
+    await db.prepare('DELETE FROM users WHERE email = ? AND is_active = 0').run(normalizedEmail);
     req.flash('error', 'Unable to send verification email. Please try again.');
     return res.redirect('/signup');
   }
-});
+}));
 
-app.get('/verify-email', (req, res) => {
+app.get('/verify-email', asyncHandler(async (req, res) => {
   const token = typeof req.query.token === 'string' ? req.query.token : '';
   if (!token) {
     req.flash('error', 'Verification link is invalid.');
@@ -833,7 +874,7 @@ app.get('/verify-email', (req, res) => {
   }
 
   const tokenHash = hashVerificationToken(token);
-  const user = db.prepare(`
+  const user = await db.prepare(`
     SELECT id, email, is_active, email_verification_expires_at
     FROM users
     WHERE email_verification_token = ?
@@ -854,7 +895,7 @@ app.get('/verify-email', (req, res) => {
     return res.redirect('/signup');
   }
 
-  db.prepare(`
+  await db.prepare(`
     UPDATE users
     SET is_active = 1, email_verified_at = CURRENT_TIMESTAMP,
         email_verification_token = NULL, email_verification_expires_at = NULL
@@ -863,7 +904,7 @@ app.get('/verify-email', (req, res) => {
 
   req.flash('success', `Email verified for ${user.email}. You can now log in.`);
   return res.redirect('/login');
-});
+}));
 
 app.get('/login', (req, res) => res.render('login'));
 app.post(
@@ -897,22 +938,22 @@ app.get('/logout', (req, res, next) => {
 });
 
 // ── Dashboard ────────────────────────────────────────────────
-app.get('/dashboard', requireAuth, (req, res) => {
+app.get('/dashboard', requireAuth, asyncHandler(async (req, res) => {
   const isStaff = req.user.role === 'admin' || req.user.role === 'catechist';
 
   const studentRegs = isStaff
-    ? db.prepare('SELECT * FROM student_registrations ORDER BY created_at DESC').all()
-    : db.prepare('SELECT * FROM student_registrations WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
+    ? await db.prepare('SELECT * FROM student_registrations ORDER BY created_at DESC').all()
+    : await db.prepare('SELECT * FROM student_registrations WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
 
   const adultRegs = isStaff
-    ? db.prepare('SELECT * FROM adult_registrations ORDER BY created_at DESC').all()
-    : db.prepare('SELECT * FROM adult_registrations WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
+    ? await db.prepare('SELECT * FROM adult_registrations ORDER BY created_at DESC').all()
+    : await db.prepare('SELECT * FROM adult_registrations WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
 
   const ADULT_PROGRAMS = getAdultPrograms(res.locals.t);
   res.render('dashboard', { studentRegs, adultRegs, ADULT_PROGRAMS });
-});
+}));
 
-app.get('/calendar', requireAuth, (req, res) => {
+app.get('/calendar', requireAuth, asyncHandler(async (req, res) => {
   const monthParam = typeof req.query.month === 'string' ? req.query.month.trim() : '';
   const monthMatch = /^(\d{4})-(\d{2})$/.exec(monthParam);
   const baseDate = monthMatch
@@ -923,7 +964,7 @@ app.get('/calendar', requireAuth, (req, res) => {
   const monthStart = new Date(year, monthIndex, 1);
   const previousMonth = new Date(year, monthIndex - 1, 1);
   const nextMonth = new Date(year, monthIndex + 1, 1);
-  const scheduledEvents = getAllScheduledFaithFormationEvents();
+  const scheduledEvents = await getAllScheduledFaithFormationEvents();
   const occurrences = expandScheduledEventsForMonth(scheduledEvents, year, monthIndex);
   const weeks = buildCalendarWeeks(occurrences, year, monthIndex);
 
@@ -935,10 +976,10 @@ app.get('/calendar', requireAuth, (req, res) => {
     weekdayLabels: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
     monthEvents: occurrences,
   });
-});
+}));
 
 // ── Children Faith Formation ─────────────────────────────────
-app.get('/registration/children', requireAuth, (req, res) => {
+app.get('/registration/children', requireAuth, asyncHandler(async (req, res) => {
   const today = new Date().toISOString().slice(0, 10);
   res.render('registration-form', {
     today,
@@ -946,11 +987,11 @@ app.get('/registration/children', requireAuth, (req, res) => {
     editing: false,
     isStaff: false,
     statusOptions: STUDENT_REGISTRATION_STATUSES,
-    relevantEvents: getFaithFormationEvents(['children', 'general']),
+    relevantEvents: await getFaithFormationEvents(['children', 'general']),
   });
-});
+}));
 
-const handleChildrenRegistration = (req, res) => {
+const handleChildrenRegistration = asyncHandler(async (req, res) => {
     const isAdmin = req.user.role === 'admin';
     const requestedStatus = typeof req.body.status === 'string' ? req.body.status.trim() : '';
     if (requestedStatus && !STUDENT_REGISTRATION_STATUSES.includes(requestedStatus)) {
@@ -1026,7 +1067,7 @@ const handleChildrenRegistration = (req, res) => {
     const communionCert = req.files?.first_communion_certificate?.[0]?.path || null;
 
     if (req.body.registration_id) {
-      const existingReg = db.prepare(
+      const existingReg = await db.prepare(
         'SELECT id, status FROM student_registrations WHERE id = ? AND (user_id = ? OR ? = 1)'
       ).get(req.body.registration_id, req.user.id, isAdmin ? 1 : 0);
       if (!existingReg) {
@@ -1036,7 +1077,7 @@ const handleChildrenRegistration = (req, res) => {
       const nextStatus = isAdmin && requestedStatus ? requestedStatus : existingReg.status;
 
       // Update existing
-      db.prepare(`
+      await db.prepare(`
         UPDATE student_registrations SET
           parent_name = ?, primary_contact_first_name = ?, primary_contact_last_name = ?,
           primary_contact_phone = ?, primary_contact_email = ?,
@@ -1078,7 +1119,7 @@ const handleChildrenRegistration = (req, res) => {
       return res.redirect('/dashboard');
     }
 
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO student_registrations (
         user_id, school_year, parent_name, primary_contact_first_name, primary_contact_last_name,
         primary_contact_phone, primary_contact_email,
@@ -1113,7 +1154,7 @@ const handleChildrenRegistration = (req, res) => {
 
     req.flash('success', `Registration submitted. Total fees: $${fees.registrationFee + fees.sacramentalFee + fees.lateFee}`);
     return res.redirect('/dashboard');
-};
+});
 
 app.post(
   '/registration/children',
@@ -1125,10 +1166,35 @@ app.post(
   handleChildrenRegistration
 );
 
+app.post('/registration/children/:id/status', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const requestedStatus = typeof req.body.status === 'string' ? req.body.status.trim() : '';
+  if (!STUDENT_REGISTRATION_STATUSES.includes(requestedStatus)) {
+    req.flash('error', 'Invalid registration status.');
+    return res.redirect(`/registration/children/edit/${req.params.id}`);
+  }
+
+  const reg = await db.prepare('SELECT * FROM student_registrations WHERE id = ?').get(req.params.id);
+  if (!reg) {
+    return res.status(404).send('Registration not found.');
+  }
+
+  if (requestedStatus === 'completed') {
+    const missingFields = getIncompleteStudentRegistrationFields(reg);
+    if (missingFields.length) {
+      req.flash('error', `Cannot mark this registration completed until all required fields are filled in. Missing: ${missingFields.join(', ')}.`);
+      return res.redirect(`/registration/children/edit/${req.params.id}`);
+    }
+  }
+
+  await db.prepare('UPDATE student_registrations SET status = ? WHERE id = ?').run(requestedStatus, req.params.id);
+  req.flash('success', res.locals.t('status_updated'));
+  return res.redirect(`/registration/children/edit/${req.params.id}`);
+}));
+
 // GET /registration/children/edit/:id
-app.get('/registration/children/edit/:id', requireAuth, (req, res) => {
+app.get('/registration/children/edit/:id', requireAuth, asyncHandler(async (req, res) => {
   const isStaff = req.user.role === 'admin';
-  const reg = db.prepare('SELECT * FROM student_registrations WHERE id = ? AND (user_id = ? OR ? = 1)').get(req.params.id, req.user.id, isStaff ? 1 : 0);
+  const reg = await db.prepare('SELECT * FROM student_registrations WHERE id = ? AND (user_id = ? OR ? = 1)').get(req.params.id, req.user.id, isStaff ? 1 : 0);
   if (!reg) return res.status(404).send('Registration not found.');
 
   // Parse address back to city, state, zip
@@ -1153,13 +1219,13 @@ app.get('/registration/children/edit/:id', requireAuth, (req, res) => {
     today,
     isStaff,
     statusOptions: STUDENT_REGISTRATION_STATUSES,
-    relevantEvents: getFaithFormationEvents(['children', 'general']),
+    relevantEvents: await getFaithFormationEvents(['children', 'general']),
   });
-});
+}));
 
 // ── Adult Programs ───────────────────────────────────────────
 // GET /registration/adult/:program  (ocia | baptism_prep | adult_confirmation)
-app.get('/registration/adult/:program', requireAuth, (req, res) => {
+app.get('/registration/adult/:program', requireAuth, asyncHandler(async (req, res) => {
   const ADULT_PROGRAMS = getAdultPrograms(res.locals.t);
   const program = ADULT_PROGRAMS[req.params.program];
   if (!program) return res.status(404).send('Unknown program.');
@@ -1167,19 +1233,19 @@ app.get('/registration/adult/:program', requireAuth, (req, res) => {
     program,
     reg: null,
     editing: false,
-    baptismPrepSchedules: getBaptismPrepSchedules(),
-    relevantEvents: getFaithFormationEvents([program.key, 'general']),
+    baptismPrepSchedules: await getBaptismPrepSchedules(),
+    relevantEvents: await getFaithFormationEvents([program.key, 'general']),
   });
-});
+}));
 
 // GET /registration/adult/edit/:program/:id
-app.get('/registration/adult/edit/:program/:id', requireAuth, (req, res) => {
+app.get('/registration/adult/edit/:program/:id', requireAuth, asyncHandler(async (req, res) => {
   const ADULT_PROGRAMS = getAdultPrograms(res.locals.t);
   const program = ADULT_PROGRAMS[req.params.program];
   if (!program) return res.status(404).send('Unknown program.');
   const isAdmin = req.user.role === 'admin';
 
-  const reg = db.prepare(
+  const reg = await db.prepare(
     'SELECT * FROM adult_registrations WHERE id = ? AND (user_id = ? OR ? = 1) AND program_type = ?'
   ).get(req.params.id, req.user.id, isAdmin ? 1 : 0, req.params.program);
   if (!reg) return res.status(404).send('Registration not found.');
@@ -1194,12 +1260,12 @@ app.get('/registration/adult/edit/:program/:id', requireAuth, (req, res) => {
     program,
     editing: true,
     reg,
-    baptismPrepSchedules: getBaptismPrepSchedules(),
-    relevantEvents: getFaithFormationEvents([program.key, 'general']),
+    baptismPrepSchedules: await getBaptismPrepSchedules(),
+    relevantEvents: await getFaithFormationEvents([program.key, 'general']),
   });
-});
+}));
 
-app.post('/registration/adult/:program', requireAuth, (req, res) => {
+app.post('/registration/adult/:program', requireAuth, asyncHandler(async (req, res) => {
   const ADULT_PROGRAMS = getAdultPrograms(res.locals.t);
   const program = ADULT_PROGRAMS[req.params.program];
   if (!program) return res.status(404).send('Unknown program.');
@@ -1221,7 +1287,7 @@ app.post('/registration/adult/:program', requireAuth, (req, res) => {
   let selectedBaptismPrepSchedule = null;
   if (program.key === 'baptism_prep') {
     selectedBaptismPrepSchedule = Number.isInteger(selectedClassScheduleId) && selectedClassScheduleId > 0
-      ? db.prepare(
+      ? await db.prepare(
           `SELECT schedules.id, definitions.audience, definitions.title, schedules.schedule_type, schedules.recurrence_pattern,
                   schedules.event_date, schedules.event_time, schedules.event_end_time, schedules.location
            FROM faith_formation_event_schedules schedules
@@ -1240,7 +1306,7 @@ app.post('/registration/adult/:program', requireAuth, (req, res) => {
   if (req.body.registration_id) {
     const isAdmin = req.user.role === 'admin';
     // Update existing
-    db.prepare(`
+    await db.prepare(`
       UPDATE adult_registrations SET
         full_name = ?, email = ?, phone = ?, address = ?, city_state_zip = ?,
         dob = ?, baptized = ?, baptism_church = ?, spouse_name = ?, godparent_for = ?, comments = ?, class_schedule_id = ?, class_date = ?
@@ -1265,7 +1331,7 @@ app.post('/registration/adult/:program', requireAuth, (req, res) => {
     return res.redirect('/dashboard');
   }
 
-  db.prepare(`
+  await db.prepare(`
     INSERT INTO adult_registrations
       (user_id, program_type, full_name, email, phone, address, city_state_zip,
        dob, baptized, baptism_church, spouse_name, godparent_for, comments, class_schedule_id, class_date, status)
@@ -1291,22 +1357,22 @@ app.post('/registration/adult/:program', requireAuth, (req, res) => {
 
   req.flash('success', `Your ${program.title} registration has been submitted. The parish office will be in touch.`);
   return res.redirect('/dashboard');
-});
+}));
 
 // ── Admin ────────────────────────────────────────────────────
-app.get('/admin/users', requireAuth, requireRole('admin'), (req, res) => {
-  const users = db.prepare('SELECT id, email, role, provider, created_at FROM users ORDER BY created_at DESC').all();
-  const ccdClasses = getCcdClasses();
-  const eventDefinitions = getFaithFormationEventDefinitions();
-  const managedEvents = getFaithFormationEvents(['children', 'baptism_prep', 'ocia', 'general']);
+app.get('/admin/users', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const users = await db.prepare('SELECT id, email, role, provider, created_at FROM users ORDER BY created_at DESC').all();
+  const ccdClasses = await getCcdClasses();
+  const eventDefinitions = await getFaithFormationEventDefinitions();
+  const managedEvents = await getFaithFormationEvents(['children', 'baptism_prep', 'ocia', 'general']);
   res.render('admin-users', { users, ccdClasses, eventDefinitions, managedEvents });
-});
+}));
 
-app.post('/admin/users/:id/role', requireAuth, requireRole('admin'), (req, res) => {
-  db.prepare('UPDATE users SET role = ? WHERE id = ?').run(req.body.role, req.params.id);
+app.post('/admin/users/:id/role', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  await db.prepare('UPDATE users SET role = ? WHERE id = ?').run(req.body.role, req.params.id);
   req.flash('success', 'User role updated.');
   res.redirect('/admin/users');
-});
+}));
 
 app.get('/admin/health/mail', requireAuth, requireRole('admin'), async (req, res) => {
   try {
@@ -1331,7 +1397,7 @@ app.get('/admin/health/mail', requireAuth, requireRole('admin'), async (req, res
   }
 });
 
-app.post('/admin/users/:id/delete', requireAuth, requireRole('admin'), (req, res) => {
+app.post('/admin/users/:id/delete', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   const userId = Number.parseInt(req.params.id, 10);
   if (!Number.isInteger(userId)) {
     req.flash('error', 'Invalid user.');
@@ -1343,21 +1409,21 @@ app.post('/admin/users/:id/delete', requireAuth, requireRole('admin'), (req, res
     return res.redirect('/admin/users');
   }
 
-  const existingUser = db.prepare('SELECT id, email FROM users WHERE id = ?').get(userId);
+  const existingUser = await db.prepare('SELECT id, email FROM users WHERE id = ?').get(userId);
   if (!existingUser) {
     req.flash('error', 'User not found.');
     return res.redirect('/admin/users');
   }
 
-  db.prepare('DELETE FROM student_registrations WHERE user_id = ?').run(userId);
-  db.prepare('DELETE FROM adult_registrations WHERE user_id = ?').run(userId);
-  db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+  await db.prepare('DELETE FROM student_registrations WHERE user_id = ?').run(userId);
+  await db.prepare('DELETE FROM adult_registrations WHERE user_id = ?').run(userId);
+  await db.prepare('DELETE FROM users WHERE id = ?').run(userId);
 
   req.flash('success', `Removed user ${existingUser.email}.`);
   return res.redirect('/admin/users');
-});
+}));
 
-app.post('/admin/ccd-classes', requireAuth, requireRole('admin'), (req, res) => {
+app.post('/admin/ccd-classes', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   const gradeLevel = typeof req.body.grade_level === 'string' ? req.body.grade_level.trim() : '';
   const classTime = typeof req.body.class_time === 'string' ? req.body.class_time.trim() : '';
   const classroom = typeof req.body.classroom === 'string' ? req.body.classroom.trim() : '';
@@ -1367,20 +1433,22 @@ app.post('/admin/ccd-classes', requireAuth, requireRole('admin'), (req, res) => 
     return res.redirect('/admin/users');
   }
 
-  db.prepare(
-    'INSERT OR REPLACE INTO ccd_classes (id, grade_level, class_time, classroom) VALUES ((SELECT id FROM ccd_classes WHERE grade_level = ?), ?, ?, ?)'
-  ).run(gradeLevel, gradeLevel, classTime, classroom);
+  await db.prepare(
+    `INSERT INTO ccd_classes (grade_level, class_time, classroom)
+     VALUES (?, ?, ?)
+     ON DUPLICATE KEY UPDATE class_time = VALUES(class_time), classroom = VALUES(classroom)`
+  ).run(gradeLevel, classTime, classroom);
   req.flash('success', 'CCD class saved.');
   return res.redirect('/admin/users');
-});
+}));
 
-app.post('/admin/ccd-classes/:id/delete', requireAuth, requireRole('admin'), (req, res) => {
-  db.prepare('DELETE FROM ccd_classes WHERE id = ?').run(req.params.id);
+app.post('/admin/ccd-classes/:id/delete', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  await db.prepare('DELETE FROM ccd_classes WHERE id = ?').run(req.params.id);
   req.flash('success', 'CCD class removed.');
   return res.redirect('/admin/users');
-});
+}));
 
-app.post('/admin/events', requireAuth, requireRole('admin'), (req, res) => {
+app.post('/admin/events', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   const title = typeof req.body.title === 'string' ? req.body.title.trim() : '';
   const audience = typeof req.body.audience === 'string' ? req.body.audience.trim() : '';
   const validAudiences = ['children', 'baptism_prep', 'ocia', 'general'];
@@ -1394,21 +1462,21 @@ app.post('/admin/events', requireAuth, requireRole('admin'), (req, res) => {
     return res.redirect('/admin/users');
   }
 
-  db.prepare(
+  await db.prepare(
     'INSERT INTO faith_formation_event_definitions (title, audience) VALUES (?, ?)'
   ).run(title, audience);
   req.flash('success', 'Faith formation event created.');
   return res.redirect('/admin/users');
-});
+}));
 
-app.post('/admin/events/:id/delete', requireAuth, requireRole('admin'), (req, res) => {
-  db.prepare('DELETE FROM faith_formation_event_schedules WHERE event_definition_id = ?').run(req.params.id);
-  db.prepare('DELETE FROM faith_formation_event_definitions WHERE id = ?').run(req.params.id);
+app.post('/admin/events/:id/delete', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  await db.prepare('DELETE FROM faith_formation_event_schedules WHERE event_definition_id = ?').run(req.params.id);
+  await db.prepare('DELETE FROM faith_formation_event_definitions WHERE id = ?').run(req.params.id);
   req.flash('success', 'Faith formation event removed.');
   return res.redirect('/admin/users');
-});
+}));
 
-app.post('/admin/event-schedules', requireAuth, requireRole('admin'), (req, res) => {
+app.post('/admin/event-schedules', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   const eventDefinitionId = Number(req.body.event_definition_id);
   const scheduleType = typeof req.body.schedule_type === 'string' ? req.body.schedule_type.trim() : 'one_time';
   const recurrencePattern = typeof req.body.recurrence_pattern === 'string' ? req.body.recurrence_pattern.trim() : '';
@@ -1434,7 +1502,7 @@ app.post('/admin/event-schedules', requireAuth, requireRole('admin'), (req, res)
     return res.redirect('/admin/users');
   }
 
-  db.prepare(
+  await db.prepare(
     'INSERT INTO faith_formation_event_schedules (event_definition_id, schedule_type, recurrence_pattern, event_date, event_time, event_end_time, location) VALUES (?, ?, ?, ?, ?, ?, ?)'
   ).run(
     eventDefinitionId,
@@ -1447,13 +1515,13 @@ app.post('/admin/event-schedules', requireAuth, requireRole('admin'), (req, res)
   );
   req.flash('success', 'Event schedule saved.');
   return res.redirect('/admin/users');
-});
+}));
 
-app.post('/admin/event-schedules/:id/delete', requireAuth, requireRole('admin'), (req, res) => {
-  db.prepare('DELETE FROM faith_formation_event_schedules WHERE id = ?').run(req.params.id);
+app.post('/admin/event-schedules/:id/delete', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  await db.prepare('DELETE FROM faith_formation_event_schedules WHERE id = ?').run(req.params.id);
   req.flash('success', 'Event schedule removed.');
   return res.redirect('/admin/users');
-});
+}));
 
 // Keep old routes working — GET redirects, old POST alias
 app.get('/registration/new', requireAuth, (req, res) => res.redirect('/registration/children'));
@@ -1464,6 +1532,13 @@ app.post('/registration', requireAuth,
   handleChildrenRegistration
 );
 
-app.listen(PORT, () => {
-  console.log(`St Matthew CCD app running at http://localhost:${PORT}`);
-});
+db.init()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`St Matthew CCD app running at http://localhost:${PORT}`);
+    });
+  })
+  .catch((error) => {
+    console.error('Database initialization failed.', error);
+    process.exit(1);
+  });

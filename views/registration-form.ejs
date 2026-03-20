@@ -45,6 +45,30 @@
       </div>
     <% } %>
     <div class="card-body p-4">
+      <% if (isStaff && editing && reg && availableStatusOptions.length) { %>
+        <div class="border rounded-3 p-3 bg-light mb-4">
+          <div class="d-flex flex-wrap justify-content-between align-items-end gap-3">
+            <div>
+              <div class="text-muted small"><%= t('current_status') %></div>
+              <div class="fw-semibold"><%= t(reg.status) %></div>
+            </div>
+            <form method="post" action="/registration/children/<%= reg.id %>/status" class="d-flex flex-wrap align-items-end gap-2">
+              <div>
+                <label class="form-label mb-1"><%= t('status') %></label>
+                <select class="form-select" name="status">
+                  <% availableStatusOptions.forEach((status) => { %>
+                    <option value="<%= status %>" <%= reg.status === status ? 'selected' : '' %>>
+                      <%= t(status) %>
+                    </option>
+                  <% }) %>
+                </select>
+              </div>
+              <button type="submit" class="btn btn-outline-primary"><%= t('update_status') %></button>
+            </form>
+          </div>
+        </div>
+      <% } %>
+
       <form method="post" action="/registration/children" enctype="multipart/form-data" class="row g-3">
         <input type="hidden" name="school_year" value="2025-2026">
         <input type="hidden" name="registration_id" value="<%= reg ? reg.id : '' %>">
@@ -55,19 +79,6 @@
             <strong><%= t('registration_date_auto') %>:</strong> <%= today %>
           </div>
         </div>
-
-        <% if (isStaff && editing && reg && availableStatusOptions.length) { %>
-          <div class="col-md-4">
-            <label class="form-label"><%= t('status') %></label>
-            <select class="form-select" name="status">
-              <% availableStatusOptions.forEach((status) => { %>
-                <option value="<%= status %>" <%= reg.status === status ? 'selected' : '' %>>
-                  <%= t(status) %>
-                </option>
-              <% }) %>
-            </select>
-          </div>
-        <% } %>
 
         <!-- Primary contact and address -->
         <fieldset class="col-12">
