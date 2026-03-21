@@ -5,9 +5,24 @@ const getConfig = () => ({
   location: process.env.GOOGLE_CLOUD_LOCATION || '',
   processorId: process.env.GOOGLE_DOCUMENT_AI_PROCESSOR_ID || '',
   credentialsPath: process.env.GOOGLE_APPLICATION_CREDENTIALS || '',
+  credentialsJson: process.env.GOOGLE_DOCUMENT_AI_CREDENTIALS_JSON || '',
+  credentialsBase64: process.env.GOOGLE_DOCUMENT_AI_CREDENTIALS_B64 || '',
 });
 
 const sanitizeText = (value) => (value || '').replace(/\r/g, '').trim();
+
+const parseInlineCredentials = (config) => {
+  const rawJson = config.credentialsJson
+    || (config.credentialsBase64 ? Buffer.from(config.credentialsBase64, 'base64').toString('utf8') : '');
+
+  if (!rawJson) return null;
+
+  const parsed = JSON.parse(rawJson);
+  return {
+    client_email: parsed.client_email || '',
+    private_key: parsed.private_key || '',
+  };
+};
 
 const isConfigured = () => {
   const config = getConfig();
@@ -17,7 +32,10 @@ const isConfigured = () => {
 const createClient = () => {
   const config = getConfig();
   const clientOptions = {};
-  if (config.credentialsPath) {
+  const inlineCredentials = parseInlineCredentials(config);
+  if (inlineCredentials?.client_email && inlineCredentials?.private_key) {
+    clientOptions.credentials = inlineCredentials;
+  } else if (config.credentialsPath) {
     clientOptions.keyFilename = config.credentialsPath;
   }
   return new DocumentProcessorServiceClient(clientOptions);
@@ -67,6 +85,7 @@ const processScanDocument = async ({ buffer, mimeType }) => {
 
 const verifyDocumentAiConfiguration = async () => {
   const config = getConfig();
+  const inlineCredentials = parseInlineCredentials(config);
   if (!isConfigured()) {
     return {
       ok: false,
@@ -76,6 +95,7 @@ const verifyDocumentAiConfiguration = async () => {
         location: config.location,
         processorId: config.processorId,
         hasCredentialsPath: Boolean(config.credentialsPath),
+        hasInlineCredentials: Boolean(inlineCredentials?.client_email && inlineCredentials?.private_key),
       },
     };
   }
@@ -94,6 +114,7 @@ const verifyDocumentAiConfiguration = async () => {
         location: config.location,
         processorId: config.processorId,
         hasCredentialsPath: Boolean(config.credentialsPath),
+        hasInlineCredentials: Boolean(inlineCredentials?.client_email && inlineCredentials?.private_key),
       },
     };
   } catch (error) {
@@ -106,6 +127,7 @@ const verifyDocumentAiConfiguration = async () => {
         location: config.location,
         processorId: config.processorId,
         hasCredentialsPath: Boolean(config.credentialsPath),
+        hasInlineCredentials: Boolean(inlineCredentials?.client_email && inlineCredentials?.private_key),
       },
     };
   }
