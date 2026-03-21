@@ -343,11 +343,132 @@
       return match ? match[1].replace(/[_\n\r]+/g, ' ').trim() : '';
     };
 
-    const fillFieldsFromText = (text) => {
-      Object.values(fields).forEach((field) => {
-        if (!field) return;
-        field.value = '';
-      });
+    const setIfEmpty = (field, value) => {
+      if (!field || field.value) return;
+      if (!value) return;
+      field.value = value;
+    };
+
+    const findFormFieldValue = (formFields, labels) => {
+      if (!Array.isArray(formFields)) return '';
+      for (const item of formFields) {
+        const fieldName = canonicalize(item && item.fieldName);
+        if (!fieldName) continue;
+        for (const label of labels) {
+          if (fieldName.startsWith(canonicalize(label))) {
+            return String(item.fieldValue || '').trim();
+          }
+        }
+      }
+      return '';
+    };
+
+    const extractPhone = (value) => {
+      const match = String(value || '').match(/(?:\+?1[\s.-]?)?(?:\(?\d{3}\)?[\s.-]?)\d{3}[\s.-]?\d{4}/);
+      return match ? match[0] : '';
+    };
+
+    const fillFieldsFromFormFields = (formFields) => {
+      const markPattern = /[xXâœ“âœ”vVâœ—]/;
+      const parentValue = cleanPersonName(findFormFieldValue(formFields, ["PARENT'S NAME", 'PARENTS NAME']));
+      const addressValue = findFormFieldValue(formFields, ['ADDRESS']);
+      const cityStateZipValue = findFormFieldValue(formFields, ['CITY, STATE AND ZIP', 'CITY STATE AND ZIP']);
+      const homePhoneValue = extractPhone(findFormFieldValue(formFields, ['HOME PHONE', 'HOME PHONE #']));
+      const fatherNameValue = cleanPersonName(findFormFieldValue(formFields, ["FATHER'S NAME", 'FATHERS NAME']));
+      const fatherCellValue = extractPhone(findFormFieldValue(formFields, ["FATHER'S CELL PHONE #", "FATHER'S CELL PHONE", 'FATHERSCELLPHONE']));
+      const motherMaidenValue = cleanPersonName(findFormFieldValue(formFields, ["MOTHER'S MAIDEN NAME", 'MOTHERS MAIDEN NAME']));
+      const motherCellValue = extractPhone(findFormFieldValue(formFields, ["MOTHER'S CELL PHONE #", "MOTHER'S CELL PHONE", 'MOTHERSCELLPHONE']));
+      const studentFullNameValue = cleanPersonName(findFormFieldValue(formFields, ["STUDENT'S FULL NAME", 'STUDENTS FULL NAME']));
+      const dobValue = findFormFieldValue(formFields, ['DATE OF BIRTH', 'DATEOFBIRTH']);
+      const birthPlaceValue = findFormFieldValue(formFields, ["CHILD'S PLACE OF BIRTH", 'CHILDS PLACE OF BIRTH']);
+      const schoolAttendingValue = findFormFieldValue(formFields, ['SCHOOL ATTENDING']);
+      const baptismDateValue = findFormFieldValue(formFields, ['BAPTISM']);
+      const baptismChurchValue = findFormFieldValue(formFields, ['NAME OF CHURCH']);
+      const baptismCityValue = findFormFieldValue(formFields, ['CITY']);
+      const baptismStateValue = findFormFieldValue(formFields, ['STATE']);
+      const emailValue = normalizeEmail(findFormFieldValue(formFields, ['E-MAIL', 'EMAIL']));
+      const motherReligionValue = findFormFieldValue(formFields, ["MOTHER'S RELIGION", 'MOTHERS RELIGION', 'RELIGION']);
+      const fatherReligionValue = findFormFieldValue(formFields, ["FATHER'S RELIGION", 'FATHERS RELIGION']);
+      const femaleMarked = markPattern.test(findFormFieldValue(formFields, ['FEMALE']));
+      const maleMarked = markPattern.test(findFormFieldValue(formFields, ['MALE']));
+      const bothMarked = markPattern.test(findFormFieldValue(formFields, ['BOTH']));
+      const fatherMarked = markPattern.test(findFormFieldValue(formFields, ['FATHER']));
+      const motherMarked = markPattern.test(findFormFieldValue(formFields, ['MOTHER']));
+
+      if (parentValue) {
+        const parentParts = splitName(parentValue);
+        setIfEmpty(fields.primaryContactFirstName, parentParts.first);
+        setIfEmpty(fields.primaryContactLastName, parentParts.last);
+      }
+
+      setIfEmpty(fields.address, addressValue);
+      setIfEmpty(fields.homePhone, homePhoneValue);
+      setIfEmpty(fields.primaryContactPhone, motherCellValue || homePhoneValue);
+      setIfEmpty(fields.fatherName, fatherNameValue);
+      setIfEmpty(fields.fatherCell, fatherCellValue);
+      setIfEmpty(fields.motherMaidenName, motherMaidenValue);
+      setIfEmpty(fields.primaryContactEmail, emailValue);
+      setIfEmpty(fields.schoolAttending, schoolAttendingValue);
+      setIfEmpty(fields.studentDob, toIsoDate(dobValue));
+      setIfEmpty(fields.birthCountry, '');
+      setIfEmpty(fields.baptismDate, toIsoDate(baptismDateValue));
+
+      if (studentFullNameValue) {
+        const studentParts = splitName(studentFullNameValue);
+        setIfEmpty(fields.studentFirstName, studentParts.first);
+        setIfEmpty(fields.studentMiddleName, studentParts.middle);
+        setIfEmpty(fields.studentLastName, studentParts.last);
+      }
+
+      if (birthPlaceValue) {
+        const placeParts = birthPlaceValue.split(',').map((item) => item.trim()).filter(Boolean);
+        setIfEmpty(fields.birthCity, placeParts[0] || '');
+        setIfEmpty(fields.birthCountry, placeParts.slice(1).join(', '));
+      }
+
+      if (cityStateZipValue) {
+        const cityLineMatch = cityStateZipValue.match(/([A-Za-z .'-]+?)[,\s]+([A-Z]{2})\s+(\d{5}(?:-\d{4})?)/);
+        if (cityLineMatch) {
+          setIfEmpty(fields.city, cityLineMatch[1].trim());
+          setIfEmpty(fields.state, cityLineMatch[2].trim());
+          setIfEmpty(fields.zip, cityLineMatch[3].trim());
+        }
+      }
+
+      if (baptismChurchValue) {
+        const churchParts = [baptismChurchValue, baptismCityValue, baptismStateValue]
+          .map((item) => String(item || '').trim())
+          .filter(Boolean);
+        setIfEmpty(fields.baptismChurch, churchParts.join(', '));
+      }
+
+      if (motherReligionValue && motherReligionValue.toUpperCase() !== '✗') {
+        setIfEmpty(fields.motherReligion, motherReligionValue);
+      }
+      if (fatherReligionValue && fatherReligionValue.toUpperCase() !== '✗') {
+        setIfEmpty(fields.fatherReligion, fatherReligionValue);
+      }
+
+      if (!fields.studentGender.value && femaleMarked) fields.studentGender.value = 'female';
+      if (!fields.studentGender.value && maleMarked) fields.studentGender.value = 'male';
+
+      if (!fields.childLivesWith.value && bothMarked) fields.childLivesWith.value = 'Both';
+      else if (!fields.childLivesWith.value && fatherMarked) fields.childLivesWith.value = 'Father';
+      else if (!fields.childLivesWith.value && motherMarked) fields.childLivesWith.value = 'Mother';
+    };
+
+    const fillFieldsFromText = (text, options = {}) => {
+      const shouldReset = options.reset !== false;
+      if (shouldReset) {
+        Object.values(fields).forEach((field) => {
+          if (!field) return;
+          field.value = '';
+        });
+      }
+
+      if (Array.isArray(options.formFields) && options.formFields.length) {
+        fillFieldsFromFormFields(options.formFields);
+      }
 
       const normalized = normalizeOcrText(text);
       const lineNormalized = normalized.replace(/\s{2,}/g, ' ');
@@ -551,7 +672,7 @@
         }
 
         ocrText.value = result.text || '';
-        fillFieldsFromText(ocrText.value);
+        fillFieldsFromText(ocrText.value, { formFields: result.formFields || [] });
         setStatus('Text extracted. Review the fields before opening the draft.');
       } catch (error) {
         setStatus(`OCR failed: ${error && error.message ? error.message : error}`);
