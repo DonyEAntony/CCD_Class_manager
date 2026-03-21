@@ -27,7 +27,8 @@
           <label class="form-label"><%= t('camera_capture') %></label>
           <input class="form-control mb-3" type="file" id="scan-image" accept="image/*" capture="environment">
           <button class="btn btn-primary" type="button" id="extract-text"><%= t('extract_text') %></button>
-          <div class="form-text mt-2">Use a clear photo with good lighting. One page at a time works best.</div>
+          <div class="form-text mt-2"><%= t('scan_google_ready') %></div>
+          <div class="form-text mt-1">Use a clear photo with good lighting. One page at a time works best.</div>
           <div id="scan-status" class="mt-3 text-muted small"></div>
           <img id="scan-preview" class="img-fluid rounded border mt-3 d-none" alt="Scanned form preview">
         </div>
@@ -53,6 +54,10 @@
               <input class="form-control" type="text" id="primary-contact-phone">
             </div>
             <div class="col-md-6">
+              <label class="form-label"><%= t('home_phone') %></label>
+              <input class="form-control" type="text" id="home-phone">
+            </div>
+            <div class="col-md-6">
               <label class="form-label"><%= t('primary_contact_email') %></label>
               <input class="form-control" type="email" id="primary-contact-email">
             </div>
@@ -72,8 +77,35 @@
               <label class="form-label"><%= t('mother_maiden_name') %></label>
               <input class="form-control" type="text" id="mother-maiden-name">
             </div>
+            <div class="col-md-6">
+              <label class="form-label"><%= t('mother_religion') %></label>
+              <input class="form-control" type="text" id="mother-religion">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label"><%= t('father_name') %></label>
+              <input class="form-control" type="text" id="father-name">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label"><%= t('father_religion') %></label>
+              <input class="form-control" type="text" id="father-religion">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label"><%= t('father_cell') %></label>
+              <input class="form-control" type="text" id="father-cell">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label"><%= t('child_lives_with') %></label>
+              <select class="form-select" id="child-lives-with">
+                <option value=""></option>
+                <option value="Both"><%= t('both') %></option>
+                <option value="Father"><%= t('father') %></option>
+                <option value="Mother"><%= t('mother') %></option>
+                <option value="Grandparents"><%= t('grandparents') %></option>
+                <option value="Other"><%= t('other_lives_with') %></option>
+              </select>
+            </div>
             <div class="col-12">
-              <label class="form-label"><%= t('address') %></label>
+              <label class="form-label">Primary Contact Address</label>
               <input class="form-control" type="text" id="address">
             </div>
             <div class="col-md-4">
@@ -101,6 +133,10 @@
               <input class="form-control" type="text" id="student-last-name">
             </div>
             <div class="col-md-6">
+              <label class="form-label"><%= t('school_attending') %></label>
+              <input class="form-control" type="text" id="school-attending">
+            </div>
+            <div class="col-md-6">
               <label class="form-label"><%= t('gender') %></label>
               <select class="form-select" id="student-gender">
                 <option value=""></option>
@@ -111,6 +147,30 @@
             <div class="col-md-6">
               <label class="form-label"><%= t('dob') %></label>
               <input class="form-control" type="date" id="student-dob">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label"><%= t('birth_city') %></label>
+              <input class="form-control" type="text" id="birth-city">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label"><%= t('birth_country') %></label>
+              <input class="form-control" type="text" id="birth-country">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label"><%= t('baptism_date') %></label>
+              <input class="form-control" type="date" id="baptism-date">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label"><%= t('baptism_church') %></label>
+              <input class="form-control" type="text" id="baptism-church">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label"><%= t('first_communion_date') %></label>
+              <input class="form-control" type="date" id="first-communion-date">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label"><%= t('first_communion_church') %></label>
+              <input class="form-control" type="text" id="first-communion-church">
             </div>
           </div>
 
@@ -124,7 +184,6 @@
   </div>
 </main>
 
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script>
   (function () {
     const scanImageInput = document.getElementById('scan-image');
@@ -139,9 +198,15 @@
       primaryContactFirstName: document.getElementById('primary-contact-first-name'),
       primaryContactLastName: document.getElementById('primary-contact-last-name'),
       primaryContactPhone: document.getElementById('primary-contact-phone'),
+      homePhone: document.getElementById('home-phone'),
       primaryContactEmail: document.getElementById('primary-contact-email'),
       primaryContactRelationship: document.getElementById('primary-contact-relationship'),
       motherMaidenName: document.getElementById('mother-maiden-name'),
+      motherReligion: document.getElementById('mother-religion'),
+      fatherName: document.getElementById('father-name'),
+      fatherReligion: document.getElementById('father-religion'),
+      fatherCell: document.getElementById('father-cell'),
+      childLivesWith: document.getElementById('child-lives-with'),
       address: document.getElementById('address'),
       city: document.getElementById('city'),
       state: document.getElementById('state'),
@@ -149,8 +214,15 @@
       studentFirstName: document.getElementById('student-first-name'),
       studentMiddleName: document.getElementById('student-middle-name'),
       studentLastName: document.getElementById('student-last-name'),
+      schoolAttending: document.getElementById('school-attending'),
       studentGender: document.getElementById('student-gender'),
-      studentDob: document.getElementById('student-dob')
+      studentDob: document.getElementById('student-dob'),
+      birthCity: document.getElementById('birth-city'),
+      birthCountry: document.getElementById('birth-country'),
+      baptismDate: document.getElementById('baptism-date'),
+      baptismChurch: document.getElementById('baptism-church'),
+      firstCommunionDate: document.getElementById('first-communion-date'),
+      firstCommunionChurch: document.getElementById('first-communion-church')
     };
 
     const setStatus = (message) => {
@@ -158,7 +230,11 @@
     };
 
     const splitName = (fullName) => {
-      const parts = (fullName || '').trim().split(/\s+/).filter(Boolean);
+      const parts = (fullName || '')
+        .replace(/[^A-Za-z.' -]/g, ' ')
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean);
       if (!parts.length) return { first: '', middle: '', last: '' };
       if (parts.length === 1) return { first: parts[0], middle: '', last: '' };
       if (parts.length === 2) return { first: parts[0], middle: '', last: parts[1] };
@@ -169,7 +245,17 @@
       };
     };
 
+    const cleanPersonName = (value) => (value || '')
+      .replace(/^(Ms|Mrs|Mr|Miss|Dr)\.?\s+/i, '')
+      .replace(/\bRELIGION\b.*$/i, '')
+      .replace(/\bCATHOLIC\b.*$/i, '')
+      .replace(/\s+(?:&|and)\s+.+$/i, '')
+      .replace(/\s+(Father|Mother|Religion|Email|Phone).*$/i, '')
+      .trim();
+
     const toIsoDate = (value) => {
+      const yearOnly = /\b(19|20)\d{2}\b/.exec(value || '');
+      if (yearOnly) return `${yearOnly[0]}-01-01`;
       const match = /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/.exec(value || '');
       if (!match) return '';
       const month = match[1].padStart(2, '0');
@@ -178,56 +264,258 @@
       return `${year}-${month}-${day}`;
     };
 
+    const normalizeEmail = (value) => (value || '')
+      .replace(/\s+/g, '')
+      .replace(/\(@/g, '@')
+      .replace(/[②@]/g, '@')
+      .replace(/gmail\.?com/i, 'gmail.com')
+      .replace(/hotmail\.?com/i, 'hotmail.com')
+      .replace(/yahoo\.?com/i, 'yahoo.com')
+      .replace(/\[at\]/gi, '@')
+      .replace(/\(at\)/gi, '@')
+      .trim();
+
+    const canonicalize = (value) => (value || '')
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, '');
+
+    const normalizeOcrText = (value) => (value || '')
+      .replace(/\r/g, '')
+      .replace(/[’‘`]/g, "'")
+      .replace(/[“”]/g, '"')
+      .replace(/âœ“|âœ”/g, '✓')
+      .replace(/[|]/g, 'I')
+      .replace(/\u00A0/g, ' ');
+
+    const getLineValue = (lines, pattern) => {
+      const line = lines.find((entry) => pattern.test(entry));
+      if (!line) return '';
+      return line.replace(pattern, '').trim();
+    };
+
+    const getLineValueByLabels = (lines, labels) => {
+      for (const line of lines) {
+        const canonicalLine = canonicalize(line);
+        for (const label of labels) {
+          if (!canonicalLine.startsWith(canonicalize(label))) continue;
+          const colonIndex = line.indexOf(':');
+          return (colonIndex >= 0 ? line.slice(colonIndex + 1) : line).trim();
+        }
+      }
+      return '';
+    };
+
+    const getBlockValueByLabels = (lines, labels) => {
+      for (let index = 0; index < lines.length; index += 1) {
+        const line = lines[index];
+        const canonicalLine = canonicalize(line);
+        for (const label of labels) {
+          const canonicalLabel = canonicalize(label);
+          if (!canonicalLine.startsWith(canonicalLabel)) continue;
+
+          const values = [];
+          const colonIndex = line.indexOf(':');
+          const inlineValue = (colonIndex >= 0 ? line.slice(colonIndex + 1) : '').trim();
+          if (inlineValue) values.push(inlineValue);
+
+          for (let nextIndex = index + 1; nextIndex < lines.length; nextIndex += 1) {
+            const nextLine = lines[nextIndex];
+            const nextCanonical = canonicalize(nextLine);
+            const looksLikeLabel = labels.some((entry) => nextCanonical.startsWith(canonicalize(entry)))
+              || /^(ADDRESS|CITY|HOMEPHONE|FATHERSNAME|FATHERSCELLPHONE|MOTHERSMAIDENNAME|MOTHERSCELLPHONE|CHILDLIVESWITH|STEPPARENTSNAME|STUDENTSFULLNAME|CHILDSPLACEOFBIRTH|SCHOOLATTENDING|EMAIL|BAPTISM|FIRSTCOMMUNION|SIGNATUREOFPARENT|RELIGION)/.test(nextCanonical);
+            if (looksLikeLabel) break;
+            values.push(nextLine.trim());
+          }
+
+          return values.join(' ').trim();
+        }
+      }
+      return '';
+    };
+
+    const getLabeledValue = (text, label, stopLabels) => {
+      const labelPattern = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const stopPattern = stopLabels
+        .map((item) => item.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+        .join('|');
+      const pattern = new RegExp(`${labelPattern}\\s*:?\\s*([\\s\\S]*?)(?=${stopPattern}|$)`, 'i');
+      const match = text.match(pattern);
+      return match ? match[1].replace(/[_\n\r]+/g, ' ').trim() : '';
+    };
+
     const fillFieldsFromText = (text) => {
-      const normalized = (text || '').replace(/\r/g, '');
+      Object.values(fields).forEach((field) => {
+        if (!field) return;
+        field.value = '';
+      });
 
-      const emailMatch = normalized.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
-      const phoneMatch = normalized.match(/(?:\+?1[\s.-]?)?(?:\(?\d{3}\)?[\s.-]?)\d{3}[\s.-]?\d{4}/);
-      const dobMatch = normalized.match(/(?:dob|date of birth)[:\s]*([0-9]{1,2}[\/\-][0-9]{1,2}[\/\-][0-9]{2,4})/i) || normalized.match(/\b[0-9]{1,2}[\/\-][0-9]{1,2}[\/\-][0-9]{2,4}\b/);
-      const zipMatch = normalized.match(/\b\d{5}(?:-\d{4})?\b/);
-      const stateZipMatch = normalized.match(/\b([A-Z]{2})\s+(\d{5}(?:-\d{4})?)\b/);
-      const addressMatch = normalized.match(/\b\d{1,5}\s+[A-Za-z0-9.\- ]+\b(?:Street|St|Road|Rd|Avenue|Ave|Lane|Ln|Drive|Dr|Court|Ct|Boulevard|Blvd)\b[^\n]*/i);
-      const relationshipMatch = normalized.match(/\b(father|mother|stepfather|stepmother|grandfather|grandmother)\b/i);
-      const studentNameMatch = normalized.match(/(?:student|child)(?:'s)? name[:\s]+([A-Za-z ,.'-]+)/i);
-      const parentNameMatch = normalized.match(/(?:parent|guardian|contact)[:\s]+([A-Za-z ,.'-]+)/i);
-      const motherNameMatch = normalized.match(/mother(?:'s)? maiden name[:\s]+([A-Za-z ,.'-]+)/i);
-      const cityStateZipMatch = normalized.match(/([A-Za-z .'-]+),\s*([A-Z]{2})\s+(\d{5}(?:-\d{4})?)/);
+      const normalized = normalizeOcrText(text);
+      const lineNormalized = normalized.replace(/\s{2,}/g, ' ');
+      const lines = normalized
+        .split('\n')
+        .map((line) => line.replace(/\s+/g, ' ').trim())
+        .filter(Boolean);
+      const compactText = lineNormalized.replace(/\s+/g, '');
+      const emailMatch = compactText.match(/E-?MAIL[:\s]*([A-Z0-9._%+-]+(?:@|②)[A-Z0-9.-]+\.[A-Z]{2,})/i)
+        || compactText.match(/[A-Z0-9._%+-]+(?:@|②)[A-Z0-9.-]+\.[A-Z]{2,}/i);
+      const phoneMatches = lineNormalized.match(/(?:\+?1[\s.-]?)?(?:\(?\d{3}\)?[\s.-]?)\d{3}[\s.-]?\d{4}/g) || [];
+      const cityStateZipMatch = lineNormalized.match(/([A-Za-z .'-]+?)[,\s]+([A-Z]{2})\s+(\d{5}(?:-\d{4})?)/);
+      const addressMatch = lineNormalized.match(/\b\d{1,5}\s+[A-Za-z0-9.\- ]+\b(?:Street|St|Road|Rd|Avenue|Ave|Lane|Ln|Drive|Dr|Court|Ct|Boulevard|Blvd|Way|Terrace|Ter|Trail|Trl|Circle|Cir|Via)\b[^\n]*/i);
+      const labeledParentMatch = lineNormalized.match(/PARENT'?S?\s+NAME[:\s]+([A-Za-z .,'&-]+?)(?=\s+ADDRESS\b|\s+CITY\b|\s+HOME PHONE\b|\s+FATHER'?S\b|\s+RELIGION\b|$)/i)
+        || lineNormalized.match(/(?:PARENT(?:\/GUARDIAN)?|GUARDIAN|PRIMARY CONTACT)[:\s]+([A-Za-z .,'&-]+?)(?=\s+ADDRESS\b|\s+CITY\b|\s+HOME PHONE\b|\s+FATHER'?S\b|\s+RELIGION\b|$)/i);
+      const topNameLine = lines.find((line, index) => {
+        if (index > 6) return false;
+        if (!/^(Ms|Mrs|Mr|Miss|Dr)\.?\s+[A-Za-z]/i.test(line)) return false;
+        return !/SAINT MATTHEW|C\.C\.D\.|REGISTRATION|SCHOOL YEAR|PLEASE VERIFY|LAKE WORTH|FL\s+\d{5}/i.test(line);
+      });
+      const studentName = getLabeledValue(lineNormalized, "STUDENT'S FULL NAME", ['MALE', 'FEMALE', 'SCHOOL', 'AGE', 'DATE OF BIRTH', 'DATEOFBIRTH']);
+      const schoolValue = getLabeledValue(lineNormalized, 'SCHOOL', ['AGE', 'DATE OF BIRTH', 'C.C.D. GRADE']);
+      const dobValue = getLabeledValue(lineNormalized, 'DATE OF BIRTH', ['C.C.D. GRADE', 'HOME PHONE', 'E-MAIL'])
+        || getLabeledValue(lineNormalized, 'DATEOFBIRTH', ['C.C.D. GRADE', 'HOME PHONE', 'E-MAIL']);
+      const childPlace = getLabeledValue(lineNormalized, "CHILD'S PLACE OF BIRTH", ['BAPTISM', 'FIRST COMMUNION']);
+      const baptismDateMatch = lineNormalized.match(/BAPTISM[\s\S]{0,160}?(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i)
+        || lineNormalized.match(/BAPTISM[\s\S]{0,160}?(\b20\d{2}\b|\b19\d{2}\b)/i);
+      const baptismDateValue = baptismDateMatch ? baptismDateMatch[1] : getLabeledValue(lineNormalized, 'BAPTISM: DATE', ['CHURCH', 'FIRST COMMUNION']);
+      const baptismChurchMatch = lineNormalized.match(/BAPTISM[\s\S]{0,220}?(?:\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}|\b20\d{2}\b|\b19\d{2}\b)\s+([A-Za-z0-9 .,'()-]+?)(?=\s+Florida\b|\s+FL\b|FIRST COMMUNION|PLEASE LIST|$)/i);
+      const firstCommunionDateValue = getLabeledValue(lineNormalized, 'FIRST COMMUNION: DATE', ['CHURCH', 'PLEASE LIST']);
+      const firstCommunionChurchMatch = lineNormalized.match(/FIRST COMMUNION:\s*DATE[\s\S]*?CHURCH\s+([A-Za-z0-9 .,'-]+?)(?=PLEASE LIST|$)/i);
+      const fatherNameValue = getLabeledValue(lineNormalized, "FATHER'S NAME", ['RELIGION', "MOTHER'S NAME"]);
+      const fatherReligionMatch = lineNormalized.match(/FATHER'S NAME[\s\S]*?RELIGION[:\s]+([A-Za-z .'-]+?)(?=MOTHER'S NAME|MOTHER'S MAIDEN NAME|STEP-PARENT'S NAME|$)/i);
+      const motherNameValue = getLabeledValue(lineNormalized, "MOTHER'S NAME", ['RELIGION', "MOTHER'S MAIDEN NAME"]);
+      const motherReligionMatch = lineNormalized.match(/MOTHER'S NAME[\s\S]*?RELIGION[:\s]+([A-Za-z .'-]+?)(?=MOTHER'S MAIDEN NAME|STEP-PARENT'S NAME|CHILD'S PLACE OF BIRTH|$)/i);
+      const motherMaidenValue = getLabeledValue(lineNormalized, "MOTHER'S MAIDEN NAME", ["STEP-PARENT'S NAME", "CHILD'S PLACE OF BIRTH"]);
+      const motherCellMatch = lineNormalized.match(/MOTHER'?S?\s+CELL(?:\s+PHONE)?\s*#?[:\s]+((?:\+?1[\s.-]?)?(?:\(?\d{3}\)?[\s.-]?)\d{3}[\s.-]?\d{4})/i);
+      const markPattern = '[xX✓✔vV✗]';
+      const femaleMarked = new RegExp(`FEMALE[:\\s_]*${markPattern}`, 'i').test(lineNormalized) || new RegExp(`FEMALE[\\s_]+${markPattern}`, 'i').test(lineNormalized);
+      const maleMarked = new RegExp(`MALE[:\\s_]*${markPattern}`, 'i').test(lineNormalized) || new RegExp(`MALE[\\s_]+${markPattern}`, 'i').test(lineNormalized);
+      const bothMarked = new RegExp(`BOTH[:\\s_]*${markPattern}`, 'i').test(lineNormalized) || new RegExp(`BOTH[\\s_]+${markPattern}`, 'i').test(lineNormalized);
+      const fatherMarked = new RegExp(`FATHER[:\\s_]*${markPattern}`, 'i').test(lineNormalized);
+      const motherMarked = new RegExp(`MOTHER[:\\s_]*${markPattern}`, 'i').test(lineNormalized);
+      const parentLineValue = getBlockValueByLabels(lines, ["PARENT'S NAME", 'PARENTS NAME'])
+        || getLineValue(lines, /^PARENT'?S?\s+NAME\s*:\s*/i)
+        || getLineValueByLabels(lines, ["PARENT'S NAME", 'PARENTS NAME']);
+      const addressLineValue = getLineValue(lines, /^ADDRESS\s*:\s*/i)
+        || getLineValueByLabels(lines, ['ADDRESS']);
+      const cityStateZipLineValue = getBlockValueByLabels(lines, ['CITY, STATE AND ZIP', 'CITY STATE AND ZIP'])
+        || getLineValue(lines, /^CITY,\s*STATE\s*AND\s*ZIP\s*:\s*/i)
+        || getLineValueByLabels(lines, ['CITY, STATE AND ZIP', 'CITY STATE AND ZIP']);
+      const homePhoneLineValue = getBlockValueByLabels(lines, ['HOME PHONE', 'HOME PHONE #'])
+        || getLineValue(lines, /^HOME\s+PHONE\s*#?\s*:\s*/i);
+      const fatherNameLineValue = getLineValue(lines, /^FATHER'?S?\s+NAME\s*:\s*/i);
+      const fatherCellLineValue = getLineValue(lines, /^FATHER'?S?\s+CELL(?:\s+PHONE)?\s*#?\s*:\s*/i);
+      const motherMaidenLineValue = getLineValue(lines, /^MOTHER'?S?\s+MAIDEN\s+NAME\s*:\s*/i);
+      const motherCellLineValue = getLineValue(lines, /^MOTHER'?S?\s+CELL(?:\s+PHONE)?\s*#?\s*:\s*/i)
+        || getLineValueByLabels(lines, ["MOTHER'S CELL PHONE", "MOTHER'S CELLPHONE"]);
+      const studentLineValue = getLineValue(lines, /^STUDENT'?S?\s+FULL\s+NAME\s*:\s*/i)
+        || getLineValueByLabels(lines, ["STUDENT'S FULL NAME", 'STUDENTS FULL NAME']);
+      const schoolLineValue = getLineValue(lines, /^SCHOOL\s+ATTENDING\s*:\s*/i)
+        || getLineValueByLabels(lines, ['SCHOOL ATTENDING']);
+      const birthPlaceLineValue = getLineValue(lines, /^CHILD'?S?\s+PLACE\s+OF\s+BIRTH\s*:\s*/i)
+        || getLineValueByLabels(lines, ["CHILD'S PLACE OF BIRTH", 'CHILDS PLACE OF BIRTH']);
+      const emailLineValue = getBlockValueByLabels(lines, ['E-MAIL', 'EMAIL'])
+        || getLineValue(lines, /^E-?MAIL\s*:\s*/i)
+        || getLineValueByLabels(lines, ['E-MAIL', 'EMAIL']);
 
-      if (emailMatch) fields.primaryContactEmail.value = emailMatch[0];
-      if (phoneMatch) fields.primaryContactPhone.value = phoneMatch[0];
-      if (dobMatch) fields.studentDob.value = toIsoDate(dobMatch[1] || dobMatch[0]);
-      if (zipMatch) fields.zip.value = zipMatch[0];
-      if (stateZipMatch) fields.state.value = stateZipMatch[1];
-      if (addressMatch) fields.address.value = addressMatch[0].trim();
-      if (cityStateZipMatch) {
-        fields.city.value = cityStateZipMatch[1].trim();
-        fields.state.value = cityStateZipMatch[2].trim();
-        fields.zip.value = cityStateZipMatch[3].trim();
+      if (emailLineValue) fields.primaryContactEmail.value = normalizeEmail(emailLineValue);
+      else if (emailMatch) fields.primaryContactEmail.value = normalizeEmail(emailMatch[1] || emailMatch[0]);
+
+      if (homePhoneLineValue) {
+        const phone = (homePhoneLineValue.match(/(?:\+?1[\s.-]?)?(?:\(?\d{3}\)?[\s.-]?)\d{3}[\s.-]?\d{4}/) || [])[0];
+        if (phone) {
+          fields.homePhone.value = phone;
+          fields.primaryContactPhone.value = phone;
+        }
+      } else if (phoneMatches[0]) {
+        fields.homePhone.value = phoneMatches[0];
+        fields.primaryContactPhone.value = phoneMatches[0];
       }
-      if (relationshipMatch) {
-        const normalizedRelationship = relationshipMatch[1].toLowerCase();
-        fields.primaryContactRelationship.value = normalizedRelationship.charAt(0).toUpperCase() + normalizedRelationship.slice(1);
-      }
-      if (motherNameMatch) fields.motherMaidenName.value = motherNameMatch[1].trim();
 
-      const studentName = studentNameMatch ? studentNameMatch[1].trim() : '';
-      if (studentName) {
-        const studentParts = splitName(studentName);
+      if (motherCellLineValue) {
+        const phone = (motherCellLineValue.match(/(?:\+?1[\s.-]?)?(?:\(?\d{3}\)?[\s.-]?)\d{3}[\s.-]?\d{4}/) || [])[0];
+        if (phone) fields.primaryContactPhone.value = phone;
+      } else if (motherCellMatch) {
+        fields.primaryContactPhone.value = motherCellMatch[1];
+      }
+
+      if (phoneMatches[1] && !fields.fatherCell.value) fields.fatherCell.value = phoneMatches[1];
+      if (phoneMatches[2] && !fields.fatherCell.value) fields.fatherCell.value = phoneMatches[2];
+      if (fatherCellLineValue) {
+        const phone = (fatherCellLineValue.match(/(?:\+?1[\s.-]?)?(?:\(?\d{3}\)?[\s.-]?)\d{3}[\s.-]?\d{4}/) || [])[0];
+        if (phone) fields.fatherCell.value = phone;
+      }
+
+      if (addressLineValue) fields.address.value = addressLineValue;
+      else if (addressMatch) fields.address.value = addressMatch[0].trim();
+
+      if (schoolLineValue) fields.schoolAttending.value = schoolLineValue.replace(/GRADE\s+LEVEL.*$/i, '').trim();
+      else if (schoolValue) fields.schoolAttending.value = schoolValue;
+
+      if (dobValue) fields.studentDob.value = toIsoDate(dobValue);
+      if (baptismDateValue) fields.baptismDate.value = toIsoDate(baptismDateValue);
+      if (baptismChurchMatch) fields.baptismChurch.value = baptismChurchMatch[1].trim();
+      if (firstCommunionDateValue) fields.firstCommunionDate.value = toIsoDate(firstCommunionDateValue);
+      if (firstCommunionChurchMatch) fields.firstCommunionChurch.value = firstCommunionChurchMatch[1].trim();
+      const resolvedStudentName = studentLineValue || studentName;
+      if (resolvedStudentName) {
+        const studentParts = splitName(resolvedStudentName);
         fields.studentFirstName.value = studentParts.first;
         fields.studentMiddleName.value = studentParts.middle;
         fields.studentLastName.value = studentParts.last;
       }
 
-      const parentName = parentNameMatch ? parentNameMatch[1].trim() : '';
+      const parentName = cleanPersonName(
+        parentLineValue
+        || (labeledParentMatch && labeledParentMatch[1])
+        || topNameLine
+        || motherNameValue
+        || fatherNameValue
+      );
       if (parentName) {
         const parentParts = splitName(parentName);
         fields.primaryContactFirstName.value = parentParts.first;
         fields.primaryContactLastName.value = parentParts.last;
       }
 
-      if (!fields.studentGender.value) {
-        if (/\bmale\b/i.test(normalized)) fields.studentGender.value = 'male';
-        if (/\bfemale\b/i.test(normalized)) fields.studentGender.value = 'female';
+      if (fatherNameLineValue) fields.fatherName.value = fatherNameLineValue.replace(/\s+RELIGION.*$/i, '').trim();
+      else if (fatherNameValue) fields.fatherName.value = fatherNameValue;
+      if (fatherReligionMatch) fields.fatherReligion.value = fatherReligionMatch[1].trim();
+      if (motherReligionMatch) fields.motherReligion.value = motherReligionMatch[1].trim();
+      if (motherMaidenLineValue) fields.motherMaidenName.value = motherMaidenLineValue.replace(/\s+RELIGION.*$/i, '').trim();
+      else if (motherMaidenValue) fields.motherMaidenName.value = motherMaidenValue;
+
+      const resolvedBirthPlace = birthPlaceLineValue || childPlace;
+      if (resolvedBirthPlace) {
+        const placeParts = resolvedBirthPlace.split(',').map((item) => item.trim()).filter(Boolean);
+        fields.birthCity.value = placeParts[0] || '';
+        fields.birthCountry.value = placeParts.slice(1).join(', ');
+      }
+
+      if (cityStateZipLineValue) {
+        const cityLineMatch = cityStateZipLineValue.match(/([A-Za-z .'-]+?)[,\s]+([A-Z]{2})\s+(\d{5}(?:-\d{4})?)/);
+        if (cityLineMatch) {
+          fields.city.value = cityLineMatch[1].trim();
+          fields.state.value = cityLineMatch[2].trim();
+          fields.zip.value = cityLineMatch[3].trim();
+        }
+      } else if (cityStateZipMatch) {
+        fields.city.value = cityStateZipMatch[1].trim();
+        fields.state.value = cityStateZipMatch[2].trim();
+        fields.zip.value = cityStateZipMatch[3].trim();
+      }
+
+      if (!fields.studentGender.value && femaleMarked) fields.studentGender.value = 'female';
+      if (!fields.studentGender.value && maleMarked) fields.studentGender.value = 'male';
+
+      if (!fields.primaryContactRelationship.value || fields.primaryContactRelationship.value === 'Father') {
+        if (motherNameValue) fields.primaryContactRelationship.value = 'Mother';
+      }
+
+      if (bothMarked) {
+        fields.childLivesWith.value = 'Both';
+      } else if (fatherMarked) {
+        fields.childLivesWith.value = 'Father';
+      } else if (motherMarked) {
+        fields.childLivesWith.value = 'Mother';
       }
     };
 
@@ -246,11 +534,23 @@
         return;
       }
 
-      setStatus('Running OCR. This can take a little while on a phone.');
+      setStatus('<%= t('processing_scan') %>');
       extractTextBtn.disabled = true;
       try {
-        const result = await Tesseract.recognize(file, 'eng');
-        ocrText.value = result.data.text || '';
+        const formData = new FormData();
+        formData.append('scan_image', file);
+
+        const response = await fetch('/admin/scan-registration/process', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const result = await response.json();
+        if (!response.ok || !result.ok) {
+          throw new Error(result.message || '<%= t('document_ai_failed') %>');
+        }
+
+        ocrText.value = result.text || '';
         fillFieldsFromText(ocrText.value);
         setStatus('Text extracted. Review the fields before opening the draft.');
       } catch (error) {
@@ -271,9 +571,15 @@
         primary_contact_first_name: fields.primaryContactFirstName.value.trim(),
         primary_contact_last_name: fields.primaryContactLastName.value.trim(),
         primary_contact_phone: fields.primaryContactPhone.value.trim(),
+        home_phone: fields.homePhone.value.trim(),
         primary_contact_email: fields.primaryContactEmail.value.trim(),
         primary_contact_relationship: fields.primaryContactRelationship.value,
         mother_maiden_name: fields.motherMaidenName.value.trim(),
+        mother_religion: fields.motherReligion.value.trim(),
+        father_name: fields.fatherName.value.trim(),
+        father_religion: fields.fatherReligion.value.trim(),
+        father_cell: fields.fatherCell.value.trim(),
+        child_lives_with: fields.childLivesWith.value,
         address: fields.address.value.trim(),
         city: fields.city.value.trim(),
         state: fields.state.value.trim(),
@@ -281,8 +587,15 @@
         'student_first_name[]': [fields.studentFirstName.value.trim()],
         'student_middle_name[]': [fields.studentMiddleName.value.trim()],
         'student_last_name[]': [fields.studentLastName.value.trim()],
+        'school_attending[]': [fields.schoolAttending.value.trim()],
         'student_gender[]': [fields.studentGender.value],
         'student_dob[]': [fields.studentDob.value],
+        'child_place_of_birth_city[]': [fields.birthCity.value.trim()],
+        'child_place_of_birth_country[]': [fields.birthCountry.value.trim()],
+        'baptism_date[]': [fields.baptismDate.value],
+        'baptism_church[]': [fields.baptismChurch.value.trim()],
+        'first_communion_date[]': [fields.firstCommunionDate.value],
+        'first_communion_church[]': [fields.firstCommunionChurch.value.trim()],
         imported_ocr_text: ocrText.value.trim()
       };
 
