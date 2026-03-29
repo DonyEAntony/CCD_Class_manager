@@ -3,7 +3,6 @@ const path = require('path');
 const crypto = require('crypto');
 const express = require('express');
 const session = require('express-session');
-const flash = require('connect-flash');
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const passport = require('./auth');
@@ -725,7 +724,27 @@ app.use(
     saveUninitialized: false,
   }),
 );
-app.use(flash());
+app.use((req, _res, next) => {
+  req.flash = (type, message) => {
+    if (!req.session) return [];
+
+    if (!req.session.flash) {
+      req.session.flash = {};
+    }
+
+    if (typeof message !== 'undefined') {
+      const values = Array.isArray(message) ? message : [message];
+      req.session.flash[type] = (req.session.flash[type] || []).concat(values);
+      return req.session.flash[type];
+    }
+
+    const messages = req.session.flash[type] || [];
+    delete req.session.flash[type];
+    return messages;
+  };
+
+  next();
+});
 app.use(passport.initialize());
 app.use(passport.session());
 
