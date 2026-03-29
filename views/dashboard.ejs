@@ -253,6 +253,7 @@
               <th>Student</th>
               <th>Confirmation Name</th>
               <th>Sponsor</th>
+              <th>Certificate</th>
               <th>Submitted</th>
               <th>Status</th>
               <th>Actions</th>
@@ -264,6 +265,13 @@
               <td style="font-weight:600"><%= r.student_name %></td>
               <td><%= r.confirmation_name || '&mdash;' %></td>
               <td><%= r.sponsor_name %></td>
+              <td>
+                <% if (r.sponsor_certificate_path) { %>
+                  <a href="/<%= r.sponsor_certificate_path %>">View File</a>
+                <% } else { %>
+                  <span style="color:var(--muted)">&mdash;</span>
+                <% } %>
+              </td>
               <td style="font-size:.8rem;color:var(--muted)"><%= r.created_at ? (typeof r.created_at === 'string' ? r.created_at.slice(0,10) : r.created_at.toISOString().slice(0,10)) : '' %></td>
               <td>
                 <span class="badge" style="background:var(--surface);color:var(--navy-soft);font-size:.7rem;border-radius:2rem;padding:.3em .8em;font-weight:700;border:1px solid var(--border)">

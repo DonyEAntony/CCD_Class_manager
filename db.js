@@ -245,6 +245,7 @@ const init = async () => {
         sponsor_city VARCHAR(255),
         sponsor_state VARCHAR(50),
         sponsor_zip VARCHAR(20),
+        sponsor_certificate_path TEXT,
         student_signature VARCHAR(255),
         parent_signature VARCHAR(255),
         status VARCHAR(50) DEFAULT 'in_progress',
@@ -257,6 +258,15 @@ const init = async () => {
       CREATE TABLE IF NOT EXISTS app_settings (
         setting_key VARCHAR(100) NOT NULL PRIMARY KEY,
         setting_value TEXT,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS registration_year_settings (
+        school_year VARCHAR(32) NOT NULL PRIMARY KEY,
+        faith_formation_open TINYINT(1) NOT NULL DEFAULT 0,
+        sponsor_form_open TINYINT(1) NOT NULL DEFAULT 0,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )
     `);
@@ -319,6 +329,7 @@ const init = async () => {
     await ensureColumn('student_registrations', 'primary_contact_last_name', 'VARCHAR(255)');
     await ensureColumn('student_registrations', 'child_place_of_birth_city', 'TEXT');
     await ensureColumn('student_registrations', 'child_place_of_birth_country', 'TEXT');
+    await ensureColumn('sponsor_confirmations', 'sponsor_certificate_path', 'TEXT');
 
     await ensureColumn('adult_registrations', 'address', 'TEXT');
     await ensureColumn('adult_registrations', 'city_state_zip', 'TEXT');
@@ -343,6 +354,12 @@ const init = async () => {
     );
     await pool.execute(
       `INSERT INTO app_settings (setting_key, setting_value)
+       VALUES ('current_registration_year', ?)
+       ON DUPLICATE KEY UPDATE setting_value = setting_value`,
+      ['2025-2026']
+    );
+    await pool.execute(
+      `INSERT INTO app_settings (setting_key, setting_value)
        VALUES ('faith_formation_registration_open', '0')
        ON DUPLICATE KEY UPDATE setting_value = setting_value`
     );
@@ -350,6 +367,41 @@ const init = async () => {
       `INSERT INTO app_settings (setting_key, setting_value)
        VALUES ('sponsor_form_registration_open', '0')
        ON DUPLICATE KEY UPDATE setting_value = setting_value`
+    );
+    await pool.execute(
+      `INSERT INTO registration_year_settings (school_year, faith_formation_open, sponsor_form_open)
+       VALUES (?, 0, 0)
+       ON DUPLICATE KEY UPDATE school_year = school_year`,
+      ['2025-2026']
+    );
+
+    const legacyYearSetting = await pool.query(
+      `SELECT setting_value FROM app_settings WHERE setting_key = 'faith_formation_year' LIMIT 1`
+    );
+    const legacyFaithOpenSetting = await pool.query(
+      `SELECT setting_value FROM app_settings WHERE setting_key = 'faith_formation_registration_open' LIMIT 1`
+    );
+    const legacySponsorOpenSetting = await pool.query(
+      `SELECT setting_value FROM app_settings WHERE setting_key = 'sponsor_form_registration_open' LIMIT 1`
+    );
+
+    const legacyYear = legacyYearSetting?.[0]?.[0]?.setting_value || '2025-2026';
+    const legacyFaithOpen = legacyFaithOpenSetting?.[0]?.[0]?.setting_value === '1' ? 1 : 0;
+    const legacySponsorOpen = legacySponsorOpenSetting?.[0]?.[0]?.setting_value === '1' ? 1 : 0;
+
+    await pool.execute(
+      `INSERT INTO registration_year_settings (school_year, faith_formation_open, sponsor_form_open)
+       VALUES (?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+         faith_formation_open = VALUES(faith_formation_open),
+         sponsor_form_open = VALUES(sponsor_form_open)`,
+      [legacyYear, legacyFaithOpen, legacySponsorOpen]
+    );
+    await pool.execute(
+      `UPDATE app_settings
+       SET setting_value = ?
+       WHERE setting_key = 'current_registration_year' AND (setting_value IS NULL OR setting_value = '')`,
+      [legacyYear]
     );
 
     await seedData();

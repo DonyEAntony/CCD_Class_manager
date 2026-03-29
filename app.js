@@ -774,15 +774,49 @@ const parseFaithFormationStartYear = (schoolYear) => {
   return match ? Number(match[1]) : new Date().getFullYear();
 };
 
+const getRegistrationYearOptions = (baseYear = new Date().getFullYear()) => {
+  const startYear = baseYear - 2;
+  return Array.from({ length: 6 }, (_, offset) => {
+    const year = startYear + offset;
+    return `${year}-${year + 1}`;
+  });
+};
+
 const getFaithFormationSettings = async () => {
   const rows = await db.prepare(
-    'SELECT setting_key, setting_value FROM app_settings WHERE setting_key IN (?, ?, ?)'
-  ).all('faith_formation_year', 'faith_formation_registration_open', 'sponsor_form_registration_open');
+    'SELECT setting_key, setting_value FROM app_settings WHERE setting_key IN (?, ?)'
+  ).all('current_registration_year', 'faith_formation_year');
   const map = new Map(rows.map((row) => [row.setting_key, row.setting_value]));
-  const schoolYear = map.get('faith_formation_year') || getDefaultFaithFormationYear();
-  const faithFormationRegistrationOpen = map.get('faith_formation_registration_open') === '1';
-  const sponsorFormRegistrationOpen = map.get('sponsor_form_registration_open') === '1';
-  return { schoolYear, faithFormationRegistrationOpen, sponsorFormRegistrationOpen };
+  const currentRegistrationYear =
+    map.get('current_registration_year') ||
+    map.get('faith_formation_year') ||
+    getDefaultFaithFormationYear();
+  const yearSetting = await db.prepare(
+    'SELECT school_year, faith_formation_open, sponsor_form_open FROM registration_year_settings WHERE school_year = ?'
+  ).get(currentRegistrationYear);
+  const faithFormationRegistrationOpen = yearSetting?.faith_formation_open === 1;
+  const sponsorFormRegistrationOpen = yearSetting?.sponsor_form_open === 1;
+  return {
+    schoolYear: currentRegistrationYear,
+    currentRegistrationYear,
+    faithFormationRegistrationOpen,
+    sponsorFormRegistrationOpen,
+  };
+};
+
+const getRegistrationYearStatusList = async (baseYear) => {
+  const yearOptions = getRegistrationYearOptions(baseYear);
+  const rows = await db.prepare(
+    `SELECT school_year, faith_formation_open, sponsor_form_open
+     FROM registration_year_settings
+     WHERE school_year IN (${yearOptions.map(() => '?').join(', ')})`
+  ).all(...yearOptions);
+  const rowMap = new Map(rows.map((row) => [row.school_year, row]));
+  return yearOptions.map((schoolYear) => ({
+    schoolYear,
+    faithFormationOpen: rowMap.get(schoolYear)?.faith_formation_open === 1,
+    sponsorFormOpen: rowMap.get(schoolYear)?.sponsor_form_open === 1,
+  }));
 };
 
 const canAccessRegistration = (user, isOpen, settings) => {
@@ -857,6 +891,7 @@ const getIncompleteStudentRegistrationFields = (reg) => {
 
 // ── Public routes ────────────────────────────────────────────
 app.get('/', (req, res) => res.render('index'));
+app.get('/steubenville-florida-youth-conference', (req, res) => res.render('steubenville-florida'));
 
 app.get('/signup', (req, res) => res.render('signup'));
 app.post('/signup', asyncHandler(async (req, res) => {
@@ -1119,7 +1154,7 @@ app.get('/registration/sponsor-confirmation/edit/:id', requireAuth, asyncHandler
   });
 }));
 
-app.post('/registration/sponsor-confirmation', requireAuth, asyncHandler(async (req, res) => {
+app.post('/registration/sponsor-confirmation', requireAuth, upload.single('sponsor_certificate'), asyncHandler(async (req, res) => {
   const faithFormationSettings = await requireRegistrationAccess(req, res, 'sponsor');
   if (!faithFormationSettings) return;
   const registrationId = Number(req.body.registration_id);
@@ -1132,6 +1167,7 @@ app.post('/registration/sponsor-confirmation', requireAuth, asyncHandler(async (
   const sponsorZip = typeof req.body.sponsor_zip === 'string' ? req.body.sponsor_zip.trim() : '';
   const studentSignature = typeof req.body.student_signature === 'string' ? req.body.student_signature.trim() : '';
   const parentSignature = typeof req.body.parent_signature === 'string' ? req.body.parent_signature.trim() : '';
+  const sponsorCertificatePath = req.file?.path || null;
 
   if (!studentName || !confirmationName || !sponsorName || !sponsorAddress || !sponsorCity || !sponsorState || !sponsorZip || !studentSignature || !parentSignature) {
     req.flash('error', 'Please complete all sponsor confirmation fields.');
@@ -1154,7 +1190,8 @@ app.post('/registration/sponsor-confirmation', requireAuth, asyncHandler(async (
     await db.prepare(`
       UPDATE sponsor_confirmations
       SET student_name = ?, confirmation_name = ?, sponsor_name = ?, sponsor_address = ?,
-          sponsor_city = ?, sponsor_state = ?, sponsor_zip = ?, student_signature = ?, parent_signature = ?
+          sponsor_city = ?, sponsor_state = ?, sponsor_zip = ?, sponsor_certificate_path = COALESCE(?, sponsor_certificate_path),
+          student_signature = ?, parent_signature = ?
       WHERE id = ?
     `).run(
       studentName,
@@ -1164,6 +1201,7 @@ app.post('/registration/sponsor-confirmation', requireAuth, asyncHandler(async (
       sponsorCity,
       sponsorState,
       sponsorZip,
+      sponsorCertificatePath,
       studentSignature,
       parentSignature,
       registrationId
@@ -1175,8 +1213,8 @@ app.post('/registration/sponsor-confirmation', requireAuth, asyncHandler(async (
 
   await db.prepare(`
     INSERT INTO sponsor_confirmations
-      (user_id, student_name, confirmation_name, sponsor_name, sponsor_address, sponsor_city, sponsor_state, sponsor_zip, student_signature, parent_signature, status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (user_id, student_name, confirmation_name, sponsor_name, sponsor_address, sponsor_city, sponsor_state, sponsor_zip, sponsor_certificate_path, student_signature, parent_signature, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     req.user.id,
     studentName,
@@ -1186,6 +1224,7 @@ app.post('/registration/sponsor-confirmation', requireAuth, asyncHandler(async (
     sponsorCity,
     sponsorState,
     sponsorZip,
+    sponsorCertificatePath,
     studentSignature,
     parentSignature,
     'in_progress'
@@ -1576,22 +1615,31 @@ app.get('/admin/users', requireAuth, requireRole('admin'), asyncHandler(async (r
   const eventDefinitions = await getFaithFormationEventDefinitions();
   const managedEvents = await getFaithFormationEvents(['children', 'baptism_prep', 'ocia', 'general']);
   const faithFormationSettings = await getFaithFormationSettings();
-  res.render('admin-users', { users, ccdClasses, eventDefinitions, managedEvents, faithFormationSettings });
+  const registrationYearStatuses = await getRegistrationYearStatusList(parseFaithFormationStartYear(faithFormationSettings.currentRegistrationYear));
+  res.render('admin-users', {
+    users,
+    ccdClasses,
+    eventDefinitions,
+    managedEvents,
+    faithFormationSettings,
+    registrationYearOptions: getRegistrationYearOptions(parseFaithFormationStartYear(faithFormationSettings.schoolYear)),
+    registrationYearStatuses,
+  });
 }));
 
 app.post('/admin/settings/faith-formation', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
-  const schoolYear = typeof req.body.faith_formation_year === 'string' ? req.body.faith_formation_year.trim() : '';
-  const faithFormationRegistrationOpen = req.body.faith_formation_registration_open === '1' ? '1' : '0';
-  const sponsorFormRegistrationOpen = req.body.sponsor_form_registration_open === '1' ? '1' : '0';
+  const schoolYear = typeof req.body.current_registration_year === 'string' && req.body.current_registration_year.trim()
+    ? req.body.current_registration_year.trim()
+    : '';
 
   if (!/^\d{4}-\d{4}$/.test(schoolYear)) {
-    req.flash('error', 'Faith Formation year must use YYYY-YYYY format.');
+    req.flash('error', 'Current registration year must use YYYY-YYYY format.');
     return res.redirect('/admin/users');
   }
 
   const [startYear, endYear] = schoolYear.split('-').map(Number);
   if (endYear !== startYear + 1) {
-    req.flash('error', 'Faith Formation year must span consecutive years, such as 2026-2027.');
+    req.flash('error', 'Current registration year must span consecutive years, such as 2026-2027.');
     return res.redirect('/admin/users');
   }
 
@@ -1599,21 +1647,43 @@ app.post('/admin/settings/faith-formation', requireAuth, requireRole('admin'), a
     `INSERT INTO app_settings (setting_key, setting_value)
      VALUES (?, ?)
      ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`
-  ).run('faith_formation_year', schoolYear);
+  ).run('current_registration_year', schoolYear);
 
   await db.prepare(
-    `INSERT INTO app_settings (setting_key, setting_value)
-     VALUES (?, ?)
-     ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`
-  ).run('faith_formation_registration_open', faithFormationRegistrationOpen);
+    `INSERT INTO registration_year_settings (school_year, faith_formation_open, sponsor_form_open)
+     VALUES (?, 0, 0)
+     ON DUPLICATE KEY UPDATE school_year = VALUES(school_year)`
+  ).run(schoolYear);
+
+  req.flash('success', `Current registration year set to ${schoolYear}.`);
+  return res.redirect('/admin/users');
+}));
+
+app.post('/admin/settings/faith-formation/year', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const schoolYear = typeof req.body.school_year === 'string' ? req.body.school_year.trim() : '';
+  const faithFormationRegistrationOpen = req.body.faith_formation_registration_open === '1' ? 1 : 0;
+  const sponsorFormRegistrationOpen = req.body.sponsor_form_registration_open === '1' ? 1 : 0;
+
+  if (!/^\d{4}-\d{4}$/.test(schoolYear)) {
+    req.flash('error', 'Registration year must use YYYY-YYYY format.');
+    return res.redirect('/admin/users');
+  }
+
+  const [startYear, endYear] = schoolYear.split('-').map(Number);
+  if (endYear !== startYear + 1) {
+    req.flash('error', 'Registration year must span consecutive years, such as 2026-2027.');
+    return res.redirect('/admin/users');
+  }
 
   await db.prepare(
-    `INSERT INTO app_settings (setting_key, setting_value)
-     VALUES (?, ?)
-     ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`
-  ).run('sponsor_form_registration_open', sponsorFormRegistrationOpen);
+    `INSERT INTO registration_year_settings (school_year, faith_formation_open, sponsor_form_open)
+     VALUES (?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+       faith_formation_open = VALUES(faith_formation_open),
+       sponsor_form_open = VALUES(sponsor_form_open)`
+  ).run(schoolYear, faithFormationRegistrationOpen, sponsorFormRegistrationOpen);
 
-  req.flash('success', `Faith Formation settings updated for ${schoolYear}. Faith Formation is ${faithFormationRegistrationOpen === '1' ? 'open' : 'closed'}, Sponsor Form is ${sponsorFormRegistrationOpen === '1' ? 'open' : 'closed'}.`);
+  req.flash('success', `${schoolYear} updated. Faith Formation is ${faithFormationRegistrationOpen ? 'open' : 'closed'}, Sponsor Form is ${sponsorFormRegistrationOpen ? 'open' : 'closed'}.`);
   return res.redirect('/admin/users');
 }));
 
