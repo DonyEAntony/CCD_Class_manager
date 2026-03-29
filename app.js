@@ -36,7 +36,7 @@ const translations = {
   en: {
     app_title: 'Saint Matthew Catholic Church',
     reg_title: 'Register for Faith Formation and Sacramental Preparation',
-    school_year: 'School Year 2025-2026',
+    school_year: 'School Year',
     landing_focus_title: 'Faith Formation & Sacramental Readiness',
     landing_focus_subtitle: 'For children, OCIA candidates, and adult faith formation events',
     secure_online: 'Secure online registration for families, catechists, administrators, and formation participants.',
@@ -161,7 +161,7 @@ const translations = {
     date_col: 'Date',
     // Program cards
     prog_children_title: 'Faith Formation for Children',
-    prog_children_subtitle: 'School Year 2025–2026',
+    prog_children_subtitle: 'Faith Formation Year',
     prog_children_desc: 'Register a child for CCD classes, sacramental preparation (First Communion, Confirmation), and weekly faith formation.',
     prog_ocia_title: 'Adult OCIA',
     prog_ocia_subtitle: 'Order of Christian Initiation',
@@ -295,7 +295,7 @@ const translations = {
   es: {
     app_title: 'Iglesia Católica San Mateo',
     reg_title: 'Inscríbete para Formación en la Fe y Preparación Sacramental',
-    school_year: 'Año Escolar 2025-2026',
+    school_year: 'Año Escolar',
     landing_focus_title: 'Formación en la fe y preparación sacramental',
     landing_focus_subtitle: 'Para niños, candidatos de OCIA y eventos de formación en la fe para adultos',
     secure_online: 'Inscripción segura en línea para familias, catequistas, administradores y participantes de formación.',
@@ -420,7 +420,7 @@ const translations = {
     date_col: 'Fecha',
     // Program cards
     prog_children_title: 'Formación en la Fe para Niños',
-    prog_children_subtitle: 'Año Escolar 2025–2026',
+    prog_children_subtitle: 'Año de Formacion en la Fe',
     prog_children_desc: 'Inscriba a un niño para clases de catecismo, preparación sacramental (Primera Comunión, Confirmación) y formación en la fe semanal.',
     prog_ocia_title: 'OCIA para Adultos',
     prog_ocia_subtitle: 'Orden de Iniciación Cristiana',
@@ -746,13 +746,53 @@ app.use((req, res, next) => {
   next();
 });
 
-const calculateFees = (familyCount, gradeLevel, registrationDateStr) => {
+const getDefaultFaithFormationYear = () => {
+  return '2025-2026';
+};
+
+const parseFaithFormationStartYear = (schoolYear) => {
+  const match = /^(\d{4})-(\d{4})$/.exec(`${schoolYear || ''}`.trim());
+  return match ? Number(match[1]) : new Date().getFullYear();
+};
+
+const getFaithFormationSettings = async () => {
+  const rows = await db.prepare(
+    'SELECT setting_key, setting_value FROM app_settings WHERE setting_key IN (?, ?, ?)'
+  ).all('faith_formation_year', 'faith_formation_registration_open', 'sponsor_form_registration_open');
+  const map = new Map(rows.map((row) => [row.setting_key, row.setting_value]));
+  const schoolYear = map.get('faith_formation_year') || getDefaultFaithFormationYear();
+  const faithFormationRegistrationOpen = map.get('faith_formation_registration_open') === '1';
+  const sponsorFormRegistrationOpen = map.get('sponsor_form_registration_open') === '1';
+  return { schoolYear, faithFormationRegistrationOpen, sponsorFormRegistrationOpen };
+};
+
+const canAccessRegistration = (user, isOpen, settings) => {
+  if (!user) return false;
+  if (user.role === 'admin' || user.role === 'catechist') return true;
+  return Boolean(settings?.schoolYear) && Boolean(isOpen);
+};
+
+const requireRegistrationAccess = async (req, res, registrationType) => {
+  const settings = await getFaithFormationSettings();
+  const isOpen = registrationType === 'sponsor'
+    ? settings.sponsorFormRegistrationOpen
+    : settings.faithFormationRegistrationOpen;
+  if (!canAccessRegistration(req.user, isOpen, settings)) {
+    req.flash('error', `${registrationType === 'sponsor' ? 'Sponsor form' : 'Faith Formation registration'} is not currently open. Please contact the parish office.`);
+    res.redirect('/dashboard');
+    return null;
+  }
+  return settings;
+};
+
+const calculateFees = (familyCount, gradeLevel, registrationDateStr, schoolYear) => {
   const registrationFee = Number(familyCount) > 1 ? 200 : 150;
   const grade = `${gradeLevel}`.toLowerCase();
   const sacramentalFee = grade.includes('2') ? 25 : grade.includes('confirmation') ? 50 : 0;
   const registrationDate = registrationDateStr ? new Date(registrationDateStr) : new Date();
-  const deadline = new Date('2025-08-15T23:59:59');
-  const classesBegin = new Date('2025-09-08T00:00:00');
+  const startYear = parseFaithFormationStartYear(schoolYear);
+  const deadline = new Date(`${startYear}-08-15T23:59:59`);
+  const classesBegin = new Date(`${startYear}-09-08T00:00:00`);
   const lateFee = registrationDate > deadline && registrationDate < classesBegin ? 50 : 0;
   return { registrationFee, sacramentalFee, lateFee, afterStart: registrationDate >= classesBegin };
 };
@@ -973,6 +1013,7 @@ app.get('/logout', (req, res, next) => {
 // ── Dashboard ────────────────────────────────────────────────
 app.get('/dashboard', requireAuth, asyncHandler(async (req, res) => {
   const isStaff = req.user.role === 'admin' || req.user.role === 'catechist';
+  const faithFormationSettings = await getFaithFormationSettings();
 
   const studentRegs = isStaff
     ? await db.prepare('SELECT * FROM student_registrations ORDER BY created_at DESC').all()
@@ -982,8 +1023,12 @@ app.get('/dashboard', requireAuth, asyncHandler(async (req, res) => {
     ? await db.prepare('SELECT * FROM adult_registrations ORDER BY created_at DESC').all()
     : await db.prepare('SELECT * FROM adult_registrations WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
 
+  const sponsorRegs = isStaff
+    ? await db.prepare('SELECT * FROM sponsor_confirmations ORDER BY created_at DESC').all()
+    : await db.prepare('SELECT * FROM sponsor_confirmations WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
+
   const ADULT_PROGRAMS = getAdultPrograms(res.locals.t);
-  res.render('dashboard', { studentRegs, adultRegs, ADULT_PROGRAMS });
+  res.render('dashboard', { studentRegs, adultRegs, sponsorRegs, ADULT_PROGRAMS, faithFormationSettings });
 }));
 
 app.get('/calendar', requireAuth, asyncHandler(async (req, res) => {
@@ -1013,18 +1058,127 @@ app.get('/calendar', requireAuth, asyncHandler(async (req, res) => {
 
 // ── Children Faith Formation ─────────────────────────────────
 app.get('/registration/children', requireAuth, asyncHandler(async (req, res) => {
+  const faithFormationSettings = await requireRegistrationAccess(req, res, 'faith_formation');
+  if (!faithFormationSettings) return;
   const today = new Date().toISOString().slice(0, 10);
   res.render('registration-form', {
     today,
     reg: null,
     editing: false,
     isStaff: false,
+    schoolYearLabel: `School Year ${faithFormationSettings.schoolYear}`,
+    activeSchoolYear: faithFormationSettings.schoolYear,
     statusOptions: STUDENT_REGISTRATION_STATUSES,
     relevantEvents: await getFaithFormationEvents(['children', 'general']),
   });
 }));
 
+app.get('/registration/sponsor-confirmation', requireAuth, asyncHandler(async (req, res) => {
+  const faithFormationSettings = await requireRegistrationAccess(req, res, 'sponsor');
+  if (!faithFormationSettings) return;
+  res.render('sponsor-confirmation-form', {
+    reg: null,
+    schoolYearLabel: `School Year ${faithFormationSettings.schoolYear}`,
+  });
+}));
+
+app.get('/registration/sponsor-confirmation/edit/:id', requireAuth, asyncHandler(async (req, res) => {
+  const faithFormationSettings = await requireRegistrationAccess(req, res, 'sponsor');
+  if (!faithFormationSettings) return;
+  const isStaff = req.user.role === 'admin' || req.user.role === 'catechist';
+  const reg = await db.prepare(
+    'SELECT * FROM sponsor_confirmations WHERE id = ? AND (user_id = ? OR ? = 1)'
+  ).get(req.params.id, req.user.id, isStaff ? 1 : 0);
+
+  if (!reg) {
+    return res.status(404).send('Sponsor confirmation form not found.');
+  }
+
+  res.render('sponsor-confirmation-form', {
+    reg,
+    schoolYearLabel: `School Year ${faithFormationSettings.schoolYear}`,
+  });
+}));
+
+app.post('/registration/sponsor-confirmation', requireAuth, asyncHandler(async (req, res) => {
+  const faithFormationSettings = await requireRegistrationAccess(req, res, 'sponsor');
+  if (!faithFormationSettings) return;
+  const registrationId = Number(req.body.registration_id);
+  const studentName = typeof req.body.student_name === 'string' ? req.body.student_name.trim() : '';
+  const confirmationName = typeof req.body.confirmation_name === 'string' ? req.body.confirmation_name.trim() : '';
+  const sponsorName = typeof req.body.sponsor_name === 'string' ? req.body.sponsor_name.trim() : '';
+  const sponsorAddress = typeof req.body.sponsor_address === 'string' ? req.body.sponsor_address.trim() : '';
+  const sponsorCity = typeof req.body.sponsor_city === 'string' ? req.body.sponsor_city.trim() : '';
+  const sponsorState = typeof req.body.sponsor_state === 'string' ? req.body.sponsor_state.trim() : '';
+  const sponsorZip = typeof req.body.sponsor_zip === 'string' ? req.body.sponsor_zip.trim() : '';
+  const studentSignature = typeof req.body.student_signature === 'string' ? req.body.student_signature.trim() : '';
+  const parentSignature = typeof req.body.parent_signature === 'string' ? req.body.parent_signature.trim() : '';
+
+  if (!studentName || !confirmationName || !sponsorName || !sponsorAddress || !sponsorCity || !sponsorState || !sponsorZip || !studentSignature || !parentSignature) {
+    req.flash('error', 'Please complete all sponsor confirmation fields.');
+    const redirectUrl = Number.isInteger(registrationId) && registrationId > 0
+      ? `/registration/sponsor-confirmation/edit/${registrationId}`
+      : '/registration/sponsor-confirmation';
+    return res.redirect(redirectUrl);
+  }
+
+  if (Number.isInteger(registrationId) && registrationId > 0) {
+    const isStaff = req.user.role === 'admin' || req.user.role === 'catechist';
+    const existing = await db.prepare(
+      'SELECT id FROM sponsor_confirmations WHERE id = ? AND (user_id = ? OR ? = 1)'
+    ).get(registrationId, req.user.id, isStaff ? 1 : 0);
+
+    if (!existing) {
+      return res.status(404).send('Sponsor confirmation form not found.');
+    }
+
+    await db.prepare(`
+      UPDATE sponsor_confirmations
+      SET student_name = ?, confirmation_name = ?, sponsor_name = ?, sponsor_address = ?,
+          sponsor_city = ?, sponsor_state = ?, sponsor_zip = ?, student_signature = ?, parent_signature = ?
+      WHERE id = ?
+    `).run(
+      studentName,
+      confirmationName,
+      sponsorName,
+      sponsorAddress,
+      sponsorCity,
+      sponsorState,
+      sponsorZip,
+      studentSignature,
+      parentSignature,
+      registrationId
+    );
+
+    req.flash('success', 'Sponsor confirmation form updated.');
+    return res.redirect('/dashboard');
+  }
+
+  await db.prepare(`
+    INSERT INTO sponsor_confirmations
+      (user_id, student_name, confirmation_name, sponsor_name, sponsor_address, sponsor_city, sponsor_state, sponsor_zip, student_signature, parent_signature, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    req.user.id,
+    studentName,
+    confirmationName,
+    sponsorName,
+    sponsorAddress,
+    sponsorCity,
+    sponsorState,
+    sponsorZip,
+    studentSignature,
+    parentSignature,
+    'in_progress'
+  );
+
+  req.flash('success', 'Sponsor confirmation form saved.');
+  return res.redirect('/dashboard');
+}));
+
 const handleChildrenRegistration = asyncHandler(async (req, res) => {
+    const faithFormationSettings = await requireRegistrationAccess(req, res, 'faith_formation');
+    if (!faithFormationSettings) return;
     const isAdmin = req.user.role === 'admin';
     const requestedStatus = typeof req.body.status === 'string' ? req.body.status.trim() : '';
     if (requestedStatus && !STUDENT_REGISTRATION_STATUSES.includes(requestedStatus)) {
@@ -1036,9 +1190,9 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
     // Calculate family_count from number of students entered
     const studentNamesForFees = Array.isArray(req.body.student_full_name) ? req.body.student_full_name : (req.body.student_full_name ? [req.body.student_full_name] : []);
     const familyCount = studentNamesForFees.filter(name => (name || '').trim()).length || 1;
-    const fees = calculateFees(familyCount, req.body.ccd_grade_level, null);
+    const fees = calculateFees(familyCount, req.body.ccd_grade_level, null, faithFormationSettings.schoolYear);
     if (fees.afterStart) {
-      req.flash('error', 'Registration closed: no registrations accepted after classes begin on Sept. 8, 2025.');
+      req.flash('error', `Registration closed: no registrations accepted after classes begin on Sept. 8, ${parseFaithFormationStartYear(faithFormationSettings.schoolYear)}.`);
       return res.redirect('/registration/children');
     }
 
@@ -1165,7 +1319,7 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
         baptism_certificate_path, first_communion_certificate_path, status
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      req.user.id, req.body.school_year || '2025-2026',
+      req.user.id, faithFormationSettings.schoolYear,
       `${req.body.primary_contact_first_name} ${req.body.primary_contact_last_name}`,
       req.body.primary_contact_first_name, req.body.primary_contact_last_name,
       req.body.primary_contact_phone, req.body.primary_contact_email,
@@ -1226,6 +1380,8 @@ app.post('/registration/children/:id/status', requireAuth, requireRole('admin'),
 
 // GET /registration/children/edit/:id
 app.get('/registration/children/edit/:id', requireAuth, asyncHandler(async (req, res) => {
+  const faithFormationSettings = await requireRegistrationAccess(req, res, 'faith_formation');
+  if (!faithFormationSettings) return;
   const isStaff = req.user.role === 'admin';
   const reg = await db.prepare('SELECT * FROM student_registrations WHERE id = ? AND (user_id = ? OR ? = 1)').get(req.params.id, req.user.id, isStaff ? 1 : 0);
   if (!reg) return res.status(404).send('Registration not found.');
@@ -1251,6 +1407,8 @@ app.get('/registration/children/edit/:id', requireAuth, asyncHandler(async (req,
     reg,
     today,
     isStaff,
+    schoolYearLabel: `School Year ${reg.school_year || faithFormationSettings.schoolYear}`,
+    activeSchoolYear: reg.school_year || faithFormationSettings.schoolYear,
     statusOptions: STUDENT_REGISTRATION_STATUSES,
     relevantEvents: await getFaithFormationEvents(['children', 'general']),
   });
@@ -1398,11 +1556,57 @@ app.get('/admin/users', requireAuth, requireRole('admin'), asyncHandler(async (r
   const ccdClasses = await getCcdClasses();
   const eventDefinitions = await getFaithFormationEventDefinitions();
   const managedEvents = await getFaithFormationEvents(['children', 'baptism_prep', 'ocia', 'general']);
-  res.render('admin-users', { users, ccdClasses, eventDefinitions, managedEvents });
+  const faithFormationSettings = await getFaithFormationSettings();
+  res.render('admin-users', { users, ccdClasses, eventDefinitions, managedEvents, faithFormationSettings });
+}));
+
+app.post('/admin/settings/faith-formation', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const schoolYear = typeof req.body.faith_formation_year === 'string' ? req.body.faith_formation_year.trim() : '';
+  const faithFormationRegistrationOpen = req.body.faith_formation_registration_open === '1' ? '1' : '0';
+  const sponsorFormRegistrationOpen = req.body.sponsor_form_registration_open === '1' ? '1' : '0';
+
+  if (!/^\d{4}-\d{4}$/.test(schoolYear)) {
+    req.flash('error', 'Faith Formation year must use YYYY-YYYY format.');
+    return res.redirect('/admin/users');
+  }
+
+  const [startYear, endYear] = schoolYear.split('-').map(Number);
+  if (endYear !== startYear + 1) {
+    req.flash('error', 'Faith Formation year must span consecutive years, such as 2026-2027.');
+    return res.redirect('/admin/users');
+  }
+
+  await db.prepare(
+    `INSERT INTO app_settings (setting_key, setting_value)
+     VALUES (?, ?)
+     ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`
+  ).run('faith_formation_year', schoolYear);
+
+  await db.prepare(
+    `INSERT INTO app_settings (setting_key, setting_value)
+     VALUES (?, ?)
+     ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`
+  ).run('faith_formation_registration_open', faithFormationRegistrationOpen);
+
+  await db.prepare(
+    `INSERT INTO app_settings (setting_key, setting_value)
+     VALUES (?, ?)
+     ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`
+  ).run('sponsor_form_registration_open', sponsorFormRegistrationOpen);
+
+  req.flash('success', `Faith Formation settings updated for ${schoolYear}. Faith Formation is ${faithFormationRegistrationOpen === '1' ? 'open' : 'closed'}, Sponsor Form is ${sponsorFormRegistrationOpen === '1' ? 'open' : 'closed'}.`);
+  return res.redirect('/admin/users');
 }));
 
 app.get('/admin/scan-registration', requireAuth, requireRole('admin'), (req, res) => {
-  res.render('admin-scan-registration');
+  getFaithFormationSettings()
+    .then((faithFormationSettings) => res.render('admin-scan-registration', { faithFormationSettings }))
+    .catch((error) => {
+      console.error('Unable to load Faith Formation settings for scan registration.', error);
+      res.render('admin-scan-registration', {
+        faithFormationSettings: { schoolYear: getDefaultFaithFormationYear() },
+      });
+    });
 });
 
 app.post('/admin/scan-registration/process', requireAuth, requireRole('admin'), scanUpload.single('scan_image'), asyncHandler(async (req, res) => {

@@ -688,7 +688,7 @@
 
     openDraftBtn.addEventListener('click', () => {
       const draft = {
-        school_year: '2025-2026',
+        school_year: '<%= faithFormationSettings && faithFormationSettings.schoolYear ? faithFormationSettings.schoolYear : "2025-2026" %>',
         primary_contact_first_name: fields.primaryContactFirstName.value.trim(),
         primary_contact_last_name: fields.primaryContactLastName.value.trim(),
         primary_contact_phone: fields.primaryContactPhone.value.trim(),

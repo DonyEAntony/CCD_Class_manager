@@ -235,6 +235,33 @@ const init = async () => {
     `);
 
     await pool.query(`
+      CREATE TABLE IF NOT EXISTS sponsor_confirmations (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        student_name VARCHAR(255) NOT NULL,
+        confirmation_name VARCHAR(255),
+        sponsor_name VARCHAR(255) NOT NULL,
+        sponsor_address TEXT,
+        sponsor_city VARCHAR(255),
+        sponsor_state VARCHAR(50),
+        sponsor_zip VARCHAR(20),
+        student_signature VARCHAR(255),
+        parent_signature VARCHAR(255),
+        status VARCHAR(50) DEFAULT 'in_progress',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_sponsor_confirmations_user FOREIGN KEY (user_id) REFERENCES users(id)
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS app_settings (
+        setting_key VARCHAR(100) NOT NULL PRIMARY KEY,
+        setting_value TEXT,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `);
+
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS ccd_classes (
         id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
         grade_level VARCHAR(255) NOT NULL UNIQUE,
@@ -307,6 +334,23 @@ const init = async () => {
     await ensureColumn('faith_formation_event_schedules', 'schedule_type', "VARCHAR(50) DEFAULT 'one_time'");
     await ensureColumn('faith_formation_event_schedules', 'recurrence_pattern', 'VARCHAR(50)');
     await ensureColumn('faith_formation_event_schedules', 'event_end_time', 'VARCHAR(50)');
+
+    await pool.execute(
+      `INSERT INTO app_settings (setting_key, setting_value)
+       VALUES ('faith_formation_year', ?)
+       ON DUPLICATE KEY UPDATE setting_value = setting_value`,
+      ['2025-2026']
+    );
+    await pool.execute(
+      `INSERT INTO app_settings (setting_key, setting_value)
+       VALUES ('faith_formation_registration_open', '0')
+       ON DUPLICATE KEY UPDATE setting_value = setting_value`
+    );
+    await pool.execute(
+      `INSERT INTO app_settings (setting_key, setting_value)
+       VALUES ('sponsor_form_registration_open', '0')
+       ON DUPLICATE KEY UPDATE setting_value = setting_value`
+    );
 
     await seedData();
   })();
