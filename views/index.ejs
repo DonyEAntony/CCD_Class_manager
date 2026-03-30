@@ -31,12 +31,14 @@
           <span style="font-size:.85rem;color:var(--muted)"><%= t('signed_in_as') %> <strong style="color:var(--ink-soft)"><%= user.email %></strong></span>
           <a class="btn btn-primary" href="/dashboard"><%= t('open_dashboard') %></a>
           <a class="btn btn-outline-success" href="/registration/children"><%= t('register_child') %></a>
+          <a class="btn btn-outline-primary" href="/steubenville-florida-youth-conference">Conference Page</a>
           <a class="btn btn-outline-secondary" href="/logout"><%= t('logout') %></a>
         </div>
       <% } else { %>
         <div class="d-flex flex-wrap gap-2">
           <a class="btn btn-primary" href="/signup"><%= t('create_account') %></a>
           <a class="btn btn-outline-primary" href="/login"><%= t('login') %></a>
+          <a class="btn btn-outline-secondary" href="/steubenville-florida-youth-conference">Conference Page</a>
         </div>
       <% } %>
     </div>

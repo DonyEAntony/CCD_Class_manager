@@ -48,6 +48,7 @@
     .prog-ocia     .prog-icon { background: rgba(26,39,68,0.08); color: var(--navy); }
     .prog-baptism  .prog-icon { background: rgba(74,127,193,0.12); color: var(--blue-sky); }
     .prog-confirm  .prog-icon { background: rgba(200,146,42,0.12); color: var(--gold); }
+    .prog-sponsor  .prog-icon { background: rgba(26,39,68,0.08); color: var(--navy-soft); }
     .section-label {
       font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
       letter-spacing: 0.1em; color: var(--muted); margin-bottom: 0.75rem;
@@ -84,13 +85,23 @@
     <div class="card-body">
 
       <p class="section-label"><%= t('childrens_programs') %></p>
+      <% const canOpenFaithFormation = user.role === 'admin' || user.role === 'catechist' || (faithFormationSettings && faithFormationSettings.faithFormationRegistrationOpen); %>
+      <% const canOpenSponsorForm = user.role === 'admin' || user.role === 'catechist' || (faithFormationSettings && faithFormationSettings.sponsorFormRegistrationOpen); %>
       <div class="row g-3 mb-4">
         <div class="col-sm-6 col-lg-4">
-          <a href="/registration/children" class="program-card prog-children">
+          <a href="<%= canOpenFaithFormation ? '/registration/children' : '#' %>" class="program-card prog-children <%= canOpenFaithFormation ? '' : 'opacity-75' %>">
             <div class="prog-icon">🎓</div>
             <div class="prog-title"><%= t('prog_children_title') %></div>
-            <div class="prog-subtitle"><%= t('prog_children_subtitle') %></div>
-            <p class="prog-desc"><%= t('prog_children_desc') %></p>
+            <div class="prog-subtitle"><%= faithFormationSettings && faithFormationSettings.schoolYear ? `School Year ${faithFormationSettings.schoolYear}` : t('prog_children_subtitle') %></div>
+            <p class="prog-desc"><%= canOpenFaithFormation ? t('prog_children_desc') : 'Registration is currently closed. Contact the parish office or wait for an admin to open this year.' %></p>
+          </a>
+        </div>
+        <div class="col-sm-6 col-lg-4">
+          <a href="<%= canOpenSponsorForm ? '/registration/sponsor-confirmation' : '#' %>" class="program-card prog-sponsor <%= canOpenSponsorForm ? '' : 'opacity-75' %>">
+            <div class="prog-icon">SC</div>
+            <div class="prog-title">Confirmation Sponsor Form</div>
+            <div class="prog-subtitle"><%= faithFormationSettings && faithFormationSettings.schoolYear ? `School Year ${faithFormationSettings.schoolYear}` : 'Student / Sponsor' %></div>
+            <p class="prog-desc"><%= canOpenSponsorForm ? 'Enter and save sponsor confirmation information, including sponsor address and signatures.' : 'Unavailable until the Sponsor Form is opened by an administrator.' %></p>
           </a>
         </div>
       </div>
@@ -164,7 +175,11 @@
                 </span>
               </td>
               <td>
-                <a href="/registration/children/edit/<%= r.id %>" class="btn btn-sm btn-outline-primary"><%= t('edit') %></a>
+                <% if (canOpenFaithFormation) { %>
+                  <a href="/registration/children/edit/<%= r.id %>" class="btn btn-sm btn-outline-primary"><%= t('edit') %></a>
+                <% } else { %>
+                  <button class="btn btn-sm btn-outline-secondary" type="button" disabled>Closed</button>
+                <% } %>
               </td>
             </tr>
           <% }) %>
@@ -215,6 +230,60 @@
               </td>
               <td>
                 <a href="/registration/adult/edit/<%= r.program_type %>/<%= r.id %>" class="btn btn-sm btn-outline-primary"><%= t('edit') %></a>
+              </td>
+            </tr>
+          <% }) %>
+          </tbody>
+        </table>
+      </div>
+      <% } %>
+    </div>
+  </div>
+
+  <div class="page-card mt-4">
+    <div class="card-header"><h2 class="h5">Sponsor Confirmation Forms</h2></div>
+    <div class="card-body p-0">
+      <% if (!sponsorRegs || sponsorRegs.length === 0) { %>
+        <div class="p-4 text-center" style="color:var(--muted);font-size:.9rem"><em>No sponsor confirmation forms yet.</em></div>
+      <% } else { %>
+      <div class="table-responsive">
+        <table class="table mb-0">
+          <thead>
+            <tr>
+              <th>Student</th>
+              <th>Confirmation Name</th>
+              <th>Sponsor</th>
+              <th>Certificate</th>
+              <th>Submitted</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+          <% sponsorRegs.forEach(r => { %>
+            <tr>
+              <td style="font-weight:600"><%= r.student_name %></td>
+              <td><%= r.confirmation_name || '&mdash;' %></td>
+              <td><%= r.sponsor_name %></td>
+              <td>
+                <% if (r.sponsor_certificate_path) { %>
+                  <a href="/<%= r.sponsor_certificate_path %>">View File</a>
+                <% } else { %>
+                  <span style="color:var(--muted)">&mdash;</span>
+                <% } %>
+              </td>
+              <td style="font-size:.8rem;color:var(--muted)"><%= r.created_at ? (typeof r.created_at === 'string' ? r.created_at.slice(0,10) : r.created_at.toISOString().slice(0,10)) : '' %></td>
+              <td>
+                <span class="badge" style="background:var(--surface);color:var(--navy-soft);font-size:.7rem;border-radius:2rem;padding:.3em .8em;font-weight:700;border:1px solid var(--border)">
+                  <%= r.status %>
+                </span>
+              </td>
+              <td>
+                <% if (canOpenSponsorForm) { %>
+                  <a href="/registration/sponsor-confirmation/edit/<%= r.id %>" class="btn btn-sm btn-outline-primary"><%= t('edit') %></a>
+                <% } else { %>
+                  <button class="btn btn-sm btn-outline-secondary" type="button" disabled>Closed</button>
+                <% } %>
               </td>
             </tr>
           <% }) %>
