@@ -12,6 +12,7 @@
 <%- include('_topbar') %>
 <main class="container py-4 app-shell mx-auto">
   <% const availableCcdClasses = Array.isArray(typeof ccdClasses === 'undefined' ? null : ccdClasses) ? ccdClasses : []; %>
+  <% const availableCatechists = Array.isArray(typeof catechists === 'undefined' ? null : catechists) ? catechists : []; %>
   <% const availableEventDefinitions = Array.isArray(typeof eventDefinitions === 'undefined' ? null : eventDefinitions) ? eventDefinitions : []; %>
   <% const availableManagedEvents = Array.isArray(typeof managedEvents === 'undefined' ? null : managedEvents) ? managedEvents : []; %>
   <% const availableClassrooms = ['Room 1', 'Room 2', 'Room 3', 'Room 4', 'Conference Room', 'Parish Center']; %>
@@ -27,6 +28,7 @@
     </div>
     <div class="d-flex gap-2">
       <a class="btn btn-primary" href="/admin/scan-registration"><%= t('scan_legacy_form') %></a>
+      <a class="btn btn-outline-primary" href="/family-faith/visits/availability"><%= t('manage_visit_availability') %></a>
       <a class="btn btn-outline-primary" href="/admin/health/document-ai" target="_blank" rel="noreferrer"><%= t('document_ai_health') %></a>
       <a class="btn btn-outline-primary" href="/admin/health/mail" target="_blank" rel="noreferrer">Mail Health</a>
       <a class="btn btn-outline-secondary" href="/dashboard"><%= t('back_to_dashboard') %></a>
@@ -50,7 +52,10 @@
           <thead>
             <tr>
               <th><%= t('email') %></th>
+              <th>Name</th>
+              <th>Phone</th>
               <th><%= t('role') %></th>
+              <th>Status</th>
               <th><%= t('provider') %></th>
               <th><%= t('actions') %></th>
             </tr>
@@ -59,7 +64,16 @@
             <% users.forEach(u => { %>
               <tr>
                 <td><%= u.email %></td>
+                <td><%= u.full_name || '—' %></td>
+                <td><%= u.phone || '—' %></td>
                 <td><span class="badge badge-role badge-<%= u.role %>"><%= u.role %></span></td>
+                <td>
+                  <% if (u.is_active) { %>
+                    <span class="badge text-bg-success">Verified</span>
+                  <% } else { %>
+                    <span class="badge text-bg-warning">Pending</span>
+                  <% } %>
+                </td>
                 <td style="font-size:.85rem;color:var(--muted)"><%= u.provider %></td>
                 <td>
                   <div class="d-flex gap-2 flex-wrap">
@@ -67,10 +81,17 @@
                       <select class="form-select" name="role" style="max-width:150px">
                         <option value="user"      <%= u.role==='user'      ?'selected':'' %>>User</option>
                         <option value="catechist" <%= u.role==='catechist' ?'selected':'' %>>Catechist</option>
+                        <option value="family_faith_leader" <%= u.role==='family_faith_leader' ?'selected':'' %>><%= t('family_faith_leader') %></option>
                         <option value="admin"     <%= u.role==='admin'     ?'selected':'' %>>Admin</option>
                       </select>
                       <button class="btn btn-primary" type="submit"><%= t('save') %></button>
                     </form>
+                    <% if (u.provider === 'local' && !u.is_active) { %>
+                      <a class="btn btn-outline-secondary" href="/admin/users/<%= u.id %>/verification-email" target="_blank" rel="noreferrer">Preview Email</a>
+                      <form method="post" action="/admin/users/<%= u.id %>/resend-verification">
+                        <button class="btn btn-outline-primary" type="submit">Resend</button>
+                      </form>
+                    <% } %>
                     <% if (!user || user.id !== u.id) { %>
                       <form method="post" action="/admin/users/<%= u.id %>/delete" onsubmit="return confirm('Remove this user and all of their registrations?');">
                         <button class="btn btn-outline-danger" type="submit"><%= t('remove') %></button>
@@ -87,6 +108,59 @@
   </div>
 
   <div class="page-card mt-4">
+    <div class="card-header"><h2 class="h5 mb-0">Catechist Assignments</h2></div>
+    <div class="card-body p-0">
+      <% if (!availableCcdClasses.length) { %>
+        <div class="p-4 text-muted">No CCD classes have been configured yet.</div>
+      <% } else { %>
+        <div class="table-responsive">
+          <table class="table mb-0">
+            <thead>
+              <tr>
+                <th>Class</th>
+                <th>Time</th>
+                <th>Room</th>
+                <th>Assigned Catechist</th>
+                <th>Update</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% availableCcdClasses.forEach((ccdClass) => { %>
+                <tr>
+                  <td><strong><%= ccdClass.grade_level %></strong></td>
+                  <td><%= ccdClass.class_time || '—' %></td>
+                  <td><%= ccdClass.classroom || '—' %></td>
+                  <td>
+                    <% if (ccdClass.catechist_name || ccdClass.catechist_email) { %>
+                      <div><%= ccdClass.catechist_name || '—' %></div>
+                      <div style="font-size:.82rem;color:var(--muted)"><%= ccdClass.catechist_email || '' %></div>
+                    <% } else { %>
+                      <span style="color:var(--muted)">Unassigned</span>
+                    <% } %>
+                  </td>
+                  <td>
+                    <form class="d-flex gap-2 flex-wrap" method="post" action="/admin/ccd-classes/<%= ccdClass.id %>/catechist">
+                      <select class="form-select" name="catechist_user_id" style="min-width:240px">
+                        <option value="">Unassigned</option>
+                        <% availableCatechists.forEach((catechist) => { %>
+                          <option value="<%= catechist.id %>" <%= Number(ccdClass.catechist_user_id) === Number(catechist.id) ? 'selected' : '' %>>
+                            <%= catechist.full_name || catechist.email %> (<%= catechist.email %>)
+                          </option>
+                        <% }) %>
+                      </select>
+                      <button class="btn btn-outline-primary" type="submit">Assign</button>
+                    </form>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+  </div>
+
+  <div class="page-card mt-4">
     <div class="card-header"><h2 class="h5"><%= t('event_definitions') %></h2></div>
     <div class="card-body">
       <form class="row g-3 align-items-end mb-4" method="post" action="/admin/events">
@@ -98,6 +172,7 @@
           <label class="form-label"><%= t('audience') %></label>
           <select class="form-select" name="audience" required>
             <option value="children"><%= t('children_faith_formation') %></option>
+            <option value="family_faith"><%= t('prog_family_title') %></option>
             <option value="baptism_prep"><%= t('prog_baptism_title') %></option>
             <option value="ocia"><%= t('prog_ocia_title') %></option>
             <option value="general"><%= t('general_events') %></option>
@@ -124,7 +199,7 @@
               <% availableEventDefinitions.forEach((eventDefinition) => { %>
                 <tr>
                   <td><%= eventDefinition.title %></td>
-                  <td><%= t(eventDefinition.audience === 'children' ? 'children_faith_formation' : eventDefinition.audience === 'general' ? 'general_events' : eventDefinition.audience === 'baptism_prep' ? 'prog_baptism_title' : 'prog_ocia_title') %></td>
+                  <td><%= t(eventDefinition.audience === 'children' ? 'children_faith_formation' : eventDefinition.audience === 'family_faith' ? 'prog_family_title' : eventDefinition.audience === 'general' ? 'general_events' : eventDefinition.audience === 'baptism_prep' ? 'prog_baptism_title' : 'prog_ocia_title') %></td>
                   <td>
                     <form method="post" action="/admin/events/<%= eventDefinition.id %>/delete">
                       <button class="btn btn-outline-secondary btn-sm" type="submit"><%= t('remove') %></button>
@@ -216,7 +291,7 @@
               <% availableManagedEvents.forEach((eventItem) => { %>
                 <tr>
                   <td><%= eventItem.title %></td>
-                  <td><%= t(eventItem.audience === 'children' ? 'children_faith_formation' : eventItem.audience === 'general' ? 'general_events' : eventItem.audience === 'baptism_prep' ? 'prog_baptism_title' : 'prog_ocia_title') %></td>
+                  <td><%= t(eventItem.audience === 'children' ? 'children_faith_formation' : eventItem.audience === 'family_faith' ? 'prog_family_title' : eventItem.audience === 'general' ? 'general_events' : eventItem.audience === 'baptism_prep' ? 'prog_baptism_title' : 'prog_ocia_title') %></td>
                   <td><%= t(eventItem.schedule_type === 'recurring' ? 'recurring_event' : 'one_time_event') %></td>
                   <td><%= eventItem.recurrence_pattern || '' %><% if (!eventItem.recurrence_pattern) { %><span style="color:var(--muted)">&mdash;</span><% } %></td>
                   <td><%= eventItem.event_date || '' %><% if (!eventItem.event_date) { %><span style="color:var(--muted)">&mdash;</span><% } %></td>
