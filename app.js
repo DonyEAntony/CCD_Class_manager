@@ -8,7 +8,7 @@ const multer = require('multer');
 const passport = require('./auth');
 const db = require('./db');
 const { processScanDocument, verifyDocumentAiConfiguration } = require('./document-ai');
-const { sendVerificationEmail, smtpLogConfig, verifyMailConfiguration } = require('./mailer');
+const { sendVerificationEmail, smtpLogConfig, verifyMailConfiguration, buildVerificationEmailContent } = require('./mailer');
 const { requireAuth, requireRole } = require('./middleware');
 
 const app = express();
@@ -48,6 +48,7 @@ const translations = {
     new_registration: 'New Registration',
     calendar: 'Calendar',
     manage_users: 'Admin Panel',
+    manage_visit_availability: 'Manage Visit Availability',
     submitted_registrations: 'Submitted Registrations',
     student: 'Student',
     grade: 'Grade',
@@ -150,18 +151,32 @@ const translations = {
     // Dashboard
     new_registration_heading: 'New Registration',
     childrens_programs: "Children's Programs",
+    family_programs: 'Family Programs',
     adult_programs: 'Adult Programs',
     no_children_regs: 'No children\'s registrations yet.',
+    no_family_regs: 'No family faith formation registrations yet.',
     no_adult_regs: 'No adult program registrations yet.',
     faith_formation_children: 'Faith Formation — Children',
+    family_faith_registrations: 'Family Faith Formation Registrations',
     adult_program_regs: 'Adult Program Registrations',
     name_col: 'Name',
     program_col: 'Program',
     date_col: 'Date',
+    members_col: 'Members',
+    family_name: 'Family Name',
+    family_primary_contact: 'Primary Contact',
+    family_badges: 'Sacramental Needs',
+    family_badges_none: 'No sacramental needs listed.',
+    visit: 'Visit',
+    visit_window: 'Visit Window',
+    assigned_leader: 'Assigned Leader',
     // Program cards
     prog_children_title: 'Faith Formation for Children',
     prog_children_subtitle: 'Faith Formation Year',
     prog_children_desc: 'Register a child for CCD classes, sacramental preparation (First Communion, Confirmation), and weekly faith formation.',
+    prog_family_title: 'Family Faith Formation',
+    prog_family_subtitle: 'Whole Household Registration',
+    prog_family_desc: 'Register one family together and track each member\'s sacramental needs with badges for Baptism, First Reconciliation, First Holy Communion, and Confirmation.',
     prog_ocia_title: 'Adult OCIA',
     prog_ocia_subtitle: 'Order of Christian Initiation',
     prog_ocia_desc: 'For adults who are not yet Catholic and wish to explore or enter the Catholic faith through the sacraments of initiation.',
@@ -232,6 +247,42 @@ const translations = {
     baptism_date_approx: 'Baptism date',
     approx_ok: '(approx. ok)',
     received_first_communion: 'Have you received First Communion?',
+    family_registration_form_title: 'Family Faith Formation Registration',
+    family_household: 'Household Information',
+    family_members: 'Family Members',
+    add_family_member: 'Add Family Member',
+    remove_member: 'Remove',
+    member_first_name: 'Member First Name',
+    member_last_name: 'Member Last Name',
+    member_role: 'Role in Family',
+    member_dob: 'Date of Birth',
+    member_notes: 'Member Notes',
+    household_notes: 'Household Notes',
+    sacramental_needs: 'Sacramental Needs',
+    choose_visit: 'Choose a Visit',
+    no_visit_slots: 'No Visit slots are currently available. Please contact the parish office.',
+    visit_help: 'Choose a 30-minute Visit window with a family faith formation leader.',
+    family_faith_leader: 'Family Faith Formation Leader',
+    leader: 'Leader',
+    available_visit_slots: 'Available Visit Slots',
+    add_visit_slots: 'Add Visit Slots',
+    visit_date: 'Visit Date',
+    start_time: 'Start Time',
+    end_time: 'End Time',
+    your_visit_availability: 'Your Visit Availability',
+    configured_visit_slots: 'Configured Visit Slots',
+    no_visit_slots_configured: 'No Visit slots have been configured yet.',
+    slots_created: 'Visit slots created.',
+    visit_slot_removed: 'Visit slot removed.',
+    visit_slot_required: 'Please choose an available Visit slot.',
+    first_holy_communion: 'First Holy Communion',
+    first_reconciliation: 'First Reconciliation',
+    confirmation: 'Confirmation',
+    role_child_member: 'Child',
+    role_parent_member: 'Parent',
+    role_guardian_member: 'Guardian',
+    role_grandparent_member: 'Grandparent',
+    role_other_member: 'Other',
     yes: 'Yes',
     no: 'No',
     questions_comments: 'Questions or Comments',
@@ -248,6 +299,7 @@ const translations = {
     // Registration form
     student_info: 'Student Information',
     sacramental_records: 'Sacramental Records',
+    register_family: 'Register Family for Faith Formation',
     // Index accordion
     family_centered_title: 'A Family-Centered Vision',
     family_centered_body: 'Faith is best learned and lived within the family. Rather than seeing religious education as only a classroom experience for children, St. Matthew Parish supports families by providing formation opportunities for both parents and children, resources to help families practice and discuss their faith at home, and parish gatherings that foster prayer, learning, and community.',
@@ -307,6 +359,7 @@ const translations = {
     new_registration: 'Nueva Inscripción',
     calendar: 'Calendario',
     manage_users: 'Panel de Administracion',
+    manage_visit_availability: 'Administrar Disponibilidad de Visitas',
     submitted_registrations: 'Inscripciones Enviadas',
     student: 'Estudiante',
     grade: 'Grado',
@@ -409,18 +462,32 @@ const translations = {
     // Dashboard
     new_registration_heading: 'Nueva Inscripción',
     childrens_programs: 'Programas para Niños',
+    family_programs: 'Programas Familiares',
     adult_programs: 'Programas para Adultos',
     no_children_regs: 'No hay inscripciones de niños todavía.',
+    no_family_regs: 'Todavía no hay inscripciones de formación en la fe familiar.',
     no_adult_regs: 'No hay inscripciones de programas para adultos todavía.',
     faith_formation_children: 'Formación en la Fe — Niños',
+    family_faith_registrations: 'Inscripciones de Formación en la Fe Familiar',
     adult_program_regs: 'Inscripciones de Programas para Adultos',
     name_col: 'Nombre',
     program_col: 'Programa',
     date_col: 'Fecha',
+    members_col: 'Miembros',
+    family_name: 'Nombre de la Familia',
+    family_primary_contact: 'Contacto Principal',
+    family_badges: 'Necesidades Sacramentales',
+    family_badges_none: 'No se indicaron necesidades sacramentales.',
+    visit: 'Visita',
+    visit_window: 'Horario de Visita',
+    assigned_leader: 'Líder Asignado',
     // Program cards
     prog_children_title: 'Formación en la Fe para Niños',
     prog_children_subtitle: 'Año de Formacion en la Fe',
     prog_children_desc: 'Inscriba a un niño para clases de catecismo, preparación sacramental (Primera Comunión, Confirmación) y formación en la fe semanal.',
+    prog_family_title: 'Formación en la Fe Familiar',
+    prog_family_subtitle: 'Inscripción del Hogar Completo',
+    prog_family_desc: 'Inscriba a toda una familia y muestre las necesidades sacramentales de cada miembro con distintivos claros para Bautismo, Primera Reconciliación, Primera Comunión y Confirmación.',
     prog_ocia_title: 'OCIA para Adultos',
     prog_ocia_subtitle: 'Orden de Iniciación Cristiana',
     prog_ocia_desc: 'Para adultos que aún no son católicos y desean explorar o entrar a la fe católica a través de los sacramentos de iniciación.',
@@ -491,6 +558,42 @@ const translations = {
     baptism_date_approx: 'Fecha de bautismo',
     approx_ok: '(aproximada está bien)',
     received_first_communion: '¿Ha recibido la Primera Comunión?',
+    family_registration_form_title: 'Inscripción para Formación en la Fe Familiar',
+    family_household: 'Información del Hogar',
+    family_members: 'Miembros de la Familia',
+    add_family_member: 'Agregar Miembro de la Familia',
+    remove_member: 'Eliminar',
+    member_first_name: 'Nombre del Miembro',
+    member_last_name: 'Apellido del Miembro',
+    member_role: 'Rol en la Familia',
+    member_dob: 'Fecha de Nacimiento',
+    member_notes: 'Notas del Miembro',
+    household_notes: 'Notas del Hogar',
+    sacramental_needs: 'Necesidades Sacramentales',
+    choose_visit: 'Seleccione una Visita',
+    no_visit_slots: 'No hay horarios de Visita disponibles en este momento. Por favor contacte a la oficina parroquial.',
+    visit_help: 'Seleccione un horario de Visita de 30 minutos con un líder de formación en la fe familiar.',
+    family_faith_leader: 'Líder de Formación en la Fe Familiar',
+    leader: 'Líder',
+    available_visit_slots: 'Horarios de Visita Disponibles',
+    add_visit_slots: 'Agregar Horarios de Visita',
+    visit_date: 'Fecha de la Visita',
+    start_time: 'Hora de Inicio',
+    end_time: 'Hora de Fin',
+    your_visit_availability: 'Su Disponibilidad de Visitas',
+    configured_visit_slots: 'Horarios de Visita Configurados',
+    no_visit_slots_configured: 'Todavía no se han configurado horarios de Visita.',
+    slots_created: 'Se crearon los horarios de Visita.',
+    visit_slot_removed: 'Se eliminó el horario de Visita.',
+    visit_slot_required: 'Seleccione un horario de Visita disponible.',
+    first_holy_communion: 'Primera Comunión',
+    first_reconciliation: 'Primera Reconciliación',
+    confirmation: 'Confirmación',
+    role_child_member: 'Hijo(a)',
+    role_parent_member: 'Padre/Madre',
+    role_guardian_member: 'Tutor',
+    role_grandparent_member: 'Abuelo(a)',
+    role_other_member: 'Otro',
     yes: 'Sí',
     no: 'No',
     questions_comments: 'Preguntas o Comentarios',
@@ -507,6 +610,7 @@ const translations = {
     // Registration form
     student_info: 'Información del Estudiante',
     sacramental_records: 'Registros Sacramentales',
+    register_family: 'Inscribir Familia para Formación en la Fe',
     // Index accordion
     family_centered_title: 'Una Visión Centrada en la Familia',
     family_centered_body: 'La fe se aprende y se vive mejor dentro de la familia. En lugar de ver la educación religiosa solo como una experiencia en el aula, la Parroquia San Mateo apoya a las familias proporcionando oportunidades de formación tanto para padres como para hijos, recursos para practicar y hablar de la fe en casa, y reuniones parroquiales que fomentan la oración, el aprendizaje y la comunidad.',
@@ -579,8 +683,84 @@ const getAdultPrograms = (t) => ({
   },
 });
 
+const FAMILY_MEMBER_ROLE_OPTIONS = ['child', 'parent', 'guardian', 'grandparent', 'other'];
+const SACRAMENT_BADGE_OPTIONS = ['baptism', 'first_reconciliation', 'first_holy_communion', 'confirmation'];
+
+const getAudienceLabelKey = (audience) => {
+  if (audience === 'children') return 'children_faith_formation';
+  if (audience === 'family_faith') return 'prog_family_title';
+  if (audience === 'baptism_prep') return 'prog_baptism_title';
+  if (audience === 'ocia') return 'prog_ocia_title';
+  return 'general_events';
+};
+
+const safeJsonParse = (value, fallback) => {
+  if (typeof value !== 'string' || !value.trim()) return fallback;
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    return fallback;
+  }
+};
+
+const normalizeFamilyMembers = (value) => {
+  const rawMembers = Array.isArray(value) ? value : [];
+  return rawMembers
+    .map((member) => {
+      const firstName = typeof member?.firstName === 'string' ? member.firstName.trim() : '';
+      const lastName = typeof member?.lastName === 'string' ? member.lastName.trim() : '';
+      const role = typeof member?.role === 'string' && FAMILY_MEMBER_ROLE_OPTIONS.includes(member.role.trim())
+        ? member.role.trim()
+        : 'child';
+      const dob = typeof member?.dob === 'string' ? member.dob.trim() : '';
+      const notes = typeof member?.notes === 'string' ? member.notes.trim() : '';
+      const sacramentNeeds = Array.from(new Set(
+        (Array.isArray(member?.sacramentNeeds) ? member.sacramentNeeds : [])
+          .map((item) => `${item}`.trim())
+          .filter((item) => SACRAMENT_BADGE_OPTIONS.includes(item))
+      ));
+
+      if (!firstName && !lastName && !dob && !notes && !sacramentNeeds.length) {
+        return null;
+      }
+
+      return {
+        firstName,
+        lastName,
+        role,
+        dob,
+        notes,
+        sacramentNeeds,
+      };
+    })
+    .filter(Boolean);
+};
+
+const parseFamilyMembersFromRequest = (value) => normalizeFamilyMembers(safeJsonParse(value, []));
+const parseFamilyMembersFromStorage = (value) => normalizeFamilyMembers(safeJsonParse(value, []));
+
 const getCcdClasses = async () =>
-  db.prepare('SELECT id, grade_level, class_time, classroom FROM ccd_classes ORDER BY grade_level ASC').all();
+  db.prepare(`
+    SELECT classes.id, classes.grade_level, classes.class_time, classes.classroom, classes.catechist_user_id,
+           users.full_name AS catechist_name, users.email AS catechist_email
+    FROM ccd_classes classes
+    LEFT JOIN users ON users.id = classes.catechist_user_id
+    ORDER BY classes.grade_level ASC
+  `).all();
+const getCatechists = async () =>
+  db.prepare(`
+    SELECT id, full_name, email
+    FROM users
+    WHERE role = 'catechist'
+    ORDER BY COALESCE(NULLIF(full_name, ''), email) ASC
+  `).all();
+const getFamilyFaithLeaders = async () =>
+  db.prepare(`
+    SELECT id, full_name, email
+    FROM users
+    WHERE role = 'family_faith_leader'
+    ORDER BY COALESCE(NULLIF(full_name, ''), email) ASC
+  `).all();
 const getFaithFormationEventDefinitions = async () =>
   db.prepare('SELECT id, title, audience FROM faith_formation_event_definitions ORDER BY title ASC').all();
 const getAllScheduledFaithFormationEvents = async () =>
@@ -606,6 +786,48 @@ const getFaithFormationEvents = async (audiences = []) => {
   ).all(...audienceList);
 };
 const getBaptismPrepSchedules = async () => getFaithFormationEvents(['baptism_prep']);
+const getFamilyFaithVisitSlots = async ({ leaderUserId = null, includeBookedRegistrationId = null } = {}) => {
+  const conditions = [];
+  const params = [];
+  if (leaderUserId) {
+    conditions.push('slots.leader_user_id = ?');
+    params.push(leaderUserId);
+  }
+  if (includeBookedRegistrationId) {
+    conditions.push('(slots.booked_registration_id IS NULL OR slots.booked_registration_id = ?)');
+    params.push(includeBookedRegistrationId);
+  } else {
+    conditions.push('slots.booked_registration_id IS NULL');
+  }
+
+  return db.prepare(`
+    SELECT slots.id, slots.leader_user_id, slots.slot_start, slots.slot_end, slots.booked_registration_id,
+           users.full_name AS leader_name, users.email AS leader_email
+    FROM family_faith_visit_slots slots
+    INNER JOIN users ON users.id = slots.leader_user_id
+    WHERE ${conditions.join(' AND ')}
+    ORDER BY slots.slot_start ASC
+  `).all(...params);
+};
+const getManagedFamilyFaithVisitSlots = async ({ leaderUserId = null } = {}) => {
+  const conditions = [];
+  const params = [];
+  if (leaderUserId) {
+    conditions.push('slots.leader_user_id = ?');
+    params.push(leaderUserId);
+  }
+  const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+  return db.prepare(`
+    SELECT slots.id, slots.leader_user_id, slots.slot_start, slots.slot_end, slots.booked_registration_id,
+           users.full_name AS leader_name, users.email AS leader_email,
+           regs.family_name, regs.primary_contact_name
+    FROM family_faith_visit_slots slots
+    INNER JOIN users ON users.id = slots.leader_user_id
+    LEFT JOIN family_faith_registrations regs ON regs.id = slots.booked_registration_id
+    ${whereClause}
+    ORDER BY slots.slot_start ASC
+  `).all(...params);
+};
 const formatScheduledEventLabel = (eventItem) => {
   const parts = [eventItem.title];
   if (eventItem.schedule_type === 'recurring' && eventItem.recurrence_pattern) {
@@ -620,6 +842,47 @@ const formatScheduledEventLabel = (eventItem) => {
     parts.push(eventItem.location);
   }
   return parts.join(' · ');
+};
+
+const formatVisitSlotLabel = (slot) => {
+  const start = new Date(slot.slot_start);
+  const end = new Date(slot.slot_end);
+  const dateLabel = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const timeLabel = `${start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} - ${end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
+  return `${dateLabel} · ${timeLabel} · ${slot.leader_name || slot.leader_email}`;
+};
+
+const buildThirtyMinuteVisitSlots = (visitDate, startTime, endTime) => {
+  const startsAt = new Date(`${visitDate}T${startTime}:00`);
+  const endsAt = new Date(`${visitDate}T${endTime}:00`);
+  if (
+    Number.isNaN(startsAt.getTime()) ||
+    Number.isNaN(endsAt.getTime()) ||
+    endsAt <= startsAt ||
+    startsAt.getMinutes() % 30 !== 0 ||
+    endsAt.getMinutes() % 30 !== 0
+  ) {
+    return [];
+  }
+
+  const slots = [];
+  const cursor = new Date(startsAt);
+  while (cursor < endsAt) {
+    const next = new Date(cursor.getTime() + 30 * 60 * 1000);
+    if (next > endsAt) break;
+    slots.push({ slotStart: new Date(cursor), slotEnd: next });
+    cursor.setTime(next.getTime());
+  }
+  return slots;
+};
+const toSqlDateTime = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 };
 
 const WEEKDAY_INDEX = {
@@ -853,6 +1116,35 @@ const calculateFees = (familyCount, gradeLevel, registrationDateStr, schoolYear)
 const createVerificationToken = () => crypto.randomBytes(32).toString('hex');
 const hashVerificationToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
 const getBaseUrl = (req) => process.env.APP_BASE_URL || `${req.protocol}://${req.get('host')}`;
+const issueVerificationForUser = async ({ userId, email, fullName, role, req }) => {
+  const verificationToken = createVerificationToken();
+  const verificationTokenHash = hashVerificationToken(verificationToken);
+  const verificationExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+  await db.prepare(`
+    UPDATE users
+    SET is_active = 0,
+        email_verified_at = NULL,
+        email_verification_token = ?,
+        email_verification_expires_at = ?
+    WHERE id = ?
+  `).run(verificationTokenHash, verificationExpiresAt, userId);
+
+  const verificationUrl = `${getBaseUrl(req)}/verify-email?token=${verificationToken}`;
+  console.info('[signup] Created inactive user pending verification', {
+    email,
+    role,
+    baseUrl: getBaseUrl(req),
+  });
+
+  const delivery = await sendVerificationEmail({
+    to: email,
+    verificationUrl,
+    fullName,
+  });
+
+  return { delivery, verificationUrl };
+};
 const asyncHandler = (handler) => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
 const hasValue = (value) => value != null && `${value}`.trim() !== '';
 const getListValues = (value) => `${value || ''}`
@@ -931,14 +1223,10 @@ app.post('/signup', asyncHandler(async (req, res) => {
   }
 
   const hash = bcrypt.hashSync(password, 10);
-  const verificationToken = createVerificationToken();
-  const verificationTokenHash = hashVerificationToken(verificationToken);
-  const verificationExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-
   await db.prepare(`
     INSERT INTO users (
       email, password_hash, role, provider, full_name, first_name, last_name, phone, is_active, email_verification_token, email_verification_expires_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, NULL)
   `).run(
     normalizedEmail,
     hash,
@@ -948,22 +1236,15 @@ app.post('/signup', asyncHandler(async (req, res) => {
     trimmedFirstName,
     trimmedLastName,
     trimmedPhone,
-    verificationTokenHash,
-    verificationExpiresAt,
   );
 
-  const verificationUrl = `${getBaseUrl(req)}/verify-email?token=${verificationToken}`;
-  console.info('[signup] Created inactive user pending verification', {
-    email: normalizedEmail,
-    role,
-    baseUrl: getBaseUrl(req),
-  });
-
   try {
-    const delivery = await sendVerificationEmail({
-      to: normalizedEmail,
-      verificationUrl,
+    const { delivery, verificationUrl } = await issueVerificationForUser({
+      userId: (await db.prepare('SELECT id FROM users WHERE email = ?').get(normalizedEmail)).id,
+      email: normalizedEmail,
       fullName: trimmedFullName,
+      role,
+      req,
     });
 
     console.info('[signup] Verification email flow completed', {
@@ -1073,16 +1354,127 @@ app.get('/dashboard', requireAuth, asyncHandler(async (req, res) => {
     ? await db.prepare('SELECT * FROM student_registrations ORDER BY created_at DESC').all()
     : await db.prepare('SELECT * FROM student_registrations WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
 
+  const familyRegsRaw = isStaff
+    ? await db.prepare('SELECT * FROM family_faith_registrations ORDER BY created_at DESC').all()
+    : await db.prepare('SELECT * FROM family_faith_registrations WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
+
   const adultRegs = isStaff
     ? await db.prepare('SELECT * FROM adult_registrations ORDER BY created_at DESC').all()
     : await db.prepare('SELECT * FROM adult_registrations WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
+
+  const familyRegs = familyRegsRaw.map((reg) => ({
+    ...reg,
+    members: parseFamilyMembersFromStorage(reg.members_json),
+  }));
 
   const sponsorRegs = isStaff
     ? await db.prepare('SELECT * FROM sponsor_confirmations ORDER BY created_at DESC').all()
     : await db.prepare('SELECT * FROM sponsor_confirmations WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
 
   const ADULT_PROGRAMS = getAdultPrograms(res.locals.t);
-  res.render('dashboard', { studentRegs, adultRegs, sponsorRegs, ADULT_PROGRAMS, faithFormationSettings });
+  res.render('dashboard', { studentRegs, familyRegs, adultRegs, sponsorRegs, ADULT_PROGRAMS, faithFormationSettings });
+}));
+
+app.get('/family-faith/visits/availability', requireAuth, asyncHandler(async (req, res) => {
+  const isAdmin = req.user.role === 'admin';
+  const isLeader = req.user.role === 'family_faith_leader';
+  if (!isAdmin && !isLeader) {
+    return res.status(403).send('Forbidden: insufficient privileges.');
+  }
+
+  const selectedLeaderId = isAdmin
+    ? Number(req.query.leader_user_id || 0) || null
+    : req.user.id;
+  const leaders = await getFamilyFaithLeaders();
+  const effectiveLeaderId = selectedLeaderId || (!isAdmin ? req.user.id : (leaders[0]?.id || null));
+  const visitSlots = effectiveLeaderId
+    ? await getManagedFamilyFaithVisitSlots({ leaderUserId: effectiveLeaderId })
+    : [];
+
+  res.render('family-visit-availability', {
+    leaders,
+    visitSlots,
+    selectedLeaderId: effectiveLeaderId,
+    isAdmin,
+  });
+}));
+
+app.post('/family-faith/visits/availability', requireAuth, asyncHandler(async (req, res) => {
+  const isAdmin = req.user.role === 'admin';
+  const isLeader = req.user.role === 'family_faith_leader';
+  if (!isAdmin && !isLeader) {
+    return res.status(403).send('Forbidden: insufficient privileges.');
+  }
+
+  const leaderUserId = isAdmin
+    ? Number(req.body.leader_user_id || 0) || null
+    : req.user.id;
+  if (!leaderUserId) {
+    req.flash('error', 'Please choose a family faith formation leader.');
+    return res.redirect('/family-faith/visits/availability');
+  }
+
+  const leader = await db.prepare('SELECT id FROM users WHERE id = ? AND role = ?').get(leaderUserId, 'family_faith_leader');
+  if (!leader) {
+    req.flash('error', 'Selected user is not a family faith formation leader.');
+    return res.redirect('/family-faith/visits/availability');
+  }
+
+  const visitDate = typeof req.body.visit_date === 'string' ? req.body.visit_date.trim() : '';
+  const startTime = typeof req.body.start_time === 'string' ? req.body.start_time.trim() : '';
+  const endTime = typeof req.body.end_time === 'string' ? req.body.end_time.trim() : '';
+  const slots = buildThirtyMinuteVisitSlots(visitDate, startTime, endTime);
+  if (!slots.length) {
+    req.flash('error', 'Please enter a valid date and time range in 30-minute increments.');
+    return res.redirect(`/family-faith/visits/availability${isAdmin ? `?leader_user_id=${leaderUserId}` : ''}`);
+  }
+
+  for (const slot of slots) {
+    const existing = await db.prepare(
+      'SELECT id FROM family_faith_visit_slots WHERE leader_user_id = ? AND slot_start = ? AND slot_end = ? LIMIT 1'
+    ).get(
+      leaderUserId,
+      toSqlDateTime(slot.slotStart),
+      toSqlDateTime(slot.slotEnd)
+    );
+    if (existing) continue;
+
+    await db.prepare(
+      'INSERT INTO family_faith_visit_slots (leader_user_id, slot_start, slot_end) VALUES (?, ?, ?)'
+    ).run(
+      leaderUserId,
+      toSqlDateTime(slot.slotStart),
+      toSqlDateTime(slot.slotEnd)
+    );
+  }
+
+  req.flash('success', res.locals.t('slots_created'));
+  return res.redirect(`/family-faith/visits/availability${isAdmin ? `?leader_user_id=${leaderUserId}` : ''}`);
+}));
+
+app.post('/family-faith/visits/availability/:id/delete', requireAuth, asyncHandler(async (req, res) => {
+  const isAdmin = req.user.role === 'admin';
+  const isLeader = req.user.role === 'family_faith_leader';
+  if (!isAdmin && !isLeader) {
+    return res.status(403).send('Forbidden: insufficient privileges.');
+  }
+
+  const slot = await db.prepare('SELECT id, leader_user_id, booked_registration_id FROM family_faith_visit_slots WHERE id = ?').get(req.params.id);
+  if (!slot) {
+    req.flash('error', 'Visit slot not found.');
+    return res.redirect('/family-faith/visits/availability');
+  }
+  if (!isAdmin && slot.leader_user_id !== req.user.id) {
+    return res.status(403).send('Forbidden: insufficient privileges.');
+  }
+  if (slot.booked_registration_id) {
+    req.flash('error', 'This Visit slot is already booked and cannot be removed.');
+    return res.redirect(`/family-faith/visits/availability${isAdmin ? `?leader_user_id=${slot.leader_user_id}` : ''}`);
+  }
+
+  await db.prepare('DELETE FROM family_faith_visit_slots WHERE id = ?').run(req.params.id);
+  req.flash('success', res.locals.t('visit_slot_removed'));
+  return res.redirect(`/family-faith/visits/availability${isAdmin ? `?leader_user_id=${slot.leader_user_id}` : ''}`);
 }));
 
 app.get('/calendar', requireAuth, asyncHandler(async (req, res) => {
@@ -1473,6 +1865,206 @@ app.get('/registration/children/edit/:id', requireAuth, asyncHandler(async (req,
 }));
 
 // ── Adult Programs ───────────────────────────────────────────
+app.get('/registration/family-faith', requireAuth, asyncHandler(async (req, res) => {
+  res.render('family-registration-form', {
+    today: new Date().toISOString().slice(0, 10),
+    reg: null,
+    editing: false,
+    isStaff: false,
+    statusOptions: STUDENT_REGISTRATION_STATUSES,
+    relevantEvents: await getFaithFormationEvents(['family_faith', 'general']),
+    availableVisitSlots: (await getFamilyFaithVisitSlots()).map((slot) => ({ ...slot, label: formatVisitSlotLabel(slot) })),
+    familyMemberRoleOptions: FAMILY_MEMBER_ROLE_OPTIONS,
+    sacramentBadgeOptions: SACRAMENT_BADGE_OPTIONS,
+  });
+}));
+
+app.post('/registration/family-faith', requireAuth, asyncHandler(async (req, res) => {
+  const isAdmin = req.user.role === 'admin';
+  const requestedStatus = typeof req.body.status === 'string' ? req.body.status.trim() : '';
+  const redirectUrl = req.body.registration_id
+    ? `/registration/family-faith/edit/${req.body.registration_id}`
+    : '/registration/family-faith';
+
+  if (requestedStatus && !STUDENT_REGISTRATION_STATUSES.includes(requestedStatus)) {
+    req.flash('error', 'Invalid registration status.');
+    return res.redirect(redirectUrl);
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (req.body.primary_contact_email && !emailRegex.test(req.body.primary_contact_email)) {
+    req.flash('error', 'Invalid email format.');
+    return res.redirect(redirectUrl);
+  }
+
+  const phoneRegex = /^\d{3}[-.\s]?\d{3}[-.\s]?\d{4}$/;
+  if (req.body.primary_contact_phone && !phoneRegex.test(req.body.primary_contact_phone)) {
+    req.flash('error', 'Invalid phone format. Use XXX-XXX-XXXX, XXX.XXX.XXXX, or XXX XXX XXXX.');
+    return res.redirect(redirectUrl);
+  }
+
+  const members = parseFamilyMembersFromRequest(req.body.members_json);
+  if (!req.body.family_name?.trim()) {
+    req.flash('error', 'Family name is required.');
+    return res.redirect(redirectUrl);
+  }
+  if (!req.body.primary_contact_name?.trim()) {
+    req.flash('error', 'Primary contact name is required.');
+    return res.redirect(redirectUrl);
+  }
+  if (!members.length) {
+    req.flash('error', 'Please add at least one family member.');
+    return res.redirect(redirectUrl);
+  }
+  if (members.some((member) => !member.firstName || !member.lastName)) {
+    req.flash('error', 'Each family member must have a first and last name.');
+    return res.redirect(redirectUrl);
+  }
+
+  const membersJson = JSON.stringify(members);
+  const cityStateZip = `${req.body.city || ''}, ${req.body.state || ''} ${req.body.zip || ''}`.trim();
+  const selectedVisitSlotId = Number(req.body.visit_slot_id || 0) || null;
+
+  if (req.body.registration_id) {
+    const existingReg = await db.prepare(
+      'SELECT id, status, visit_slot_id FROM family_faith_registrations WHERE id = ? AND (user_id = ? OR ? = 1)'
+    ).get(req.body.registration_id, req.user.id, isAdmin ? 1 : 0);
+    if (!existingReg) return res.status(404).send('Registration not found.');
+
+    const selectedVisitSlot = selectedVisitSlotId
+      ? await db.prepare(`
+          SELECT slots.id, slots.leader_user_id, slots.slot_start, slots.slot_end, slots.booked_registration_id,
+                 users.full_name AS leader_name, users.email AS leader_email
+          FROM family_faith_visit_slots slots
+          INNER JOIN users ON users.id = slots.leader_user_id
+          WHERE slots.id = ? AND (slots.booked_registration_id IS NULL OR slots.booked_registration_id = ?)
+        `).get(selectedVisitSlotId, existingReg.id)
+      : null;
+    if (!selectedVisitSlot) {
+      req.flash('error', res.locals.t('visit_slot_required'));
+      return res.redirect(redirectUrl);
+    }
+
+    const nextStatus = isAdmin && requestedStatus ? requestedStatus : existingReg.status;
+    await db.prepare(`
+      UPDATE family_faith_registrations
+      SET family_name = ?, primary_contact_name = ?, primary_contact_email = ?, primary_contact_phone = ?,
+          address = ?, city_state_zip = ?, notes = ?, assigned_leader_user_id = ?, visit_slot_id = ?, visit_start = ?, visit_end = ?, visit_label = ?, members_json = ?, status = ?
+      WHERE id = ? AND (user_id = ? OR ? = 1)
+    `).run(
+      req.body.family_name.trim(),
+      req.body.primary_contact_name.trim(),
+      req.body.primary_contact_email || null,
+      req.body.primary_contact_phone || null,
+      req.body.address || null,
+      cityStateZip,
+      req.body.notes || null,
+      selectedVisitSlot.leader_user_id,
+      selectedVisitSlot.id,
+      selectedVisitSlot.slot_start,
+      selectedVisitSlot.slot_end,
+      formatVisitSlotLabel(selectedVisitSlot),
+      membersJson,
+      nextStatus,
+      req.body.registration_id, req.user.id, isAdmin ? 1 : 0
+    );
+    if (existingReg.visit_slot_id && existingReg.visit_slot_id !== selectedVisitSlot.id) {
+      await db.prepare('UPDATE family_faith_visit_slots SET booked_registration_id = NULL WHERE id = ?').run(existingReg.visit_slot_id);
+    }
+    await db.prepare('UPDATE family_faith_visit_slots SET booked_registration_id = ? WHERE id = ?').run(existingReg.id, selectedVisitSlot.id);
+    req.flash('success', 'Family registration updated.');
+    return res.redirect('/dashboard');
+  }
+
+  const selectedVisitSlot = selectedVisitSlotId
+    ? await db.prepare(`
+        SELECT slots.id, slots.leader_user_id, slots.slot_start, slots.slot_end, slots.booked_registration_id,
+               users.full_name AS leader_name, users.email AS leader_email
+        FROM family_faith_visit_slots slots
+        INNER JOIN users ON users.id = slots.leader_user_id
+        WHERE slots.id = ? AND slots.booked_registration_id IS NULL
+      `).get(selectedVisitSlotId)
+    : null;
+  if (!selectedVisitSlot) {
+    req.flash('error', res.locals.t('visit_slot_required'));
+    return res.redirect(redirectUrl);
+  }
+
+  await db.prepare(`
+    INSERT INTO family_faith_registrations
+      (user_id, school_year, family_name, primary_contact_name, primary_contact_email, primary_contact_phone, address, city_state_zip, notes, assigned_leader_user_id, visit_slot_id, visit_start, visit_end, visit_label, members_json, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    req.user.id,
+    req.body.school_year || '2025-2026',
+    req.body.family_name.trim(),
+    req.body.primary_contact_name.trim(),
+    req.body.primary_contact_email || null,
+    req.body.primary_contact_phone || null,
+    req.body.address || null,
+    cityStateZip,
+    req.body.notes || null,
+    selectedVisitSlot.leader_user_id,
+    selectedVisitSlot.id,
+    selectedVisitSlot.slot_start,
+    selectedVisitSlot.slot_end,
+    formatVisitSlotLabel(selectedVisitSlot),
+    membersJson,
+    'in_progress'
+  );
+
+  const insertedReg = await db.prepare('SELECT id FROM family_faith_registrations WHERE user_id = ? ORDER BY id DESC LIMIT 1').get(req.user.id);
+  if (insertedReg) {
+    await db.prepare('UPDATE family_faith_visit_slots SET booked_registration_id = ? WHERE id = ?').run(insertedReg.id, selectedVisitSlot.id);
+  }
+
+  req.flash('success', 'Family faith formation registration submitted.');
+  return res.redirect('/dashboard');
+}));
+
+app.post('/registration/family-faith/:id/status', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const requestedStatus = typeof req.body.status === 'string' ? req.body.status.trim() : '';
+  if (!STUDENT_REGISTRATION_STATUSES.includes(requestedStatus)) {
+    req.flash('error', 'Invalid registration status.');
+    return res.redirect(`/registration/family-faith/edit/${req.params.id}`);
+  }
+
+  const reg = await db.prepare('SELECT id FROM family_faith_registrations WHERE id = ?').get(req.params.id);
+  if (!reg) return res.status(404).send('Registration not found.');
+
+  await db.prepare('UPDATE family_faith_registrations SET status = ? WHERE id = ?').run(requestedStatus, req.params.id);
+  req.flash('success', res.locals.t('status_updated'));
+  return res.redirect(`/registration/family-faith/edit/${req.params.id}`);
+}));
+
+app.get('/registration/family-faith/edit/:id', requireAuth, asyncHandler(async (req, res) => {
+  const isStaff = req.user.role === 'admin';
+  const reg = await db.prepare(
+    'SELECT * FROM family_faith_registrations WHERE id = ? AND (user_id = ? OR ? = 1)'
+  ).get(req.params.id, req.user.id, isStaff ? 1 : 0);
+  if (!reg) return res.status(404).send('Registration not found.');
+
+  const addressParts = reg.city_state_zip ? reg.city_state_zip.split(', ') : ['', '', ''];
+  reg.city = addressParts[0] || '';
+  reg.state = addressParts[1] ? addressParts[1].split(' ')[0] : '';
+  reg.zip = addressParts[1] ? addressParts[1].split(' ').slice(1).join(' ') : '';
+  reg.members = parseFamilyMembersFromStorage(reg.members_json);
+  const availableVisitSlots = (await getFamilyFaithVisitSlots({ includeBookedRegistrationId: reg.id }))
+    .map((slot) => ({ ...slot, label: formatVisitSlotLabel(slot) }));
+
+  res.render('family-registration-form', {
+    today: new Date().toISOString().slice(0, 10),
+    reg,
+    editing: true,
+    isStaff,
+    statusOptions: STUDENT_REGISTRATION_STATUSES,
+    relevantEvents: await getFaithFormationEvents(['family_faith', 'general']),
+    availableVisitSlots,
+    familyMemberRoleOptions: FAMILY_MEMBER_ROLE_OPTIONS,
+    sacramentBadgeOptions: SACRAMENT_BADGE_OPTIONS,
+  });
+}));
+
 // GET /registration/adult/:program  (ocia | baptism_prep | adult_confirmation)
 app.get('/registration/adult/:program', requireAuth, asyncHandler(async (req, res) => {
   const ADULT_PROGRAMS = getAdultPrograms(res.locals.t);
@@ -1610,15 +2202,21 @@ app.post('/registration/adult/:program', requireAuth, asyncHandler(async (req, r
 
 // ── Admin ────────────────────────────────────────────────────
 app.get('/admin/users', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
-  const users = await db.prepare('SELECT id, email, role, provider, created_at FROM users ORDER BY created_at DESC').all();
+  const users = await db.prepare(`
+    SELECT id, email, role, provider, full_name, phone, is_active, email_verified_at, created_at
+    FROM users
+    ORDER BY created_at DESC
+  `).all();
   const ccdClasses = await getCcdClasses();
+  const catechists = await getCatechists();
   const eventDefinitions = await getFaithFormationEventDefinitions();
-  const managedEvents = await getFaithFormationEvents(['children', 'baptism_prep', 'ocia', 'general']);
+  const managedEvents = await getFaithFormationEvents(['children', 'family_faith', 'baptism_prep', 'ocia', 'general']);
   const faithFormationSettings = await getFaithFormationSettings();
   const registrationYearStatuses = await getRegistrationYearStatusList(parseFaithFormationStartYear(faithFormationSettings.currentRegistrationYear));
   res.render('admin-users', {
     users,
     ccdClasses,
+    catechists,
     eventDefinitions,
     managedEvents,
     faithFormationSettings,
@@ -1729,6 +2327,11 @@ app.post('/admin/scan-registration/process', requireAuth, requireRole('admin'), 
 }));
 
 app.post('/admin/users/:id/role', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const allowedRoles = new Set(['user', 'catechist', 'family_faith_leader', 'admin']);
+  if (!allowedRoles.has(req.body.role)) {
+    req.flash('error', 'Invalid role.');
+    return res.redirect('/admin/users');
+  }
   await db.prepare('UPDATE users SET role = ? WHERE id = ?').run(req.body.role, req.params.id);
   req.flash('success', 'User role updated.');
   res.redirect('/admin/users');
@@ -1774,6 +2377,97 @@ app.get('/admin/health/document-ai', requireAuth, requireRole('admin'), async (r
   }
 });
 
+app.get('/admin/users/:id/verification-email', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const userId = Number.parseInt(req.params.id, 10);
+  if (!Number.isInteger(userId)) {
+    return res.status(400).send('Invalid user.');
+  }
+
+  const targetUser = await db.prepare(`
+    SELECT id, email, full_name, provider, is_active
+    FROM users
+    WHERE id = ?
+  `).get(userId);
+  if (!targetUser) {
+    return res.status(404).send('User not found.');
+  }
+  if (targetUser.provider !== 'local') {
+    return res.status(400).send('Verification email preview is only available for local accounts.');
+  }
+  if (targetUser.is_active) {
+    return res.status(400).send('This account is already active.');
+  }
+
+  const verificationUrl = `${getBaseUrl(req)}/verify-email?token=[token-hidden]`;
+  const emailPreview = buildVerificationEmailContent({
+    verificationUrl,
+    fullName: targetUser.full_name || '',
+  });
+
+  return res.render('admin-email-preview', {
+    targetUser,
+    verificationUrl,
+    emailPreview,
+  });
+}));
+
+app.post('/admin/users/:id/resend-verification', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const userId = Number.parseInt(req.params.id, 10);
+  if (!Number.isInteger(userId)) {
+    req.flash('error', 'Invalid user.');
+    return res.redirect('/admin/users');
+  }
+
+  const targetUser = await db.prepare(`
+    SELECT id, email, full_name, role, provider, is_active
+    FROM users
+    WHERE id = ?
+  `).get(userId);
+  if (!targetUser) {
+    req.flash('error', 'User not found.');
+    return res.redirect('/admin/users');
+  }
+  if (targetUser.provider !== 'local') {
+    req.flash('error', 'Only local accounts use verification emails.');
+    return res.redirect('/admin/users');
+  }
+  if (targetUser.is_active) {
+    req.flash('error', 'This account is already active.');
+    return res.redirect('/admin/users');
+  }
+
+  let delivery;
+  try {
+    ({ delivery } = await issueVerificationForUser({
+      userId: targetUser.id,
+      email: targetUser.email,
+      fullName: targetUser.full_name || '',
+      role: targetUser.role,
+      req,
+    }));
+  } catch (error) {
+    console.error('[admin] Resend verification failed', {
+      email: targetUser.email,
+      message: error?.message || String(error),
+      code: error?.code || null,
+      response: error?.response || null,
+      responseCode: error?.responseCode || null,
+    });
+    req.flash('error', `Unable to resend verification email to ${targetUser.email}.`);
+    return res.redirect('/admin/users');
+  }
+
+  req.flash(
+    delivery.delivered
+      ? 'success'
+      : 'error',
+    delivery.delivered
+      ? `Verification email resent to ${targetUser.email}.`
+      : `Verification email could not be sent to ${targetUser.email}.`
+  );
+  return res.redirect('/admin/users');
+}));
+
 app.post('/admin/users/:id/delete', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   const userId = Number.parseInt(req.params.id, 10);
   if (!Number.isInteger(userId)) {
@@ -1792,7 +2486,22 @@ app.post('/admin/users/:id/delete', requireAuth, requireRole('admin'), asyncHand
     return res.redirect('/admin/users');
   }
 
+  await db.prepare('UPDATE ccd_classes SET catechist_user_id = NULL WHERE catechist_user_id = ?').run(userId);
+  await db.prepare(`
+    UPDATE family_faith_visit_slots
+    SET booked_registration_id = NULL
+    WHERE booked_registration_id IN (
+      SELECT id FROM family_faith_registrations WHERE user_id = ?
+    )
+  `).run(userId);
+  await db.prepare(`
+    UPDATE family_faith_registrations
+    SET assigned_leader_user_id = NULL, visit_slot_id = NULL, visit_start = NULL, visit_end = NULL, visit_label = NULL
+    WHERE assigned_leader_user_id = ?
+  `).run(userId);
+  await db.prepare('DELETE FROM family_faith_visit_slots WHERE leader_user_id = ?').run(userId);
   await db.prepare('DELETE FROM student_registrations WHERE user_id = ?').run(userId);
+  await db.prepare('DELETE FROM family_faith_registrations WHERE user_id = ?').run(userId);
   await db.prepare('DELETE FROM adult_registrations WHERE user_id = ?').run(userId);
   await db.prepare('DELETE FROM users WHERE id = ?').run(userId);
 
@@ -1825,10 +2534,32 @@ app.post('/admin/ccd-classes/:id/delete', requireAuth, requireRole('admin'), asy
   return res.redirect('/admin/users');
 }));
 
+app.post('/admin/ccd-classes/:id/catechist', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const classId = Number.parseInt(req.params.id, 10);
+  const catechistId = req.body.catechist_user_id ? Number.parseInt(req.body.catechist_user_id, 10) : null;
+
+  if (!Number.isInteger(classId)) {
+    req.flash('error', 'Invalid CCD class.');
+    return res.redirect('/admin/users');
+  }
+
+  if (catechistId !== null) {
+    const catechist = await db.prepare('SELECT id FROM users WHERE id = ? AND role = ?').get(catechistId, 'catechist');
+    if (!catechist) {
+      req.flash('error', 'Selected user is not a catechist.');
+      return res.redirect('/admin/users');
+    }
+  }
+
+  await db.prepare('UPDATE ccd_classes SET catechist_user_id = ? WHERE id = ?').run(catechistId, classId);
+  req.flash('success', catechistId ? 'Catechist assignment updated.' : 'Catechist assignment cleared.');
+  return res.redirect('/admin/users');
+}));
+
 app.post('/admin/events', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   const title = typeof req.body.title === 'string' ? req.body.title.trim() : '';
   const audience = typeof req.body.audience === 'string' ? req.body.audience.trim() : '';
-  const validAudiences = ['children', 'baptism_prep', 'ocia', 'general'];
+  const validAudiences = ['children', 'family_faith', 'baptism_prep', 'ocia', 'general'];
 
   if (!title) {
     req.flash('error', 'Please enter an event title.');

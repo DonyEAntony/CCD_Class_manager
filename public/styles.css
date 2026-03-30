@@ -306,6 +306,7 @@ legend {
 }
 .badge-parent    { background: var(--blue-light); color: var(--navy-soft); }
 .badge-catechist { background: var(--navy-soft); color: #fff; }
+.badge-family_faith_leader { background: var(--forest); color: #fff; }
 .badge-admin     { background: var(--navy); color: var(--gold-light); }
 
 /* ── Buttons ───────────────────────────────────────────────── */

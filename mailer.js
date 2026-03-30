@@ -50,6 +50,24 @@ const verifyMailConfiguration = async () => {
   };
 };
 
+const buildVerificationEmailContent = ({ verificationUrl, fullName }) => ({
+  subject: 'Verify your Saint Matthew CCD account',
+  text: [
+    `Hello ${fullName || ''}`.trim() + ',',
+    '',
+    'Please verify your email address before logging in.',
+    verificationUrl,
+    '',
+    'If you did not create this account, you can ignore this message.',
+  ].join('\n'),
+  html: `
+    <p>Hello ${fullName || ''},</p>
+    <p>Please verify your email address before logging in.</p>
+    <p><a href="${verificationUrl}">Verify your account</a></p>
+    <p>If you did not create this account, you can ignore this message.</p>
+  `,
+});
+
 const sendVerificationEmail = async ({ to, verificationUrl, fullName }) => {
   const transporter = createTransporter();
   if (!transporter) {
@@ -72,24 +90,13 @@ const sendVerificationEmail = async ({ to, verificationUrl, fullName }) => {
     from: smtpLogConfig.from,
   });
 
+  const content = buildVerificationEmailContent({ verificationUrl, fullName });
   const info = await transporter.sendMail({
     from: resolvedFrom,
     to,
-    subject: 'Verify your Saint Matthew CCD account',
-    text: [
-      `Hello ${fullName || ''}`.trim() + ',',
-      '',
-      'Please verify your email address before logging in.',
-      verificationUrl,
-      '',
-      'If you did not create this account, you can ignore this message.',
-    ].join('\n'),
-    html: `
-      <p>Hello ${fullName || ''},</p>
-      <p>Please verify your email address before logging in.</p>
-      <p><a href="${verificationUrl}">Verify your account</a></p>
-      <p>If you did not create this account, you can ignore this message.</p>
-    `,
+    subject: content.subject,
+    text: content.text,
+    html: content.html,
   });
 
   console.info('[mail] Verification email accepted by SMTP server', {
@@ -102,4 +109,4 @@ const sendVerificationEmail = async ({ to, verificationUrl, fullName }) => {
   return { delivered: true, messageId: info.messageId, response: info.response };
 };
 
-module.exports = { hasSmtpConfig, sendVerificationEmail, resolvedFrom, smtpLogConfig, verifyMailConfiguration };
+module.exports = { hasSmtpConfig, sendVerificationEmail, resolvedFrom, smtpLogConfig, verifyMailConfiguration, buildVerificationEmailContent };

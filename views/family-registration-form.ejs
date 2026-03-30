@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="<%= lang %>">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= t('family_registration_form_title') %> &mdash; <%= t('app_title') %></title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<%- include('_topbar') %>
+<main class="container py-4 app-shell mx-auto">
+  <% const availableStatusOptions = Array.isArray(typeof statusOptions === 'undefined' ? null : statusOptions) ? statusOptions : []; %>
+  <% const visibleEvents = Array.isArray(typeof relevantEvents === 'undefined' ? null : relevantEvents) ? relevantEvents : []; %>
+  <% const visitSlotOptions = Array.isArray(typeof availableVisitSlots === 'undefined' ? null : availableVisitSlots) ? availableVisitSlots : []; %>
+  <% const initialMembers = reg && Array.isArray(reg.members) && reg.members.length ? reg.members : [{ firstName: '', lastName: '', role: 'child', dob: '', notes: '', sacramentNeeds: [] }]; %>
+
+  <div class="page-heading d-flex flex-wrap justify-content-between align-items-end gap-2">
+    <div>
+      <h1><%= t('family_registration_form_title') %></h1>
+      <p class="sub mb-0"><%= t('app_title') %> &mdash; <%= t('school_year') %></p>
+    </div>
+    <a class="btn btn-outline-secondary" href="/dashboard"><%= t('back') %></a>
+  </div>
+
+  <div class="page-card">
+    <% if (error && error.length) { %><div class="alert alert-danger mb-3"><%= error[0] %></div><% } %>
+    <% if (success && success.length) { %><div class="alert alert-success mb-3"><%= success[0] %></div><% } %>
+    <% if (visibleEvents.length) { %>
+      <div class="alert alert-info mb-3">
+        <strong><%= t('faith_formation_events') %>:</strong>
+        <ul class="mb-0 mt-2 ps-3">
+          <% visibleEvents.forEach((eventItem) => { %>
+            <li>
+              <strong><%= eventItem.title %></strong>
+              <% if (eventItem.schedule_type === 'recurring' && eventItem.recurrence_pattern) { %> &middot; <%= eventItem.recurrence_pattern %><% } %>
+              <% if (eventItem.event_date) { %> &middot; <%= eventItem.event_date %><% } %>
+              <% if (eventItem.event_time) { %> &middot; <%= eventItem.event_time %><% } %>
+              <% if (eventItem.event_end_time) { %> - <%= eventItem.event_end_time %><% } %>
+              <% if (eventItem.location) { %> &middot; <%= eventItem.location %><% } %>
+            </li>
+          <% }) %>
+        </ul>
+      </div>
+    <% } %>
+    <div class="card-body p-4">
+      <% if (isStaff && editing && reg && availableStatusOptions.length) { %>
+        <div class="border rounded-3 p-3 bg-light mb-4">
+          <div class="d-flex flex-wrap justify-content-between align-items-end gap-3">
+            <div>
+              <div class="text-muted small"><%= t('current_status') %></div>
+              <div class="fw-semibold"><%= t(reg.status) %></div>
+            </div>
+            <form method="post" action="/registration/family-faith/<%= reg.id %>/status" class="d-flex flex-wrap align-items-end gap-2">
+              <div>
+                <label class="form-label mb-1"><%= t('status') %></label>
+                <select class="form-select" name="status">
+                  <% availableStatusOptions.forEach((status) => { %>
+                    <option value="<%= status %>" <%= reg.status === status ? 'selected' : '' %>><%= t(status) %></option>
+                  <% }) %>
+                </select>
+              </div>
+              <button type="submit" class="btn btn-outline-primary"><%= t('update_status') %></button>
+            </form>
+          </div>
+        </div>
+      <% } %>
+
+      <form method="post" action="/registration/family-faith" class="row g-3" id="family-form">
+        <input type="hidden" name="school_year" value="2025-2026">
+        <input type="hidden" name="registration_id" value="<%= reg ? reg.id : '' %>">
+        <input type="hidden" name="members_json" id="members_json" value="">
+
+        <div class="col-12">
+          <div class="alert alert-secondary mb-0" style="font-size:.88rem">
+            <strong><%= t('registration_date_auto') %>:</strong> <%= today %>
+          </div>
+        </div>
+
+        <fieldset class="col-12">
+          <legend><%= t('family_household') %></legend>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label required"><%= t('family_name') %></label>
+              <input class="form-control" type="text" name="family_name" value="<%= reg ? reg.family_name : '' %>" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label required"><%= t('family_primary_contact') %></label>
+              <input class="form-control" type="text" name="primary_contact_name" value="<%= reg ? reg.primary_contact_name : '' %>" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label"><%= t('primary_contact_email') %></label>
+              <input class="form-control" type="email" name="primary_contact_email" value="<%= reg ? reg.primary_contact_email : '' %>">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label"><%= t('primary_contact_phone') %></label>
+              <input class="form-control" type="tel" name="primary_contact_phone" value="<%= reg ? reg.primary_contact_phone : '' %>" pattern="[0-9]{3}[.\- ]?[0-9]{3}[.\- ]?[0-9]{4}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label"><%= t('address') %></label>
+              <input class="form-control" type="text" name="address" value="<%= reg ? reg.address : '' %>">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label"><%= t('city') %></label>
+              <input class="form-control" type="text" name="city" value="<%= reg ? reg.city : '' %>">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label"><%= t('state') %></label>
+              <input class="form-control" type="text" name="state" value="<%= reg ? reg.state : '' %>">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label"><%= t('zip') %></label>
+              <input class="form-control" type="text" name="zip" value="<%= reg ? reg.zip : '' %>">
+            </div>
+            <div class="col-12">
+              <label class="form-label"><%= t('household_notes') %></label>
+              <textarea class="form-control" rows="3" name="notes"><%= reg ? reg.notes : '' %></textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label required"><%= t('visit_window') %></label>
+              <% if (!visitSlotOptions.length) { %>
+                <div class="alert alert-warning mb-0"><%= t('no_visit_slots') %></div>
+              <% } else { %>
+                <select class="form-select" name="visit_slot_id" required>
+                  <option value="" disabled <%= !reg || !reg.visit_slot_id ? 'selected' : '' %>><%= t('choose_visit') %></option>
+                  <% visitSlotOptions.forEach((slot) => { %>
+                    <option value="<%= slot.id %>" <%= Number(reg && reg.visit_slot_id) === Number(slot.id) ? 'selected' : '' %>><%= slot.label %></option>
+                  <% }) %>
+                </select>
+                <div class="form-text"><%= t('visit_help') %></div>
+              <% } %>
+            </div>
+          </div>
+        </fieldset>
+
+        <div class="col-12">
+          <fieldset>
+            <legend class="d-flex justify-content-between align-items-center">
+              <span><%= t('family_members') %></span>
+              <button class="btn btn-sm btn-outline-primary" type="button" id="add-member"><%= t('add_family_member') %></button>
+            </legend>
+            <div id="members-container" class="d-grid gap-3"></div>
+          </fieldset>
+        </div>
+
+        <div class="col-12 d-flex gap-2">
+          <button class="btn btn-secondary" type="button" id="save-draft"><%= t('save_draft') %></button>
+          <button class="btn btn-primary" type="submit" <%= !visitSlotOptions.length ? 'disabled' : '' %>><%= t('submit_registration') %></button>
+          <a class="btn btn-outline-secondary" href="/dashboard"><%= t('cancel') %></a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <p class="footer-note"><%= t('footer_note') %></p>
+</main>
+
+<script id="initial-members" type="application/json"><%- JSON.stringify(initialMembers) %></script>
+<script>
+  (function () {
+    const form = document.getElementById('family-form');
+    const membersContainer = document.getElementById('members-container');
+    const addMemberBtn = document.getElementById('add-member');
+    const saveDraftBtn = document.getElementById('save-draft');
+    const membersJsonInput = document.getElementById('members_json');
+    const roleOptions = <%- JSON.stringify(familyMemberRoleOptions) %>;
+    const sacramentOptions = <%- JSON.stringify(sacramentBadgeOptions) %>;
+    const initialMembers = JSON.parse(document.getElementById('initial-members').textContent || '[]');
+
+    const roleLabels = {
+      child: '<%= t('role_child_member') %>',
+      parent: '<%= t('role_parent_member') %>',
+      guardian: '<%= t('role_guardian_member') %>',
+      grandparent: '<%= t('role_grandparent_member') %>',
+      other: '<%= t('role_other_member') %>'
+    };
+
+    const sacramentLabels = {
+      baptism: '<%= t('baptism') %>',
+      first_reconciliation: '<%= t('first_reconciliation') %>',
+      first_holy_communion: '<%= t('first_holy_communion') %>',
+      confirmation: '<%= t('confirmation') %>'
+    };
+
+    const createMemberCard = (member = {}) => {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'border rounded p-3 member-card';
+      const selectedNeeds = Array.isArray(member.sacramentNeeds) ? member.sacramentNeeds : [];
+
+      wrapper.innerHTML = `
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <strong><%= t('family_members') %></strong>
+          <button class="btn btn-sm btn-outline-danger remove-member" type="button"><%= t('remove_member') %></button>
+        </div>
+        <div class="row g-3">
+          <div class="col-md-3">
+            <label class="form-label required"><%= t('member_first_name') %></label>
+            <input class="form-control member-first-name" type="text" value="${member.firstName || ''}" required>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label required"><%= t('member_last_name') %></label>
+            <input class="form-control member-last-name" type="text" value="${member.lastName || ''}" required>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label"><%= t('member_role') %></label>
+            <select class="form-select member-role">
+              ${roleOptions.map((role) => `<option value="${role}" ${member.role === role ? 'selected' : ''}>${roleLabels[role] || role}</option>`).join('')}
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label"><%= t('member_dob') %></label>
+            <input class="form-control member-dob" type="date" value="${member.dob || ''}">
+          </div>
+          <div class="col-12">
+            <label class="form-label"><%= t('sacramental_needs') %></label>
+            <div class="d-flex flex-wrap gap-3">
+              ${sacramentOptions.map((need) => `
+                <label class="form-check-label d-flex align-items-center gap-2">
+                  <input class="form-check-input member-need" type="checkbox" value="${need}" ${selectedNeeds.includes(need) ? 'checked' : ''}>
+                  <span>${sacramentLabels[need] || need}</span>
+                </label>
+              `).join('')}
+            </div>
+          </div>
+          <div class="col-12">
+            <label class="form-label"><%= t('member_notes') %></label>
+            <textarea class="form-control member-notes" rows="2">${member.notes || ''}</textarea>
+          </div>
+        </div>
+      `;
+
+      return wrapper;
+    };
+
+    const getMembers = () => Array.from(membersContainer.querySelectorAll('.member-card')).map((card) => ({
+      firstName: card.querySelector('.member-first-name')?.value.trim() || '',
+      lastName: card.querySelector('.member-last-name')?.value.trim() || '',
+      role: card.querySelector('.member-role')?.value || 'child',
+      dob: card.querySelector('.member-dob')?.value || '',
+      notes: card.querySelector('.member-notes')?.value.trim() || '',
+      sacramentNeeds: Array.from(card.querySelectorAll('.member-need:checked')).map((el) => el.value)
+    })).filter((member) => member.firstName || member.lastName || member.dob || member.notes || member.sacramentNeeds.length);
+
+    const syncMembersJson = () => {
+      membersJsonInput.value = JSON.stringify(getMembers());
+    };
+
+    const ensureRemovableState = () => {
+      const cards = membersContainer.querySelectorAll('.member-card');
+      cards.forEach((card) => {
+        const btn = card.querySelector('.remove-member');
+        if (btn) btn.disabled = cards.length === 1;
+      });
+    };
+
+    const addMember = (member) => {
+      membersContainer.appendChild(createMemberCard(member));
+      ensureRemovableState();
+      syncMembersJson();
+    };
+
+    (initialMembers.length ? initialMembers : [{ firstName: '', lastName: '', role: 'child', dob: '', notes: '', sacramentNeeds: [] }]).forEach(addMember);
+
+    addMemberBtn.addEventListener('click', () => addMember({ firstName: '', lastName: '', role: 'child', dob: '', notes: '', sacramentNeeds: [] }));
+
+    membersContainer.addEventListener('click', (event) => {
+      const removeBtn = event.target.closest('.remove-member');
+      if (!removeBtn) return;
+      const card = removeBtn.closest('.member-card');
+      if (!card) return;
+      card.remove();
+      ensureRemovableState();
+      syncMembersJson();
+    });
+
+    membersContainer.addEventListener('input', syncMembersJson);
+    membersContainer.addEventListener('change', syncMembersJson);
+
+    saveDraftBtn.addEventListener('click', () => {
+      syncMembersJson();
+      const formData = new FormData(form);
+      const draft = {};
+      formData.forEach((value, key) => {
+        draft[key] = value;
+      });
+      localStorage.setItem('family-faith-registration-draft', JSON.stringify(draft));
+      alert('Draft saved.');
+    });
+
+    const savedDraftRaw = localStorage.getItem('family-faith-registration-draft');
+    if (!<%= editing ? 'true' : 'false' %> && savedDraftRaw) {
+      try {
+        const savedDraft = JSON.parse(savedDraftRaw);
+        Object.entries(savedDraft).forEach(([key, value]) => {
+          if (key === 'members_json') return;
+          const field = form.querySelector(`[name="${key}"]`);
+          if (field) field.value = value;
+        });
+        const savedMembers = JSON.parse(savedDraft.members_json || '[]');
+        if (Array.isArray(savedMembers) && savedMembers.length) {
+          membersContainer.innerHTML = '';
+          savedMembers.forEach(addMember);
+        }
+      } catch (error) {
+      }
+    }
+
+    form.addEventListener('submit', (event) => {
+      syncMembersJson();
+      const members = getMembers();
+      if (!members.length || members.some((member) => !member.firstName || !member.lastName)) {
+        event.preventDefault();
+        alert('Please add at least one family member with a first and last name.');
+      }
+    });
+
+    syncMembersJson();
+    ensureRemovableState();
+  }());
+</script>
+</body>
+</html>
