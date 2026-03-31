@@ -336,6 +336,45 @@ const translations = {
     save_draft: 'Save Draft',
     actions: 'Actions',
     edit: 'Edit',
+    sponsor_form_title_2026: 'Confirmation Sponsor Information Form 2026',
+    sponsor_form_kicker: 'Confirmation Preparation',
+    sponsor_form_intro: 'Prepare this step with clarity and reverence. Record the sponsor\'s information, attach the needed parish certificate when required, and mark St. Matthew parishioners for parish office verification.',
+    sponsor_form_details_title: 'Form Details',
+    sponsor_form_details_subtitle: 'Use the sponsor certificate section unless the sponsor is a verified St. Matthew parishioner in good standing.',
+    sponsor_form_student_legend: 'Student',
+    sponsor_form_sponsor_legend: 'Sponsor',
+    sponsor_form_student_name: 'Student\'s Name',
+    sponsor_form_confirmation_name: 'Student\'s Confirmation Name',
+    sponsor_form_confirmation_name_help: 'Your choice must be a saint\'s name.',
+    sponsor_form_sponsor_name: 'Sponsor\'s Name',
+    sponsor_form_sponsor_address: 'Sponsor\'s Address',
+    sponsor_form_certificate_guidance_title: 'Certificate Guidance',
+    sponsor_form_certificate_guidance_body: 'The sponsor must obtain a Sponsor Certificate issued by their parish showing that they are a practicing member of the Catholic faith, unless they are a St. Matthew parishioner in good standing and are verified by the parish office.',
+    sponsor_form_st_matthew_title: 'St. Matthew Sponsor Option',
+    sponsor_form_st_matthew_label: 'Sponsor is a St. Matthew parishioner in good standing',
+    sponsor_form_st_matthew_help: 'If checked, no Sponsor Certificate is needed, but the parish office must verify this sponsor before final approval.',
+    sponsor_form_note_title: 'Please Note',
+    sponsor_form_note_body: 'Please note that each candidate must have a qualified sponsor. A Confirmation sponsor is not just a ceremonial role, but a spiritual one: someone who will accompany your child in his or her journey of faith.',
+    sponsor_form_requirements_title: 'Requirements for a Confirmation Sponsor',
+    sponsor_form_requirement_1: 'Must be a practicing Catholic who has received the Sacraments of Baptism, Eucharist, and Confirmation.',
+    sponsor_form_requirement_2: 'Must be at least 16 years of age.',
+    sponsor_form_requirement_3: 'Must be living a life in harmony with the teachings of the Catholic Church.',
+    sponsor_form_requirement_4: 'If married, must be in a marriage recognized by the Catholic Church.',
+    sponsor_form_requirement_5: 'Cannot be the parent of the candidate.',
+    sponsor_form_certificate_note: 'In addition, the sponsor must obtain a Letter of Eligibility (Sponsor Certificate) from his or her parish. This letter confirms that the individual meets the requirements to serve as a sponsor. Please ensure this letter is submitted along with the sponsor form.',
+    sponsor_form_role_title: 'Role and Responsibilities of a Sponsor',
+    sponsor_form_role_1: 'To be a spiritual mentor and guide to your child.',
+    sponsor_form_role_2: 'To support your child through prayer and encouragement.',
+    sponsor_form_role_3: 'To model an active and faithful Catholic life.',
+    sponsor_form_role_4: 'To continue supporting your child even after Confirmation, as they grow in their faith.',
+    sponsor_form_closing: 'We encourage you to choose someone who will take this responsibility seriously and be a positive influence in your child\'s spiritual life. If you have any questions or need assistance, please do not hesitate to contact me.',
+    sponsor_form_certificate_legend: 'Sponsor Certificate',
+    sponsor_form_attach_certificate: 'Attach Scanned Sponsor Certificate',
+    sponsor_form_certificate_required_help: 'Required unless the sponsor is a St. Matthew parishioner in good standing.',
+    sponsor_form_current_file: 'Current file:',
+    sponsor_form_view_certificate: 'View Sponsor Certificate',
+    sponsor_form_save: 'Save Form',
+    sponsor_form_update: 'Update Form',
     in_progress: 'In Progress',
     conditionally_accepted: 'Conditionally Accepted',
     completed: 'Completed',
@@ -647,6 +686,45 @@ const translations = {
     save_draft: 'Guardar Borrador',
     actions: 'Acciones',
     edit: 'Editar',
+    sponsor_form_title_2026: 'Formulario de Información del Padrino de Confirmación 2026',
+    sponsor_form_kicker: 'Preparación para la Confirmación',
+    sponsor_form_intro: 'Complete este paso con claridad y reverencia. Registre la información del padrino, adjunte la carta parroquial requerida cuando corresponda, y marque a los feligreses de San Mateo para verificación por la oficina parroquial.',
+    sponsor_form_details_title: 'Detalles del Formulario',
+    sponsor_form_details_subtitle: 'Use la sección del certificado del padrino a menos que el padrino sea un feligrés verificado de San Mateo en buena posición.',
+    sponsor_form_student_legend: 'Estudiante',
+    sponsor_form_sponsor_legend: 'Padrino / Madrina',
+    sponsor_form_student_name: 'Nombre del Estudiante',
+    sponsor_form_confirmation_name: 'Nombre de Confirmación del Estudiante',
+    sponsor_form_confirmation_name_help: 'Su elección debe ser el nombre de un santo.',
+    sponsor_form_sponsor_name: 'Nombre del Padrino / Madrina',
+    sponsor_form_sponsor_address: 'Dirección del Padrino / Madrina',
+    sponsor_form_certificate_guidance_title: 'Guía del Certificado',
+    sponsor_form_certificate_guidance_body: 'El padrino debe obtener un Certificado de Padrino emitido por su parroquia que demuestre que es un miembro practicante de la fe católica, a menos que sea un feligrés de San Mateo en buena posición y sea verificado por la oficina parroquial.',
+    sponsor_form_st_matthew_title: 'Opción para Padrino de San Mateo',
+    sponsor_form_st_matthew_label: 'El padrino es un feligrés de San Mateo en buena posición',
+    sponsor_form_st_matthew_help: 'Si marca esta opción, no se necesita Certificado de Padrino, pero la oficina parroquial debe verificar al padrino antes de la aprobación final.',
+    sponsor_form_note_title: 'Tenga en Cuenta',
+    sponsor_form_note_body: 'Tenga en cuenta que cada candidato debe tener un padrino calificado. Un padrino de Confirmación no es solo un papel ceremonial, sino también espiritual: alguien que acompañará a su hijo o hija en su camino de fe.',
+    sponsor_form_requirements_title: 'Requisitos para un Padrino de Confirmación',
+    sponsor_form_requirement_1: 'Debe ser un católico practicante que haya recibido los sacramentos del Bautismo, la Eucaristía y la Confirmación.',
+    sponsor_form_requirement_2: 'Debe tener al menos 16 años de edad.',
+    sponsor_form_requirement_3: 'Debe vivir una vida en armonía con las enseñanzas de la Iglesia Católica.',
+    sponsor_form_requirement_4: 'Si está casado, debe estar en un matrimonio reconocido por la Iglesia Católica.',
+    sponsor_form_requirement_5: 'No puede ser el padre o la madre del candidato.',
+    sponsor_form_certificate_note: 'Además, el padrino debe obtener una Carta de Elegibilidad (Certificado de Padrino) de su parroquia. Esta carta confirma que la persona cumple con los requisitos para servir como padrino. Por favor asegúrese de entregar esta carta junto con el formulario del padrino.',
+    sponsor_form_role_title: 'Función y Responsabilidades de un Padrino',
+    sponsor_form_role_1: 'Ser un mentor y guía espiritual para su hijo o hija.',
+    sponsor_form_role_2: 'Apoyar a su hijo o hija con oración y aliento.',
+    sponsor_form_role_3: 'Modelar una vida católica activa y fiel.',
+    sponsor_form_role_4: 'Seguir apoyando a su hijo o hija después de la Confirmación, mientras crece en la fe.',
+    sponsor_form_closing: 'Le animamos a elegir a alguien que tome esta responsabilidad en serio y sea una influencia positiva en la vida espiritual de su hijo o hija. Si tiene alguna pregunta o necesita ayuda, no dude en comunicarse conmigo.',
+    sponsor_form_certificate_legend: 'Certificado del Padrino',
+    sponsor_form_attach_certificate: 'Adjuntar Certificado del Padrino Escaneado',
+    sponsor_form_certificate_required_help: 'Requerido a menos que el padrino sea un feligrés de San Mateo en buena posición.',
+    sponsor_form_current_file: 'Archivo actual:',
+    sponsor_form_view_certificate: 'Ver Certificado del Padrino',
+    sponsor_form_save: 'Guardar Formulario',
+    sponsor_form_update: 'Actualizar Formulario',
     in_progress: 'En progreso',
     conditionally_accepted: 'Aceptado Condicionalmente',
     completed: 'Completado',
@@ -1557,11 +1635,10 @@ app.post('/registration/sponsor-confirmation', requireAuth, upload.single('spons
   const sponsorCity = typeof req.body.sponsor_city === 'string' ? req.body.sponsor_city.trim() : '';
   const sponsorState = typeof req.body.sponsor_state === 'string' ? req.body.sponsor_state.trim() : '';
   const sponsorZip = typeof req.body.sponsor_zip === 'string' ? req.body.sponsor_zip.trim() : '';
-  const studentSignature = typeof req.body.student_signature === 'string' ? req.body.student_signature.trim() : '';
-  const parentSignature = typeof req.body.parent_signature === 'string' ? req.body.parent_signature.trim() : '';
+  const isStMatthewParishioner = req.body.is_st_matthew_parishioner === '1' ? 1 : 0;
   const sponsorCertificatePath = req.file?.path || null;
 
-  if (!studentName || !confirmationName || !sponsorName || !sponsorAddress || !sponsorCity || !sponsorState || !sponsorZip || !studentSignature || !parentSignature) {
+  if (!studentName || !confirmationName || !sponsorName || !sponsorAddress || !sponsorCity || !sponsorState || !sponsorZip) {
     req.flash('error', 'Please complete all sponsor confirmation fields.');
     const redirectUrl = Number.isInteger(registrationId) && registrationId > 0
       ? `/registration/sponsor-confirmation/edit/${registrationId}`
@@ -1572,18 +1649,25 @@ app.post('/registration/sponsor-confirmation', requireAuth, upload.single('spons
   if (Number.isInteger(registrationId) && registrationId > 0) {
     const isStaff = req.user.role === 'admin' || req.user.role === 'catechist';
     const existing = await db.prepare(
-      'SELECT id FROM sponsor_confirmations WHERE id = ? AND (user_id = ? OR ? = 1)'
+      'SELECT id, sponsor_certificate_path FROM sponsor_confirmations WHERE id = ? AND (user_id = ? OR ? = 1)'
     ).get(registrationId, req.user.id, isStaff ? 1 : 0);
 
     if (!existing) {
       return res.status(404).send('Sponsor confirmation form not found.');
     }
 
+    if (!isStMatthewParishioner && !sponsorCertificatePath && !existing.sponsor_certificate_path) {
+      req.flash('error', 'Please attach a Sponsor Certificate, or mark the sponsor as a St. Matthew parishioner in good standing.');
+      return res.redirect(`/registration/sponsor-confirmation/edit/${registrationId}`);
+    }
+
     await db.prepare(`
       UPDATE sponsor_confirmations
       SET student_name = ?, confirmation_name = ?, sponsor_name = ?, sponsor_address = ?,
-          sponsor_city = ?, sponsor_state = ?, sponsor_zip = ?, sponsor_certificate_path = COALESCE(?, sponsor_certificate_path),
-          student_signature = ?, parent_signature = ?
+          sponsor_city = ?, sponsor_state = ?, sponsor_zip = ?, is_st_matthew_parishioner = ?,
+          sponsor_certificate_path = CASE WHEN ? = 1 THEN sponsor_certificate_path ELSE COALESCE(?, sponsor_certificate_path) END,
+          admin_verified = 0,
+          admin_verified_at = NULL
       WHERE id = ?
     `).run(
       studentName,
@@ -1593,9 +1677,9 @@ app.post('/registration/sponsor-confirmation', requireAuth, upload.single('spons
       sponsorCity,
       sponsorState,
       sponsorZip,
+      isStMatthewParishioner,
+      isStMatthewParishioner,
       sponsorCertificatePath,
-      studentSignature,
-      parentSignature,
       registrationId
     );
 
@@ -1603,10 +1687,15 @@ app.post('/registration/sponsor-confirmation', requireAuth, upload.single('spons
     return res.redirect('/dashboard');
   }
 
+  if (!isStMatthewParishioner && !sponsorCertificatePath) {
+    req.flash('error', 'Please attach a Sponsor Certificate, or mark the sponsor as a St. Matthew parishioner in good standing.');
+    return res.redirect('/registration/sponsor-confirmation');
+  }
+
   await db.prepare(`
     INSERT INTO sponsor_confirmations
-      (user_id, student_name, confirmation_name, sponsor_name, sponsor_address, sponsor_city, sponsor_state, sponsor_zip, sponsor_certificate_path, student_signature, parent_signature, status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (user_id, student_name, confirmation_name, sponsor_name, sponsor_address, sponsor_city, sponsor_state, sponsor_zip, is_st_matthew_parishioner, sponsor_certificate_path, admin_verified, admin_verified_at, student_signature, parent_signature, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     req.user.id,
     studentName,
@@ -1616,13 +1705,45 @@ app.post('/registration/sponsor-confirmation', requireAuth, upload.single('spons
     sponsorCity,
     sponsorState,
     sponsorZip,
+    isStMatthewParishioner,
     sponsorCertificatePath,
-    studentSignature,
-    parentSignature,
+    0,
+    null,
+    null,
+    null,
     'in_progress'
   );
 
   req.flash('success', 'Sponsor confirmation form saved.');
+  return res.redirect('/dashboard');
+}));
+
+app.post('/admin/sponsor-confirmation/:id/verify', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const registrationId = Number.parseInt(req.params.id, 10);
+  if (!Number.isInteger(registrationId)) {
+    req.flash('error', 'Invalid sponsor confirmation form.');
+    return res.redirect('/dashboard');
+  }
+
+  const registration = await db.prepare(
+    'SELECT id, is_st_matthew_parishioner FROM sponsor_confirmations WHERE id = ?'
+  ).get(registrationId);
+  if (!registration) {
+    req.flash('error', 'Sponsor confirmation form not found.');
+    return res.redirect('/dashboard');
+  }
+  if (!registration.is_st_matthew_parishioner) {
+    req.flash('error', 'Only St. Matthew parishioner sponsors require admin verification.');
+    return res.redirect('/dashboard');
+  }
+
+  await db.prepare(`
+    UPDATE sponsor_confirmations
+    SET admin_verified = 1, admin_verified_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `).run(registrationId);
+
+  req.flash('success', 'Sponsor was verified as a St. Matthew parishioner in good standing.');
   return res.redirect('/dashboard');
 }));
 

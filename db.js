@@ -245,7 +245,10 @@ const init = async () => {
         sponsor_city VARCHAR(255),
         sponsor_state VARCHAR(50),
         sponsor_zip VARCHAR(20),
+        is_st_matthew_parishioner TINYINT(1) NOT NULL DEFAULT 0,
         sponsor_certificate_path TEXT,
+        admin_verified TINYINT(1) NOT NULL DEFAULT 0,
+        admin_verified_at DATETIME NULL,
         student_signature VARCHAR(255),
         parent_signature VARCHAR(255),
         status VARCHAR(50) DEFAULT 'in_progress',
@@ -366,7 +369,10 @@ const init = async () => {
     await ensureColumn('student_registrations', 'primary_contact_last_name', 'VARCHAR(255)');
     await ensureColumn('student_registrations', 'child_place_of_birth_city', 'TEXT');
     await ensureColumn('student_registrations', 'child_place_of_birth_country', 'TEXT');
+    await ensureColumn('sponsor_confirmations', 'is_st_matthew_parishioner', 'TINYINT(1) NOT NULL DEFAULT 0');
     await ensureColumn('sponsor_confirmations', 'sponsor_certificate_path', 'TEXT');
+    await ensureColumn('sponsor_confirmations', 'admin_verified', 'TINYINT(1) NOT NULL DEFAULT 0');
+    await ensureColumn('sponsor_confirmations', 'admin_verified_at', 'DATETIME NULL');
 
     await ensureColumn('adult_registrations', 'address', 'TEXT');
     await ensureColumn('adult_registrations', 'city_state_zip', 'TEXT');

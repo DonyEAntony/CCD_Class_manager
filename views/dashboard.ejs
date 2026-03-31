@@ -348,6 +348,7 @@
               <th>Confirmation Name</th>
               <th>Sponsor</th>
               <th>Certificate</th>
+              <th>Verification</th>
               <th>Submitted</th>
               <th>Status</th>
               <th>Actions</th>
@@ -360,10 +361,25 @@
               <td><%= r.confirmation_name || '&mdash;' %></td>
               <td><%= r.sponsor_name %></td>
               <td>
-                <% if (r.sponsor_certificate_path) { %>
+                <% if (Number(r.is_st_matthew_parishioner)) { %>
+                  <span>St. Matthew parishioner</span>
+                <% } else if (r.sponsor_certificate_path) { %>
                   <a href="/<%= r.sponsor_certificate_path %>">View File</a>
                 <% } else { %>
                   <span style="color:var(--muted)">&mdash;</span>
+                <% } %>
+              </td>
+              <td>
+                <% if (Number(r.is_st_matthew_parishioner)) { %>
+                  <% if (Number(r.admin_verified)) { %>
+                    <span class="badge text-bg-success">Admin verified</span>
+                  <% } else { %>
+                    <span class="badge text-bg-warning">Pending admin review</span>
+                  <% } %>
+                <% } else if (r.sponsor_certificate_path) { %>
+                  <span style="color:var(--muted)">Certificate provided</span>
+                <% } else { %>
+                  <span class="badge text-bg-danger">Missing certificate</span>
                 <% } %>
               </td>
               <td style="font-size:.8rem;color:var(--muted)"><%= r.created_at ? (typeof r.created_at === 'string' ? r.created_at.slice(0,10) : r.created_at.toISOString().slice(0,10)) : '' %></td>
@@ -373,6 +389,11 @@
                 </span>
               </td>
               <td>
+                <% if (user && user.role === 'admin' && Number(r.is_st_matthew_parishioner) && !Number(r.admin_verified)) { %>
+                  <form method="post" action="/admin/sponsor-confirmation/<%= r.id %>/verify" class="d-inline">
+                    <button class="btn btn-sm btn-outline-success" type="submit">Verify</button>
+                  </form>
+                <% } %>
                 <% if (canOpenSponsorForm) { %>
                   <a href="/registration/sponsor-confirmation/edit/<%= r.id %>" class="btn btn-sm btn-outline-primary"><%= t('edit') %></a>
                 <% } else { %>

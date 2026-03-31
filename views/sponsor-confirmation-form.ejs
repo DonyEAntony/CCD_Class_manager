@@ -3,113 +3,538 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Student/Sponsor Confirmation Information &mdash; <%= t('app_title') %></title>
+  <title><%= t('sponsor_form_title_2026') %> &mdash; <%= t('app_title') %></title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
+  <style>
+    .sponsor-confirmation-shell {
+      --holy-sky: #12264a;
+      --holy-sky-soft: #234c88;
+      --holy-gold: #f1c35a;
+      --holy-cream: #fff7e9;
+      --holy-rose: #8f2f40;
+      --holy-coral: #d9694f;
+      --holy-cloud: rgba(255, 255, 255, 0.78);
+      --holy-shadow: 0 30px 80px rgba(18, 38, 74, 0.20);
+      position: relative;
+    }
+
+    .sponsor-confirmation-shell::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: -2;
+      background:
+        radial-gradient(circle at top left, rgba(241, 195, 90, 0.22), transparent 26%),
+        radial-gradient(circle at top right, rgba(217, 105, 79, 0.16), transparent 30%),
+        linear-gradient(160deg, #fdf8ef 0%, #f3f7ff 48%, #eef5ff 100%);
+    }
+
+    .sponsor-hero {
+      position: relative;
+      overflow: hidden;
+      border-radius: 30px;
+      padding: clamp(1.5rem, 4vw, 2.5rem);
+      color: #fff;
+      background:
+        linear-gradient(135deg, rgba(18, 38, 74, 0.96), rgba(35, 76, 136, 0.90) 45%, rgba(143, 47, 64, 0.86) 100%);
+      box-shadow: var(--holy-shadow);
+      margin-bottom: 1.5rem;
+    }
+
+    .sponsor-hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 82% 22%, rgba(241, 195, 90, 0.70), transparent 16%),
+        radial-gradient(circle at 82% 22%, rgba(255, 250, 236, 0.40), transparent 24%),
+        radial-gradient(circle at 18% 100%, rgba(255, 255, 255, 0.18), transparent 25%);
+      pointer-events: none;
+    }
+
+    .sponsor-hero::after {
+      content: '';
+      position: absolute;
+      right: -60px;
+      bottom: -90px;
+      width: 260px;
+      height: 260px;
+      background: radial-gradient(circle, rgba(255,255,255,0.26), transparent 68%);
+      pointer-events: none;
+    }
+
+    .sponsor-hero-grid {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+      gap: 1.5rem;
+      align-items: center;
+    }
+
+    .sponsor-hero-copy {
+      max-width: 680px;
+    }
+
+    .sponsor-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.65rem;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: rgba(255, 244, 209, 0.92);
+      margin-bottom: 1rem;
+    }
+
+    .sponsor-kicker::before {
+      content: '';
+      width: 2.2rem;
+      height: 2px;
+      border-radius: 999px;
+      background: currentColor;
+    }
+
+    .sponsor-hero h1 {
+      color: #fff;
+      font-size: clamp(2.2rem, 5vw, 3.6rem);
+      line-height: 1.02;
+      margin-bottom: 0.85rem;
+      text-wrap: balance;
+    }
+
+    .sponsor-hero p {
+      max-width: 42rem;
+      font-size: 1rem;
+      line-height: 1.7;
+      color: rgba(255, 255, 255, 0.82);
+      margin-bottom: 1.2rem;
+    }
+
+    .sponsor-hero-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .sponsor-chip {
+      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.10);
+      border-radius: 999px;
+      padding: 0.55rem 0.9rem;
+      font-size: 0.84rem;
+      color: rgba(255,255,255,0.92);
+      backdrop-filter: blur(8px);
+    }
+
+    .holy-spirit-panel {
+      position: relative;
+      min-height: 360px;
+      border-radius: 24px;
+      overflow: hidden;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.05)),
+        linear-gradient(200deg, rgba(255, 247, 233, 0.18), rgba(255,255,255,0.04));
+      border: 1px solid rgba(255,255,255,0.18);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.16);
+      backdrop-filter: blur(10px);
+    }
+
+    .holy-spirit-panel svg {
+      display: block;
+      width: 100%;
+      height: 100%;
+      min-height: 360px;
+    }
+
+    .holy-spirit-panel img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      min-height: 360px;
+      object-fit: contain;
+      object-position: center;
+      padding: 1.25rem;
+      filter: drop-shadow(0 16px 24px rgba(16, 34, 64, 0.18));
+    }
+
+    .sponsor-form-card {
+      border: 1px solid rgba(35, 76, 136, 0.12);
+      border-radius: 30px;
+      overflow: hidden;
+      background: rgba(255, 255, 255, 0.84);
+      box-shadow: var(--holy-shadow);
+      backdrop-filter: blur(12px);
+    }
+
+    .sponsor-form-card .card-body {
+      padding: clamp(1.25rem, 3vw, 2rem);
+    }
+
+    .sponsor-form-grid fieldset,
+    .sponsor-highlight,
+    .sponsor-certificate-block {
+      background: linear-gradient(180deg, rgba(255,255,255,0.92), rgba(250, 245, 235, 0.90));
+      border: 1px solid rgba(35, 76, 136, 0.10);
+      border-radius: 24px;
+      padding: 1.25rem;
+      box-shadow: 0 18px 40px rgba(35, 76, 136, 0.08);
+    }
+
+    .sponsor-form-grid legend {
+      float: none;
+      width: auto;
+      margin-bottom: 1rem;
+      padding: 0;
+      font-size: 1.25rem;
+      color: var(--holy-sky);
+      border: 0;
+    }
+
+    .sponsor-form-grid .form-label {
+      font-weight: 700;
+      color: var(--holy-sky);
+    }
+
+    .sponsor-form-grid .form-control {
+      min-height: 3.15rem;
+      border-radius: 16px;
+      border: 1px solid rgba(35, 76, 136, 0.16);
+      background: rgba(255,255,255,0.96);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.75);
+      padding-inline: 1rem;
+    }
+
+    .sponsor-form-grid .form-control:focus {
+      border-color: rgba(217, 105, 79, 0.72);
+      box-shadow: 0 0 0 0.25rem rgba(217, 105, 79, 0.16);
+    }
+
+    .sponsor-form-grid .form-text {
+      color: #6a5870;
+    }
+
+    .sponsor-highlight {
+      position: relative;
+      background:
+        linear-gradient(135deg, rgba(18, 38, 74, 0.96), rgba(143, 47, 64, 0.92));
+      color: #fff;
+      overflow: hidden;
+    }
+
+    .sponsor-highlight::after {
+      content: '';
+      position: absolute;
+      inset: auto -20% -40% auto;
+      width: 220px;
+      height: 220px;
+      background: radial-gradient(circle, rgba(241, 195, 90, 0.35), transparent 68%);
+    }
+
+    .sponsor-highlight-title {
+      position: relative;
+      z-index: 1;
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 0.4rem;
+    }
+
+    .sponsor-highlight p,
+    .sponsor-highlight .form-text {
+      position: relative;
+      z-index: 1;
+      color: rgba(255,255,255,0.84);
+    }
+
+    .sponsor-highlight .form-check {
+      position: relative;
+      z-index: 1;
+      margin: 0;
+      padding-left: 2rem;
+    }
+
+    .sponsor-highlight .form-check-input {
+      background-color: rgba(255,255,255,0.16);
+      border-color: rgba(255,255,255,0.55);
+    }
+
+    .sponsor-highlight .form-check-input:checked {
+      background-color: var(--holy-gold);
+      border-color: var(--holy-gold);
+    }
+
+    .sponsor-highlight .form-check-label {
+      color: #fff;
+      font-weight: 700;
+    }
+
+    .sponsor-guidance {
+      background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(250, 245, 235, 0.94));
+      border: 1px solid rgba(35, 76, 136, 0.10);
+      border-radius: 24px;
+      padding: 1.35rem;
+      box-shadow: 0 18px 40px rgba(35, 76, 136, 0.08);
+    }
+
+    .sponsor-guidance h3 {
+      font-size: 1.15rem;
+      margin-bottom: 0.6rem;
+      color: var(--holy-sky);
+    }
+
+    .sponsor-guidance p {
+      color: #4d5872;
+      margin-bottom: 0.9rem;
+    }
+
+    .sponsor-guidance ul {
+      margin: 0 0 1rem 1.1rem;
+      color: #4d5872;
+    }
+
+    .sponsor-guidance li + li {
+      margin-top: 0.45rem;
+    }
+
+    .sponsor-guidance strong {
+      color: var(--holy-sky);
+    }
+
+    .sponsor-certificate-block {
+      background:
+        linear-gradient(180deg, rgba(255,247,233,0.96), rgba(255,255,255,0.96));
+    }
+
+    .sponsor-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-top: 0.5rem;
+    }
+
+    .btn-spirit-primary {
+      border: 0;
+      color: #102240;
+      font-weight: 700;
+      padding: 0.9rem 1.4rem;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #ffd87d, #f3b44f);
+      box-shadow: 0 18px 28px rgba(241, 195, 90, 0.28);
+    }
+
+    .btn-spirit-primary:hover {
+      color: #102240;
+      transform: translateY(-1px);
+    }
+
+    .btn-spirit-outline {
+      border-radius: 999px;
+      padding: 0.9rem 1.4rem;
+      border: 1px solid rgba(18, 38, 74, 0.18);
+      color: var(--holy-sky);
+      background: rgba(255,255,255,0.86);
+    }
+
+    .btn-spirit-outline:hover {
+      color: var(--holy-sky);
+      border-color: rgba(18, 38, 74, 0.32);
+      background: #fff;
+    }
+
+    @media (max-width: 991px) {
+      .sponsor-hero-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .holy-spirit-panel {
+        min-height: 300px;
+      }
+    }
+
+    @media (max-width: 767px) {
+      .sponsor-hero {
+        border-radius: 24px;
+      }
+
+      .sponsor-form-card {
+        border-radius: 24px;
+      }
+
+      .sponsor-form-grid fieldset,
+      .sponsor-highlight,
+      .sponsor-certificate-block {
+        border-radius: 20px;
+        padding: 1rem;
+      }
+    }
+  </style>
 </head>
 <body>
 <%- include('_topbar') %>
 
-<main class="container py-4 app-shell mx-auto">
-  <div class="page-heading d-flex flex-wrap justify-content-between align-items-end gap-2">
-    <div>
-      <h1>Student/Sponsor Confirmation Information</h1>
-      <p class="sub mb-0"><%= typeof schoolYearLabel === 'string' ? schoolYearLabel : '' %></p>
+<main class="container py-4 app-shell mx-auto sponsor-confirmation-shell">
+  <section class="sponsor-hero">
+    <div class="sponsor-hero-grid">
+      <div class="sponsor-hero-copy">
+        <div class="sponsor-kicker"><%= t('sponsor_form_kicker') %></div>
+        <h1><%= t('sponsor_form_title_2026') %></h1>
+        <p>
+          <%= t('sponsor_form_intro') %>
+        </p>
+        <div class="sponsor-hero-meta">
+          <span class="sponsor-chip"><%= typeof schoolYearLabel === 'string' ? schoolYearLabel : '' %></span>
+        </div>
+      </div>
+      <div class="holy-spirit-panel" aria-hidden="true">
+        <img src="/gradient-pentecost-illustration.png" alt="Holy Spirit dove illustration">
+      </div>
     </div>
-    <a class="btn btn-outline-secondary" href="/dashboard">Back</a>
+  </section>
+
+  <div class="page-heading d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+    <div>
+      <h2 class="mb-1"><%= t('sponsor_form_details_title') %></h2>
+      <p class="sub mb-0"><%= t('sponsor_form_details_subtitle') %></p>
+    </div>
+    <a class="btn btn-spirit-outline" href="/dashboard"><%= t('back') %></a>
   </div>
 
-  <div class="page-card">
+  <div class="sponsor-form-card">
     <% if (error && error.length) { %><div class="alert alert-danger m-4 mb-0"><%= error[0] %></div><% } %>
     <% if (success && success.length) { %><div class="alert alert-success m-4 mb-0"><%= success[0] %></div><% } %>
     <div class="card-body p-4">
-      <div class="alert alert-secondary mb-4">
-        Return to the Religious Education office along with a Sponsor Certificate.
-      </div>
-      <form method="post" action="/registration/sponsor-confirmation" enctype="multipart/form-data" class="row g-3">
+      <form method="post" action="/registration/sponsor-confirmation" enctype="multipart/form-data" class="row g-4 sponsor-form-grid">
         <input type="hidden" name="registration_id" value="<%= reg ? reg.id : '' %>">
 
-        <fieldset class="col-12">
-          <legend>Student</legend>
+        <fieldset class="col-12 col-lg-6">
+          <legend><%= t('sponsor_form_student_legend') %></legend>
           <div class="row g-3">
             <div class="col-12">
-              <label class="form-label required">Student's Name</label>
+              <label class="form-label required"><%= t('sponsor_form_student_name') %></label>
               <input class="form-control" type="text" name="student_name" value="<%= reg ? reg.student_name : '' %>" required>
             </div>
             <div class="col-12">
-              <label class="form-label required">Student's Confirmation Name</label>
+              <label class="form-label required"><%= t('sponsor_form_confirmation_name') %></label>
               <input class="form-control" type="text" name="confirmation_name" value="<%= reg ? reg.confirmation_name : '' %>" required>
-              <div class="form-text sponsor-form-help">Your choice must be a saint's name.</div>
+              <div class="form-text sponsor-form-help"><%= t('sponsor_form_confirmation_name_help') %></div>
             </div>
           </div>
         </fieldset>
 
-        <fieldset class="col-12">
-          <legend>Sponsor</legend>
+        <fieldset class="col-12 col-lg-6">
+          <legend><%= t('sponsor_form_sponsor_legend') %></legend>
           <div class="row g-3">
             <div class="col-12">
-              <label class="form-label required">Sponsor's Name</label>
+              <label class="form-label required"><%= t('sponsor_form_sponsor_name') %></label>
               <input class="form-control" type="text" name="sponsor_name" value="<%= reg ? reg.sponsor_name : '' %>" required>
             </div>
             <div class="col-12">
-              <label class="form-label required">Sponsor's Address</label>
+              <label class="form-label required"><%= t('sponsor_form_sponsor_address') %></label>
               <input class="form-control" type="text" name="sponsor_address" value="<%= reg ? reg.sponsor_address : '' %>" required>
             </div>
             <div class="col-md-6">
-              <label class="form-label required">City</label>
+              <label class="form-label required"><%= t('city') %></label>
               <input class="form-control" type="text" name="sponsor_city" value="<%= reg ? reg.sponsor_city : '' %>" required>
             </div>
             <div class="col-md-3">
-              <label class="form-label required">State</label>
+              <label class="form-label required"><%= t('state') %></label>
               <input class="form-control" type="text" name="sponsor_state" maxlength="50" value="<%= reg ? reg.sponsor_state : '' %>" required>
             </div>
             <div class="col-md-3">
-              <label class="form-label required">Zip Code</label>
+              <label class="form-label required"><%= t('zip') %></label>
               <input class="form-control" type="text" name="sponsor_zip" maxlength="20" value="<%= reg ? reg.sponsor_zip : '' %>" required>
             </div>
           </div>
         </fieldset>
 
-        <div class="col-12">
-          <div class="alert alert-info mb-0">
-            The sponsor must obtain a Sponsor Certificate issued from their parish stating that he/she is a practicing member of the Catholic faith in that parish.
+        <div class="col-12 col-lg-5">
+          <div class="sponsor-highlight">
+            <div class="sponsor-highlight-title"><%= t('sponsor_form_certificate_guidance_title') %></div>
+            <p class="mb-0">
+              <%= t('sponsor_form_certificate_guidance_body') %>
+            </p>
           </div>
         </div>
 
-        <fieldset class="col-12">
-          <legend>Sponsor Certificate</legend>
+        <div class="col-12 col-lg-7">
+          <div class="sponsor-highlight">
+            <div class="sponsor-highlight-title"><%= t('sponsor_form_st_matthew_title') %></div>
+            <div class="form-check">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              id="is_st_matthew_parishioner"
+              name="is_st_matthew_parishioner"
+              value="1"
+              <%= reg && Number(reg.is_st_matthew_parishioner) ? 'checked' : '' %>
+            >
+            <label class="form-check-label fw-semibold" for="is_st_matthew_parishioner"><%= t('sponsor_form_st_matthew_label') %></label>
+            <div class="form-text sponsor-form-help">
+              <%= t('sponsor_form_st_matthew_help') %>
+            </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12">
+          <section class="sponsor-guidance">
+            <h3><%= t('sponsor_form_note_title') %></h3>
+            <p>
+              <%= t('sponsor_form_note_body') %>
+            </p>
+
+            <h3><%= t('sponsor_form_requirements_title') %></h3>
+            <ul>
+              <li><%= t('sponsor_form_requirement_1') %></li>
+              <li><%= t('sponsor_form_requirement_2') %></li>
+              <li><%= t('sponsor_form_requirement_3') %></li>
+              <li><%= t('sponsor_form_requirement_4') %></li>
+              <li><%= t('sponsor_form_requirement_5') %></li>
+            </ul>
+
+            <p>
+              <%= t('sponsor_form_certificate_note') %>
+            </p>
+
+            <h3><%= t('sponsor_form_role_title') %></h3>
+            <ul>
+              <li><%= t('sponsor_form_role_1') %></li>
+              <li><%= t('sponsor_form_role_2') %></li>
+              <li><%= t('sponsor_form_role_3') %></li>
+              <li><%= t('sponsor_form_role_4') %></li>
+            </ul>
+
+            <p class="mb-0">
+              <%= t('sponsor_form_closing') %>
+            </p>
+          </section>
+        </div>
+
+        <fieldset class="col-12 sponsor-certificate-block">
+          <legend><%= t('sponsor_form_certificate_legend') %></legend>
           <div class="row g-3">
             <div class="col-12">
-              <label class="form-label">Attach Scanned Sponsor Certificate</label>
+              <label class="form-label"><%= t('sponsor_form_attach_certificate') %></label>
               <input class="form-control" type="file" name="sponsor_certificate" accept=".pdf,image/*">
+              <div class="form-text">
+                <%= t('sponsor_form_certificate_required_help') %>
+              </div>
               <% if (reg && reg.sponsor_certificate_path) { %>
                 <div class="form-text mt-2">
-                  Current file:
-                  <a href="/<%= reg.sponsor_certificate_path %>">View Sponsor Certificate</a>
+                  <%= t('sponsor_form_current_file') %>
+                  <a href="/<%= reg.sponsor_certificate_path %>"><%= t('sponsor_form_view_certificate') %></a>
                 </div>
               <% } %>
             </div>
           </div>
         </fieldset>
 
-        <fieldset class="col-12">
-          <legend>Signatures</legend>
-          <div class="row g-3">
-            <div class="col-md-6">
-              <label class="form-label required">Student's Signature</label>
-              <input class="form-control" type="text" name="student_signature" value="<%= reg ? reg.student_signature : '' %>" required>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label required">Parent's Signature</label>
-              <input class="form-control" type="text" name="parent_signature" value="<%= reg ? reg.parent_signature : '' %>" required>
-            </div>
-          </div>
-        </fieldset>
-
-        <div class="col-12 d-flex gap-2">
-          <button class="btn btn-primary" type="submit"><%= reg ? 'Update Form' : 'Save Form' %></button>
-          <a class="btn btn-outline-secondary" href="/dashboard">Cancel</a>
+        <div class="col-12 sponsor-actions">
+          <button class="btn btn-spirit-primary" type="submit"><%= reg ? t('sponsor_form_update') : t('sponsor_form_save') %></button>
+          <a class="btn btn-spirit-outline" href="/dashboard"><%= t('cancel') %></a>
         </div>
       </form>
     </div>
