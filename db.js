@@ -245,12 +245,39 @@ const init = async () => {
         sponsor_city VARCHAR(255),
         sponsor_state VARCHAR(50),
         sponsor_zip VARCHAR(20),
+        is_st_matthew_parishioner TINYINT(1) NOT NULL DEFAULT 0,
         sponsor_certificate_path TEXT,
+        admin_verified TINYINT(1) NOT NULL DEFAULT 0,
+        admin_verified_at DATETIME NULL,
         student_signature VARCHAR(255),
         parent_signature VARCHAR(255),
         status VARCHAR(50) DEFAULT 'in_progress',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT fk_sponsor_confirmations_user FOREIGN KEY (user_id) REFERENCES users(id)
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS family_faith_registrations (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        school_year VARCHAR(32) NOT NULL,
+        family_name VARCHAR(255) NOT NULL,
+        primary_contact_name VARCHAR(255) NOT NULL,
+        primary_contact_email VARCHAR(255),
+        primary_contact_phone VARCHAR(50),
+        address TEXT,
+        city_state_zip TEXT,
+        notes TEXT,
+        assigned_leader_user_id INT NULL,
+        visit_slot_id INT NULL,
+        visit_start DATETIME NULL,
+        visit_end DATETIME NULL,
+        visit_label VARCHAR(255) NULL,
+        members_json LONGTEXT NOT NULL,
+        status VARCHAR(50) DEFAULT 'in_progress',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_family_faith_registrations_user FOREIGN KEY (user_id) REFERENCES users(id)
       )
     `);
 
@@ -268,6 +295,18 @@ const init = async () => {
         faith_formation_open TINYINT(1) NOT NULL DEFAULT 0,
         sponsor_form_open TINYINT(1) NOT NULL DEFAULT 0,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS family_faith_visit_slots (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        leader_user_id INT NOT NULL,
+        slot_start DATETIME NOT NULL,
+        slot_end DATETIME NOT NULL,
+        booked_registration_id INT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_family_faith_visit_slots_user FOREIGN KEY (leader_user_id) REFERENCES users(id)
       )
     `);
 
@@ -324,12 +363,16 @@ const init = async () => {
     await ensureColumn('users', 'email_verified_at', 'DATETIME NULL');
     await ensureColumn('users', 'email_verification_token', 'VARCHAR(255) NULL');
     await ensureColumn('users', 'email_verification_expires_at', 'DATETIME NULL');
+    await ensureColumn('ccd_classes', 'catechist_user_id', 'INT NULL');
 
     await ensureColumn('student_registrations', 'primary_contact_first_name', 'VARCHAR(255)');
     await ensureColumn('student_registrations', 'primary_contact_last_name', 'VARCHAR(255)');
     await ensureColumn('student_registrations', 'child_place_of_birth_city', 'TEXT');
     await ensureColumn('student_registrations', 'child_place_of_birth_country', 'TEXT');
+    await ensureColumn('sponsor_confirmations', 'is_st_matthew_parishioner', 'TINYINT(1) NOT NULL DEFAULT 0');
     await ensureColumn('sponsor_confirmations', 'sponsor_certificate_path', 'TEXT');
+    await ensureColumn('sponsor_confirmations', 'admin_verified', 'TINYINT(1) NOT NULL DEFAULT 0');
+    await ensureColumn('sponsor_confirmations', 'admin_verified_at', 'DATETIME NULL');
 
     await ensureColumn('adult_registrations', 'address', 'TEXT');
     await ensureColumn('adult_registrations', 'city_state_zip', 'TEXT');
@@ -341,6 +384,18 @@ const init = async () => {
     await ensureColumn('adult_registrations', 'class_schedule_id', 'INT NULL');
     await ensureColumn('adult_registrations', 'class_date', 'TEXT');
     await ensureColumn('adult_registrations', 'status', "VARCHAR(50) DEFAULT 'in_progress'");
+
+    await ensureColumn('family_faith_registrations', 'primary_contact_email', 'VARCHAR(255)');
+    await ensureColumn('family_faith_registrations', 'primary_contact_phone', 'VARCHAR(50)');
+    await ensureColumn('family_faith_registrations', 'address', 'TEXT');
+    await ensureColumn('family_faith_registrations', 'city_state_zip', 'TEXT');
+    await ensureColumn('family_faith_registrations', 'notes', 'TEXT');
+    await ensureColumn('family_faith_registrations', 'assigned_leader_user_id', 'INT NULL');
+    await ensureColumn('family_faith_registrations', 'visit_slot_id', 'INT NULL');
+    await ensureColumn('family_faith_registrations', 'visit_start', 'DATETIME NULL');
+    await ensureColumn('family_faith_registrations', 'visit_end', 'DATETIME NULL');
+    await ensureColumn('family_faith_registrations', 'visit_label', 'VARCHAR(255) NULL');
+    await ensureColumn('family_faith_registrations', 'status', "VARCHAR(50) DEFAULT 'in_progress'");
 
     await ensureColumn('faith_formation_event_schedules', 'schedule_type', "VARCHAR(50) DEFAULT 'one_time'");
     await ensureColumn('faith_formation_event_schedules', 'recurrence_pattern', 'VARCHAR(50)');

@@ -1,7 +1,10 @@
 node_modules/
 .env
 ccd.db
+ccd.db-shm
+ccd.db-wal
 playwright-report/
 test-results/
 uploads/*
 !uploads/.gitkeep
+api-project-910463796029-c858fae15508.json
