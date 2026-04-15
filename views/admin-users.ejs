@@ -188,6 +188,53 @@
   </div>
 
   <div class="page-card mt-4">
+    <div class="card-header"><h2 class="h5 mb-0">Eucharistic Adoration Signups</h2></div>
+    <div class="card-body p-0">
+      <% if (!adorationSignups || adorationSignups.length === 0) { %>
+        <div class="p-4 text-muted">No Eucharistic Adoration signups yet.</div>
+      <% } else { %>
+        <div class="table-responsive">
+          <table class="table mb-0">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Contact</th>
+                <th>Date</th>
+                <th>Time Slot</th>
+                <th>Notes</th>
+                <th>Submitted</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% adorationSignups.forEach((signup) => { %>
+                <tr>
+                  <td><strong><%= signup.full_name %></strong></td>
+                  <td>
+                    <div><a href="mailto:<%= signup.email %>"><%= signup.email %></a></div>
+                    <div style="font-size:.82rem;color:var(--muted)"><%= signup.phone %></div>
+                  </td>
+                  <td><%= formatAdorationDateLabel(signup.adoration_date) %></td>
+                  <td><%= formatTimeLabel(signup.slot_start_time) %> - <%= formatTimeLabel(signup.slot_end_time) %></td>
+                  <td style="max-width:280px"><%= signup.notes || '—' %></td>
+                  <td style="font-size:.82rem;color:var(--muted)">
+                    <%= signup.created_at ? (typeof signup.created_at === 'string' ? signup.created_at.slice(0, 16).replace('T', ' ') : signup.created_at.toISOString().slice(0, 16).replace('T', ' ')) : '—' %>
+                  </td>
+                  <td>
+                    <form method="post" action="/admin/eucharistic-adoration/<%= signup.id %>/delete" onsubmit="return confirm('Remove this adoration signup and reopen the slot?');">
+                      <button class="btn btn-outline-danger btn-sm" type="submit"><%= t('remove') %></button>
+                    </form>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+  </div>
+
+  <div class="page-card mt-4">
     <div class="card-header"><h2 class="h5 mb-0">Catechist Assignments</h2></div>
     <div class="card-body p-0">
       <% if (!availableCcdClasses.length) { %>
