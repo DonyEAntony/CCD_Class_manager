@@ -1191,6 +1191,64 @@ const calculateFees = (familyCount, gradeLevel, registrationDateStr, schoolYear)
   return { registrationFee, sacramentalFee, lateFee, afterStart: registrationDate >= classesBegin };
 };
 
+const EUCHARISTIC_ADORATION_SLOT_MINUTES = 30;
+const EUCHARISTIC_ADORATION_START_MINUTES = (8 * 60) + 30;
+const EUCHARISTIC_ADORATION_END_MINUTES = 16 * 60;
+const phoneRegex = /^\d{3}[-.\s]?\d{3}[-.\s]?\d{4}$/;
+
+const padTimePart = (value) => `${value}`.padStart(2, '0');
+const minutesToTimeValue = (minutes) => {
+  const hour = Math.floor(minutes / 60);
+  const minute = minutes % 60;
+  return `${padTimePart(hour)}:${padTimePart(minute)}`;
+};
+const formatTimeLabel = (timeValue) => {
+  const [hourText, minuteText] = `${timeValue}`.split(':');
+  const hour = Number.parseInt(hourText, 10);
+  const minute = Number.parseInt(minuteText, 10);
+  const suffix = hour >= 12 ? 'PM' : 'AM';
+  const normalizedHour = hour % 12 || 12;
+  return `${normalizedHour}:${padTimePart(minute)} ${suffix}`;
+};
+const getEucharisticAdorationSlots = () => {
+  const slots = [];
+  for (let start = EUCHARISTIC_ADORATION_START_MINUTES; start < EUCHARISTIC_ADORATION_END_MINUTES; start += EUCHARISTIC_ADORATION_SLOT_MINUTES) {
+    const startValue = minutesToTimeValue(start);
+    const endValue = minutesToTimeValue(start + EUCHARISTIC_ADORATION_SLOT_MINUTES);
+    slots.push({
+      value: startValue,
+      endValue,
+      label: `${formatTimeLabel(startValue)} - ${formatTimeLabel(endValue)}`,
+    });
+  }
+  return slots;
+};
+const getTodayDateValue = () => {
+  const today = new Date();
+  return `${today.getFullYear()}-${padTimePart(today.getMonth() + 1)}-${padTimePart(today.getDate())}`;
+};
+const formatAdorationDateLabel = (dateValue) => {
+  if (dateValue instanceof Date && !Number.isNaN(dateValue.getTime())) {
+    return dateValue.toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  }
+  const [yearText, monthText, dayText] = `${dateValue}`.split('-');
+  const year = Number.parseInt(yearText, 10);
+  const month = Number.parseInt(monthText, 10);
+  const day = Number.parseInt(dayText, 10);
+  if (!year || !month || !day) return dateValue;
+  return new Date(year, month - 1, day).toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+};
+
 const createVerificationToken = () => crypto.randomBytes(32).toString('hex');
 const hashVerificationToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
 const getBaseUrl = (req) => process.env.APP_BASE_URL || `${req.protocol}://${req.get('host')}`;
@@ -1263,6 +1321,81 @@ const getIncompleteStudentRegistrationFields = (reg) => {
 app.get('/', (req, res) => res.render('index'));
 app.get('/steubenville-florida-youth-conference', (req, res) => res.render('steubenville-florida'));
 
+app.get('/eucharistic-adoration', (req, res) => {
+  res.render('eucharistic-adoration-signup', {
+    timeSlots: getEucharisticAdorationSlots(),
+    minDate: getTodayDateValue(),
+  });
+});
+
+app.post('/eucharistic-adoration', asyncHandler(async (req, res) => {
+  const fullName = typeof req.body.full_name === 'string' ? req.body.full_name.trim() : '';
+  const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+  const phone = typeof req.body.phone === 'string' ? req.body.phone.trim() : '';
+  const adorationDate = typeof req.body.adoration_date === 'string' ? req.body.adoration_date.trim() : '';
+  const slotStartTime = typeof req.body.slot_start_time === 'string' ? req.body.slot_start_time.trim() : '';
+  const notes = typeof req.body.notes === 'string' ? req.body.notes.trim() : '';
+  const timeSlots = getEucharisticAdorationSlots();
+  const selectedSlot = timeSlots.find((slot) => slot.value === slotStartTime);
+
+  if (!fullName || !email || !phone || !adorationDate || !selectedSlot) {
+    req.flash('error', 'Please complete your name, email, phone, date, and adoration time slot.');
+    return res.redirect('/eucharistic-adoration');
+  }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    req.flash('error', 'Please enter a valid email address.');
+    return res.redirect('/eucharistic-adoration');
+  }
+
+  if (!phoneRegex.test(phone)) {
+    req.flash('error', 'Invalid phone format. Use XXX-XXX-XXXX, XXX.XXX.XXXX, or XXX XXX XXXX.');
+    return res.redirect('/eucharistic-adoration');
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(adorationDate)) {
+    req.flash('error', 'Please choose a valid adoration date.');
+    return res.redirect('/eucharistic-adoration');
+  }
+
+  const existingSignup = await db.prepare(`
+    SELECT id
+    FROM eucharistic_adoration_signups
+    WHERE adoration_date = ? AND slot_start_time = ?
+    LIMIT 1
+  `).get(adorationDate, selectedSlot.value);
+
+  if (existingSignup) {
+    req.flash('error', `That time slot on ${formatAdorationDateLabel(adorationDate)} has already been reserved. Please choose another slot.`);
+    return res.redirect('/eucharistic-adoration');
+  }
+
+  try {
+    await db.prepare(`
+      INSERT INTO eucharistic_adoration_signups
+        (full_name, email, phone, adoration_date, slot_start_time, slot_end_time, notes)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      fullName,
+      email,
+      phone,
+      adorationDate,
+      selectedSlot.value,
+      selectedSlot.endValue,
+      notes || null,
+    );
+  } catch (error) {
+    if (error?.code === 'ER_DUP_ENTRY') {
+      req.flash('error', `That time slot on ${formatAdorationDateLabel(adorationDate)} has already been reserved. Please choose another slot.`);
+      return res.redirect('/eucharistic-adoration');
+    }
+    throw error;
+  }
+
+  req.flash('success', `Your Eucharistic Adoration signup is confirmed for ${formatAdorationDateLabel(adorationDate)} at ${selectedSlot.label}.`);
+  return res.redirect('/eucharistic-adoration');
+}));
+
 app.get('/signup', (req, res) => res.render('signup'));
 app.post('/signup', asyncHandler(async (req, res) => {
   const { email, password, requestedRole, inviteCode, firstName, lastName, phone } = req.body;
@@ -1276,7 +1409,6 @@ app.post('/signup', asyncHandler(async (req, res) => {
   const trimmedLastName = lastName.trim();
   const trimmedPhone = phone.trim();
   const trimmedFullName = `${trimmedFirstName} ${trimmedLastName}`.trim();
-  const phoneRegex = /^\d{3}[-.\s]?\d{3}[-.\s]?\d{4}$/;
   if (!phoneRegex.test(trimmedPhone)) {
     req.flash('error', 'Invalid phone format. Use XXX-XXX-XXXX, XXX.XXX.XXXX, or XXX XXX XXXX.');
     return res.redirect('/signup');
@@ -2328,6 +2460,11 @@ app.get('/admin/users', requireAuth, requireRole('admin'), asyncHandler(async (r
     FROM users
     ORDER BY created_at DESC
   `).all();
+  const adorationSignups = await db.prepare(`
+    SELECT id, full_name, email, phone, adoration_date, slot_start_time, slot_end_time, notes, created_at
+    FROM eucharistic_adoration_signups
+    ORDER BY adoration_date ASC, slot_start_time ASC, created_at ASC
+  `).all();
   const ccdClasses = await getCcdClasses();
   const catechists = await getCatechists();
   const eventDefinitions = await getFaithFormationEventDefinitions();
@@ -2336,6 +2473,9 @@ app.get('/admin/users', requireAuth, requireRole('admin'), asyncHandler(async (r
   const registrationYearStatuses = await getRegistrationYearStatusList(parseFaithFormationStartYear(faithFormationSettings.currentRegistrationYear));
   res.render('admin-users', {
     users,
+    adorationSignups,
+    formatAdorationDateLabel,
+    formatTimeLabel,
     ccdClasses,
     catechists,
     eventDefinitions,
@@ -2344,6 +2484,24 @@ app.get('/admin/users', requireAuth, requireRole('admin'), asyncHandler(async (r
     registrationYearOptions: getRegistrationYearOptions(parseFaithFormationStartYear(faithFormationSettings.schoolYear)),
     registrationYearStatuses,
   });
+}));
+
+app.post('/admin/eucharistic-adoration/:id/delete', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const signupId = Number.parseInt(req.params.id, 10);
+  if (!Number.isInteger(signupId)) {
+    req.flash('error', 'Invalid Eucharistic Adoration signup.');
+    return res.redirect('/admin/users');
+  }
+
+  const existingSignup = await db.prepare('SELECT id FROM eucharistic_adoration_signups WHERE id = ?').get(signupId);
+  if (!existingSignup) {
+    req.flash('error', 'Eucharistic Adoration signup not found.');
+    return res.redirect('/admin/users');
+  }
+
+  await db.prepare('DELETE FROM eucharistic_adoration_signups WHERE id = ?').run(signupId);
+  req.flash('success', 'Eucharistic Adoration signup removed.');
+  return res.redirect('/admin/users');
 }));
 
 app.post('/admin/settings/faith-formation', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {

@@ -258,6 +258,21 @@ const init = async () => {
     `);
 
     await pool.query(`
+      CREATE TABLE IF NOT EXISTS eucharistic_adoration_signups (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        full_name VARCHAR(255) NOT NULL,
+        email VARCHAR(255) NOT NULL,
+        phone VARCHAR(50) NOT NULL,
+        adoration_date DATE NOT NULL,
+        slot_start_time VARCHAR(10) NOT NULL,
+        slot_end_time VARCHAR(10) NOT NULL,
+        notes TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_adoration_slot (adoration_date, slot_start_time)
+      )
+    `);
+
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS family_faith_registrations (
         id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
         user_id INT NOT NULL,
