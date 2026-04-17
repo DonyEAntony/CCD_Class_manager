@@ -188,6 +188,66 @@
   </div>
 
   <div class="page-card mt-4">
+    <div class="card-header"><h2 class="h5 mb-0">Eucharistic Adoration Calendar</h2></div>
+    <div class="card-body">
+      <form class="row g-3 align-items-end mb-4" method="post" action="/admin/eucharistic-adoration/dates">
+        <div class="col-md-4">
+          <label class="form-label">Available Date</label>
+          <input class="form-control" type="date" name="adoration_date" required>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Start Time</label>
+          <input class="form-control" type="time" name="start_time" value="08:30" required>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">End Time</label>
+          <input class="form-control" type="time" name="end_time" value="16:00" required>
+        </div>
+        <div class="col-md-2">
+          <button class="btn btn-primary" type="submit">Add Available Date</button>
+        </div>
+      </form>
+
+      <% if (!adorationAvailableDates || adorationAvailableDates.length === 0) { %>
+        <p class="mb-0 text-muted">No Eucharistic Adoration dates have been configured yet.</p>
+      <% } else { %>
+        <div class="table-responsive">
+          <table class="table mb-0">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Time Window</th>
+                <th>Signups</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% adorationAvailableDates.forEach((dateItem) => { %>
+                <% const signupCount = (adorationSignups || []).filter((signup) => {
+                  const signupDateValue = signup.adoration_date instanceof Date
+                    ? `${signup.adoration_date.getFullYear()}-${String(signup.adoration_date.getMonth() + 1).padStart(2, '0')}-${String(signup.adoration_date.getDate()).padStart(2, '0')}`
+                    : `${signup.adoration_date}`.slice(0, 10);
+                  return signupDateValue === dateItem.value;
+                }).length; %>
+                <tr>
+                  <td><strong><%= dateItem.label %></strong></td>
+                  <td><%= dateItem.timeWindowLabel %></td>
+                  <td><%= signupCount %></td>
+                  <td>
+                    <form method="post" action="/admin/eucharistic-adoration/dates/<%= dateItem.id %>/delete" onsubmit="return confirm('Remove this available adoration date? Existing signup records for that day will remain for review.');">
+                      <button class="btn btn-outline-danger btn-sm" type="submit"><%= t('remove') %></button>
+                    </form>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+  </div>
+
+  <div class="page-card mt-4">
     <div class="card-header"><h2 class="h5 mb-0">Eucharistic Adoration Signups</h2></div>
     <div class="card-body p-0">
       <% if (!adorationSignups || adorationSignups.length === 0) { %>

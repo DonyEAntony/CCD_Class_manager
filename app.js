@@ -1191,12 +1191,19 @@ const calculateFees = (familyCount, gradeLevel, registrationDateStr, schoolYear)
   return { registrationFee, sacramentalFee, lateFee, afterStart: registrationDate >= classesBegin };
 };
 
-const EUCHARISTIC_ADORATION_SLOT_MINUTES = 30;
+const EUCHARISTIC_ADORATION_SLOT_MINUTES = 60;
 const EUCHARISTIC_ADORATION_START_MINUTES = (8 * 60) + 30;
 const EUCHARISTIC_ADORATION_END_MINUTES = 16 * 60;
 const phoneRegex = /^\d{3}[-.\s]?\d{3}[-.\s]?\d{4}$/;
 
 const padTimePart = (value) => `${value}`.padStart(2, '0');
+const timeValueToMinutes = (timeValue) => {
+  const [hourText, minuteText] = `${timeValue}`.split(':');
+  const hour = Number.parseInt(hourText, 10);
+  const minute = Number.parseInt(minuteText, 10);
+  if (!Number.isInteger(hour) || !Number.isInteger(minute)) return Number.NaN;
+  return (hour * 60) + minute;
+};
 const minutesToTimeValue = (minutes) => {
   const hour = Math.floor(minutes / 60);
   const minute = minutes % 60;
@@ -1210,9 +1217,21 @@ const formatTimeLabel = (timeValue) => {
   const normalizedHour = hour % 12 || 12;
   return `${normalizedHour}:${padTimePart(minute)} ${suffix}`;
 };
-const getEucharisticAdorationSlots = () => {
+const getEucharisticAdorationSlots = ({
+  startTime = minutesToTimeValue(EUCHARISTIC_ADORATION_START_MINUTES),
+  endTime = minutesToTimeValue(EUCHARISTIC_ADORATION_END_MINUTES),
+} = {}) => {
   const slots = [];
-  for (let start = EUCHARISTIC_ADORATION_START_MINUTES; start < EUCHARISTIC_ADORATION_END_MINUTES; start += EUCHARISTIC_ADORATION_SLOT_MINUTES) {
+  const startMinutes = timeValueToMinutes(startTime);
+  const endMinutes = timeValueToMinutes(endTime);
+  if (!Number.isInteger(startMinutes) || !Number.isInteger(endMinutes) || startMinutes >= endMinutes) {
+    return slots;
+  }
+  for (
+    let start = startMinutes;
+    start + EUCHARISTIC_ADORATION_SLOT_MINUTES <= endMinutes;
+    start += EUCHARISTIC_ADORATION_SLOT_MINUTES
+  ) {
     const startValue = minutesToTimeValue(start);
     const endValue = minutesToTimeValue(start + EUCHARISTIC_ADORATION_SLOT_MINUTES);
     slots.push({
@@ -1226,6 +1245,12 @@ const getEucharisticAdorationSlots = () => {
 const getTodayDateValue = () => {
   const today = new Date();
   return `${today.getFullYear()}-${padTimePart(today.getMonth() + 1)}-${padTimePart(today.getDate())}`;
+};
+const formatDateValue = (dateValue) => {
+  if (dateValue instanceof Date && !Number.isNaN(dateValue.getTime())) {
+    return `${dateValue.getFullYear()}-${padTimePart(dateValue.getMonth() + 1)}-${padTimePart(dateValue.getDate())}`;
+  }
+  return `${dateValue}`.slice(0, 10);
 };
 const formatAdorationDateLabel = (dateValue) => {
   if (dateValue instanceof Date && !Number.isNaN(dateValue.getTime())) {
@@ -1247,6 +1272,33 @@ const formatAdorationDateLabel = (dateValue) => {
     day: 'numeric',
     year: 'numeric',
   });
+};
+const getAvailableAdorationDates = async ({ includePast = false } = {}) => {
+  const rows = includePast
+    ? await db.prepare(`
+      SELECT id, adoration_date, start_time, end_time, created_at
+      FROM eucharistic_adoration_available_dates
+      ORDER BY adoration_date ASC
+    `).all()
+    : await db.prepare(`
+      SELECT id, adoration_date, start_time, end_time, created_at
+      FROM eucharistic_adoration_available_dates
+      WHERE adoration_date >= ?
+      ORDER BY adoration_date ASC
+    `).all(getTodayDateValue());
+
+  return rows.map((row) => ({
+    ...row,
+    value: formatDateValue(row.adoration_date),
+    label: formatAdorationDateLabel(row.adoration_date),
+    startTime: row.start_time || minutesToTimeValue(EUCHARISTIC_ADORATION_START_MINUTES),
+    endTime: row.end_time || minutesToTimeValue(EUCHARISTIC_ADORATION_END_MINUTES),
+    timeWindowLabel: `${formatTimeLabel(row.start_time || minutesToTimeValue(EUCHARISTIC_ADORATION_START_MINUTES))} - ${formatTimeLabel(row.end_time || minutesToTimeValue(EUCHARISTIC_ADORATION_END_MINUTES))}`,
+    timeSlots: getEucharisticAdorationSlots({
+      startTime: row.start_time || minutesToTimeValue(EUCHARISTIC_ADORATION_START_MINUTES),
+      endTime: row.end_time || minutesToTimeValue(EUCHARISTIC_ADORATION_END_MINUTES),
+    }),
+  }));
 };
 
 const createVerificationToken = () => crypto.randomBytes(32).toString('hex');
@@ -1321,12 +1373,12 @@ const getIncompleteStudentRegistrationFields = (reg) => {
 app.get('/', (req, res) => res.render('index'));
 app.get('/steubenville-florida-youth-conference', (req, res) => res.render('steubenville-florida'));
 
-app.get('/eucharistic-adoration', (req, res) => {
+app.get('/eucharistic-adoration', asyncHandler(async (req, res) => {
+  const availableDates = await getAvailableAdorationDates();
   res.render('eucharistic-adoration-signup', {
-    timeSlots: getEucharisticAdorationSlots(),
-    minDate: getTodayDateValue(),
+    availableDates,
   });
-});
+}));
 
 app.post('/eucharistic-adoration', asyncHandler(async (req, res) => {
   const fullName = typeof req.body.full_name === 'string' ? req.body.full_name.trim() : '';
@@ -1335,8 +1387,9 @@ app.post('/eucharistic-adoration', asyncHandler(async (req, res) => {
   const adorationDate = typeof req.body.adoration_date === 'string' ? req.body.adoration_date.trim() : '';
   const slotStartTime = typeof req.body.slot_start_time === 'string' ? req.body.slot_start_time.trim() : '';
   const notes = typeof req.body.notes === 'string' ? req.body.notes.trim() : '';
-  const timeSlots = getEucharisticAdorationSlots();
-  const selectedSlot = timeSlots.find((slot) => slot.value === slotStartTime);
+  const availableDates = await getAvailableAdorationDates();
+  const selectedDate = availableDates.find((dateItem) => dateItem.value === adorationDate);
+  const selectedSlot = selectedDate?.timeSlots?.find((slot) => slot.value === slotStartTime);
 
   if (!fullName || !email || !phone || !adorationDate || !selectedSlot) {
     req.flash('error', 'Please complete your name, email, phone, date, and adoration time slot.');
@@ -1358,6 +1411,11 @@ app.post('/eucharistic-adoration', asyncHandler(async (req, res) => {
     return res.redirect('/eucharistic-adoration');
   }
 
+  if (!selectedDate) {
+    req.flash('error', 'That adoration date is not currently open for signup. Please choose one of the available dates.');
+    return res.redirect('/eucharistic-adoration');
+  }
+
   const existingSignup = await db.prepare(`
     SELECT id
     FROM eucharistic_adoration_signups
@@ -1366,7 +1424,7 @@ app.post('/eucharistic-adoration', asyncHandler(async (req, res) => {
   `).get(adorationDate, selectedSlot.value);
 
   if (existingSignup) {
-    req.flash('error', `That time slot on ${formatAdorationDateLabel(adorationDate)} has already been reserved. Please choose another slot.`);
+    req.flash('error', `That time slot on ${selectedDate.label} has already been reserved. Please choose another slot.`);
     return res.redirect('/eucharistic-adoration');
   }
 
@@ -1386,13 +1444,13 @@ app.post('/eucharistic-adoration', asyncHandler(async (req, res) => {
     );
   } catch (error) {
     if (error?.code === 'ER_DUP_ENTRY') {
-      req.flash('error', `That time slot on ${formatAdorationDateLabel(adorationDate)} has already been reserved. Please choose another slot.`);
+      req.flash('error', `That time slot on ${selectedDate.label} has already been reserved. Please choose another slot.`);
       return res.redirect('/eucharistic-adoration');
     }
     throw error;
   }
 
-  req.flash('success', `Your Eucharistic Adoration signup is confirmed for ${formatAdorationDateLabel(adorationDate)} at ${selectedSlot.label}.`);
+  req.flash('success', `Your Eucharistic Adoration signup is confirmed for ${selectedDate.label} at ${selectedSlot.label}.`);
   return res.redirect('/eucharistic-adoration');
 }));
 
@@ -2465,6 +2523,7 @@ app.get('/admin/users', requireAuth, requireRole('admin'), asyncHandler(async (r
     FROM eucharistic_adoration_signups
     ORDER BY adoration_date ASC, slot_start_time ASC, created_at ASC
   `).all();
+  const adorationAvailableDates = await getAvailableAdorationDates({ includePast: true });
   const ccdClasses = await getCcdClasses();
   const catechists = await getCatechists();
   const eventDefinitions = await getFaithFormationEventDefinitions();
@@ -2474,6 +2533,7 @@ app.get('/admin/users', requireAuth, requireRole('admin'), asyncHandler(async (r
   res.render('admin-users', {
     users,
     adorationSignups,
+    adorationAvailableDates,
     formatAdorationDateLabel,
     formatTimeLabel,
     ccdClasses,
@@ -2484,6 +2544,71 @@ app.get('/admin/users', requireAuth, requireRole('admin'), asyncHandler(async (r
     registrationYearOptions: getRegistrationYearOptions(parseFaithFormationStartYear(faithFormationSettings.schoolYear)),
     registrationYearStatuses,
   });
+}));
+
+app.post('/admin/eucharistic-adoration/dates', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const adorationDate = typeof req.body.adoration_date === 'string' ? req.body.adoration_date.trim() : '';
+  const startTime = typeof req.body.start_time === 'string' ? req.body.start_time.trim() : '';
+  const endTime = typeof req.body.end_time === 'string' ? req.body.end_time.trim() : '';
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(adorationDate)) {
+    req.flash('error', 'Please choose a valid Eucharistic Adoration date.');
+    return res.redirect('/admin/users');
+  }
+
+  if (adorationDate < getTodayDateValue()) {
+    req.flash('error', 'Please choose today or a future date for Eucharistic Adoration.');
+    return res.redirect('/admin/users');
+  }
+
+  if (!/^\d{2}:\d{2}$/.test(startTime) || !/^\d{2}:\d{2}$/.test(endTime)) {
+    req.flash('error', 'Please choose a valid start and end time for Eucharistic Adoration.');
+    return res.redirect('/admin/users');
+  }
+
+  const configuredSlots = getEucharisticAdorationSlots({ startTime, endTime });
+  if (!configuredSlots.length) {
+    req.flash('error', 'Please choose a time range that allows at least one 1-hour adoration slot.');
+    return res.redirect('/admin/users');
+  }
+
+  try {
+    await db.prepare(`
+      INSERT INTO eucharistic_adoration_available_dates (adoration_date, start_time, end_time)
+      VALUES (?, ?, ?)
+    `).run(adorationDate, startTime, endTime);
+  } catch (error) {
+    if (error?.code === 'ER_DUP_ENTRY') {
+      req.flash('error', `Eucharistic Adoration is already available on ${formatAdorationDateLabel(adorationDate)}.`);
+      return res.redirect('/admin/users');
+    }
+    throw error;
+  }
+
+  req.flash('success', `Eucharistic Adoration is now open on ${formatAdorationDateLabel(adorationDate)} from ${formatTimeLabel(startTime)} to ${formatTimeLabel(endTime)}.`);
+  return res.redirect('/admin/users');
+}));
+
+app.post('/admin/eucharistic-adoration/dates/:id/delete', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const dateId = Number.parseInt(req.params.id, 10);
+  if (!Number.isInteger(dateId)) {
+    req.flash('error', 'Invalid Eucharistic Adoration date.');
+    return res.redirect('/admin/users');
+  }
+
+  const existingDate = await db.prepare(`
+    SELECT id, adoration_date, start_time, end_time
+    FROM eucharistic_adoration_available_dates
+    WHERE id = ?
+  `).get(dateId);
+  if (!existingDate) {
+    req.flash('error', 'Eucharistic Adoration date not found.');
+    return res.redirect('/admin/users');
+  }
+
+  await db.prepare('DELETE FROM eucharistic_adoration_available_dates WHERE id = ?').run(dateId);
+  req.flash('success', `Removed availability for ${formatAdorationDateLabel(existingDate.adoration_date)}.`);
+  return res.redirect('/admin/users');
 }));
 
 app.post('/admin/eucharistic-adoration/:id/delete', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {

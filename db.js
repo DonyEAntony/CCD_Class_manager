@@ -273,6 +273,17 @@ const init = async () => {
     `);
 
     await pool.query(`
+      CREATE TABLE IF NOT EXISTS eucharistic_adoration_available_dates (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        adoration_date DATE NOT NULL,
+        start_time VARCHAR(10) NOT NULL DEFAULT '08:30',
+        end_time VARCHAR(10) NOT NULL DEFAULT '16:00',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_adoration_available_date (adoration_date)
+      )
+    `);
+
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS family_faith_registrations (
         id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
         user_id INT NOT NULL,
@@ -415,6 +426,14 @@ const init = async () => {
     await ensureColumn('faith_formation_event_schedules', 'schedule_type', "VARCHAR(50) DEFAULT 'one_time'");
     await ensureColumn('faith_formation_event_schedules', 'recurrence_pattern', 'VARCHAR(50)');
     await ensureColumn('faith_formation_event_schedules', 'event_end_time', 'VARCHAR(50)');
+    await ensureColumn('eucharistic_adoration_available_dates', 'start_time', "VARCHAR(10) NOT NULL DEFAULT '08:30'");
+    await ensureColumn('eucharistic_adoration_available_dates', 'end_time', "VARCHAR(10) NOT NULL DEFAULT '16:00'");
+
+    await pool.query(`
+      UPDATE eucharistic_adoration_available_dates
+      SET start_time = COALESCE(NULLIF(start_time, ''), '08:30'),
+          end_time = COALESCE(NULLIF(end_time, ''), '16:00')
+    `);
 
     await pool.execute(
       `INSERT INTO app_settings (setting_key, setting_value)
