@@ -1937,6 +1937,29 @@ app.post('/admin/sponsor-confirmation/:id/verify', requireAuth, requireRole('adm
   return res.redirect('/dashboard');
 }));
 
+app.post('/admin/sponsor-confirmation/:id/delete', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const registrationId = Number.parseInt(req.params.id, 10);
+  if (!Number.isInteger(registrationId)) {
+    req.flash('error', 'Invalid sponsor confirmation form.');
+    return res.redirect('/dashboard');
+  }
+
+  const registration = await db.prepare(`
+    SELECT id, student_name, sponsor_name
+    FROM sponsor_confirmations
+    WHERE id = ?
+  `).get(registrationId);
+  if (!registration) {
+    req.flash('error', 'Sponsor confirmation form not found.');
+    return res.redirect('/dashboard');
+  }
+
+  await db.prepare('DELETE FROM sponsor_confirmations WHERE id = ?').run(registrationId);
+
+  req.flash('success', `Deleted sponsor confirmation form for ${registration.student_name} / ${registration.sponsor_name}.`);
+  return res.redirect('/dashboard');
+}));
+
 const handleChildrenRegistration = asyncHandler(async (req, res) => {
     const faithFormationSettings = await requireRegistrationAccess(req, res, 'faith_formation');
     if (!faithFormationSettings) return;
