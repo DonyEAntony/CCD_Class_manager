@@ -40,7 +40,7 @@
   <section class="adoration-hero mb-4">
     <p style="text-transform:uppercase;letter-spacing:.14em;font-size:.72rem;font-weight:700;color:rgba(255,255,255,.72)">Prayer Ministry</p>
     <h1 style="color:#fff;margin-bottom:.6rem">Eucharistic Adoration Signup</h1>
-    <p style="max-width:640px;color:rgba(255,255,255,.82)">Use this independent signup form to reserve a 30-minute Eucharistic Adoration time. Available slots run from 8:30 AM through 4:00 PM.</p>
+    <p style="max-width:640px;color:rgba(255,255,255,.82)">Use this independent signup form to reserve a 1-hour Eucharistic Adoration time on one of the dates opened by the parish office.</p>
   </section>
 
   <div class="row g-4">
@@ -63,23 +63,30 @@
             </div>
             <div class="col-md-6">
               <label class="form-label required">Date</label>
-              <input class="form-control" type="date" name="adoration_date" min="<%= minDate %>" required>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label required">Time Slot</label>
-              <select class="form-select" name="slot_start_time" required>
-                <option value="">Select a time slot</option>
-                <% timeSlots.forEach((slot) => { %>
-                  <option value="<%= slot.value %>"><%= slot.label %></option>
+              <select class="form-select" name="adoration_date" id="adoration-date" <%= availableDates.length ? 'required' : 'disabled' %>>
+                <option value="">Select an available date</option>
+                <% availableDates.forEach((dateItem) => { %>
+                  <option value="<%= dateItem.value %>"><%= dateItem.label %> · <%= dateItem.timeWindowLabel %></option>
                 <% }) %>
               </select>
             </div>
+            <div class="col-md-6">
+              <label class="form-label required">Time Slot</label>
+              <select class="form-select" name="slot_start_time" id="adoration-slot" <%= availableDates.length ? 'required' : 'disabled' %>>
+                <option value="">Select a time slot</option>
+              </select>
+            </div>
+            <% if (!availableDates.length) { %>
+              <div class="col-12">
+                <div class="alert alert-secondary mb-0">No Eucharistic Adoration dates are open for signup right now. Please check back soon.</div>
+              </div>
+            <% } %>
             <div class="col-12">
               <label class="form-label">Notes</label>
               <textarea class="form-control" name="notes" rows="4" placeholder="Optional prayer intention, scheduling note, or follow-up detail"></textarea>
             </div>
             <div class="col-12 d-flex flex-wrap gap-2">
-              <button class="btn btn-primary" type="submit">Submit Signup</button>
+              <button class="btn btn-primary" type="submit" <%= availableDates.length ? '' : 'disabled' %>>Submit Signup</button>
               <a class="btn btn-outline-secondary" href="/">Back to Home</a>
             </div>
           </form>
@@ -89,22 +96,67 @@
 
     <div class="col-lg-5">
       <div class="slot-note mb-3">
-        Each signup reserves one 30-minute period. If a slot is already taken for a chosen date, the form will ask you to pick another time.
+        Each signup reserves one 1-hour period. Only dates configured by the parish office are available, and if a slot is already taken for a chosen date, the form will ask you to pick another time.
       </div>
       <div class="page-card">
         <div class="card-header"><h2 class="h5 mb-0">Available Daily Slots</h2></div>
         <div class="card-body">
-          <div class="d-flex flex-column gap-2">
-            <% timeSlots.forEach((slot) => { %>
-              <div style="border:1px solid var(--border);border-radius:8px;padding:.75rem .9rem;background:var(--off-white);font-size:.92rem">
-                <strong style="color:var(--navy)"><%= slot.label %></strong>
+          <div class="d-flex flex-column gap-2" id="adoration-slot-list">
+            <% if (availableDates.length) { %>
+              <% availableDates[0].timeSlots.forEach((slot) => { %>
+                <div style="border:1px solid var(--border);border-radius:8px;padding:.75rem .9rem;background:var(--off-white);font-size:.92rem">
+                  <strong style="color:var(--navy)"><%= slot.label %></strong>
+                </div>
+              <% }) %>
+            <% } else { %>
+              <div style="border:1px solid var(--border);border-radius:8px;padding:.75rem .9rem;background:var(--off-white);font-size:.92rem;color:var(--muted)">
+                No slots to show yet.
               </div>
-            <% }) %>
+            <% } %>
           </div>
         </div>
       </div>
     </div>
   </div>
 </main>
+<script>
+  (function () {
+    const availableDates = <%- JSON.stringify(availableDates) %>;
+    const dateSelect = document.getElementById('adoration-date');
+    const slotSelect = document.getElementById('adoration-slot');
+    const slotList = document.getElementById('adoration-slot-list');
+
+    if (!dateSelect || !slotSelect || !slotList) return;
+
+    const renderSlotCards = (slots) => {
+      if (!slots.length) {
+        slotList.innerHTML = '<div style="border:1px solid var(--border);border-radius:8px;padding:.75rem .9rem;background:var(--off-white);font-size:.92rem;color:var(--muted)">No slots to show yet.</div>';
+        return;
+      }
+
+      slotList.innerHTML = slots.map((slot) => (
+        `<div style="border:1px solid var(--border);border-radius:8px;padding:.75rem .9rem;background:var(--off-white);font-size:.92rem"><strong style="color:var(--navy)">${slot.label}</strong></div>`
+      )).join('');
+    };
+
+    const updateSlots = () => {
+      const selectedDate = availableDates.find((dateItem) => dateItem.value === dateSelect.value) || availableDates[0];
+      const slots = selectedDate?.timeSlots || [];
+
+      slotSelect.innerHTML = '<option value="">Select a time slot</option>' + slots.map((slot) => (
+        `<option value="${slot.value}">${slot.label}</option>`
+      )).join('');
+
+      renderSlotCards(slots);
+    };
+
+    if (!dateSelect.value && availableDates.length) {
+      dateSelect.value = availableDates[0].value;
+    }
+
+    dateSelect.addEventListener('change', updateSlots);
+    updateSlots();
+  }());
+</script>
 </body>
 </html>
