@@ -375,6 +375,10 @@ const translations = {
     sponsor_form_view_certificate: 'View Sponsor Certificate',
     sponsor_form_save: 'Save Form',
     sponsor_form_update: 'Update Form',
+    sponsor_form_save_incomplete: 'Save Incomplete',
+    sponsor_form_incomplete_saved: 'Sponsor confirmation form saved as incomplete.',
+    sponsor_form_submitted_saved: 'Sponsor confirmation form saved.',
+    incomplete: 'Incomplete',
     in_progress: 'In Progress',
     conditionally_accepted: 'Conditionally Accepted',
     completed: 'Completed',
@@ -725,6 +729,10 @@ const translations = {
     sponsor_form_view_certificate: 'Ver Certificado del Padrino',
     sponsor_form_save: 'Guardar Formulario',
     sponsor_form_update: 'Actualizar Formulario',
+    sponsor_form_save_incomplete: 'Guardar Incompleto',
+    sponsor_form_incomplete_saved: 'El formulario del padrino de confirmación se guardó como incompleto.',
+    sponsor_form_submitted_saved: 'El formulario del padrino de confirmación se guardó.',
+    incomplete: 'Incompleto',
     in_progress: 'En progreso',
     conditionally_accepted: 'Aceptado Condicionalmente',
     completed: 'Completado',
@@ -1797,8 +1805,7 @@ app.get('/registration/sponsor-confirmation', requireAuth, asyncHandler(async (r
 }));
 
 app.get('/registration/sponsor-confirmation/edit/:id', requireAuth, asyncHandler(async (req, res) => {
-  const faithFormationSettings = await requireRegistrationAccess(req, res, 'sponsor');
-  if (!faithFormationSettings) return;
+  const faithFormationSettings = await getFaithFormationSettings();
   const isStaff = req.user.role === 'admin' || req.user.role === 'catechist';
   const reg = await db.prepare(
     'SELECT * FROM sponsor_confirmations WHERE id = ? AND (user_id = ? OR ? = 1)'
@@ -1815,9 +1822,14 @@ app.get('/registration/sponsor-confirmation/edit/:id', requireAuth, asyncHandler
 }));
 
 app.post('/registration/sponsor-confirmation', requireAuth, upload.single('sponsor_certificate'), asyncHandler(async (req, res) => {
-  const faithFormationSettings = await requireRegistrationAccess(req, res, 'sponsor');
-  if (!faithFormationSettings) return;
+  const faithFormationSettings = await getFaithFormationSettings();
   const registrationId = Number(req.body.registration_id);
+  if ((!Number.isInteger(registrationId) || registrationId <= 0) && !canAccessRegistration(req.user, faithFormationSettings.sponsorFormRegistrationOpen, faithFormationSettings)) {
+    req.flash('error', 'Sponsor form is not currently open. Please contact the parish office.');
+    return res.redirect('/dashboard');
+  }
+  const saveMode = typeof req.body.save_mode === 'string' ? req.body.save_mode.trim() : '';
+  const savingIncomplete = saveMode === 'incomplete';
   const studentName = typeof req.body.student_name === 'string' ? req.body.student_name.trim() : '';
   const confirmationName = typeof req.body.confirmation_name === 'string' ? req.body.confirmation_name.trim() : '';
   const sponsorName = typeof req.body.sponsor_name === 'string' ? req.body.sponsor_name.trim() : '';
@@ -1827,8 +1839,20 @@ app.post('/registration/sponsor-confirmation', requireAuth, upload.single('spons
   const sponsorZip = typeof req.body.sponsor_zip === 'string' ? req.body.sponsor_zip.trim() : '';
   const isStMatthewParishioner = req.body.is_st_matthew_parishioner === '1' ? 1 : 0;
   const sponsorCertificatePath = req.file?.path || null;
+  const isCompleteForm = Boolean(
+    studentName &&
+    confirmationName &&
+    sponsorName &&
+    sponsorAddress &&
+    sponsorCity &&
+    sponsorState &&
+    sponsorZip
+  );
+  const hasCertificateRequirementMet = isStMatthewParishioner || Boolean(sponsorCertificatePath);
+  const shouldSaveAsIncomplete = savingIncomplete || !isCompleteForm || !hasCertificateRequirementMet;
+  const nextStatus = shouldSaveAsIncomplete ? 'incomplete' : 'in_progress';
 
-  if (!studentName || !confirmationName || !sponsorName || !sponsorAddress || !sponsorCity || !sponsorState || !sponsorZip) {
+  if (!shouldSaveAsIncomplete && !isCompleteForm) {
     req.flash('error', 'Please complete all sponsor confirmation fields.');
     const redirectUrl = Number.isInteger(registrationId) && registrationId > 0
       ? `/registration/sponsor-confirmation/edit/${registrationId}`
@@ -1846,7 +1870,10 @@ app.post('/registration/sponsor-confirmation', requireAuth, upload.single('spons
       return res.status(404).send('Sponsor confirmation form not found.');
     }
 
-    if (!isStMatthewParishioner && !sponsorCertificatePath && !existing.sponsor_certificate_path) {
+    const certificateRequirementMet = isStMatthewParishioner || Boolean(sponsorCertificatePath) || Boolean(existing.sponsor_certificate_path);
+    const shouldKeepIncomplete = shouldSaveAsIncomplete || !certificateRequirementMet;
+
+    if (!shouldKeepIncomplete && !certificateRequirementMet) {
       req.flash('error', 'Please attach a Sponsor Certificate, or mark the sponsor as a St. Matthew parishioner in good standing.');
       return res.redirect(`/registration/sponsor-confirmation/edit/${registrationId}`);
     }
@@ -1857,7 +1884,8 @@ app.post('/registration/sponsor-confirmation', requireAuth, upload.single('spons
           sponsor_city = ?, sponsor_state = ?, sponsor_zip = ?, is_st_matthew_parishioner = ?,
           sponsor_certificate_path = CASE WHEN ? = 1 THEN sponsor_certificate_path ELSE COALESCE(?, sponsor_certificate_path) END,
           admin_verified = 0,
-          admin_verified_at = NULL
+          admin_verified_at = NULL,
+          status = ?
       WHERE id = ?
     `).run(
       studentName,
@@ -1870,14 +1898,15 @@ app.post('/registration/sponsor-confirmation', requireAuth, upload.single('spons
       isStMatthewParishioner,
       isStMatthewParishioner,
       sponsorCertificatePath,
+      shouldKeepIncomplete ? 'incomplete' : 'in_progress',
       registrationId
     );
 
-    req.flash('success', 'Sponsor confirmation form updated.');
+    req.flash('success', shouldKeepIncomplete ? res.locals.t('sponsor_form_incomplete_saved') : res.locals.t('sponsor_form_submitted_saved'));
     return res.redirect('/dashboard');
   }
 
-  if (!isStMatthewParishioner && !sponsorCertificatePath) {
+  if (!shouldSaveAsIncomplete && !isStMatthewParishioner && !sponsorCertificatePath) {
     req.flash('error', 'Please attach a Sponsor Certificate, or mark the sponsor as a St. Matthew parishioner in good standing.');
     return res.redirect('/registration/sponsor-confirmation');
   }
@@ -1901,10 +1930,10 @@ app.post('/registration/sponsor-confirmation', requireAuth, upload.single('spons
     null,
     null,
     null,
-    'in_progress'
+    nextStatus
   );
 
-  req.flash('success', 'Sponsor confirmation form saved.');
+  req.flash('success', shouldSaveAsIncomplete ? res.locals.t('sponsor_form_incomplete_saved') : res.locals.t('sponsor_form_submitted_saved'));
   return res.redirect('/dashboard');
 }));
 

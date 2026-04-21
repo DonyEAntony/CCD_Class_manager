@@ -408,6 +408,7 @@
     <div class="card-body p-4">
       <form method="post" action="/registration/sponsor-confirmation" enctype="multipart/form-data" class="row g-4 sponsor-form-grid">
         <input type="hidden" name="registration_id" value="<%= reg ? reg.id : '' %>">
+        <input type="hidden" name="save_mode" id="save_mode" value="complete">
 
         <fieldset class="col-12 col-lg-6">
           <legend><%= t('sponsor_form_student_legend') %></legend>
@@ -533,7 +534,8 @@
         </fieldset>
 
         <div class="col-12 sponsor-actions">
-          <button class="btn btn-spirit-primary" type="submit"><%= reg ? t('sponsor_form_update') : t('sponsor_form_save') %></button>
+          <button class="btn btn-spirit-primary" type="submit" onclick="document.getElementById('save_mode').value='complete'"><%= reg ? t('sponsor_form_update') : t('sponsor_form_save') %></button>
+          <button class="btn btn-spirit-outline" type="submit" formnovalidate onclick="document.getElementById('save_mode').value='incomplete'"><%= t('sponsor_form_save_incomplete') %></button>
           <a class="btn btn-spirit-outline" href="/dashboard"><%= t('cancel') %></a>
         </div>
       </form>
