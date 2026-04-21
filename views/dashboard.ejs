@@ -394,11 +394,7 @@
                     <button class="btn btn-sm btn-outline-success" type="submit">Verify</button>
                   </form>
                 <% } %>
-                <% if (canOpenSponsorForm) { %>
-                  <a href="/registration/sponsor-confirmation/edit/<%= r.id %>" class="btn btn-sm btn-outline-primary"><%= t('edit') %></a>
-                <% } else { %>
-                  <button class="btn btn-sm btn-outline-secondary" type="button" disabled>Closed</button>
-                <% } %>
+                <a href="/registration/sponsor-confirmation/edit/<%= r.id %>" class="btn btn-sm btn-outline-primary"><%= t('edit') %></a>
               </td>
             </tr>
           <% }) %>
