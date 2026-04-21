@@ -533,7 +533,8 @@
         </fieldset>
 
         <div class="col-12 sponsor-actions">
-          <button class="btn btn-spirit-primary" type="submit"><%= reg ? t('sponsor_form_update') : t('sponsor_form_save') %></button>
+          <button class="btn btn-spirit-primary" type="submit" name="save_mode" value="complete"><%= reg ? t('sponsor_form_update') : t('sponsor_form_save') %></button>
+          <button class="btn btn-spirit-outline" type="submit" name="save_mode" value="incomplete" formnovalidate><%= t('sponsor_form_save_incomplete') %></button>
           <a class="btn btn-spirit-outline" href="/dashboard"><%= t('cancel') %></a>
         </div>
       </form>

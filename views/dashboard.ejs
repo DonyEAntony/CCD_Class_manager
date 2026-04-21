@@ -385,7 +385,7 @@
               <td style="font-size:.8rem;color:var(--muted)"><%= r.created_at ? (typeof r.created_at === 'string' ? r.created_at.slice(0,10) : r.created_at.toISOString().slice(0,10)) : '' %></td>
               <td>
                 <span class="badge" style="background:var(--surface);color:var(--navy-soft);font-size:.7rem;border-radius:2rem;padding:.3em .8em;font-weight:700;border:1px solid var(--border)">
-                  <%= r.status %>
+                  <%= t(r.status) %>
                 </span>
               </td>
               <td>
