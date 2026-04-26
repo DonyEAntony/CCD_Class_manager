@@ -14,6 +14,34 @@ const dbConfig = {
 let pool;
 let initPromise;
 
+const RETRYABLE_CONNECTION_ERROR_CODES = new Set([
+  'ECONNRESET',
+  'PROTOCOL_CONNECTION_LOST',
+  'PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR',
+  'PROTOCOL_ENQUEUE_AFTER_QUIT',
+  'ETIMEDOUT',
+]);
+
+const isRetryableConnectionError = (error) => {
+  if (!error) return false;
+  if (RETRYABLE_CONNECTION_ERROR_CODES.has(error.code)) return true;
+  const message = `${error.message || ''}`.toLowerCase();
+  return message.includes('read econnreset') || message.includes('connection lost');
+};
+
+const resetPool = async () => {
+  const currentPool = pool;
+  pool = undefined;
+  initPromise = undefined;
+  if (currentPool) {
+    try {
+      await currentPool.end();
+    } catch (error) {
+      // Ignore cleanup errors while replacing a broken pool.
+    }
+  }
+};
+
 const createDatabaseIfNeeded = async () => {
   const bootstrapConnection = await mysql.createConnection({
     host: dbConfig.host,
@@ -382,6 +410,49 @@ const init = async () => {
       )
     `);
 
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS mass_serving_masses (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        mass_date DATE NOT NULL,
+        mass_time VARCHAR(10) NOT NULL,
+        title VARCHAR(255),
+        notes TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_mass_serving_mass (mass_date, mass_time)
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS mass_serving_mass_roles (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        mass_id INT NOT NULL,
+        role_code VARCHAR(100) NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_mass_serving_mass_roles_mass FOREIGN KEY (mass_id) REFERENCES mass_serving_masses(id),
+        UNIQUE KEY unique_mass_serving_mass_role (mass_id, role_code)
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS mass_serving_signups (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        mass_id INT NULL,
+        student_name VARCHAR(255) NOT NULL,
+        ccd_grade_level VARCHAR(255),
+        parent_name VARCHAR(255),
+        contact_email VARCHAR(255),
+        contact_phone VARCHAR(50),
+        event_date DATE NOT NULL,
+        event_time VARCHAR(10) NOT NULL,
+        role_code VARCHAR(100) NOT NULL,
+        notes TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_mass_serving_signups_user FOREIGN KEY (user_id) REFERENCES users(id),
+        UNIQUE KEY unique_mass_serving_slot (event_date, event_time, role_code)
+      )
+    `);
+
     await ensureColumn('users', 'first_name', 'VARCHAR(255)');
     await ensureColumn('users', 'last_name', 'VARCHAR(255)');
     await ensureColumn('users', 'phone', 'VARCHAR(50)');
@@ -428,6 +499,7 @@ const init = async () => {
     await ensureColumn('faith_formation_event_schedules', 'event_end_time', 'VARCHAR(50)');
     await ensureColumn('eucharistic_adoration_available_dates', 'start_time', "VARCHAR(10) NOT NULL DEFAULT '08:30'");
     await ensureColumn('eucharistic_adoration_available_dates', 'end_time', "VARCHAR(10) NOT NULL DEFAULT '16:00'");
+    await ensureColumn('mass_serving_signups', 'mass_id', 'INT NULL');
 
     await pool.query(`
       UPDATE eucharistic_adoration_available_dates
@@ -494,25 +566,41 @@ const init = async () => {
     );
 
     await seedData();
-  })();
+  })().catch(async (error) => {
+    await resetPool();
+    throw error;
+  });
 
   return initPromise;
 };
 
+const executeWithReconnect = async (sql, params) => {
+  await init();
+
+  try {
+    return await pool.execute(sql, params);
+  } catch (error) {
+    if (!isRetryableConnectionError(error)) {
+      throw error;
+    }
+
+    await resetPool();
+    await init();
+    return pool.execute(sql, params);
+  }
+};
+
 const prepare = (sql) => ({
   async get(...params) {
-    await init();
-    const [rows] = await pool.execute(sql, params);
+    const [rows] = await executeWithReconnect(sql, params);
     return rows[0];
   },
   async all(...params) {
-    await init();
-    const [rows] = await pool.execute(sql, params);
+    const [rows] = await executeWithReconnect(sql, params);
     return rows;
   },
   async run(...params) {
-    await init();
-    const [result] = await pool.execute(sql, params);
+    const [result] = await executeWithReconnect(sql, params);
     return {
       changes: result.affectedRows || 0,
       lastInsertRowid: result.insertId || 0,

@@ -174,6 +174,13 @@ const translations = {
     prog_children_title: 'Faith Formation for Children',
     prog_children_subtitle: 'Faith Formation Year',
     prog_children_desc: 'Register a child for CCD classes, sacramental preparation (First Communion, Confirmation), and weekly faith formation.',
+    mass_serving_signup_title: 'Mass Serving Signup',
+    mass_serving_signup_subtitle: 'Readers, Gifts, and Servers',
+    mass_serving_signup_desc: 'Sign a child up for readings, prayers of the faithful, gifts, crowning of Mary, and altar serving at an upcoming Mass.',
+    mass_serving_signups_heading: 'Mass Serving Signups',
+    no_mass_serving_signups: 'No Mass serving signups yet.',
+    mass_event: 'Mass',
+    requested_on: 'Requested On',
     prog_family_title: 'Family Faith Formation',
     prog_family_subtitle: 'Whole Household Registration',
     prog_family_desc: 'Register one family together and track each member\'s sacramental needs with badges for Baptism, First Reconciliation, First Holy Communion, and Confirmation.',
@@ -771,6 +778,23 @@ const getAdultPrograms = (t) => ({
 
 const FAMILY_MEMBER_ROLE_OPTIONS = ['child', 'parent', 'guardian', 'grandparent', 'other'];
 const SACRAMENT_BADGE_OPTIONS = ['baptism', 'first_reconciliation', 'first_holy_communion', 'confirmation'];
+const MASS_SERVING_ROLE_OPTIONS = [
+  { value: 'first_reading', label: '1st Reading', section: 'Readings' },
+  { value: 'second_reading', label: '2nd Reading', section: 'Readings' },
+  { value: 'prayers_1_3', label: 'Prayers of the Faithful 1-3', section: 'Prayers of the Faithful' },
+  { value: 'prayers_4_7', label: 'Prayers of the Faithful 4-7', section: 'Prayers of the Faithful' },
+  { value: 'gifts_1', label: 'Gifts 1', section: 'Gifts' },
+  { value: 'gifts_2', label: 'Gifts 2', section: 'Gifts' },
+  { value: 'gifts_3', label: 'Gifts 3', section: 'Gifts' },
+  { value: 'gifts_4', label: 'Gifts 4', section: 'Gifts' },
+  { value: 'crowning_mary_1', label: 'Crowning of Mary 1', section: 'Crowning of Mary' },
+  { value: 'crowning_mary_2', label: 'Crowning of Mary 2', section: 'Crowning of Mary' },
+  { value: 'altar_server_1', label: 'Altar Server 1', section: 'Altar Servers' },
+  { value: 'altar_server_2', label: 'Altar Server 2', section: 'Altar Servers' },
+  { value: 'altar_server_3', label: 'Altar Server 3', section: 'Altar Servers' },
+  { value: 'altar_server_4', label: 'Altar Server 4', section: 'Altar Servers' },
+];
+const MASS_SERVING_ROLE_MAP = new Map(MASS_SERVING_ROLE_OPTIONS.map((option) => [option.value, option]));
 
 const getAudienceLabelKey = (audience) => {
   if (audience === 'children') return 'children_faith_formation';
@@ -1254,6 +1278,9 @@ const getTodayDateValue = () => {
   const today = new Date();
   return `${today.getFullYear()}-${padTimePart(today.getMonth() + 1)}-${padTimePart(today.getDate())}`;
 };
+const normalizeArrayInput = (value) => (Array.isArray(value) ? value : [value])
+  .map((item) => `${item || ''}`.trim())
+  .filter(Boolean);
 const formatDateValue = (dateValue) => {
   if (dateValue instanceof Date && !Number.isNaN(dateValue.getTime())) {
     return `${dateValue.getFullYear()}-${padTimePart(dateValue.getMonth() + 1)}-${padTimePart(dateValue.getDate())}`;
@@ -1279,6 +1306,58 @@ const formatAdorationDateLabel = (dateValue) => {
     month: 'long',
     day: 'numeric',
     year: 'numeric',
+  });
+};
+const formatMassServingEventLabel = (dateValue, timeValue) => {
+  const dateLabel = formatAdorationDateLabel(dateValue);
+  if (!timeValue) return dateLabel;
+  return `${dateLabel} at ${formatTimeLabel(timeValue)}`;
+};
+const getMassServingRoleLabel = (roleCode) => MASS_SERVING_ROLE_MAP.get(roleCode)?.label || roleCode;
+const getMassServingMasses = async ({ includePast = false } = {}) => {
+  const masses = includePast
+    ? await db.prepare(`
+      SELECT id, mass_date, mass_time, title, notes, created_at
+      FROM mass_serving_masses
+      ORDER BY mass_date ASC, mass_time ASC, created_at ASC
+    `).all()
+    : await db.prepare(`
+      SELECT id, mass_date, mass_time, title, notes, created_at
+      FROM mass_serving_masses
+      WHERE mass_date >= ?
+      ORDER BY mass_date ASC, mass_time ASC, created_at ASC
+    `).all(getTodayDateValue());
+
+  const massRoles = masses.length
+    ? await db.prepare(`
+      SELECT mass_id, role_code
+      FROM mass_serving_mass_roles
+      WHERE mass_id IN (${masses.map(() => '?').join(', ')})
+      ORDER BY mass_id ASC, role_code ASC
+    `).all(...masses.map((mass) => mass.id))
+    : [];
+
+  const roleMap = new Map();
+  massRoles.forEach((row) => {
+    if (!roleMap.has(row.mass_id)) roleMap.set(row.mass_id, []);
+    roleMap.get(row.mass_id).push(row.role_code);
+  });
+
+  return masses.map((mass) => {
+    const massDateValue = formatDateValue(mass.mass_date);
+    const availableRoleCodes = roleMap.get(mass.id) || [];
+    return {
+      ...mass,
+      massDateValue,
+      massLabel: formatMassServingEventLabel(mass.mass_date, mass.mass_time),
+      titleLabel: mass.title ? `${mass.title} · ${formatMassServingEventLabel(mass.mass_date, mass.mass_time)}` : formatMassServingEventLabel(mass.mass_date, mass.mass_time),
+      availableRoleCodes,
+      availableRoles: availableRoleCodes.map((roleCode) => ({
+        value: roleCode,
+        label: getMassServingRoleLabel(roleCode),
+        section: MASS_SERVING_ROLE_MAP.get(roleCode)?.section || '',
+      })),
+    };
   });
 };
 const getAvailableAdorationDates = async ({ includePast = false } = {}) => {
@@ -1621,6 +1700,160 @@ app.get('/logout', (req, res, next) => {
   });
 });
 
+app.get('/mass-serving-signup', requireAuth, asyncHandler(async (req, res) => {
+  const isStaff = req.user.role === 'admin' || req.user.role === 'catechist';
+  const studentOptions = isStaff
+    ? await db.prepare(`
+      SELECT DISTINCT student_full_name, ccd_grade_level
+      FROM student_registrations
+      WHERE student_full_name IS NOT NULL AND student_full_name <> ''
+      ORDER BY student_full_name ASC
+    `).all()
+    : await db.prepare(`
+      SELECT DISTINCT student_full_name, ccd_grade_level
+      FROM student_registrations
+      WHERE user_id = ? AND student_full_name IS NOT NULL AND student_full_name <> ''
+      ORDER BY student_full_name ASC
+    `).all(req.user.id);
+
+  const masses = await getMassServingMasses();
+  const existingSignups = await db.prepare(`
+    SELECT mass_id, role_code
+    FROM mass_serving_signups
+    WHERE mass_id IS NOT NULL
+    ORDER BY mass_id ASC, role_code ASC
+  `).all();
+
+  res.render('mass-serving-signup', {
+    studentOptions,
+    masses,
+    massServingRoleOptions: MASS_SERVING_ROLE_OPTIONS,
+    existingSignups,
+  });
+}));
+
+app.post('/mass-serving-signup', requireAuth, asyncHandler(async (req, res) => {
+  const studentName = typeof req.body.student_name === 'string' ? req.body.student_name.trim() : '';
+  const ccdGradeLevel = typeof req.body.ccd_grade_level === 'string' ? req.body.ccd_grade_level.trim() : '';
+  const parentName = typeof req.body.parent_name === 'string' ? req.body.parent_name.trim() : (req.user.full_name || '').trim();
+  const contactEmail = typeof req.body.contact_email === 'string' ? req.body.contact_email.trim().toLowerCase() : (req.user.email || '').trim().toLowerCase();
+  const contactPhone = typeof req.body.contact_phone === 'string' ? req.body.contact_phone.trim() : (req.user.phone || '').trim();
+  const massId = Number(req.body.mass_id || 0);
+  const notes = typeof req.body.notes === 'string' ? req.body.notes.trim() : '';
+  const selectedRoles = Array.from(new Set(
+    normalizeArrayInput(req.body.role_codes).filter((roleCode) => MASS_SERVING_ROLE_MAP.has(roleCode))
+  ));
+
+  if (!studentName || !massId || !selectedRoles.length) {
+    req.flash('error', 'Please choose a student, a Mass, and at least one role.');
+    return res.redirect('/mass-serving-signup');
+  }
+
+  const mass = await db.prepare(`
+    SELECT id, mass_date, mass_time, title
+    FROM mass_serving_masses
+    WHERE id = ?
+    LIMIT 1
+  `).get(massId);
+  if (!mass || formatDateValue(mass.mass_date) < getTodayDateValue()) {
+    req.flash('error', 'Please choose one of the Masses currently available for signup.');
+    return res.redirect('/mass-serving-signup');
+  }
+
+  if (contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
+    req.flash('error', 'Please enter a valid contact email address.');
+    return res.redirect('/mass-serving-signup');
+  }
+
+  if (contactPhone && !phoneRegex.test(contactPhone)) {
+    req.flash('error', 'Invalid phone format. Use XXX-XXX-XXXX, XXX.XXX.XXXX, or XXX XXX XXXX.');
+    return res.redirect('/mass-serving-signup');
+  }
+
+  const availableRoleRows = await db.prepare(`
+    SELECT role_code
+    FROM mass_serving_mass_roles
+    WHERE mass_id = ?
+  `).all(massId);
+  const availableRoleCodes = new Set(availableRoleRows.map((row) => row.role_code));
+  const invalidRoles = selectedRoles.filter((roleCode) => !availableRoleCodes.has(roleCode));
+  if (invalidRoles.length) {
+    req.flash('error', 'One or more selected roles are not available for that Mass anymore. Please choose again.');
+    return res.redirect('/mass-serving-signup');
+  }
+
+  const conflictSql = `
+    SELECT role_code
+    FROM mass_serving_signups
+    WHERE mass_id = ? AND role_code IN (${selectedRoles.map(() => '?').join(', ')})
+  `;
+  const conflictingRows = await db.prepare(conflictSql).all(massId, ...selectedRoles);
+  if (conflictingRows.length) {
+    const conflictLabels = conflictingRows.map((row) => getMassServingRoleLabel(row.role_code)).join(', ');
+    req.flash('error', `These roles are already taken for ${formatMassServingEventLabel(mass.mass_date, mass.mass_time)}: ${conflictLabels}.`);
+    return res.redirect('/mass-serving-signup');
+  }
+
+  try {
+    for (const roleCode of selectedRoles) {
+      await db.prepare(`
+        INSERT INTO mass_serving_signups (
+          user_id, mass_id, student_name, ccd_grade_level, parent_name, contact_email, contact_phone, event_date, event_time, role_code, notes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        req.user.id,
+        massId,
+        studentName,
+        ccdGradeLevel || null,
+        parentName || null,
+        contactEmail || null,
+        contactPhone || null,
+        formatDateValue(mass.mass_date),
+        mass.mass_time,
+        roleCode,
+        notes || null,
+      );
+    }
+  } catch (error) {
+    if (error?.code === 'ER_DUP_ENTRY') {
+      req.flash('error', `One or more selected roles were just taken for ${formatMassServingEventLabel(mass.mass_date, mass.mass_time)}. Please try again.`);
+      return res.redirect('/mass-serving-signup');
+    }
+    throw error;
+  }
+
+  req.flash('success', `Saved ${selectedRoles.length} Mass serving signup${selectedRoles.length === 1 ? '' : 's'} for ${studentName} on ${formatMassServingEventLabel(mass.mass_date, mass.mass_time)}.`);
+  return res.redirect('/mass-serving-signup');
+}));
+
+app.post('/mass-serving-signups/:id/delete', requireAuth, asyncHandler(async (req, res) => {
+  const signupId = Number(req.params.id);
+  if (!Number.isInteger(signupId) || signupId <= 0) {
+    req.flash('error', 'Mass serving signup not found.');
+    return res.redirect('/dashboard');
+  }
+
+  const signup = await db.prepare(`
+    SELECT id, user_id, mass_id, event_date, event_time, role_code
+    FROM mass_serving_signups
+    WHERE id = ?
+  `).get(signupId);
+
+  if (!signup) {
+    req.flash('error', 'Mass serving signup not found.');
+    return res.redirect('/dashboard');
+  }
+
+  const isStaff = req.user.role === 'admin' || req.user.role === 'catechist';
+  if (!isStaff && signup.user_id !== req.user.id) {
+    return res.status(403).send('Forbidden: insufficient privileges.');
+  }
+
+  await db.prepare('DELETE FROM mass_serving_signups WHERE id = ?').run(signupId);
+  req.flash('success', `Removed ${getMassServingRoleLabel(signup.role_code)} for ${formatMassServingEventLabel(signup.event_date, signup.event_time)}.`);
+  return res.redirect('/dashboard');
+}));
+
 // ── Dashboard ────────────────────────────────────────────────
 app.get('/dashboard', requireAuth, asyncHandler(async (req, res) => {
   const isStaff = req.user.role === 'admin' || req.user.role === 'catechist';
@@ -1647,8 +1880,39 @@ app.get('/dashboard', requireAuth, asyncHandler(async (req, res) => {
     ? await db.prepare('SELECT * FROM sponsor_confirmations ORDER BY created_at DESC').all()
     : await db.prepare('SELECT * FROM sponsor_confirmations WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
 
+  const massServingSignupsRaw = isStaff
+    ? await db.prepare(`
+      SELECT ms.*, m.title AS mass_title
+      FROM mass_serving_signups ms
+      LEFT JOIN mass_serving_masses m ON m.id = ms.mass_id
+      ORDER BY ms.event_date ASC, ms.event_time ASC, ms.created_at ASC
+    `).all()
+    : await db.prepare(`
+      SELECT ms.*, m.title AS mass_title
+      FROM mass_serving_signups ms
+      LEFT JOIN mass_serving_masses m ON m.id = ms.mass_id
+      WHERE ms.user_id = ?
+      ORDER BY ms.event_date ASC, ms.event_time ASC, ms.created_at ASC
+    `).all(req.user.id);
+  const massServingSignups = massServingSignupsRaw.map((signup) => ({
+    ...signup,
+    eventDateValue: formatDateValue(signup.event_date),
+    eventLabel: signup.mass_title
+      ? `${signup.mass_title} · ${formatMassServingEventLabel(signup.event_date, signup.event_time)}`
+      : formatMassServingEventLabel(signup.event_date, signup.event_time),
+    roleLabel: getMassServingRoleLabel(signup.role_code),
+  }));
+
   const ADULT_PROGRAMS = getAdultPrograms(res.locals.t);
-  res.render('dashboard', { studentRegs, familyRegs, adultRegs, sponsorRegs, ADULT_PROGRAMS, faithFormationSettings });
+  res.render('dashboard', {
+    studentRegs,
+    familyRegs,
+    adultRegs,
+    sponsorRegs,
+    massServingSignups,
+    ADULT_PROGRAMS,
+    faithFormationSettings,
+  });
 }));
 
 app.get('/family-faith/visits/availability', requireAuth, asyncHandler(async (req, res) => {
@@ -2582,10 +2846,22 @@ app.get('/admin/users', requireAuth, requireRole('admin'), asyncHandler(async (r
   const managedEvents = await getFaithFormationEvents(['children', 'family_faith', 'baptism_prep', 'ocia', 'general']);
   const faithFormationSettings = await getFaithFormationSettings();
   const registrationYearStatuses = await getRegistrationYearStatusList(parseFaithFormationStartYear(faithFormationSettings.currentRegistrationYear));
+  const massServingMasses = await getMassServingMasses({ includePast: true });
+  const massServingSignups = await db.prepare(`
+    SELECT ms.id, ms.student_name, ms.parent_name, ms.contact_email, ms.contact_phone, ms.role_code, ms.created_at, ms.event_date, ms.event_time, m.title AS mass_title
+    FROM mass_serving_signups ms
+    LEFT JOIN mass_serving_masses m ON m.id = ms.mass_id
+    ORDER BY ms.event_date ASC, ms.event_time ASC, ms.created_at ASC
+  `).all();
   res.render('admin-users', {
     users,
     adorationSignups,
     adorationAvailableDates,
+    massServingMasses,
+    massServingSignups,
+    massServingRoleOptions: MASS_SERVING_ROLE_OPTIONS,
+    getMassServingRoleLabel,
+    formatMassServingEventLabel,
     formatAdorationDateLabel,
     formatTimeLabel,
     ccdClasses,
@@ -2596,6 +2872,116 @@ app.get('/admin/users', requireAuth, requireRole('admin'), asyncHandler(async (r
     registrationYearOptions: getRegistrationYearOptions(parseFaithFormationStartYear(faithFormationSettings.schoolYear)),
     registrationYearStatuses,
   });
+}));
+
+app.post('/admin/mass-serving/masses', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const massDate = typeof req.body.mass_date === 'string' ? req.body.mass_date.trim() : '';
+  const massTime = typeof req.body.mass_time === 'string' ? req.body.mass_time.trim() : '';
+  const title = typeof req.body.title === 'string' ? req.body.title.trim() : '';
+  const notes = typeof req.body.notes === 'string' ? req.body.notes.trim() : '';
+  const selectedRoles = Array.from(new Set(
+    normalizeArrayInput(req.body.role_codes).filter((roleCode) => MASS_SERVING_ROLE_MAP.has(roleCode))
+  ));
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(massDate) || massDate < getTodayDateValue()) {
+    req.flash('error', 'Please choose a valid upcoming Mass date.');
+    return res.redirect('/admin/users');
+  }
+  if (!/^\d{2}:\d{2}$/.test(massTime)) {
+    req.flash('error', 'Please choose a valid Mass time.');
+    return res.redirect('/admin/users');
+  }
+  if (!selectedRoles.length) {
+    req.flash('error', 'Please choose at least one role to make available for that Mass.');
+    return res.redirect('/admin/users');
+  }
+
+  let massId;
+  try {
+    const result = await db.prepare(`
+      INSERT INTO mass_serving_masses (mass_date, mass_time, title, notes)
+      VALUES (?, ?, ?, ?)
+    `).run(massDate, massTime, title || null, notes || null);
+    massId = result.lastInsertRowid;
+  } catch (error) {
+    if (error?.code === 'ER_DUP_ENTRY') {
+      req.flash('error', `A Mass is already scheduled for ${formatMassServingEventLabel(massDate, massTime)}.`);
+      return res.redirect('/admin/users');
+    }
+    throw error;
+  }
+
+  for (const roleCode of selectedRoles) {
+    await db.prepare(`
+      INSERT INTO mass_serving_mass_roles (mass_id, role_code)
+      VALUES (?, ?)
+    `).run(massId, roleCode);
+  }
+
+  req.flash('success', `Mass opened for signup on ${formatMassServingEventLabel(massDate, massTime)}.`);
+  return res.redirect('/admin/users');
+}));
+
+app.post('/admin/mass-serving/masses/:id/roles', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const massId = Number(req.params.id);
+  if (!Number.isInteger(massId) || massId <= 0) {
+    req.flash('error', 'Mass not found.');
+    return res.redirect('/admin/users');
+  }
+
+  const mass = await db.prepare(`
+    SELECT id, mass_date, mass_time
+    FROM mass_serving_masses
+    WHERE id = ?
+  `).get(massId);
+  if (!mass) {
+    req.flash('error', 'Mass not found.');
+    return res.redirect('/admin/users');
+  }
+
+  const selectedRoles = Array.from(new Set(
+    normalizeArrayInput(req.body.role_codes).filter((roleCode) => MASS_SERVING_ROLE_MAP.has(roleCode))
+  ));
+  if (!selectedRoles.length) {
+    req.flash('error', 'Please leave at least one role available for signup.');
+    return res.redirect('/admin/users');
+  }
+
+  await db.prepare('DELETE FROM mass_serving_mass_roles WHERE mass_id = ?').run(massId);
+  for (const roleCode of selectedRoles) {
+    await db.prepare(`
+      INSERT INTO mass_serving_mass_roles (mass_id, role_code)
+      VALUES (?, ?)
+    `).run(massId, roleCode);
+  }
+
+  req.flash('success', `Updated available roles for ${formatMassServingEventLabel(mass.mass_date, mass.mass_time)}.`);
+  return res.redirect('/admin/users');
+}));
+
+app.post('/admin/mass-serving/masses/:id/delete', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const massId = Number(req.params.id);
+  if (!Number.isInteger(massId) || massId <= 0) {
+    req.flash('error', 'Mass not found.');
+    return res.redirect('/admin/users');
+  }
+
+  const mass = await db.prepare(`
+    SELECT id, mass_date, mass_time
+    FROM mass_serving_masses
+    WHERE id = ?
+  `).get(massId);
+  if (!mass) {
+    req.flash('error', 'Mass not found.');
+    return res.redirect('/admin/users');
+  }
+
+  await db.prepare('DELETE FROM mass_serving_signups WHERE mass_id = ?').run(massId);
+  await db.prepare('DELETE FROM mass_serving_mass_roles WHERE mass_id = ?').run(massId);
+  await db.prepare('DELETE FROM mass_serving_masses WHERE id = ?').run(massId);
+
+  req.flash('success', `Removed the Mass on ${formatMassServingEventLabel(mass.mass_date, mass.mass_time)} and its signup slots.`);
+  return res.redirect('/admin/users');
 }));
 
 app.post('/admin/eucharistic-adoration/dates', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {

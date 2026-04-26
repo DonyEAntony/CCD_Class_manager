@@ -295,6 +295,143 @@
   </div>
 
   <div class="page-card mt-4">
+    <div class="card-header"><h2 class="h5 mb-0">Mass Serving Signup Setup</h2></div>
+    <div class="card-body">
+      <form class="row g-3" method="post" action="/admin/mass-serving/masses">
+        <div class="col-md-4">
+          <label class="form-label">Mass Date</label>
+          <input class="form-control" type="date" name="mass_date" required>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Mass Time</label>
+          <input class="form-control" type="time" name="mass_time" required>
+        </div>
+        <div class="col-md-5">
+          <label class="form-label">Title</label>
+          <input class="form-control" type="text" name="title" placeholder="Optional: Saturday May Crowning Mass">
+        </div>
+        <div class="col-12">
+          <label class="form-label">Notes</label>
+          <textarea class="form-control" name="notes" rows="2" placeholder="Optional note for this Mass"></textarea>
+        </div>
+        <div class="col-12">
+          <label class="form-label">Available Roles</label>
+          <div class="row g-2">
+            <% massServingRoleOptions.forEach((option) => { %>
+              <div class="col-md-4">
+                <label class="border rounded p-2 d-block h-100">
+                  <input class="form-check-input me-2" type="checkbox" name="role_codes" value="<%= option.value %>">
+                  <strong><%= option.label %></strong>
+                  <div class="small text-muted"><%= option.section %></div>
+                </label>
+              </div>
+            <% }) %>
+          </div>
+        </div>
+        <div class="col-12">
+          <button class="btn btn-primary" type="submit">Create Mass Signup</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="page-card mt-4">
+    <div class="card-header"><h2 class="h5 mb-0">Configured Masses</h2></div>
+    <div class="card-body p-0">
+      <% if (!massServingMasses || massServingMasses.length === 0) { %>
+        <div class="p-4 text-muted">No Masses have been opened for signup yet.</div>
+      <% } else { %>
+        <div class="table-responsive">
+          <table class="table mb-0">
+            <thead>
+              <tr>
+                <th>Mass</th>
+                <th>Available Roles</th>
+                <th>Notes</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% massServingMasses.forEach((mass) => { %>
+                <tr>
+                  <td style="min-width:240px">
+                    <strong><%= mass.title || 'Mass Signup' %></strong>
+                    <div style="font-size:.85rem;color:var(--muted)"><%= mass.massLabel %></div>
+                  </td>
+                  <td style="min-width:360px">
+                    <form method="post" action="/admin/mass-serving/masses/<%= mass.id %>/roles">
+                      <div class="row g-2 mb-2">
+                        <% massServingRoleOptions.forEach((option) => { %>
+                          <div class="col-md-6">
+                            <label class="border rounded p-2 d-block h-100">
+                              <input class="form-check-input me-2" type="checkbox" name="role_codes" value="<%= option.value %>" <%= mass.availableRoleCodes.includes(option.value) ? 'checked' : '' %>>
+                              <strong><%= option.label %></strong>
+                              <div class="small text-muted"><%= option.section %></div>
+                            </label>
+                          </div>
+                        <% }) %>
+                      </div>
+                      <button class="btn btn-outline-primary btn-sm" type="submit">Save Roles</button>
+                    </form>
+                  </td>
+                  <td style="max-width:260px"><%= mass.notes || '—' %></td>
+                  <td>
+                    <form method="post" action="/admin/mass-serving/masses/<%= mass.id %>/delete" onsubmit="return confirm('Remove this Mass and all of its Mass serving signups?');">
+                      <button class="btn btn-outline-danger btn-sm" type="submit"><%= t('remove') %></button>
+                    </form>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+  </div>
+
+  <div class="page-card mt-4">
+    <div class="card-header"><h2 class="h5 mb-0">Mass Serving Signups</h2></div>
+    <div class="card-body p-0">
+      <% if (!massServingSignups || massServingSignups.length === 0) { %>
+        <div class="p-4 text-muted">No Mass serving signups yet.</div>
+      <% } else { %>
+        <div class="table-responsive">
+          <table class="table mb-0">
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>Mass</th>
+                <th>Role</th>
+                <th>Contact</th>
+                <th>Submitted</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% massServingSignups.forEach((signup) => { %>
+                <tr>
+                  <td><strong><%= signup.student_name %></strong></td>
+                  <td>
+                    <div><%= signup.mass_title || 'Mass Signup' %></div>
+                    <div style="font-size:.82rem;color:var(--muted)"><%= formatMassServingEventLabel(signup.event_date, signup.event_time) %></div>
+                  </td>
+                  <td><%= getMassServingRoleLabel(signup.role_code) %></td>
+                  <td>
+                    <div><%= signup.parent_name || '—' %></div>
+                    <div style="font-size:.82rem;color:var(--muted)"><%= signup.contact_email || signup.contact_phone || '—' %></div>
+                  </td>
+                  <td style="font-size:.82rem;color:var(--muted)">
+                    <%= signup.created_at ? (typeof signup.created_at === 'string' ? signup.created_at.slice(0, 16).replace('T', ' ') : signup.created_at.toISOString().slice(0, 16).replace('T', ' ')) : '—' %>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+  </div>
+
+  <div class="page-card mt-4">
     <div class="card-header"><h2 class="h5 mb-0">Catechist Assignments</h2></div>
     <div class="card-body p-0">
       <% if (!availableCcdClasses.length) { %>

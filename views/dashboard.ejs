@@ -50,6 +50,7 @@
     .prog-baptism  .prog-icon { background: rgba(74,127,193,0.12); color: var(--blue-sky); }
     .prog-confirm  .prog-icon { background: rgba(200,146,42,0.12); color: var(--gold); }
     .prog-sponsor  .prog-icon { background: rgba(26,39,68,0.08); color: var(--navy-soft); }
+    .prog-mass     .prog-icon { background: rgba(200,146,42,0.12); color: var(--gold); }
     .section-label {
       font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
       letter-spacing: 0.1em; color: var(--muted); margin-bottom: 0.75rem;
@@ -106,6 +107,14 @@
             <div class="prog-title">Confirmation Sponsor Form</div>
             <div class="prog-subtitle"><%= faithFormationSettings && faithFormationSettings.schoolYear ? `School Year ${faithFormationSettings.schoolYear}` : 'Student / Sponsor' %></div>
             <p class="prog-desc"><%= canOpenSponsorForm ? 'Enter and save sponsor confirmation information, including sponsor address and signatures.' : 'Unavailable until the Sponsor Form is opened by an administrator.' %></p>
+          </a>
+        </div>
+        <div class="col-sm-6 col-lg-4">
+          <a href="/mass-serving-signup" class="program-card prog-mass">
+            <div class="prog-icon">MS</div>
+            <div class="prog-title"><%= t('mass_serving_signup_title') %></div>
+            <div class="prog-subtitle"><%= t('mass_serving_signup_subtitle') %></div>
+            <p class="prog-desc"><%= t('mass_serving_signup_desc') %></p>
           </a>
         </div>
       </div>
@@ -196,6 +205,51 @@
                 <% } else { %>
                   <button class="btn btn-sm btn-outline-secondary" type="button" disabled>Closed</button>
                 <% } %>
+              </td>
+            </tr>
+          <% }) %>
+          </tbody>
+        </table>
+      </div>
+      <% } %>
+    </div>
+  </div>
+
+  <div class="page-card mb-4">
+    <div class="card-header"><h2 class="h5"><%= t('mass_serving_signups_heading') %></h2></div>
+    <div class="card-body p-0">
+      <% if (!massServingSignups || massServingSignups.length === 0) { %>
+        <div class="p-4 text-center" style="color:var(--muted);font-size:.9rem"><em><%= t('no_mass_serving_signups') %></em></div>
+      <% } else { %>
+      <div class="table-responsive">
+        <table class="table mb-0">
+          <thead>
+            <tr>
+              <th><%= t('student') %></th>
+              <th><%= t('grade') %></th>
+              <th><%= t('role') %></th>
+              <th><%= t('mass_event') %></th>
+              <th><%= t('primary_contact') %></th>
+              <th><%= t('requested_on') %></th>
+              <th><%= t('actions') %></th>
+            </tr>
+          </thead>
+          <tbody>
+          <% massServingSignups.forEach((signup) => { %>
+            <tr>
+              <td style="font-weight:600"><%= signup.student_name %></td>
+              <td><%= signup.ccd_grade_level || '&mdash;' %></td>
+              <td><span class="badge" style="background:var(--surface);color:var(--navy-soft);font-size:.7rem;border-radius:2rem;padding:.3em .8em;font-weight:700;border:1px solid var(--border)"><%= signup.roleLabel %></span></td>
+              <td style="font-size:.85rem"><%= signup.eventLabel %></td>
+              <td style="font-size:.85rem">
+                <div><%= signup.parent_name || '&mdash;' %></div>
+                <div style="color:var(--muted)"><%= signup.contact_email || signup.contact_phone || '&mdash;' %></div>
+              </td>
+              <td style="font-size:.8rem;color:var(--muted)"><%= signup.created_at ? (typeof signup.created_at === 'string' ? signup.created_at.slice(0,10) : signup.created_at.toISOString().slice(0,10)) : '' %></td>
+              <td>
+                <form method="post" action="/mass-serving-signups/<%= signup.id %>/delete" class="d-inline" onsubmit="return confirm('Remove this Mass serving signup?');">
+                  <button class="btn btn-sm btn-outline-danger" type="submit"><%= t('remove') %></button>
+                </form>
               </td>
             </tr>
           <% }) %>
