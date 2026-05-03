@@ -1,31 +1,31 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Hedvig+Letters+Serif:opsz@12..24&family=Poppins:wght@300;400;500;600;700&display=swap');
 
 /* ── Design Tokens ─────────────────────────────────────────── */
 :root {
-  --navy:        #1a2744;
-  --navy-mid:    #243660;
-  --navy-soft:   #2e4480;
-  --blue-sky:    #4a7fc1;
-  --blue-light:  #dce8f7;
-  --gold:        #c8922a;
-  --gold-light:  #e8b84b;
-  --gold-pale:   #fdf3dc;
+  --navy:        #1a1a1a;
+  --navy-mid:    #2a2a2a;
+  --navy-soft:   #3a3a3a;
+  --blue-sky:    #d4af37;
+  --blue-light:  #f5eed8;
+  --gold:        #d4af37;
+  --gold-light:  #e8c84a;
+  --gold-pale:   #fdf8e8;
   --white:       #ffffff;
-  --off-white:   #f8f9fc;
-  --surface:     #f0f4fb;
-  --ink:         #0f1929;
-  --ink-soft:    #2c3e5c;
-  --muted:       #6b7a99;
-  --border:      #d8e2f0;
-  --shadow:      rgba(26, 39, 68, 0.10);
-  --shadow-md:   rgba(26, 39, 68, 0.16);
+  --off-white:   #faf9f6;
+  --surface:     #f2efe8;
+  --ink:         #161616;
+  --ink-soft:    #2a2a2a;
+  --muted:       #767676;
+  --border:      #e0d9cc;
+  --shadow:      rgba(22, 22, 22, 0.08);
+  --shadow-md:   rgba(22, 22, 22, 0.15);
 }
 
 /* ── Base ──────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; }
 
 body {
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'Poppins', system-ui, sans-serif;
   font-size: 15px;
   font-weight: 400;
   background: var(--off-white);
@@ -35,36 +35,32 @@ body {
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: 'Hedvig Letters Serif', Georgia, serif;
   color: var(--navy);
   line-height: 1.25;
-  font-weight: 600;
+  font-weight: 400;
 }
 
 a { color: var(--navy-soft); text-decoration: none; }
-a:hover { color: var(--blue-sky); }
+a:hover { color: var(--gold); }
 
 /* ── Layout ────────────────────────────────────────────────── */
 
-/* Default shell: comfortable reading width for forms & content */
 .app-shell {
   max-width: 1080px;
   width: 100%;
 }
 
-/* Wide shell: data-heavy pages — dashboard, admin, registration */
 .app-shell-wide {
   max-width: 1400px;
   width: 100%;
 }
 
-/* Narrow shell: auth pages — login, signup */
 .app-shell-narrow {
   max-width: 680px;
   width: 100%;
 }
 
-/* Fluid shell: use nearly full viewport with comfortable gutters */
 .app-shell-fluid {
   max-width: min(1600px, calc(100vw - 3rem));
   width: 100%;
@@ -74,17 +70,31 @@ a:hover { color: var(--blue-sky); }
 .site-topbar {
   background: var(--navy);
   color: rgba(255,255,255,0.75);
-  padding: 0.5rem 1.5rem;
-  font-size: 0.78rem;
-  letter-spacing: 0.03em;
+  padding: 0.65rem 1.75rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
   gap: 0.5rem;
+  font-family: 'Poppins', sans-serif;
+  border-bottom: 2px solid var(--gold);
 }
-.site-topbar strong { color: #fff; font-weight: 600; }
-.site-topbar a { color: var(--gold-light); }
+.site-topbar strong { color: var(--gold); font-weight: 600; }
+.site-topbar .topbar-brand {
+  font-family: 'Hedvig Letters Serif', Georgia, serif;
+  font-size: 1.1rem;
+  color: var(--gold);
+  letter-spacing: 0.01em;
+}
+.site-topbar .topbar-sub {
+  font-size: 0.72rem;
+  color: rgba(255,255,255,0.55);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.site-topbar a { color: var(--gold); }
 .site-topbar a:hover { color: #fff; }
 
 /* ── Language Toggle ───────────────────────────────────────── */
@@ -98,11 +108,11 @@ a:hover { color: var(--blue-sky); }
 .lang-toggle .btn-lang {
   padding: 0.18rem 0.65rem;
   border-radius: 2rem;
-  border: 1px solid rgba(255,255,255,0.25);
+  border: 1px solid rgba(212,175,55,0.4);
   background: transparent;
   color: rgba(255,255,255,0.65);
   font-size: 0.72rem;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Poppins', sans-serif;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.18s;
@@ -114,7 +124,7 @@ a:hover { color: var(--blue-sky); }
 .lang-toggle .btn-lang:hover {
   background: var(--gold);
   border-color: var(--gold);
-  color: #fff;
+  color: var(--navy);
 }
 
 /* ── Hero ──────────────────────────────────────────────────── */
@@ -128,7 +138,7 @@ a:hover { color: var(--blue-sky); }
   grid-template-columns: minmax(0, 1.05fr) minmax(280px, 0.95fr);
   align-items: stretch;
   gap: 1.25rem;
-  border-radius: 18px;
+  border-radius: 4px;
   min-height: 360px;
 }
 .hero::before {
@@ -136,8 +146,8 @@ a:hover { color: var(--blue-sky); }
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse 55% 90% at 95% 50%, rgba(74,127,193,0.35) 0%, transparent 60%),
-    radial-gradient(ellipse 40% 60% at 5% 95%, rgba(200,146,42,0.12) 0%, transparent 50%);
+    radial-gradient(ellipse 55% 90% at 95% 50%, rgba(212,175,55,0.18) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 60% at 5% 95%, rgba(212,175,55,0.08) 0%, transparent 50%);
   pointer-events: none;
 }
 .hero-content {
@@ -157,22 +167,22 @@ a:hover { color: var(--blue-sky); }
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--gold-light);
+  color: var(--gold);
   margin-bottom: 0.75rem;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Poppins', sans-serif;
 }
 .hero-eyebrow::before {
   content: '';
   display: inline-block;
   width: 24px;
   height: 2px;
-  background: var(--gold-light);
+  background: var(--gold);
   border-radius: 2px;
 }
 .hero h1 {
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: 'Hedvig Letters Serif', Georgia, serif;
   font-size: clamp(1.9rem, 4vw, 2.8rem);
-  font-weight: 700;
+  font-weight: 400;
   color: #fff;
   margin-bottom: 0.6rem;
 }
@@ -186,9 +196,9 @@ a:hover { color: var(--blue-sky); }
   position: relative;
   z-index: 1;
   min-height: 320px;
-  border-radius: 14px;
+  border-radius: 4px;
   overflow: hidden;
-  box-shadow: 0 16px 36px rgba(15, 25, 41, 0.28);
+  box-shadow: 0 16px 36px rgba(22, 22, 22, 0.28);
 }
 .hero-media img {
   display: block;
@@ -214,7 +224,7 @@ a:hover { color: var(--blue-sky); }
 .page-card {
   background: var(--white);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 4px;
   box-shadow: 0 2px 12px var(--shadow);
   overflow: hidden;
 }
@@ -233,15 +243,15 @@ a:hover { color: var(--blue-sky); }
   display: block;
   width: 3px;
   height: 1.25rem;
-  background: linear-gradient(180deg, var(--gold) 0%, var(--blue-sky) 100%);
+  background: var(--gold);
   border-radius: 2px;
   flex-shrink: 0;
 }
 .page-card .card-header h2,
 .page-card .card-header .h5 {
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: 'Hedvig Letters Serif', Georgia, serif;
   font-size: 1.15rem;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--navy);
   margin: 0;
 }
@@ -258,13 +268,13 @@ a:hover { color: var(--blue-sky); }
 
 /* ── Fieldsets ─────────────────────────────────────────────── */
 fieldset {
-  border: 1px solid var(--blue-light) !important;
-  border-radius: 8px !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 4px !important;
   padding: 1.25rem !important;
   background: var(--off-white);
 }
 legend {
-  font-family: 'Inter', sans-serif !important;
+  font-family: 'Poppins', sans-serif !important;
   font-size: 0.7rem !important;
   font-weight: 700 !important;
   color: var(--navy-soft) !important;
@@ -277,10 +287,10 @@ legend {
 /* ── Tables ────────────────────────────────────────────────── */
 .table { font-size: 0.9rem; color: var(--ink-soft); }
 .table thead th {
-  background: var(--surface);
-  border-bottom: 2px solid var(--border) !important;
-  color: var(--navy);
-  font-family: 'Inter', sans-serif;
+  background: var(--navy);
+  border-bottom: 2px solid var(--gold) !important;
+  color: var(--gold);
+  font-family: 'Poppins', sans-serif;
   font-weight: 600;
   font-size: 0.72rem;
   text-transform: uppercase;
@@ -302,38 +312,38 @@ legend {
   text-transform: uppercase;
   font-weight: 700;
   padding: 0.28em 0.75em;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Poppins', sans-serif;
 }
 .badge-parent    { background: var(--blue-light); color: var(--navy-soft); }
 .badge-catechist { background: var(--navy-soft); color: #fff; }
-.badge-family_faith_leader { background: var(--forest); color: #fff; }
-.badge-admin     { background: var(--navy); color: var(--gold-light); }
+.badge-family_faith_leader { background: #2a5a3a; color: #fff; }
+.badge-admin     { background: var(--navy); color: var(--gold); }
 
 /* ── Buttons ───────────────────────────────────────────────── */
 .btn {
-  font-family: 'Inter', sans-serif;
-  font-weight: 600;
-  font-size: 0.8rem;
+  font-family: 'Poppins', sans-serif;
+  font-weight: 500;
+  font-size: 0.82rem;
   letter-spacing: 0.04em;
-  border-radius: 6px;
-  padding: 0.55rem 1.2rem;
+  border-radius: 0px;
+  padding: 0.6rem 1.4rem;
   transition: all 0.18s ease;
 }
 .btn-primary {
-  background: var(--navy);
-  border-color: var(--navy);
-  color: #fff;
+  background: var(--gold);
+  border-color: var(--gold);
+  color: var(--navy);
 }
 .btn-primary:hover, .btn-primary:focus {
-  background: var(--navy-mid);
-  border-color: var(--navy-mid);
-  color: #fff;
-  box-shadow: 0 4px 14px rgba(26,39,68,0.25);
+  background: var(--gold-light);
+  border-color: var(--gold-light);
+  color: var(--navy);
+  box-shadow: 0 4px 14px rgba(212,175,55,0.35);
 }
 .btn-outline-primary {
   border-color: var(--navy);
   color: var(--navy);
-  background: transparent;
+  background: #fff;
 }
 .btn-outline-primary:hover {
   background: var(--navy);
@@ -343,7 +353,7 @@ legend {
 .btn-outline-secondary {
   border-color: var(--border);
   color: var(--muted);
-  background: transparent;
+  background: #fff;
 }
 .btn-outline-secondary:hover {
   background: var(--surface);
@@ -353,7 +363,7 @@ legend {
 .btn-outline-success {
   border-color: #2a7a5a;
   color: #2a7a5a;
-  background: transparent;
+  background: #fff;
 }
 .btn-outline-success:hover {
   background: #2a7a5a;
@@ -369,11 +379,11 @@ legend {
   text-transform: uppercase;
   color: var(--ink-soft);
   margin-bottom: 0.3rem;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Poppins', sans-serif;
 }
 .form-control, .form-select {
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 0px;
   background: #fff;
   color: var(--ink-soft);
   font-size: 0.92rem;
@@ -381,8 +391,8 @@ legend {
   transition: border-color 0.18s, box-shadow 0.18s;
 }
 .form-control:focus, .form-select:focus {
-  border-color: var(--blue-sky);
-  box-shadow: 0 0 0 3px rgba(74,127,193,0.15);
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(212,175,55,0.18);
   outline: none;
 }
 
@@ -392,34 +402,34 @@ legend {
 }
 
 /* ── Alerts ────────────────────────────────────────────────── */
-.alert { border-radius: 6px; font-size: 0.88rem; border-width: 1px; }
+.alert { border-radius: 0px; font-size: 0.88rem; border-width: 1px; }
 .alert-success  { background: #eaf6f1; border-color: #a3d9c2; color: #1a5c3e; }
 .alert-danger   { background: #fef2f2; border-color: #fca5a5; color: #991b1b; }
-.alert-info     { background: var(--gold-pale); border-color: #f0d090; color: #7a5a1a; }
+.alert-info     { background: var(--gold-pale); border-color: #e8d090; color: #7a5a1a; }
 .alert-secondary{ background: var(--surface); border-color: var(--border); color: var(--muted); }
 
 /* ── Accordion ─────────────────────────────────────────────── */
 .accordion-item {
   border: 1px solid var(--border) !important;
-  border-radius: 6px !important;
+  border-radius: 0px !important;
   margin-bottom: 4px;
   overflow: hidden;
 }
 .accordion-button {
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: 'Hedvig Letters Serif', Georgia, serif;
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--navy);
   background: var(--white);
   padding: 1rem 1.25rem;
 }
 .accordion-button:not(.collapsed) {
   background: var(--navy);
-  color: #fff;
+  color: var(--gold);
   box-shadow: none;
 }
-.accordion-button:not(.collapsed)::after { filter: brightness(10); }
-.accordion-button:focus { box-shadow: 0 0 0 3px rgba(74,127,193,0.2); }
+.accordion-button:not(.collapsed)::after { filter: brightness(10) sepia(1) hue-rotate(0deg); }
+.accordion-button:focus { box-shadow: 0 0 0 3px rgba(212,175,55,0.2); }
 .accordion-body {
   font-size: 0.92rem;
   color: var(--ink-soft);
@@ -448,7 +458,7 @@ legend {
 /* ── Utility ───────────────────────────────────────────────── */
 .text-muted    { color: var(--muted) !important; }
 .text-secondary{ color: var(--muted) !important; }
-.brand-title   { font-family: 'Playfair Display', Georgia, serif; }
+.brand-title   { font-family: 'Hedvig Letters Serif', Georgia, serif; }
 
 .calendar-grid {
   display: grid;
@@ -466,7 +476,7 @@ legend {
 .calendar-cell {
   min-height: 150px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 0px;
   background: var(--off-white);
   padding: 0.65rem;
 }
@@ -485,9 +495,10 @@ legend {
   gap: 0.45rem;
 }
 .calendar-event-pill {
-  border-radius: 8px;
+  border-radius: 0px;
   background: var(--white);
-  border: 1px solid var(--blue-light);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--gold);
   padding: 0.45rem 0.5rem;
   box-shadow: 0 1px 4px var(--shadow);
 }
@@ -520,7 +531,6 @@ legend {
   .calendar-grid { grid-template-columns: 1fr; }
   .calendar-weekday { display: none; }
   .calendar-cell { min-height: auto; }
-  /* All shells collapse to full width on mobile */
   .app-shell,
   .app-shell-wide,
   .app-shell-narrow,

@@ -1,6 +1,12 @@
 <%# _topbar.ejs - include at top of body %>
 <div class="site-topbar">
-  <span><%= t('app_title') %> &mdash; Office of Evangelization and Discipleship</span>
+  <div style="display:flex;align-items:center;gap:0.75rem">
+    <span style="font-size:1.35rem;color:var(--gold);line-height:1">✦</span>
+    <div>
+      <div class="topbar-brand"><%= t('app_title') %></div>
+      <div class="topbar-sub">Office of Evangelization and Discipleship</div>
+    </div>
+  </div>
   <div class="lang-toggle">
     <span style="opacity:.7"><%= t('language') %>:</span>
     <a href="/lang/en" class="btn-lang <%= lang === 'en' ? 'active' : '' %>">EN</a>
