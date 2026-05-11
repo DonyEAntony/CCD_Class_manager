@@ -499,6 +499,138 @@
     </div>
   </div>
 
+  <!-- Altar Server Training Dates -->
+  <div class="page-card mt-4">
+    <div class="card-header"><h2 class="h5 mb-0">Altar Server Training Dates</h2></div>
+    <div class="card-body">
+      <form class="row g-3 align-items-end mb-4" method="post" action="/admin/altar-server/training-dates">
+        <div class="col-md-3">
+          <label class="form-label">Training Date</label>
+          <input class="form-control" type="date" name="training_date" required>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">Time</label>
+          <input class="form-control" type="time" name="training_time" value="09:00" required>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Location</label>
+          <input class="form-control" type="text" name="location" placeholder="e.g. Parish Center">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">Notes</label>
+          <input class="form-control" type="text" name="notes" placeholder="Optional details">
+        </div>
+        <div class="col-md-2">
+          <button class="btn btn-primary" type="submit">Add Training Date</button>
+        </div>
+      </form>
+
+      <% const availableAltarTrainingDates = Array.isArray(typeof altarServerTrainingDates === 'undefined' ? null : altarServerTrainingDates) ? altarServerTrainingDates : []; %>
+      <% if (!availableAltarTrainingDates.length) { %>
+        <p class="mb-0 text-muted">No altar server training dates have been scheduled yet.</p>
+      <% } else { %>
+        <div class="table-responsive">
+          <table class="table mb-0">
+            <thead>
+              <tr>
+                <th>Date &amp; Time</th>
+                <th>Location</th>
+                <th>Notes</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% availableAltarTrainingDates.forEach((dateItem) => { %>
+                <tr>
+                  <td><strong><%= dateItem.label %></strong></td>
+                  <td><%= dateItem.location || '<span style="color:var(--muted)">—</span>' %></td>
+                  <td><%= dateItem.notes || '<span style="color:var(--muted)">—</span>' %></td>
+                  <td>
+                    <form method="post" action="/admin/altar-server/training-dates/<%= dateItem.id %>/delete" onsubmit="return confirm('Remove this training date?');">
+                      <button class="btn btn-outline-danger btn-sm" type="submit"><%= t('remove') %></button>
+                    </form>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+  </div>
+
+  <!-- Altar Server Signups -->
+  <div class="page-card mt-4">
+    <div class="card-header"><h2 class="h5 mb-0">Altar Server Signups</h2></div>
+    <div class="card-body p-0">
+      <% const availableAltarSignups = Array.isArray(typeof altarServerSignups === 'undefined' ? null : altarServerSignups) ? altarServerSignups : []; %>
+      <% if (!availableAltarSignups.length) { %>
+        <div class="p-4 text-muted">No altar server signups yet.</div>
+      <% } else { %>
+        <div class="table-responsive">
+          <table class="table mb-0">
+            <thead>
+              <tr>
+                <th>Child</th>
+                <th>Grade</th>
+                <th>Parent / Guardian</th>
+                <th>Preferred Training</th>
+                <th>Notes</th>
+                <th>Status</th>
+                <th>Submitted</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% availableAltarSignups.forEach((signup) => { %>
+                <tr>
+                  <td><strong><%= signup.child_first_name %> <%= signup.child_last_name %></strong>
+                    <% if (signup.child_dob) { %><div style="font-size:.82rem;color:var(--muted)">DOB: <%= signup.child_dob %></div><% } %>
+                  </td>
+                  <td><%= signup.child_grade || '<span style="color:var(--muted)">—</span>' %></td>
+                  <td>
+                    <div><strong><%= signup.parent_name %></strong></div>
+                    <div><a href="mailto:<%= signup.parent_email %>"><%= signup.parent_email %></a></div>
+                    <div style="font-size:.82rem;color:var(--muted)"><%= signup.parent_phone %></div>
+                  </td>
+                  <td style="font-size:.85rem">
+                    <% if (signup.training_date) { %>
+                      <%= formatAdorationDateLabel(`${signup.training_date}`.slice(0, 10)) %><br>
+                      <% if (signup.training_time) { %><span style="color:var(--muted)"><%= formatTimeLabel(signup.training_time) %></span><% } %>
+                      <% if (signup.training_location) { %><br><span style="color:var(--muted)"><%= signup.training_location %></span><% } %>
+                    <% } else { %>
+                      <span style="color:var(--muted)">No preference</span>
+                    <% } %>
+                  </td>
+                  <td style="max-width:240px;font-size:.85rem"><%= signup.notes || '<span style="color:var(--muted)">—</span>' %></td>
+                  <td>
+                    <form class="d-flex gap-1 align-items-center" method="post" action="/admin/altar-server/signups/<%= signup.id %>/status">
+                      <select class="form-select form-select-sm" name="status" style="max-width:130px">
+                        <option value="pending"   <%= signup.status === 'pending'   ? 'selected' : '' %>>Pending</option>
+                        <option value="confirmed" <%= signup.status === 'confirmed' ? 'selected' : '' %>>Confirmed</option>
+                        <option value="completed" <%= signup.status === 'completed' ? 'selected' : '' %>>Completed</option>
+                        <option value="cancelled" <%= signup.status === 'cancelled' ? 'selected' : '' %>>Cancelled</option>
+                      </select>
+                      <button class="btn btn-outline-primary btn-sm" type="submit"><%= t('save') %></button>
+                    </form>
+                  </td>
+                  <td style="font-size:.82rem;color:var(--muted)">
+                    <%= signup.created_at ? (typeof signup.created_at === 'string' ? signup.created_at.slice(0, 16).replace('T', ' ') : signup.created_at.toISOString().slice(0, 16).replace('T', ' ')) : '—' %>
+                  </td>
+                  <td>
+                    <form method="post" action="/admin/altar-server/signups/<%= signup.id %>/delete" onsubmit="return confirm('Remove this altar server signup?');">
+                      <button class="btn btn-outline-danger btn-sm" type="submit"><%= t('remove') %></button>
+                    </form>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+  </div>
+
   <p class="footer-note"><%= t('footer_note') %></p>
 </main>
 <script>
