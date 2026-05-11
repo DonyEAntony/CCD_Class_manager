@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="<%= lang %>">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Altar Server Signup &mdash; <%= t('app_title') %></title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <style>
+    .altar-hero {
+      background:
+        radial-gradient(circle at top right, rgba(200,146,42,0.22), transparent 32%),
+        linear-gradient(135deg, var(--navy) 0%, #203761 58%, #345691 100%);
+      color: #fff;
+      border-radius: 18px;
+      padding: 2rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .altar-hero p:last-child { margin-bottom: 0; }
+    .info-note {
+      background: var(--gold-pale);
+      border: 1px solid #f0d090;
+      border-radius: 10px;
+      padding: 1rem 1.1rem;
+      color: #7a5a1a;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+<%- include('_topbar') %>
+<main class="container py-4 app-shell mx-auto">
+  <% if (success.length) { %><div class="alert alert-success mb-3"><%= success[0] %></div><% } %>
+  <% if (error.length) { %><div class="alert alert-danger mb-3"><%= error[0] %></div><% } %>
+
+  <section class="altar-hero mb-4">
+    <p style="text-transform:uppercase;letter-spacing:.14em;font-size:.72rem;font-weight:700;color:rgba(255,255,255,.72)">Ministry</p>
+    <h1 style="color:#fff;margin-bottom:.6rem">Altar Server Signup</h1>
+    <p style="max-width:640px;color:rgba(255,255,255,.82)">Sign up your child to serve at the altar at Saint Matthew Catholic Church. After registering, we will contact you with training details and scheduling.</p>
+  </section>
+
+  <div class="row g-4">
+    <div class="col-lg-7">
+      <div class="page-card">
+        <div class="card-header"><h2 class="h5 mb-0">Signup Form</h2></div>
+        <div class="card-body">
+          <form class="row g-3" method="post" action="/altar-server-signup">
+
+            <div class="col-12">
+              <h6 class="text-uppercase fw-bold" style="font-size:.7rem;letter-spacing:.08em;color:var(--muted)">Child&rsquo;s Information</h6>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label required">First Name</label>
+              <input class="form-control" type="text" name="child_first_name" autocomplete="given-name" required value="<%= formData.child_first_name || '' %>">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label required">Last Name</label>
+              <input class="form-control" type="text" name="child_last_name" autocomplete="family-name" required value="<%= formData.child_last_name || '' %>">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Date of Birth</label>
+              <input class="form-control" type="date" name="child_dob" value="<%= formData.child_dob || '' %>">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Grade Level</label>
+              <select class="form-select" name="child_grade">
+                <option value="">Select grade</option>
+                <% ['4th Grade','5th Grade','6th Grade','7th Grade','8th Grade','9th Grade','10th Grade','11th Grade','12th Grade'].forEach(function(g) { %>
+                  <option value="<%= g %>" <%= formData.child_grade === g ? 'selected' : '' %>><%= g %></option>
+                <% }) %>
+              </select>
+            </div>
+
+            <div class="col-12 mt-1">
+              <h6 class="text-uppercase fw-bold" style="font-size:.7rem;letter-spacing:.08em;color:var(--muted)">Parent / Guardian Information</h6>
+            </div>
+            <div class="col-12">
+              <label class="form-label required">Parent / Guardian Full Name</label>
+              <input class="form-control" type="text" name="parent_name" autocomplete="name" required value="<%= formData.parent_name || '' %>">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label required">Email</label>
+              <input class="form-control" type="email" name="parent_email" autocomplete="email" required value="<%= formData.parent_email || '' %>">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label required">Phone</label>
+              <input class="form-control" type="tel" name="parent_phone" autocomplete="tel"
+                pattern="[0-9]{3}[.\- ]?[0-9]{3}[.\- ]?[0-9]{4}"
+                title="Format: 123-456-7890"
+                required value="<%= formData.parent_phone || '' %>">
+            </div>
+
+            <% if (trainingDates && trainingDates.length) { %>
+            <div class="col-12 mt-1">
+              <h6 class="text-uppercase fw-bold" style="font-size:.7rem;letter-spacing:.08em;color:var(--muted)">Training Session</h6>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Preferred Training Date</label>
+              <select class="form-select" name="training_date_id">
+                <option value="">No preference / contact me</option>
+                <% trainingDates.forEach(function(d) { %>
+                  <option value="<%= d.id %>" <%= String(formData.training_date_id) === String(d.id) ? 'selected' : '' %>>
+                    <%= d.label %>
+                  </option>
+                <% }) %>
+              </select>
+            </div>
+            <% } %>
+
+            <div class="col-12">
+              <label class="form-label">Notes or Questions</label>
+              <textarea class="form-control" name="notes" rows="3" placeholder="Any scheduling concerns, questions for the parish, or other information"><%= formData.notes || '' %></textarea>
+            </div>
+
+            <div class="col-12 d-flex flex-wrap gap-2">
+              <button class="btn btn-primary" type="submit">Submit Signup</button>
+              <a class="btn btn-outline-secondary" href="/">Back to Home</a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-5">
+      <div class="info-note mb-3">
+        Altar servers typically begin serving in <strong>4th grade or higher</strong>. All new servers attend a brief training session before their first Mass. The parish office will reach out after you submit this form.
+      </div>
+      <% if (trainingDates && trainingDates.length) { %>
+      <div class="page-card">
+        <div class="card-header"><h2 class="h5 mb-0">Upcoming Training Dates</h2></div>
+        <div class="card-body">
+          <div class="d-flex flex-column gap-2">
+            <% trainingDates.forEach(function(d) { %>
+              <div style="border:1px solid var(--border);border-radius:8px;padding:.75rem .9rem;background:var(--off-white);font-size:.92rem">
+                <strong style="color:var(--navy)"><%= d.label %></strong>
+                <% if (d.location) { %><div style="font-size:.82rem;color:var(--muted)"><%= d.location %></div><% } %>
+                <% if (d.notes) { %><div style="font-size:.82rem;color:var(--muted);margin-top:.2rem"><%= d.notes %></div><% } %>
+              </div>
+            <% }) %>
+          </div>
+        </div>
+      </div>
+      <% } else { %>
+      <div class="page-card">
+        <div class="card-header"><h2 class="h5 mb-0">Training Dates</h2></div>
+        <div class="card-body">
+          <p class="mb-0" style="color:var(--muted);font-size:.9rem">Training dates will be announced soon. Submit your signup and we will contact you with the schedule.</p>
+        </div>
+      </div>
+      <% } %>
+    </div>
+  </div>
+</main>
+</body>
+</html>

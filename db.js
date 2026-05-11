@@ -430,6 +430,36 @@ const init = async () => {
     await ensureColumn('eucharistic_adoration_available_dates', 'end_time', "VARCHAR(10) NOT NULL DEFAULT '16:00'");
 
     await pool.query(`
+      CREATE TABLE IF NOT EXISTS altar_server_training_dates (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        training_date DATE NOT NULL,
+        training_time VARCHAR(10) NOT NULL,
+        location VARCHAR(255),
+        notes TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_training_date (training_date)
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS altar_server_signups (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        child_first_name VARCHAR(255) NOT NULL,
+        child_last_name VARCHAR(255) NOT NULL,
+        child_dob TEXT,
+        child_grade VARCHAR(100),
+        parent_name VARCHAR(255) NOT NULL,
+        parent_email VARCHAR(255) NOT NULL,
+        parent_phone VARCHAR(50) NOT NULL,
+        training_date_id INT NULL,
+        notes TEXT,
+        status VARCHAR(50) DEFAULT 'pending',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_altar_server_signups_training_date FOREIGN KEY (training_date_id) REFERENCES altar_server_training_dates(id) ON DELETE SET NULL
+      )
+    `);
+
+    await pool.query(`
       UPDATE eucharistic_adoration_available_dates
       SET start_time = COALESCE(NULLIF(start_time, ''), '08:30'),
           end_time = COALESCE(NULLIF(end_time, ''), '16:00')

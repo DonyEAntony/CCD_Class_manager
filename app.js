@@ -2582,6 +2582,15 @@ app.get('/admin/users', requireAuth, requireRole('admin'), asyncHandler(async (r
   const managedEvents = await getFaithFormationEvents(['children', 'family_faith', 'baptism_prep', 'ocia', 'general']);
   const faithFormationSettings = await getFaithFormationSettings();
   const registrationYearStatuses = await getRegistrationYearStatusList(parseFaithFormationStartYear(faithFormationSettings.currentRegistrationYear));
+  const altarServerTrainingDates = await getAltarServerTrainingDates({ includePast: true });
+  const altarServerSignups = await db.prepare(`
+    SELECT s.id, s.child_first_name, s.child_last_name, s.child_dob, s.child_grade,
+           s.parent_name, s.parent_email, s.parent_phone, s.notes, s.status, s.created_at,
+           t.training_date, t.training_time, t.location AS training_location
+    FROM altar_server_signups s
+    LEFT JOIN altar_server_training_dates t ON t.id = s.training_date_id
+    ORDER BY s.created_at DESC
+  `).all();
   res.render('admin-users', {
     users,
     adorationSignups,
@@ -2595,6 +2604,8 @@ app.get('/admin/users', requireAuth, requireRole('admin'), asyncHandler(async (r
     faithFormationSettings,
     registrationYearOptions: getRegistrationYearOptions(parseFaithFormationStartYear(faithFormationSettings.schoolYear)),
     registrationYearStatuses,
+    altarServerTrainingDates,
+    altarServerSignups,
   });
 }));
 
@@ -3095,6 +3106,152 @@ app.post('/registration', requireAuth,
   upload.fields([{ name: 'baptism_certificate', maxCount: 1 }, { name: 'first_communion_certificate', maxCount: 1 }]),
   handleChildrenRegistration
 );
+
+// ── Altar Server ─────────────────────────────────────────────
+
+const getAltarServerTrainingDates = async ({ includePast = false } = {}) => {
+  const rows = includePast
+    ? await db.prepare(`
+        SELECT id, training_date, training_time, location, notes
+        FROM altar_server_training_dates
+        ORDER BY training_date ASC, training_time ASC
+      `).all()
+    : await db.prepare(`
+        SELECT id, training_date, training_time, location, notes
+        FROM altar_server_training_dates
+        WHERE training_date >= ?
+        ORDER BY training_date ASC, training_time ASC
+      `).all(getTodayDateValue());
+
+  return rows.map((row) => {
+    const dateValue = `${row.training_date}`.slice(0, 10);
+    const dateLabel = formatAdorationDateLabel(dateValue);
+    const timeLabel = formatTimeLabel(row.training_time);
+    return {
+      id: row.id,
+      value: dateValue,
+      label: `${dateLabel} at ${timeLabel}`,
+      location: row.location || '',
+      notes: row.notes || '',
+    };
+  });
+};
+
+app.get('/altar-server-signup', asyncHandler(async (_req, res) => {
+  const trainingDates = await getAltarServerTrainingDates();
+  res.render('altar-server-signup', {
+    trainingDates,
+    formData: {},
+  });
+}));
+
+app.post('/altar-server-signup', asyncHandler(async (req, res) => {
+  const childFirstName = typeof req.body.child_first_name === 'string' ? req.body.child_first_name.trim() : '';
+  const childLastName = typeof req.body.child_last_name === 'string' ? req.body.child_last_name.trim() : '';
+  const childDob = typeof req.body.child_dob === 'string' ? req.body.child_dob.trim() : '';
+  const childGrade = typeof req.body.child_grade === 'string' ? req.body.child_grade.trim() : '';
+  const parentName = typeof req.body.parent_name === 'string' ? req.body.parent_name.trim() : '';
+  const parentEmail = typeof req.body.parent_email === 'string' ? req.body.parent_email.trim().toLowerCase() : '';
+  const parentPhone = typeof req.body.parent_phone === 'string' ? req.body.parent_phone.trim() : '';
+  const trainingDateId = req.body.training_date_id ? Number.parseInt(req.body.training_date_id, 10) : null;
+  const notes = typeof req.body.notes === 'string' ? req.body.notes.trim() : '';
+
+  const trainingDates = await getAltarServerTrainingDates();
+  const formData = { child_first_name: childFirstName, child_last_name: childLastName, child_dob: childDob, child_grade: childGrade, parent_name: parentName, parent_email: parentEmail, parent_phone: parentPhone, training_date_id: trainingDateId, notes };
+
+  if (!childFirstName || !childLastName || !parentName || !parentEmail || !parentPhone) {
+    req.flash('error', 'Please fill in all required fields.');
+    return res.render('altar-server-signup', { trainingDates, formData });
+  }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(parentEmail)) {
+    req.flash('error', 'Please enter a valid email address.');
+    return res.render('altar-server-signup', { trainingDates, formData });
+  }
+
+  if (!phoneRegex.test(parentPhone)) {
+    req.flash('error', 'Invalid phone format. Use XXX-XXX-XXXX, XXX.XXX.XXXX, or XXX XXX XXXX.');
+    return res.render('altar-server-signup', { trainingDates, formData });
+  }
+
+  const resolvedTrainingDateId = (trainingDateId && trainingDates.some((d) => d.id === trainingDateId)) ? trainingDateId : null;
+
+  await db.prepare(`
+    INSERT INTO altar_server_signups
+      (child_first_name, child_last_name, child_dob, child_grade, parent_name, parent_email, parent_phone, training_date_id, notes)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(childFirstName, childLastName, childDob || null, childGrade || null, parentName, parentEmail, parentPhone, resolvedTrainingDateId, notes || null);
+
+  req.flash('success', `Thank you! ${childFirstName}'s altar server signup has been received. We will contact you at ${parentEmail} with next steps.`);
+  return res.redirect('/altar-server-signup');
+}));
+
+app.post('/admin/altar-server/training-dates', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const trainingDate = typeof req.body.training_date === 'string' ? req.body.training_date.trim() : '';
+  const trainingTime = typeof req.body.training_time === 'string' ? req.body.training_time.trim() : '';
+  const location = typeof req.body.location === 'string' ? req.body.location.trim() : '';
+  const notes = typeof req.body.notes === 'string' ? req.body.notes.trim() : '';
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trainingDate)) {
+    req.flash('error', 'Please choose a valid training date.');
+    return res.redirect('/admin/users');
+  }
+  if (!/^\d{2}:\d{2}$/.test(trainingTime)) {
+    req.flash('error', 'Please choose a valid training time.');
+    return res.redirect('/admin/users');
+  }
+
+  try {
+    await db.prepare(`
+      INSERT INTO altar_server_training_dates (training_date, training_time, location, notes)
+      VALUES (?, ?, ?, ?)
+    `).run(trainingDate, trainingTime, location || null, notes || null);
+  } catch (err) {
+    if (err?.code === 'ER_DUP_ENTRY') {
+      req.flash('error', `A training date is already scheduled for ${formatAdorationDateLabel(trainingDate)}.`);
+      return res.redirect('/admin/users');
+    }
+    throw err;
+  }
+
+  req.flash('success', `Altar server training date added: ${formatAdorationDateLabel(trainingDate)} at ${formatTimeLabel(trainingTime)}.`);
+  return res.redirect('/admin/users');
+}));
+
+app.post('/admin/altar-server/training-dates/:id/delete', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const dateId = Number.parseInt(req.params.id, 10);
+  if (!Number.isInteger(dateId) || dateId <= 0) {
+    req.flash('error', 'Invalid training date.');
+    return res.redirect('/admin/users');
+  }
+  await db.prepare('DELETE FROM altar_server_training_dates WHERE id = ?').run(dateId);
+  req.flash('success', 'Altar server training date removed.');
+  return res.redirect('/admin/users');
+}));
+
+app.post('/admin/altar-server/signups/:id/delete', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const signupId = Number.parseInt(req.params.id, 10);
+  if (!Number.isInteger(signupId) || signupId <= 0) {
+    req.flash('error', 'Invalid altar server signup.');
+    return res.redirect('/admin/users');
+  }
+  await db.prepare('DELETE FROM altar_server_signups WHERE id = ?').run(signupId);
+  req.flash('success', 'Altar server signup removed.');
+  return res.redirect('/admin/users');
+}));
+
+app.post('/admin/altar-server/signups/:id/status', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const signupId = Number.parseInt(req.params.id, 10);
+  const status = typeof req.body.status === 'string' ? req.body.status.trim() : '';
+  const validStatuses = ['pending', 'confirmed', 'completed', 'cancelled'];
+  if (!Number.isInteger(signupId) || signupId <= 0 || !validStatuses.includes(status)) {
+    req.flash('error', 'Invalid request.');
+    return res.redirect('/admin/users');
+  }
+  await db.prepare('UPDATE altar_server_signups SET status = ? WHERE id = ?').run(status, signupId);
+  req.flash('success', 'Altar server signup status updated.');
+  return res.redirect('/admin/users');
+}));
 
 db.init()
   .then(() => {
