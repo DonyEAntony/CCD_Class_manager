@@ -67,7 +67,7 @@
               <label class="form-label">Grade Level</label>
               <select class="form-select" name="child_grade">
                 <option value="">Select grade</option>
-                <% ['4th Grade','5th Grade','6th Grade','7th Grade','8th Grade','9th Grade','10th Grade','11th Grade','12th Grade'].forEach(function(g) { %>
+                <% ['3rd Grade','4th Grade','5th Grade','6th Grade','7th Grade','8th Grade','9th Grade','10th Grade','11th Grade','12th Grade'].forEach(function(g) { %>
                   <option value="<%= g %>" <%= formData.child_grade === g ? 'selected' : '' %>><%= g %></option>
                 <% }) %>
               </select>
@@ -125,7 +125,7 @@
 
     <div class="col-lg-5">
       <div class="info-note mb-3">
-        Altar servers typically begin serving in <strong>4th grade or higher</strong>. All new servers attend a brief training session before their first Mass. The parish office will reach out after you submit this form.
+        Altar servers typically begin serving in <strong>3rd grade or higher</strong>. All new servers attend a brief training session before their first Mass. The parish office will reach out after you submit this form.
       </div>
       <% if (trainingDates && trainingDates.length) { %>
       <div class="page-card">
