@@ -14,7 +14,7 @@ Web app for **Saint Matthew Catholic Church Faith Formation**.
   - Baptism certificate
   - First Holy Communion certificate
 - Fee rules implemented:
-  - $150 (one child) / $200 (family)
+  - \$150 (one child) / $200 (family)
   - Sacramental fee $25 for second grade/SS2
   - Sacramental fee $50 for second-year confirmation
   - $50 late fee after Aug 15, 2025
