@@ -392,7 +392,7 @@ const translations = {
     school_year: 'Año Escolar',
     landing_focus_title: 'Formación en la fe y preparación sacramental',
     landing_focus_subtitle: 'Para niños, candidatos de OCIA y eventos de formación en la fe para adultos',
-    secure_online: 'Inscripción segura en línea para familias, catequistas, administradores y participantes de formación.',
+    secure_online: 'Regístrese o inicie sesión para ver los formularios de inscripción para familias, catequistas, administradores y participantes de formación.',
     create_account: 'Crear Cuenta',
     login: 'Iniciar sesión',
     logout: 'Cerrar sesión',
