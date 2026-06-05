@@ -38,7 +38,7 @@ const translations = {
     school_year: 'School Year',
     landing_focus_title: 'Faith Formation & Sacramental Readiness',
     landing_focus_subtitle: 'For children, OCIA candidates, and adult faith formation events',
-    secure_online: 'Secure online registration for families, catechists, administrators, and formation participants.',
+    secure_online: 'Create an account or sign in to see registration forms for families, catechists, administrators, and formation participants',
     create_account: 'Create Account',
     login: 'Login',
     logout: 'Logout',
