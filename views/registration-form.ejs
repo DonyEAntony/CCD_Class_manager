@@ -518,6 +518,27 @@
 
 <script>
   (function () {
+    const registrationForm = document.getElementById('registration-form');
+
+    // A hidden (d-none) required field that's also empty blocks submission with an
+    // "invalid form control ... is not focusable" error the browser can't show the
+    // user, silently killing the submit. Every field that's ever `required` in the
+    // markup gets tracked here; whenever visibility changes anywhere in the form,
+    // re-sync `required` to true only for fields with no d-none ancestor.
+    const isVisible = (el) => {
+      let node = el;
+      while (node && node !== registrationForm) {
+        if (node.classList && node.classList.contains('d-none')) return false;
+        node = node.parentElement;
+      }
+      return true;
+    };
+    const alwaysRequiredFields = Array.from(registrationForm.querySelectorAll('[required]'));
+    const syncRequiredByVisibility = () => {
+      alwaysRequiredFields.forEach((el) => { el.required = isVisible(el); });
+    };
+    syncRequiredByVisibility();
+
     const select = document.getElementById('primary_contact_relationship');
     const wrap   = document.getElementById('relationship-other-wrap');
     const other  = document.getElementById('primary_contact_relationship_other');
@@ -525,13 +546,14 @@
     const update = () => {
       const v = select.value;
       wrap.classList.toggle('d-none', v !== 'Other');
-      other.required = v === 'Other';
       if (v !== 'Other') other.value = '';
 
       document.getElementById('father-fields').classList.toggle('d-none', v === 'Father');
       document.getElementById('mother-fields').classList.toggle('d-none', v === 'Mother');
       document.getElementById('step-parent-fields').classList.toggle('d-none',
         v !== 'Stepfather' && v !== 'Stepmother');
+      syncRequiredByVisibility();
+      other.required = v === 'Other' && isVisible(other);
     };
 
     select.addEventListener('change', update);
@@ -579,7 +601,6 @@
     const childrenContainer = document.getElementById('children-container');
     const submitRow = document.getElementById('submit-row');
     const submitBtn = document.getElementById('submit-btn');
-    const registrationForm = document.getElementById('registration-form');
 
     if (childCountSelect && totalChildrenInput) {
       const syncTotal = () => {
@@ -602,6 +623,7 @@
         parentSection.classList.add('d-none');
         childrenContainer.classList.remove('d-none');
         submitRow.classList.remove('d-none');
+        syncRequiredByVisibility();
         const firstInput = childrenContainer.querySelector('input, select');
         if (firstInput) firstInput.focus();
       });
@@ -612,6 +634,7 @@
         childrenContainer.classList.add('d-none');
         submitRow.classList.add('d-none');
         parentSection.classList.remove('d-none');
+        syncRequiredByVisibility();
       });
     }
   }());
