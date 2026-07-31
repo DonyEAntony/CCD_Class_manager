@@ -10,6 +10,7 @@
 </head>
 <body>
 <%- include('_topbar') %>
+<%- include('_admin_nav') %>
 
 <main class="container py-4 app-shell mx-auto">
   <div class="page-heading d-flex flex-wrap justify-content-between align-items-end gap-2">
@@ -17,7 +18,6 @@
       <h1><%= t('scan_legacy_form') %></h1>
       <p class="sub mb-0"><%= t('scan_legacy_desc') %></p>
     </div>
-    <a class="btn btn-outline-secondary" href="/admin/users"><%= t('back') %></a>
   </div>
 
   <div class="page-card">

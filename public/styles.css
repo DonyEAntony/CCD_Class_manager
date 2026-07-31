@@ -87,6 +87,31 @@ a:hover { color: var(--blue-sky); }
 .site-topbar a { color: var(--gold-light); }
 .site-topbar a:hover { color: #fff; }
 
+/* ── Admin Nav ─────────────────────────────────────────────── */
+.admin-nav {
+  background: var(--navy-mid);
+  color: rgba(255,255,255,0.85);
+  padding: 0.6rem 1.5rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+.admin-nav-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.1rem;
+}
+.admin-nav a {
+  color: rgba(255,255,255,0.85);
+  text-decoration: none;
+}
+.admin-nav a:hover { color: var(--gold-light); }
+.admin-nav-back { color: var(--gold-light) !important; }
+
 /* ── Language Toggle ───────────────────────────────────────── */
 .lang-toggle {
   display: flex;
@@ -246,6 +271,14 @@ a:hover { color: var(--blue-sky); }
   margin: 0;
 }
 .page-card .card-body { padding: 1.75rem; }
+
+.collapse-chevron {
+  display: inline-block;
+  color: var(--muted);
+  font-size: 0.8rem;
+  transition: transform 0.18s ease;
+}
+.card-header:not(.collapsed) .collapse-chevron { transform: rotate(90deg); }
 
 /* ── Page Heading ──────────────────────────────────────────── */
 .page-heading {

@@ -1,0 +1,12 @@
+<%# _admin_nav.ejs - include under _topbar on every /admin/* page %>
+<div class="admin-nav">
+  <div class="admin-nav-links">
+    <a href="/admin/registrations">Registrations</a>
+    <a href="/admin/users"><%= t('user_administration') %></a>
+    <a href="/admin/scan-registration"><%= t('scan_legacy_form') %></a>
+    <a href="/family-faith/visits/availability"><%= t('manage_visit_availability') %></a>
+    <a href="/admin/health/mail" target="_blank" rel="noreferrer">Mail Health</a>
+    <a href="/admin/health/document-ai" target="_blank" rel="noreferrer"><%= t('document_ai_health') %></a>
+  </div>
+  <a class="admin-nav-back" href="/dashboard"><%= t('back_to_dashboard') %></a>
+</div>

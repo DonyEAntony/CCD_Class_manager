@@ -10,6 +10,7 @@
 </head>
 <body>
 <%- include('_topbar') %>
+<%- include('_admin_nav') %>
 <main class="container py-4 app-shell mx-auto">
   <% const availableCcdClasses = Array.isArray(typeof ccdClasses === 'undefined' ? null : ccdClasses) ? ccdClasses : []; %>
   <% const availableCatechists = Array.isArray(typeof catechists === 'undefined' ? null : catechists) ? catechists : []; %>
@@ -28,14 +29,19 @@
       <h1><%= t('user_administration') %></h1>
       <p class="sub mb-0"><%= t('manage_roles_desc') %></p>
     </div>
-    <div class="d-flex gap-2">
-      <a class="btn btn-primary" href="/admin/scan-registration"><%= t('scan_legacy_form') %></a>
-      <a class="btn btn-outline-primary" href="/family-faith/visits/availability"><%= t('manage_visit_availability') %></a>
-      <a class="btn btn-outline-primary" href="/admin/health/document-ai" target="_blank" rel="noreferrer"><%= t('document_ai_health') %></a>
-      <a class="btn btn-outline-primary" href="/admin/health/mail" target="_blank" rel="noreferrer">Mail Health</a>
-      <a class="btn btn-outline-secondary" href="/dashboard"><%= t('back_to_dashboard') %></a>
-    </div>
   </div>
+
+  <ul class="nav nav-tabs mb-4" id="adminUsersTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" id="users-settings-tab" data-bs-toggle="tab" data-bs-target="#users-settings-pane" type="button" role="tab" aria-controls="users-settings-pane" aria-selected="true">Users &amp; Settings</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="eucharistic-adoration-tab" data-bs-toggle="tab" data-bs-target="#eucharistic-adoration-pane" type="button" role="tab" aria-controls="eucharistic-adoration-pane" aria-selected="false">Eucharistic Adoration</button>
+    </li>
+  </ul>
+
+  <div class="tab-content" id="adminUsersTabsContent">
+  <div class="tab-pane fade show active" id="users-settings-pane" role="tabpanel" aria-labelledby="users-settings-tab">
 
   <div class="page-card mb-4">
     <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
@@ -184,113 +190,6 @@
           </tbody>
         </table>
       </div>
-    </div>
-  </div>
-
-  <div class="page-card mt-4">
-    <div class="card-header"><h2 class="h5 mb-0">Eucharistic Adoration Calendar</h2></div>
-    <div class="card-body">
-      <form class="row g-3 align-items-end mb-4" method="post" action="/admin/eucharistic-adoration/dates">
-        <div class="col-md-4">
-          <label class="form-label">Available Date</label>
-          <input class="form-control" type="date" name="adoration_date" required>
-        </div>
-        <div class="col-md-3">
-          <label class="form-label">Start Time</label>
-          <input class="form-control" type="time" name="start_time" value="08:30" required>
-        </div>
-        <div class="col-md-3">
-          <label class="form-label">End Time</label>
-          <input class="form-control" type="time" name="end_time" value="16:00" required>
-        </div>
-        <div class="col-md-2">
-          <button class="btn btn-primary" type="submit">Add Available Date</button>
-        </div>
-      </form>
-
-      <% if (!adorationAvailableDates || adorationAvailableDates.length === 0) { %>
-        <p class="mb-0 text-muted">No Eucharistic Adoration dates have been configured yet.</p>
-      <% } else { %>
-        <div class="table-responsive">
-          <table class="table mb-0">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Time Window</th>
-                <th>Signups</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <% adorationAvailableDates.forEach((dateItem) => { %>
-                <% const signupCount = (adorationSignups || []).filter((signup) => {
-                  const signupDateValue = signup.adoration_date instanceof Date
-                    ? `${signup.adoration_date.getFullYear()}-${String(signup.adoration_date.getMonth() + 1).padStart(2, '0')}-${String(signup.adoration_date.getDate()).padStart(2, '0')}`
-                    : `${signup.adoration_date}`.slice(0, 10);
-                  return signupDateValue === dateItem.value;
-                }).length; %>
-                <tr>
-                  <td><strong><%= dateItem.label %></strong></td>
-                  <td><%= dateItem.timeWindowLabel %></td>
-                  <td><%= signupCount %></td>
-                  <td>
-                    <form method="post" action="/admin/eucharistic-adoration/dates/<%= dateItem.id %>/delete" onsubmit="return confirm('Remove this available adoration date? Existing signup records for that day will remain for review.');">
-                      <button class="btn btn-outline-danger btn-sm" type="submit"><%= t('remove') %></button>
-                    </form>
-                  </td>
-                </tr>
-              <% }) %>
-            </tbody>
-          </table>
-        </div>
-      <% } %>
-    </div>
-  </div>
-
-  <div class="page-card mt-4">
-    <div class="card-header"><h2 class="h5 mb-0">Eucharistic Adoration Signups</h2></div>
-    <div class="card-body p-0">
-      <% if (!adorationSignups || adorationSignups.length === 0) { %>
-        <div class="p-4 text-muted">No Eucharistic Adoration signups yet.</div>
-      <% } else { %>
-        <div class="table-responsive">
-          <table class="table mb-0">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Contact</th>
-                <th>Date</th>
-                <th>Time Slot</th>
-                <th>Notes</th>
-                <th>Submitted</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <% adorationSignups.forEach((signup) => { %>
-                <tr>
-                  <td><strong><%= signup.full_name %></strong></td>
-                  <td>
-                    <div><a href="mailto:<%= signup.email %>"><%= signup.email %></a></div>
-                    <div style="font-size:.82rem;color:var(--muted)"><%= signup.phone %></div>
-                  </td>
-                  <td><%= formatAdorationDateLabel(signup.adoration_date) %></td>
-                  <td><%= formatTimeLabel(signup.slot_start_time) %> - <%= formatTimeLabel(signup.slot_end_time) %></td>
-                  <td style="max-width:280px"><%= signup.notes || '—' %></td>
-                  <td style="font-size:.82rem;color:var(--muted)">
-                    <%= signup.created_at ? (typeof signup.created_at === 'string' ? signup.created_at.slice(0, 16).replace('T', ' ') : signup.created_at.toISOString().slice(0, 16).replace('T', ' ')) : '—' %>
-                  </td>
-                  <td>
-                    <form method="post" action="/admin/eucharistic-adoration/<%= signup.id %>/delete" onsubmit="return confirm('Remove this adoration signup and reopen the slot?');">
-                      <button class="btn btn-outline-danger btn-sm" type="submit"><%= t('remove') %></button>
-                    </form>
-                  </td>
-                </tr>
-              <% }) %>
-            </tbody>
-          </table>
-        </div>
-      <% } %>
     </div>
   </div>
 
@@ -631,6 +530,120 @@
     </div>
   </div>
 
+  </div>
+
+  <div class="tab-pane fade" id="eucharistic-adoration-pane" role="tabpanel" aria-labelledby="eucharistic-adoration-tab">
+
+  <div class="page-card mb-4">
+    <div class="card-header"><h2 class="h5 mb-0">Eucharistic Adoration Calendar</h2></div>
+    <div class="card-body">
+      <form class="row g-3 align-items-end mb-4" method="post" action="/admin/eucharistic-adoration/dates">
+        <div class="col-md-4">
+          <label class="form-label">Available Date</label>
+          <input class="form-control" type="date" name="adoration_date" required>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Start Time</label>
+          <input class="form-control" type="time" name="start_time" value="08:30" required>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">End Time</label>
+          <input class="form-control" type="time" name="end_time" value="16:00" required>
+        </div>
+        <div class="col-md-2">
+          <button class="btn btn-primary" type="submit">Add Available Date</button>
+        </div>
+      </form>
+
+      <% if (!adorationAvailableDates || adorationAvailableDates.length === 0) { %>
+        <p class="mb-0 text-muted">No Eucharistic Adoration dates have been configured yet.</p>
+      <% } else { %>
+        <div class="table-responsive">
+          <table class="table mb-0">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Time Window</th>
+                <th>Signups</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% adorationAvailableDates.forEach((dateItem) => { %>
+                <% const signupCount = (adorationSignups || []).filter((signup) => {
+                  const signupDateValue = signup.adoration_date instanceof Date
+                    ? `${signup.adoration_date.getFullYear()}-${String(signup.adoration_date.getMonth() + 1).padStart(2, '0')}-${String(signup.adoration_date.getDate()).padStart(2, '0')}`
+                    : `${signup.adoration_date}`.slice(0, 10);
+                  return signupDateValue === dateItem.value;
+                }).length; %>
+                <tr>
+                  <td><strong><%= dateItem.label %></strong></td>
+                  <td><%= dateItem.timeWindowLabel %></td>
+                  <td><%= signupCount %></td>
+                  <td>
+                    <form method="post" action="/admin/eucharistic-adoration/dates/<%= dateItem.id %>/delete" onsubmit="return confirm('Remove this available adoration date? Existing signup records for that day will remain for review.');">
+                      <button class="btn btn-outline-danger btn-sm" type="submit"><%= t('remove') %></button>
+                    </form>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+  </div>
+
+  <div class="page-card mb-4">
+    <div class="card-header"><h2 class="h5 mb-0">Eucharistic Adoration Signups</h2></div>
+    <div class="card-body p-0">
+      <% if (!adorationSignups || adorationSignups.length === 0) { %>
+        <div class="p-4 text-muted">No Eucharistic Adoration signups yet.</div>
+      <% } else { %>
+        <div class="table-responsive">
+          <table class="table mb-0">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Contact</th>
+                <th>Date</th>
+                <th>Time Slot</th>
+                <th>Notes</th>
+                <th>Submitted</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% adorationSignups.forEach((signup) => { %>
+                <tr>
+                  <td><strong><%= signup.full_name %></strong></td>
+                  <td>
+                    <div><a href="mailto:<%= signup.email %>"><%= signup.email %></a></div>
+                    <div style="font-size:.82rem;color:var(--muted)"><%= signup.phone %></div>
+                  </td>
+                  <td><%= formatAdorationDateLabel(signup.adoration_date) %></td>
+                  <td><%= formatTimeLabel(signup.slot_start_time) %> - <%= formatTimeLabel(signup.slot_end_time) %></td>
+                  <td style="max-width:280px"><%= signup.notes || '—' %></td>
+                  <td style="font-size:.82rem;color:var(--muted)">
+                    <%= signup.created_at ? (typeof signup.created_at === 'string' ? signup.created_at.slice(0, 16).replace('T', ' ') : signup.created_at.toISOString().slice(0, 16).replace('T', ' ')) : '—' %>
+                  </td>
+                  <td>
+                    <form method="post" action="/admin/eucharistic-adoration/<%= signup.id %>/delete" onsubmit="return confirm('Remove this adoration signup and reopen the slot?');">
+                      <button class="btn btn-outline-danger btn-sm" type="submit"><%= t('remove') %></button>
+                    </form>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+  </div>
+
+  </div>
+  </div>
+
   <p class="footer-note"><%= t('footer_note') %></p>
 </main>
 <script>
@@ -661,5 +674,6 @@
     updateScheduleFields();
   }());
 </script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

@@ -137,7 +137,7 @@ const translations = {
     upload_scans: 'Upload Certificate Scans',
     baptism_required: 'Baptism Certificate (required if first year)',
     communion_required: 'First Holy Communion Certificate (required for 3rd grade+)',
-    fee_notice: 'Fees: $150 one child / $200 family; sacramental fee $25 for second grade/SS2, $50 for second-year Confirmation. Late fee $50 after Aug 15, 2025. No registrations accepted after Sept 8, 2025.',
+    fee_notice: 'Fees: $150 one child / $200 family; sacramental fee $25 for second grade/SS2, $50 for second-year Confirmation.',
     submit_registration: 'Submit Registration',
     cancel: 'Cancel',
     footer_note: 'Please verify all sacramental records before submission. Contact the parish office with questions.',
@@ -491,7 +491,7 @@ const translations = {
     upload_scans: 'Subir Escaneos de Certificados',
     baptism_required: 'Certificado de Bautismo (requerido si es el primer año)',
     communion_required: 'Certificado de Primera Comunión (requerido para 3er grado en adelante)',
-    fee_notice: 'Cuotas: $150 por un hijo / $200 por familia; cuota sacramental de $25 para segundo grado/SS2, $50 para segundo año de Confirmación. Recargo de $50 después del 15 de agosto de 2025.',
+    fee_notice: 'Cuotas: $150 por un hijo / $200 por familia; cuota sacramental de $25 para segundo grado/SS2, $50 para segundo año de Confirmación.',
     submit_registration: 'Enviar Inscripción',
     cancel: 'Cancelar',
     footer_note: 'Por favor verifique los registros sacramentales antes de enviar. Contacte a la oficina parroquial con preguntas.',
@@ -858,18 +858,20 @@ const getAllScheduledFaithFormationEvents = async () =>
        ON definitions.id = schedules.event_definition_id
      ORDER BY schedules.event_date ASC, schedules.event_time ASC, definitions.title ASC`
   ).all();
-const getFaithFormationEvents = async (audiences = []) => {
+const getFaithFormationEvents = async (audiences = [], { includePast = false } = {}) => {
   const audienceList = Array.from(new Set((Array.isArray(audiences) ? audiences : [audiences]).filter(Boolean)));
   if (!audienceList.length) return [];
   const placeholders = audienceList.map(() => '?').join(', ');
+  const futureOnlyClause = includePast ? '' : `AND (schedules.schedule_type = 'recurring' OR schedules.event_date IS NULL OR schedules.event_date >= ?)`;
   return db.prepare(
     `SELECT schedules.id, definitions.title, definitions.audience, schedules.schedule_type, schedules.recurrence_pattern, schedules.event_date, schedules.event_time, schedules.event_end_time, schedules.location
      FROM faith_formation_event_schedules schedules
      INNER JOIN faith_formation_event_definitions definitions
        ON definitions.id = schedules.event_definition_id
      WHERE definitions.audience IN (${placeholders})
+       ${futureOnlyClause}
      ORDER BY event_date ASC, event_time ASC, title ASC`
-  ).all(...audienceList);
+  ).all(...audienceList, ...(includePast ? [] : [getTodayDateValue()]));
 };
 const getBaptismPrepSchedules = async () => getFaithFormationEvents(['baptism_prep']);
 const getFamilyFaithVisitSlots = async ({ leaderUserId = null, includeBookedRegistrationId = null } = {}) => {
@@ -1187,15 +1189,16 @@ const requireRegistrationAccess = async (req, res, registrationType) => {
   return settings;
 };
 
-const calculateFees = (familyCount, gradeLevel, registrationDateStr, schoolYear) => {
+const calculateFees = (familyCount, gradeLevel, registrationDateStr, schoolYear, sacramentalYear) => {
   const registrationFee = Number(familyCount) > 1 ? 200 : 150;
   const grade = `${gradeLevel}`.toLowerCase();
-  const sacramentalFee = grade.includes('2') ? 25 : grade.includes('confirmation') ? 50 : 0;
+  const sacramentalFee = sacramentalYear === 'second_year_communion' ? 25
+    : sacramentalYear === 'second_year_confirmation' ? 50
+    : grade.includes('2') ? 25 : grade.includes('confirmation') ? 50 : 0;
   const registrationDate = registrationDateStr ? new Date(registrationDateStr) : new Date();
   const startYear = parseFaithFormationStartYear(schoolYear);
-  const deadline = new Date(`${startYear}-08-15T23:59:59`);
   const classesBegin = new Date(`${startYear}-09-08T00:00:00`);
-  const lateFee = registrationDate > deadline && registrationDate < classesBegin ? 50 : 0;
+  const lateFee = 0;
   return { registrationFee, sacramentalFee, lateFee, afterStart: registrationDate >= classesBegin };
 };
 
@@ -1623,7 +1626,7 @@ app.get('/logout', (req, res, next) => {
 
 // ── Dashboard ────────────────────────────────────────────────
 app.get('/dashboard', requireAuth, asyncHandler(async (req, res) => {
-  const isStaff = req.user.role === 'admin' || req.user.role === 'catechist';
+  const isStaff = req.user.role === 'catechist';
   const faithFormationSettings = await getFaithFormationSettings();
 
   const studentRegs = isStaff
@@ -1783,15 +1786,52 @@ app.get('/registration/children', requireAuth, asyncHandler(async (req, res) => 
   const faithFormationSettings = await requireRegistrationAccess(req, res, 'faith_formation');
   if (!faithFormationSettings) return;
   const today = new Date().toISOString().slice(0, 10);
+
+  const stage = req.query.stage === 'student' ? 'student' : 'intro';
+  const totalChildren = Number.parseInt(req.query.total, 10) || null;
+  const studentIndex = Number.parseInt(req.query.index, 10) || 1;
+  const groupIds = `${req.query.groupIds || ''}`.split(',').map((s) => s.trim()).filter(Boolean).map(Number);
+
+  let parentInfo = null;
+  let studentPrefill = null;
+  let currentRegistrationId = null;
+
+  if (stage === 'student' && groupIds.length) {
+    parentInfo = await db.prepare(
+      'SELECT * FROM student_registrations WHERE id = ? AND user_id = ?'
+    ).get(groupIds[0], req.user.id);
+
+    if (parentInfo) {
+      const addressParts = parentInfo.city_state_zip ? parentInfo.city_state_zip.split(', ') : ['', '', ''];
+      parentInfo.city = addressParts[0] || '';
+      parentInfo.state = addressParts[1] ? addressParts[1].split(' ')[0] : '';
+      parentInfo.zip = addressParts[1] ? addressParts[1].split(' ')[1] : '';
+    }
+
+    if (studentIndex <= groupIds.length) {
+      studentPrefill = await db.prepare(
+        'SELECT * FROM student_registrations WHERE id = ? AND user_id = ?'
+      ).get(groupIds[studentIndex - 1], req.user.id);
+      currentRegistrationId = studentPrefill ? studentPrefill.id : null;
+    }
+  }
+
   res.render('registration-form', {
     today,
-    reg: null,
+    reg: parentInfo,
     editing: false,
     isStaff: false,
     schoolYearLabel: `School Year ${faithFormationSettings.schoolYear}`,
     activeSchoolYear: faithFormationSettings.schoolYear,
     statusOptions: STUDENT_REGISTRATION_STATUSES,
     relevantEvents: await getFaithFormationEvents(['children', 'general']),
+    stage,
+    totalChildren,
+    studentIndex,
+    groupIds,
+    parentInfo,
+    studentPrefill,
+    currentRegistrationId,
   });
 }));
 
@@ -1993,6 +2033,7 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
     const faithFormationSettings = await requireRegistrationAccess(req, res, 'faith_formation');
     if (!faithFormationSettings) return;
     const isAdmin = req.user.role === 'admin';
+    const orNull = (v) => (v === undefined || v === '' ? null : v);
     const requestedStatus = typeof req.body.status === 'string' ? req.body.status.trim() : '';
     if (requestedStatus && !STUDENT_REGISTRATION_STATUSES.includes(requestedStatus)) {
       req.flash('error', 'Invalid registration status.');
@@ -2000,159 +2041,229 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
       return res.redirect(redirectUrl);
     }
 
-    // Calculate family_count from number of students entered
-    const studentNamesForFees = Array.isArray(req.body.student_full_name) ? req.body.student_full_name : (req.body.student_full_name ? [req.body.student_full_name] : []);
-    const familyCount = studentNamesForFees.filter(name => (name || '').trim()).length || 1;
-    const fees = calculateFees(familyCount, req.body.ccd_grade_level, null, faithFormationSettings.schoolYear);
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const phoneRegex = /^\d{3}[-.\s]?\d{3}[-.\s]?\d{4}$/;
+    const baptismCert = req.files?.baptism_certificate?.[0]?.path || null;
+    const communionCert = req.files?.first_communion_certificate?.[0]?.path || null;
+
+    const totalChildren = Number.parseInt(req.body.total_children, 10);
+    const isWizardSubmission = Number.isInteger(totalChildren) && totalChildren > 0;
+
+    if (isWizardSubmission) {
+      // ── Registration wizard: one student saved per request ──────────────
+      const studentIndex = Number.parseInt(req.body.student_index, 10) || 1;
+      const priorGroupIds = `${req.body.group_ids || ''}`.split(',').map((s) => s.trim()).filter(Boolean).map(Number);
+      const isLastStage = studentIndex >= totalChildren;
+      const stageRedirect = `/registration/children?stage=student&index=${studentIndex}&groupIds=${priorGroupIds.join(',')}&total=${totalChildren}`;
+
+      const fees = calculateFees(totalChildren, null, null, faithFormationSettings.schoolYear, req.body.sacramental_year);
+      if (fees.afterStart) {
+        req.flash('error', `Registration closed: no registrations accepted after classes begin on Sept. 8, ${parseFaithFormationStartYear(faithFormationSettings.schoolYear)}.`);
+        return res.redirect('/registration/children');
+      }
+
+      if (!emailRegex.test(req.body.primary_contact_email)) {
+        req.flash('error', 'Invalid email format.');
+        return res.redirect(stageRedirect);
+      }
+      if (!phoneRegex.test(req.body.primary_contact_phone)) {
+        req.flash('error', 'Invalid phone format. Use XXX-XXX-XXXX, XXX.XXX.XXXX, or XXX XXX XXXX.');
+        return res.redirect(stageRedirect);
+      }
+
+      const firstName = (req.body.student_first_name || '').trim();
+      const lastName = (req.body.student_last_name || '').trim();
+      const gender = (req.body.student_gender || '').trim();
+      const dob = (req.body.student_dob || '').trim();
+      if (!firstName || !lastName || !gender || !dob) {
+        req.flash('error', 'Please fill in the student’s first name, last name, gender, and date of birth.');
+        return res.redirect(stageRedirect);
+      }
+
+      const studentFullName = [firstName, (req.body.student_middle_name || '').trim(), lastName].filter(Boolean).join(' ');
+      const city = (req.body.child_place_of_birth_city || '').trim();
+      const country = (req.body.child_place_of_birth_country || '').trim();
+      const placeOfBirthLegacy = [city, country].filter(Boolean).join(', ') || null;
+
+      const rowRegistrationFee = studentIndex === 1 ? fees.registrationFee : 0;
+      const existingRowId = req.body.registration_id ? Number(req.body.registration_id) : null;
+
+      let thisRowId;
+      if (existingRowId) {
+        await db.prepare(`
+          UPDATE student_registrations SET
+            parent_name = ?, primary_contact_first_name = ?, primary_contact_last_name = ?,
+            primary_contact_phone = ?, primary_contact_email = ?,
+            primary_contact_relationship = ?, primary_contact_relationship_other = ?,
+            address = ?, city_state_zip = ?, home_phone = ?,
+            father_name = ?, father_religion = ?, father_cell = ?,
+            mother_maiden_name = ?, mother_religion = ?, mother_cell = ?,
+            child_lives_with = ?, step_parent_name = ?, step_parent_religion = ?,
+            student_full_name = ?, student_gender = ?,
+            student_dob = ?, child_place_of_birth = ?, child_place_of_birth_city = ?, child_place_of_birth_country = ?,
+            school_attending = ?, school_grade_level = ?,
+            baptism_date = ?, baptism_church = ?,
+            first_communion_date = ?, first_communion_church = ?,
+            sacramental_year = ?, preferred_class_time = ?,
+            disabilities_comments = ?, parent_signature = ?, email = ?,
+            registration_fee = ?, sacramental_fee = ?, late_fee = ?,
+            baptism_certificate_path = COALESCE(?, baptism_certificate_path),
+            first_communion_certificate_path = COALESCE(?, first_communion_certificate_path),
+            status = ?
+          WHERE id = ? AND user_id = ?
+        `).run(
+          `${req.body.primary_contact_first_name || ''} ${req.body.primary_contact_last_name || ''}`,
+          orNull(req.body.primary_contact_first_name), orNull(req.body.primary_contact_last_name),
+          orNull(req.body.primary_contact_phone), orNull(req.body.primary_contact_email),
+          orNull(req.body.primary_contact_relationship),
+          req.body.primary_contact_relationship === 'Other' ? orNull(req.body.primary_contact_relationship_other) : null,
+          orNull(req.body.address), `${req.body.city || ''}, ${req.body.state || ''} ${req.body.zip || ''}`, orNull(req.body.home_phone),
+          orNull(req.body.father_name), orNull(req.body.father_religion), orNull(req.body.father_cell),
+          orNull(req.body.mother_maiden_name), orNull(req.body.mother_religion), orNull(req.body.mother_cell),
+          orNull(req.body.child_lives_with), orNull(req.body.step_parent_name), orNull(req.body.step_parent_religion),
+          studentFullName, gender,
+          dob, placeOfBirthLegacy, orNull(city), orNull(country),
+          orNull(req.body.school_attending), orNull(req.body.school_grade_level),
+          orNull(req.body.baptism_date), orNull(req.body.baptism_church),
+          orNull(req.body.first_communion_date), orNull(req.body.first_communion_church),
+          req.body.sacramental_year || null, req.body.preferred_class_time || null,
+          orNull(req.body.disabilities_comments), orNull(req.body.parent_signature), orNull(req.body.email),
+          rowRegistrationFee, fees.sacramentalFee, fees.lateFee,
+          baptismCert, communionCert,
+          isLastStage ? 'in_progress' : 'incomplete',
+          existingRowId, req.user.id
+        );
+        thisRowId = existingRowId;
+      } else {
+        const result = await db.prepare(`
+          INSERT INTO student_registrations (
+            user_id, school_year, parent_name, primary_contact_first_name, primary_contact_last_name,
+            primary_contact_phone, primary_contact_email,
+            primary_contact_relationship, primary_contact_relationship_other, address, city_state_zip, home_phone,
+            father_name, father_religion, father_cell, mother_maiden_name, mother_religion, mother_cell,
+            child_lives_with, step_parent_name, step_parent_religion, student_full_name, student_gender,
+            student_dob, child_place_of_birth, child_place_of_birth_city, child_place_of_birth_country,
+            school_attending, school_grade_level,
+            baptism_date, baptism_church, first_communion_date, first_communion_church,
+            sacramental_year, preferred_class_time,
+            disabilities_comments, parent_signature, email, registration_fee, sacramental_fee, late_fee,
+            baptism_certificate_path, first_communion_certificate_path, status
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          req.user.id, faithFormationSettings.schoolYear,
+          `${req.body.primary_contact_first_name || ''} ${req.body.primary_contact_last_name || ''}`,
+          orNull(req.body.primary_contact_first_name), orNull(req.body.primary_contact_last_name),
+          orNull(req.body.primary_contact_phone), orNull(req.body.primary_contact_email),
+          orNull(req.body.primary_contact_relationship),
+          req.body.primary_contact_relationship === 'Other' ? orNull(req.body.primary_contact_relationship_other) : null,
+          orNull(req.body.address), `${req.body.city || ''}, ${req.body.state || ''} ${req.body.zip || ''}`, orNull(req.body.home_phone),
+          orNull(req.body.father_name), orNull(req.body.father_religion), orNull(req.body.father_cell),
+          orNull(req.body.mother_maiden_name), orNull(req.body.mother_religion), orNull(req.body.mother_cell),
+          orNull(req.body.child_lives_with), orNull(req.body.step_parent_name), orNull(req.body.step_parent_religion),
+          studentFullName, gender,
+          dob, placeOfBirthLegacy, orNull(city), orNull(country),
+          orNull(req.body.school_attending), orNull(req.body.school_grade_level),
+          orNull(req.body.baptism_date), orNull(req.body.baptism_church),
+          orNull(req.body.first_communion_date), orNull(req.body.first_communion_church),
+          req.body.sacramental_year || null, req.body.preferred_class_time || null,
+          orNull(req.body.disabilities_comments), orNull(req.body.parent_signature), orNull(req.body.email),
+          rowRegistrationFee, fees.sacramentalFee, fees.lateFee,
+          baptismCert, communionCert,
+          isLastStage ? 'in_progress' : 'incomplete',
+        );
+        thisRowId = result.lastInsertRowid;
+      }
+
+      const groupIdsAfter = existingRowId ? priorGroupIds : [...priorGroupIds, thisRowId];
+
+      if (isLastStage) {
+        if (groupIdsAfter.length) {
+          const placeholders = groupIdsAfter.map(() => '?').join(', ');
+          await db.prepare(
+            `UPDATE student_registrations SET status = 'in_progress' WHERE id IN (${placeholders}) AND user_id = ?`
+          ).run(...groupIdsAfter, req.user.id);
+        }
+        const totalsRow = await db.prepare(
+          `SELECT SUM(registration_fee + sacramental_fee + late_fee) AS total FROM student_registrations WHERE id IN (${groupIdsAfter.map(() => '?').join(', ')})`
+        ).get(...groupIdsAfter);
+        req.flash('success', `Registration submitted. Total fees: $${totalsRow?.total || 0}`);
+        return res.redirect('/dashboard');
+      }
+
+      return res.redirect(`/registration/children?stage=student&index=${studentIndex + 1}&groupIds=${groupIdsAfter.join(',')}&total=${totalChildren}`);
+    }
+
+    // ── Admin editing a single existing registration (outside the wizard) ──
+    const fees = calculateFees(1, req.body.ccd_grade_level, null, faithFormationSettings.schoolYear, req.body.sacramental_year);
     if (fees.afterStart) {
       req.flash('error', `Registration closed: no registrations accepted after classes begin on Sept. 8, ${parseFaithFormationStartYear(faithFormationSettings.schoolYear)}.`);
       return res.redirect('/registration/children');
     }
-
-    // Server-side validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(req.body.primary_contact_email)) {
       req.flash('error', 'Invalid email format.');
-      const redirectUrl = req.body.registration_id ? `/registration/children/edit/${req.body.registration_id}` : '/registration/children';
-      return res.redirect(redirectUrl);
+      return res.redirect(`/registration/children/edit/${req.body.registration_id}`);
     }
-    const phoneRegex = /^\d{3}[-.\s]?\d{3}[-.\s]?\d{4}$/;
     if (!phoneRegex.test(req.body.primary_contact_phone)) {
       req.flash('error', 'Invalid phone format. Use XXX-XXX-XXXX, XXX.XXX.XXXX, or XXX XXX XXXX.');
-      const redirectUrl = req.body.registration_id ? `/registration/children/edit/${req.body.registration_id}` : '/registration/children';
-      return res.redirect(redirectUrl);
+      return res.redirect(`/registration/children/edit/${req.body.registration_id}`);
     }
 
-    // Ensure every entered student has first/last name + gender + birthdate
-    const toArray = (v) => (Array.isArray(v) ? v : v == null ? [] : [v]);
-    const studentFirstNames = toArray(req.body.student_first_name);
-    const studentMiddleNames = toArray(req.body.student_middle_name);
-    const studentLastNames = toArray(req.body.student_last_name);
-    const studentGenders = toArray(req.body.student_gender);
-    const studentDobs = toArray(req.body.student_dob);
-
-    for (let i = 0; i < studentFirstNames.length; i++) {
-      const firstName = (studentFirstNames[i] || '').trim();
-      const lastName = (studentLastNames[i] || '').trim();
-      if (!firstName && !lastName) continue;
-      const gender = (studentGenders[i] || '').trim();
-      const dob = (studentDobs[i] || '').trim();
-      if (!firstName || !lastName || !gender || !dob) {
-        req.flash('error', 'Each student must have first name, last name, gender, and date of birth.');
-        const redirectUrl = req.body.registration_id ? `/registration/children/edit/${req.body.registration_id}` : '/registration/children';
-        return res.redirect(redirectUrl);
-      }
+    const existingReg = await db.prepare(
+      'SELECT id, status FROM student_registrations WHERE id = ? AND (user_id = ? OR ? = 1)'
+    ).get(req.body.registration_id, req.user.id, isAdmin ? 1 : 0);
+    if (!existingReg) {
+      return res.status(404).send('Registration not found.');
     }
 
-    req.body.ccd_grade_level = req.body.ccd_grade_level || [];
-
-    // Build student_full_name array for storage (historic)/display
-    const studentFullNames = studentFirstNames.map((first, idx) => {
-      const middle = (studentMiddleNames[idx] || '').trim();
-      const last = (studentLastNames[idx] || '').trim();
-      if (!first && !last) return '';
-      return [first.trim(), middle, last].filter(Boolean).join(' ');
-    });
-
-    // Build birthplace merged string for legacy and keep new columns
-    const childPlaceOfBirthCity = toArray(req.body.child_place_of_birth_city);
-    const childPlaceOfBirthCountry = toArray(req.body.child_place_of_birth_country);
-    const childPlaceOfBirthLegacy = childPlaceOfBirthCity.map((city, idx) => {
-      const country = (childPlaceOfBirthCountry[idx] || '').trim();
-      if (!city && !country) return '';
-      return [city.trim(), country].filter(Boolean).join(', ');
-    });
-
-    const baptismCert = req.files?.baptism_certificate?.[0]?.path || null;
-    const communionCert = req.files?.first_communion_certificate?.[0]?.path || null;
-
-    if (req.body.registration_id) {
-      const existingReg = await db.prepare(
-        'SELECT id, status FROM student_registrations WHERE id = ? AND (user_id = ? OR ? = 1)'
-      ).get(req.body.registration_id, req.user.id, isAdmin ? 1 : 0);
-      if (!existingReg) {
-        return res.status(404).send('Registration not found.');
-      }
-
-      const nextStatus = isAdmin && requestedStatus ? requestedStatus : existingReg.status;
-
-      // Update existing
-      await db.prepare(`
-        UPDATE student_registrations SET
-          parent_name = ?, primary_contact_first_name = ?, primary_contact_last_name = ?,
-          primary_contact_phone = ?, primary_contact_email = ?,
-          primary_contact_relationship = ?, primary_contact_relationship_other = ?,
-          address = ?, city_state_zip = ?, home_phone = ?,
-          father_name = ?, father_religion = ?, father_cell = ?,
-          mother_maiden_name = ?, mother_religion = ?, mother_cell = ?,
-          child_lives_with = ?, step_parent_name = ?, step_parent_religion = ?,
-          student_full_name = ?, student_gender = ?,
-          student_dob = ?, child_place_of_birth = ?, child_place_of_birth_city = ?, child_place_of_birth_country = ?, ccd_grade_level = ?,
-          school_attending = ?, school_grade_level = ?,
-          baptism_date = ?, baptism_church = ?,
-          first_communion_date = ?, first_communion_church = ?,
-          disabilities_comments = ?, parent_signature = ?, email = ?,
-          registration_fee = ?, sacramental_fee = ?, late_fee = ?,
-          baptism_certificate_path = ?, first_communion_certificate_path = ?, status = ?
-        WHERE id = ? AND (user_id = ? OR ? = 1)
-      `).run(
-        `${req.body.primary_contact_first_name} ${req.body.primary_contact_last_name}`,
-        req.body.primary_contact_first_name, req.body.primary_contact_last_name,
-        req.body.primary_contact_phone, req.body.primary_contact_email,
-        req.body.primary_contact_relationship,
-        req.body.primary_contact_relationship === 'Other' ? req.body.primary_contact_relationship_other : null,
-        req.body.address, `${req.body.city}, ${req.body.state} ${req.body.zip}`, req.body.home_phone,
-        req.body.father_name, req.body.father_religion, req.body.father_cell,
-        req.body.mother_maiden_name, req.body.mother_religion, req.body.mother_cell,
-        req.body.child_lives_with, req.body.step_parent_name, req.body.step_parent_religion,
-        studentFullNames, req.body.student_gender,
-        req.body.student_dob, childPlaceOfBirthLegacy, childPlaceOfBirthCity.join(','), childPlaceOfBirthCountry.join(','), req.body.ccd_grade_level,
-        req.body.school_attending, req.body.school_grade_level,
-        req.body.baptism_date, req.body.baptism_church,
-        req.body.first_communion_date, req.body.first_communion_church,
-        req.body.disabilities_comments, req.body.parent_signature, req.body.email,
-        fees.registrationFee, fees.sacramentalFee, fees.lateFee,
-        baptismCert, communionCert, nextStatus,
-        req.body.registration_id, req.user.id, isAdmin ? 1 : 0
-      );
-      req.flash('success', 'Registration updated.');
-      return res.redirect('/dashboard');
-    }
+    const nextStatus = isAdmin && requestedStatus ? requestedStatus : existingReg.status;
+    const studentFullName = [(req.body.student_first_name || '').trim(), (req.body.student_middle_name || '').trim(), (req.body.student_last_name || '').trim()].filter(Boolean).join(' ') || null;
+    const city = (req.body.child_place_of_birth_city || '').trim();
+    const country = (req.body.child_place_of_birth_country || '').trim();
+    const placeOfBirthLegacy = [city, country].filter(Boolean).join(', ') || null;
 
     await db.prepare(`
-      INSERT INTO student_registrations (
-        user_id, school_year, parent_name, primary_contact_first_name, primary_contact_last_name,
-        primary_contact_phone, primary_contact_email,
-        primary_contact_relationship, primary_contact_relationship_other, address, city_state_zip, home_phone,
-        father_name, father_religion, father_cell, mother_maiden_name, mother_religion, mother_cell,
-        child_lives_with, step_parent_name, step_parent_religion, student_full_name, student_gender,
-        student_dob, child_place_of_birth, child_place_of_birth_city, child_place_of_birth_country, ccd_grade_level, school_attending,
-        school_grade_level, baptism_date, baptism_church, first_communion_date, first_communion_church,
-        disabilities_comments, parent_signature, email, registration_fee, sacramental_fee, late_fee,
-        baptism_certificate_path, first_communion_certificate_path, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      UPDATE student_registrations SET
+        parent_name = ?, primary_contact_first_name = ?, primary_contact_last_name = ?,
+        primary_contact_phone = ?, primary_contact_email = ?,
+        primary_contact_relationship = ?, primary_contact_relationship_other = ?,
+        address = ?, city_state_zip = ?, home_phone = ?,
+        father_name = ?, father_religion = ?, father_cell = ?,
+        mother_maiden_name = ?, mother_religion = ?, mother_cell = ?,
+        child_lives_with = ?, step_parent_name = ?, step_parent_religion = ?,
+        student_full_name = ?, student_gender = ?,
+        student_dob = ?, child_place_of_birth = ?, child_place_of_birth_city = ?, child_place_of_birth_country = ?, ccd_grade_level = ?,
+        school_attending = ?, school_grade_level = ?,
+        baptism_date = ?, baptism_church = ?,
+        first_communion_date = ?, first_communion_church = ?,
+        sacramental_year = ?, preferred_class_time = ?,
+        disabilities_comments = ?, parent_signature = ?, email = ?,
+        registration_fee = ?, sacramental_fee = ?, late_fee = ?,
+        baptism_certificate_path = COALESCE(?, baptism_certificate_path),
+        first_communion_certificate_path = COALESCE(?, first_communion_certificate_path),
+        status = ?
+      WHERE id = ? AND (user_id = ? OR ? = 1)
     `).run(
-      req.user.id, faithFormationSettings.schoolYear,
-      `${req.body.primary_contact_first_name} ${req.body.primary_contact_last_name}`,
-      req.body.primary_contact_first_name, req.body.primary_contact_last_name,
-      req.body.primary_contact_phone, req.body.primary_contact_email,
-      req.body.primary_contact_relationship,
-      req.body.primary_contact_relationship === 'Other' ? req.body.primary_contact_relationship_other : null,
-      req.body.address, `${req.body.city}, ${req.body.state} ${req.body.zip}`, req.body.home_phone,
-      req.body.father_name, req.body.father_religion, req.body.father_cell,
-      req.body.mother_maiden_name, req.body.mother_religion, req.body.mother_cell,
-      req.body.child_lives_with, req.body.step_parent_name, req.body.step_parent_religion,
-      studentFullNames, req.body.student_gender,
-      req.body.student_dob, childPlaceOfBirthLegacy, childPlaceOfBirthCity.join(','), childPlaceOfBirthCountry.join(','), req.body.ccd_grade_level,
-      req.body.school_attending, req.body.school_grade_level,
-      req.body.baptism_date, req.body.baptism_church,
-      req.body.first_communion_date, req.body.first_communion_church,
-      req.body.disabilities_comments, req.body.parent_signature, req.body.email,
+      `${req.body.primary_contact_first_name || ''} ${req.body.primary_contact_last_name || ''}`,
+      orNull(req.body.primary_contact_first_name), orNull(req.body.primary_contact_last_name),
+      orNull(req.body.primary_contact_phone), orNull(req.body.primary_contact_email),
+      orNull(req.body.primary_contact_relationship),
+      req.body.primary_contact_relationship === 'Other' ? orNull(req.body.primary_contact_relationship_other) : null,
+      orNull(req.body.address), `${req.body.city || ''}, ${req.body.state || ''} ${req.body.zip || ''}`, orNull(req.body.home_phone),
+      orNull(req.body.father_name), orNull(req.body.father_religion), orNull(req.body.father_cell),
+      orNull(req.body.mother_maiden_name), orNull(req.body.mother_religion), orNull(req.body.mother_cell),
+      orNull(req.body.child_lives_with), orNull(req.body.step_parent_name), orNull(req.body.step_parent_religion),
+      studentFullName, orNull(req.body.student_gender),
+      orNull(req.body.student_dob), placeOfBirthLegacy, orNull(city), orNull(country), orNull(req.body.ccd_grade_level),
+      orNull(req.body.school_attending), orNull(req.body.school_grade_level),
+      orNull(req.body.baptism_date), orNull(req.body.baptism_church),
+      orNull(req.body.first_communion_date), orNull(req.body.first_communion_church),
+      req.body.sacramental_year || null, req.body.preferred_class_time || null,
+      orNull(req.body.disabilities_comments), orNull(req.body.parent_signature), orNull(req.body.email),
       fees.registrationFee, fees.sacramentalFee, fees.lateFee,
-      baptismCert, communionCert, 'in_progress',
+      baptismCert, communionCert, nextStatus,
+      req.body.registration_id, req.user.id, isAdmin ? 1 : 0
     );
-
-    req.flash('success', `Registration submitted. Total fees: $${fees.registrationFee + fees.sacramentalFee + fees.lateFee}`);
+    req.flash('success', 'Registration updated.');
     return res.redirect('/dashboard');
 });
 
@@ -2229,6 +2340,10 @@ app.get('/registration/children/edit/:id', requireAuth, asyncHandler(async (req,
 
 // ── Adult Programs ───────────────────────────────────────────
 app.get('/registration/family-faith', requireAuth, asyncHandler(async (req, res) => {
+  if (req.user.role !== 'admin') {
+    req.flash('error', 'Family Faith Formation registration is not open yet. Please check back later.');
+    return res.redirect('/dashboard');
+  }
   res.render('family-registration-form', {
     today: new Date().toISOString().slice(0, 10),
     reg: null,
@@ -2564,6 +2679,26 @@ app.post('/registration/adult/:program', requireAuth, asyncHandler(async (req, r
 }));
 
 // ── Admin ────────────────────────────────────────────────────
+app.get('/admin', requireAuth, requireRole('admin'), (req, res) => res.redirect('/admin/registrations'));
+
+app.get('/admin/registrations', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const faithFormationSettings = await getFaithFormationSettings();
+
+  const studentRegs = await db.prepare('SELECT * FROM student_registrations ORDER BY created_at DESC').all();
+
+  const familyRegsRaw = await db.prepare('SELECT * FROM family_faith_registrations ORDER BY created_at DESC').all();
+  const familyRegs = familyRegsRaw.map((reg) => ({
+    ...reg,
+    members: parseFamilyMembersFromStorage(reg.members_json),
+  }));
+
+  const adultRegs = await db.prepare('SELECT * FROM adult_registrations ORDER BY created_at DESC').all();
+  const sponsorRegs = await db.prepare('SELECT * FROM sponsor_confirmations ORDER BY created_at DESC').all();
+
+  const ADULT_PROGRAMS = getAdultPrograms(res.locals.t);
+  res.render('admin-registrations', { studentRegs, familyRegs, adultRegs, sponsorRegs, ADULT_PROGRAMS, faithFormationSettings });
+}));
+
 app.get('/admin/users', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   const users = await db.prepare(`
     SELECT id, email, role, provider, full_name, phone, is_active, email_verified_at, created_at
@@ -2579,7 +2714,7 @@ app.get('/admin/users', requireAuth, requireRole('admin'), asyncHandler(async (r
   const ccdClasses = await getCcdClasses();
   const catechists = await getCatechists();
   const eventDefinitions = await getFaithFormationEventDefinitions();
-  const managedEvents = await getFaithFormationEvents(['children', 'family_faith', 'baptism_prep', 'ocia', 'general']);
+  const managedEvents = await getFaithFormationEvents(['children', 'family_faith', 'baptism_prep', 'ocia', 'general'], { includePast: true });
   const faithFormationSettings = await getFaithFormationSettings();
   const registrationYearStatuses = await getRegistrationYearStatusList(parseFaithFormationStartYear(faithFormationSettings.currentRegistrationYear));
   const altarServerTrainingDates = await getAltarServerTrainingDates({ includePast: true });

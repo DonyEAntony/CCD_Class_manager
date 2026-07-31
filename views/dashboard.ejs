@@ -73,9 +73,9 @@
     </div>
     <div class="d-flex flex-wrap gap-2">
       <% if (user.role === 'admin') { %>
-        <a class="btn btn-outline-primary" href="/admin/users"><%= t('manage_users') %></a>
+        <a class="btn btn-primary" href="/admin">Admin Area</a>
       <% } %>
-      <% if (user.role === 'admin' || user.role === 'family_faith_leader') { %>
+      <% if (user.role === 'family_faith_leader') { %>
         <a class="btn btn-outline-primary" href="/family-faith/visits/availability"><%= t('manage_visit_availability') %></a>
       <% } %>
       <a class="btn btn-outline-primary" href="/calendar"><%= t('calendar') %></a>
@@ -83,82 +83,108 @@
     </div>
   </div>
 
-  <!-- Registration Menu -->
+  <% const canOpenFaithFormation = user.role === 'admin' || user.role === 'catechist' || (faithFormationSettings && faithFormationSettings.faithFormationRegistrationOpen); %>
+  <% const canOpenSponsorForm = user.role === 'admin' || user.role === 'catechist' || (faithFormationSettings && faithFormationSettings.sponsorFormRegistrationOpen); %>
+
+  <ul class="nav nav-tabs mb-4" id="dashboardTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" id="new-registration-tab" data-bs-toggle="tab" data-bs-target="#new-registration-pane" type="button" role="tab" aria-controls="new-registration-pane" aria-selected="true"><%= t('new_registration_heading') %></button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="my-registrations-tab" data-bs-toggle="tab" data-bs-target="#my-registrations-pane" type="button" role="tab" aria-controls="my-registrations-pane" aria-selected="false">My Registrations</button>
+    </li>
+  </ul>
+
+  <div class="tab-content" id="dashboardTabsContent">
+  <div class="tab-pane fade show active" id="new-registration-pane" role="tabpanel" aria-labelledby="new-registration-tab">
+
   <div class="page-card mb-4">
-    <div class="card-header"><h2 class="h5"><%= t('new_registration_heading') %></h2></div>
     <div class="card-body">
 
-      <p class="section-label"><%= t('childrens_programs') %></p>
-      <% const canOpenFaithFormation = user.role === 'admin' || user.role === 'catechist' || (faithFormationSettings && faithFormationSettings.faithFormationRegistrationOpen); %>
-      <% const canOpenSponsorForm = user.role === 'admin' || user.role === 'catechist' || (faithFormationSettings && faithFormationSettings.sponsorFormRegistrationOpen); %>
-      <div class="row g-3 mb-4">
-        <div class="col-sm-6 col-lg-4">
-          <a href="<%= canOpenFaithFormation ? '/registration/children' : '#' %>" class="program-card prog-children <%= canOpenFaithFormation ? '' : 'opacity-75' %>">
-            <div class="prog-icon">🎓</div>
-            <div class="prog-title"><%= t('prog_children_title') %></div>
-            <div class="prog-subtitle"><%= faithFormationSettings && faithFormationSettings.schoolYear ? `School Year ${faithFormationSettings.schoolYear}` : t('prog_children_subtitle') %></div>
-            <p class="prog-desc"><%= canOpenFaithFormation ? t('prog_children_desc') : 'Registration is currently closed. Contact the parish office or wait for an admin to open this year.' %></p>
-          </a>
-        </div>
-        <div class="col-sm-6 col-lg-4">
-          <a href="<%= canOpenSponsorForm ? '/registration/sponsor-confirmation' : '#' %>" class="program-card prog-sponsor <%= canOpenSponsorForm ? '' : 'opacity-75' %>">
-            <div class="prog-icon">SC</div>
-            <div class="prog-title">Confirmation Sponsor Form</div>
-            <div class="prog-subtitle"><%= faithFormationSettings && faithFormationSettings.schoolYear ? `School Year ${faithFormationSettings.schoolYear}` : 'Student / Sponsor' %></div>
-            <p class="prog-desc"><%= canOpenSponsorForm ? 'Enter and save sponsor confirmation information, including sponsor address and signatures.' : 'Unavailable until the Sponsor Form is opened by an administrator.' %></p>
-          </a>
-        </div>
-        <div class="col-sm-6 col-lg-4">
-          <a href="/altar-server-signup" class="program-card" style="--prog-color:rgba(168,85,247,0.12);--prog-text:rgb(109,40,217)">
-            <div class="prog-icon" style="background:rgba(168,85,247,0.12);color:rgb(109,40,217)">&#9765;</div>
-            <div class="prog-title">Altar Server Signup</div>
-            <div class="prog-subtitle">Ministry</div>
-            <p class="prog-desc">Sign up your child to serve at the altar at Saint Matthew Catholic Church. Training provided.</p>
-          </a>
-        </div>
-      </div>
+      <ul class="nav nav-tabs mb-4" id="registrationTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" id="programs-tab" data-bs-toggle="tab" data-bs-target="#programs-pane" type="button" role="tab" aria-controls="programs-pane" aria-selected="true">Program Registrations</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="sponsor-ministry-tab" data-bs-toggle="tab" data-bs-target="#sponsor-ministry-pane" type="button" role="tab" aria-controls="sponsor-ministry-pane" aria-selected="false">Sponsor &amp; Ministry Signups</button>
+        </li>
+      </ul>
 
-      <p class="section-label"><%= t('family_programs') %></p>
-      <div class="row g-3 mb-4">
-        <div class="col-sm-6 col-lg-4">
-          <a href="/registration/family-faith" class="program-card prog-family">
-            <div class="prog-icon">FF</div>
-            <div class="prog-title"><%= t('prog_family_title') %></div>
-            <div class="prog-subtitle"><%= t('prog_family_subtitle') %></div>
-            <p class="prog-desc"><%= t('prog_family_desc') %></p>
-          </a>
+      <div class="tab-content" id="registrationTabsContent">
+        <div class="tab-pane fade show active" id="programs-pane" role="tabpanel" aria-labelledby="programs-tab">
+          <div class="row g-3">
+            <div class="col-sm-6 col-lg-4">
+              <a href="<%= canOpenFaithFormation ? '/registration/children' : '#' %>" class="program-card prog-children <%= canOpenFaithFormation ? '' : 'opacity-75' %>">
+                <div class="prog-icon">🎓</div>
+                <div class="prog-title"><%= t('prog_children_title') %></div>
+                <div class="prog-subtitle"><%= faithFormationSettings && faithFormationSettings.schoolYear ? `School Year ${faithFormationSettings.schoolYear}` : t('prog_children_subtitle') %></div>
+                <p class="prog-desc"><%= canOpenFaithFormation ? t('prog_children_desc') : 'Registration is currently closed. Contact the parish office or wait for an admin to open this year.' %></p>
+              </a>
+            </div>
+            <% if (user.role === 'admin') { %>
+            <div class="col-sm-6 col-lg-4">
+              <a href="/registration/family-faith" class="program-card prog-family">
+                <div class="prog-icon">FF</div>
+                <div class="prog-title"><%= t('prog_family_title') %></div>
+                <div class="prog-subtitle"><%= t('prog_family_subtitle') %></div>
+                <p class="prog-desc"><%= t('prog_family_desc') %></p>
+              </a>
+            </div>
+            <% } %>
+            <div class="col-sm-6 col-lg-4">
+              <a href="/registration/adult/ocia" class="program-card prog-ocia">
+                <div class="prog-icon"><%= ADULT_PROGRAMS.ocia.icon %></div>
+                <div class="prog-title"><%= ADULT_PROGRAMS.ocia.title %></div>
+                <div class="prog-subtitle"><%= ADULT_PROGRAMS.ocia.subtitle %></div>
+                <p class="prog-desc"><%= ADULT_PROGRAMS.ocia.description %></p>
+              </a>
+            </div>
+            <div class="col-sm-6 col-lg-4">
+              <a href="/registration/adult/baptism_prep" class="program-card prog-baptism">
+                <div class="prog-icon"><%= ADULT_PROGRAMS.baptism_prep.icon %></div>
+                <div class="prog-title"><%= ADULT_PROGRAMS.baptism_prep.title %></div>
+                <div class="prog-subtitle"><%= ADULT_PROGRAMS.baptism_prep.subtitle %></div>
+                <p class="prog-desc"><%= ADULT_PROGRAMS.baptism_prep.description %></p>
+              </a>
+            </div>
+            <div class="col-sm-6 col-lg-4">
+              <a href="/registration/adult/adult_confirmation" class="program-card prog-confirm">
+                <div class="prog-icon"><%= ADULT_PROGRAMS.adult_confirmation.icon %></div>
+                <div class="prog-title"><%= ADULT_PROGRAMS.adult_confirmation.title %></div>
+                <div class="prog-subtitle"><%= ADULT_PROGRAMS.adult_confirmation.subtitle %></div>
+                <p class="prog-desc"><%= ADULT_PROGRAMS.adult_confirmation.description %></p>
+              </a>
+            </div>
+          </div>
         </div>
-      </div>
 
-      <p class="section-label"><%= t('adult_programs') %></p>
-      <div class="row g-3">
-        <div class="col-sm-6 col-lg-4">
-          <a href="/registration/adult/ocia" class="program-card prog-ocia">
-            <div class="prog-icon"><%= ADULT_PROGRAMS.ocia.icon %></div>
-            <div class="prog-title"><%= ADULT_PROGRAMS.ocia.title %></div>
-            <div class="prog-subtitle"><%= ADULT_PROGRAMS.ocia.subtitle %></div>
-            <p class="prog-desc"><%= ADULT_PROGRAMS.ocia.description %></p>
-          </a>
-        </div>
-        <div class="col-sm-6 col-lg-4">
-          <a href="/registration/adult/baptism_prep" class="program-card prog-baptism">
-            <div class="prog-icon"><%= ADULT_PROGRAMS.baptism_prep.icon %></div>
-            <div class="prog-title"><%= ADULT_PROGRAMS.baptism_prep.title %></div>
-            <div class="prog-subtitle"><%= ADULT_PROGRAMS.baptism_prep.subtitle %></div>
-            <p class="prog-desc"><%= ADULT_PROGRAMS.baptism_prep.description %></p>
-          </a>
-        </div>
-        <div class="col-sm-6 col-lg-4">
-          <a href="/registration/adult/adult_confirmation" class="program-card prog-confirm">
-            <div class="prog-icon"><%= ADULT_PROGRAMS.adult_confirmation.icon %></div>
-            <div class="prog-title"><%= ADULT_PROGRAMS.adult_confirmation.title %></div>
-            <div class="prog-subtitle"><%= ADULT_PROGRAMS.adult_confirmation.subtitle %></div>
-            <p class="prog-desc"><%= ADULT_PROGRAMS.adult_confirmation.description %></p>
-          </a>
+        <div class="tab-pane fade" id="sponsor-ministry-pane" role="tabpanel" aria-labelledby="sponsor-ministry-tab">
+          <div class="row g-3">
+            <div class="col-sm-6 col-lg-4">
+              <a href="<%= canOpenSponsorForm ? '/registration/sponsor-confirmation' : '#' %>" class="program-card prog-sponsor <%= canOpenSponsorForm ? '' : 'opacity-75' %>">
+                <div class="prog-icon">SC</div>
+                <div class="prog-title">Confirmation Sponsor Form</div>
+                <div class="prog-subtitle"><%= faithFormationSettings && faithFormationSettings.schoolYear ? `School Year ${faithFormationSettings.schoolYear}` : 'Student / Sponsor' %></div>
+                <p class="prog-desc"><%= canOpenSponsorForm ? 'Enter and save sponsor confirmation information, including sponsor address and signatures.' : 'Unavailable until the Sponsor Form is opened by an administrator.' %></p>
+              </a>
+            </div>
+            <div class="col-sm-6 col-lg-4">
+              <a href="/altar-server-signup" class="program-card" style="--prog-color:rgba(168,85,247,0.12);--prog-text:rgb(109,40,217)">
+                <div class="prog-icon" style="background:rgba(168,85,247,0.12);color:rgb(109,40,217)">&#9765;</div>
+                <div class="prog-title">Altar Server Signup</div>
+                <div class="prog-subtitle">Ministry</div>
+                <p class="prog-desc">Sign up your child to serve at the altar at Saint Matthew Catholic Church. Training provided.</p>
+              </a>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   </div>
+
+  </div>
+
+  <div class="tab-pane fade" id="my-registrations-pane" role="tabpanel" aria-labelledby="my-registrations-tab">
 
   <!-- Children Registrations -->
   <div class="page-card mb-4">
@@ -199,7 +225,10 @@
                 </span>
               </td>
               <td>
-                <% if (canOpenFaithFormation) { %>
+                <% const canEditChildRow = String(r.user_id) === String(user.id); %>
+                <% if (!canEditChildRow) { %>
+                  <span style="color:var(--muted)">&mdash;</span>
+                <% } else if (canOpenFaithFormation) { %>
                   <a href="/registration/children/edit/<%= r.id %>" class="btn btn-sm btn-outline-primary"><%= t('edit') %></a>
                 <% } else { %>
                   <button class="btn btn-sm btn-outline-secondary" type="button" disabled>Closed</button>
@@ -281,7 +310,11 @@
                 </span>
               </td>
               <td>
-                <a href="/registration/family-faith/edit/<%= r.id %>" class="btn btn-sm btn-outline-primary"><%= t('edit') %></a>
+                <% if (String(r.user_id) === String(user.id)) { %>
+                  <a href="/registration/family-faith/edit/<%= r.id %>" class="btn btn-sm btn-outline-primary"><%= t('edit') %></a>
+                <% } else { %>
+                  <span style="color:var(--muted)">&mdash;</span>
+                <% } %>
               </td>
             </tr>
           <% }) %>
@@ -331,7 +364,11 @@
                 </span>
               </td>
               <td>
-                <a href="/registration/adult/edit/<%= r.program_type %>/<%= r.id %>" class="btn btn-sm btn-outline-primary"><%= t('edit') %></a>
+                <% if (String(r.user_id) === String(user.id)) { %>
+                  <a href="/registration/adult/edit/<%= r.program_type %>/<%= r.id %>" class="btn btn-sm btn-outline-primary"><%= t('edit') %></a>
+                <% } else { %>
+                  <span style="color:var(--muted)">&mdash;</span>
+                <% } %>
               </td>
             </tr>
           <% }) %>
@@ -397,20 +434,13 @@
                 </span>
               </td>
               <td>
-                <% if (user && user.role === 'admin' && Number(r.is_st_matthew_parishioner) && !Number(r.admin_verified)) { %>
-                  <form method="post" action="/admin/sponsor-confirmation/<%= r.id %>/verify" class="d-inline">
-                    <button class="btn btn-sm btn-outline-success" type="submit">Verify</button>
-                  </form>
-                <% } %>
-                <% if (canOpenSponsorForm) { %>
+                <% const canEditSponsorRow = String(r.user_id) === String(user.id); %>
+                <% if (!canEditSponsorRow) { %>
+                  <span style="color:var(--muted)">&mdash;</span>
+                <% } else if (canOpenSponsorForm) { %>
                   <a href="/registration/sponsor-confirmation/edit/<%= r.id %>" class="btn btn-sm btn-outline-primary"><%= t('edit') %></a>
                 <% } else { %>
                   <button class="btn btn-sm btn-outline-secondary" type="button" disabled>Closed</button>
-                <% } %>
-                <% if (user && user.role === 'admin') { %>
-                  <form method="post" action="/admin/sponsor-confirmation/<%= r.id %>/delete" class="d-inline" onsubmit="return confirm('Delete this sponsor confirmation form? This is helpful for removing test entries.');">
-                    <button class="btn btn-sm btn-outline-danger" type="submit"><%= t('remove') %></button>
-                  </form>
                 <% } %>
               </td>
             </tr>
@@ -422,7 +452,11 @@
     </div>
   </div>
 
+  </div>
+  </div>
+
   <p class="footer-note"><%= t('footer_note') %></p>
 </main>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
