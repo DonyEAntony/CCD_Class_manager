@@ -68,6 +68,58 @@
               </td>
               <td>
                 <a href="/registration/children/edit/<%= r.id %>" class="btn btn-sm btn-outline-primary"><%= t('edit') %></a>
+                <form method="post" action="/admin/registrations/children/<%= r.id %>/archive" class="d-inline">
+                  <button class="btn btn-sm btn-outline-secondary" type="submit">Archive</button>
+                </form>
+                <form method="post" action="/admin/registrations/children/<%= r.id %>/delete" class="d-inline" onsubmit="return confirm('Permanently delete the registration for ' + <%- JSON.stringify(r.student_full_name || 'this student') %> + '? This cannot be undone.');">
+                  <button class="btn btn-sm btn-outline-danger" type="submit"><%= t('remove') %></button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+          </tbody>
+        </table>
+      </div>
+      <% } %>
+    </div>
+    </div>
+  </div>
+
+  <!-- Archived Children Registrations -->
+  <div class="page-card mb-4">
+    <div class="card-header collapsed" data-bs-toggle="collapse" data-bs-target="#archived-children-regs-collapse" role="button" aria-expanded="false" aria-controls="archived-children-regs-collapse" style="cursor:pointer">
+      <h2 class="h5 mb-0">Archived Children Registrations</h2>
+      <span class="badge" style="background:var(--surface);color:var(--navy-soft);font-size:.7rem;border-radius:2rem;padding:.3em .8em;font-weight:700;border:1px solid var(--border)"><%= (archivedStudentRegs || []).length %></span>
+      <span class="collapse-chevron ms-auto">&#9656;</span>
+    </div>
+    <div class="collapse" id="archived-children-regs-collapse">
+    <div class="card-body p-0">
+      <% if (!archivedStudentRegs || archivedStudentRegs.length === 0) { %>
+        <div class="p-4 text-center" style="color:var(--muted);font-size:.9rem"><em>No archived registrations.</em></div>
+      <% } else { %>
+      <div class="table-responsive">
+        <table class="table mb-0">
+          <thead>
+            <tr>
+              <th><%= t('student') %></th>
+              <th><%= t('primary_contact') %></th>
+              <th>Archived</th>
+              <th><%= t('actions') %></th>
+            </tr>
+          </thead>
+          <tbody>
+          <% archivedStudentRegs.forEach(r => { %>
+            <tr>
+              <td style="font-weight:600"><%= r.student_full_name %></td>
+              <td style="font-size:.85rem"><%= r.parent_name || r.primary_contact_email || '&mdash;' %></td>
+              <td style="font-size:.8rem;color:var(--muted)"><%= r.archived_at ? (typeof r.archived_at === 'string' ? r.archived_at.slice(0,10) : r.archived_at.toISOString().slice(0,10)) : '' %></td>
+              <td>
+                <form method="post" action="/admin/registrations/children/<%= r.id %>/unarchive" class="d-inline">
+                  <button class="btn btn-sm btn-outline-primary" type="submit">Unarchive</button>
+                </form>
+                <form method="post" action="/admin/registrations/children/<%= r.id %>/delete" class="d-inline" onsubmit="return confirm('Permanently delete the registration for ' + <%- JSON.stringify(r.student_full_name || 'this student') %> + '? This cannot be undone.');">
+                  <button class="btn btn-sm btn-outline-danger" type="submit"><%= t('remove') %></button>
+                </form>
               </td>
             </tr>
           <% }) %>

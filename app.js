@@ -8,7 +8,7 @@ const multer = require('multer');
 const passport = require('./auth');
 const db = require('./db');
 const { processScanDocument, verifyDocumentAiConfiguration } = require('./document-ai');
-const { sendVerificationEmail, smtpLogConfig, verifyMailConfiguration, buildVerificationEmailContent } = require('./mailer');
+const { sendVerificationEmail, smtpLogConfig, verifyMailConfiguration, buildVerificationEmailContent, sendPasswordResetEmail } = require('./mailer');
 const { requireAuth, requireRole } = require('./middleware');
 
 const app = express();
@@ -70,6 +70,19 @@ const translations = {
     first_name: 'First Name',
     last_name: 'Last Name',
     password: 'Password',
+    forgot_password: 'Forgot password?',
+    forgot_password_intro: "Enter your email and we'll send you a link to reset your password.",
+    send_reset_link: 'Send Reset Link',
+    back_to_login: 'Back to login',
+    check_your_email: 'Check your email',
+    forgot_password_sent_intro: "If an account exists for that address, we've sent a password reset link to",
+    reset_password: 'Reset Password',
+    new_password: 'New Password',
+    confirm_new_password: 'Confirm New Password',
+    password_min_length: 'Must be at least 8 characters.',
+    change_password: 'Change Password',
+    current_password: 'Current Password',
+    update_password: 'Update Password',
     role_request: 'Role',
     invite_code: 'Invite Code (required for admin/catechist)',
     already_have_account: 'Already have an account?',
@@ -424,6 +437,19 @@ const translations = {
     first_name: 'Nombre',
     last_name: 'Apellido',
     password: 'Contraseña',
+    forgot_password: '¿Olvidaste tu contraseña?',
+    forgot_password_intro: 'Ingresa tu correo electrónico y te enviaremos un enlace para restablecer tu contraseña.',
+    send_reset_link: 'Enviar Enlace',
+    back_to_login: 'Volver al inicio de sesión',
+    check_your_email: 'Revisa tu correo electrónico',
+    forgot_password_sent_intro: 'Si existe una cuenta con esa dirección, hemos enviado un enlace para restablecer la contraseña a',
+    reset_password: 'Restablecer Contraseña',
+    new_password: 'Nueva Contraseña',
+    confirm_new_password: 'Confirmar Nueva Contraseña',
+    password_min_length: 'Debe tener al menos 8 caracteres.',
+    change_password: 'Cambiar Contraseña',
+    current_password: 'Contraseña Actual',
+    update_password: 'Actualizar Contraseña',
     role_request: 'Rol',
     invite_code: 'Código de Invitación (requerido para admin/catequista)',
     already_have_account: '¿Ya tienes una cuenta?',
@@ -1604,6 +1630,95 @@ app.post(
   }),
 );
 
+app.get('/forgot-password', (req, res) => res.render('forgot-password'));
+
+app.post('/forgot-password', asyncHandler(async (req, res) => {
+  const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+  let previewUrl = null;
+
+  if (email) {
+    const user = await db.prepare('SELECT id, email, full_name, provider FROM users WHERE email = ?').get(email);
+    if (user && user.provider === 'local') {
+      const resetToken = createVerificationToken();
+      const resetTokenHash = hashVerificationToken(resetToken);
+      const resetExpiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
+      await db.prepare(`
+        UPDATE users
+        SET password_reset_token = ?, password_reset_expires_at = ?
+        WHERE id = ?
+      `).run(resetTokenHash, resetExpiresAt, user.id);
+
+      const resetUrl = `${getBaseUrl(req)}/reset-password?token=${resetToken}`;
+      const delivery = await sendPasswordResetEmail({ to: user.email, resetUrl, fullName: user.full_name });
+      if (!delivery.delivered && process.env.NODE_ENV !== 'production') {
+        previewUrl = resetUrl;
+      }
+    }
+  }
+
+  return res.render('forgot-password-sent', { email, previewUrl });
+}));
+
+app.get('/reset-password', asyncHandler(async (req, res) => {
+  const token = typeof req.query.token === 'string' ? req.query.token : '';
+  if (!token) {
+    req.flash('error', 'Password reset link is invalid.');
+    return res.redirect('/forgot-password');
+  }
+  const tokenHash = hashVerificationToken(token);
+  const user = await db.prepare(
+    'SELECT id, password_reset_expires_at FROM users WHERE password_reset_token = ?'
+  ).get(tokenHash);
+
+  if (!user || !user.password_reset_expires_at || new Date(user.password_reset_expires_at) < new Date()) {
+    req.flash('error', 'Password reset link is invalid or has expired. Please request a new one.');
+    return res.redirect('/forgot-password');
+  }
+
+  return res.render('reset-password', { token });
+}));
+
+app.post('/reset-password', asyncHandler(async (req, res) => {
+  const token = typeof req.body.token === 'string' ? req.body.token : '';
+  const password = typeof req.body.password === 'string' ? req.body.password : '';
+  const confirmPassword = typeof req.body.confirm_password === 'string' ? req.body.confirm_password : '';
+
+  if (!token) {
+    req.flash('error', 'Password reset link is invalid.');
+    return res.redirect('/forgot-password');
+  }
+
+  const tokenHash = hashVerificationToken(token);
+  const user = await db.prepare(
+    'SELECT id, password_reset_expires_at FROM users WHERE password_reset_token = ?'
+  ).get(tokenHash);
+
+  if (!user || !user.password_reset_expires_at || new Date(user.password_reset_expires_at) < new Date()) {
+    req.flash('error', 'Password reset link is invalid or has expired. Please request a new one.');
+    return res.redirect('/forgot-password');
+  }
+
+  if (password.length < 8) {
+    req.flash('error', 'Password must be at least 8 characters.');
+    return res.redirect(`/reset-password?token=${token}`);
+  }
+  if (password !== confirmPassword) {
+    req.flash('error', 'Passwords do not match.');
+    return res.redirect(`/reset-password?token=${token}`);
+  }
+
+  const hash = bcrypt.hashSync(password, 10);
+  await db.prepare(`
+    UPDATE users
+    SET password_hash = ?, password_reset_token = NULL, password_reset_expires_at = NULL
+    WHERE id = ?
+  `).run(hash, user.id);
+
+  req.flash('success', 'Your password has been reset. You can now log in.');
+  return res.redirect('/login');
+}));
+
 app.get('/auth/google', (req, res, next) => {
   if (!process.env.GOOGLE_CLIENT_ID) return res.status(503).send('Google auth not configured.');
   return passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
@@ -1624,6 +1739,39 @@ app.get('/logout', (req, res, next) => {
     return res.redirect('/');
   });
 });
+
+app.get('/account/password', requireAuth, (req, res) => res.render('change-password'));
+
+app.post('/account/password', requireAuth, asyncHandler(async (req, res) => {
+  if (req.user.provider !== 'local') {
+    req.flash('error', `Your account signs in with ${req.user.provider === 'google' ? 'Google' : 'GitHub'}, so there's no password to change here.`);
+    return res.redirect('/account/password');
+  }
+
+  const currentPassword = typeof req.body.current_password === 'string' ? req.body.current_password : '';
+  const newPassword = typeof req.body.new_password === 'string' ? req.body.new_password : '';
+  const confirmPassword = typeof req.body.confirm_password === 'string' ? req.body.confirm_password : '';
+
+  const user = await db.prepare('SELECT id, password_hash FROM users WHERE id = ?').get(req.user.id);
+  if (!user || !user.password_hash || !bcrypt.compareSync(currentPassword, user.password_hash)) {
+    req.flash('error', 'Current password is incorrect.');
+    return res.redirect('/account/password');
+  }
+  if (newPassword.length < 8) {
+    req.flash('error', 'New password must be at least 8 characters.');
+    return res.redirect('/account/password');
+  }
+  if (newPassword !== confirmPassword) {
+    req.flash('error', 'New passwords do not match.');
+    return res.redirect('/account/password');
+  }
+
+  const hash = bcrypt.hashSync(newPassword, 10);
+  await db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hash, req.user.id);
+
+  req.flash('success', 'Your password has been updated.');
+  return res.redirect('/dashboard');
+}));
 
 // ── Dashboard ────────────────────────────────────────────────
 app.get('/dashboard', requireAuth, asyncHandler(async (req, res) => {
@@ -2686,10 +2834,30 @@ app.post('/registration/adult/:program', requireAuth, asyncHandler(async (req, r
 // ── Admin ────────────────────────────────────────────────────
 app.get('/admin', requireAuth, requireRole('admin'), (req, res) => res.redirect('/admin/registrations'));
 
+app.post('/admin/registrations/children/:id/archive', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  await db.prepare('UPDATE student_registrations SET archived_at = NOW() WHERE id = ?').run(req.params.id);
+  req.flash('success', 'Registration archived.');
+  return res.redirect('/admin/registrations');
+}));
+
+app.post('/admin/registrations/children/:id/unarchive', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  await db.prepare('UPDATE student_registrations SET archived_at = NULL WHERE id = ?').run(req.params.id);
+  req.flash('success', 'Registration restored.');
+  return res.redirect('/admin/registrations');
+}));
+
+app.post('/admin/registrations/children/:id/delete', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const registration = await db.prepare('SELECT student_full_name FROM student_registrations WHERE id = ?').get(req.params.id);
+  await db.prepare('DELETE FROM student_registrations WHERE id = ?').run(req.params.id);
+  req.flash('success', `Deleted registration for ${registration ? registration.student_full_name : 'that student'}.`);
+  return res.redirect('/admin/registrations');
+}));
+
 app.get('/admin/registrations', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   const faithFormationSettings = await getFaithFormationSettings();
 
-  const studentRegs = await db.prepare('SELECT * FROM student_registrations ORDER BY created_at DESC').all();
+  const studentRegs = await db.prepare('SELECT * FROM student_registrations WHERE archived_at IS NULL ORDER BY created_at DESC').all();
+  const archivedStudentRegs = await db.prepare('SELECT * FROM student_registrations WHERE archived_at IS NOT NULL ORDER BY archived_at DESC').all();
 
   const familyRegsRaw = await db.prepare('SELECT * FROM family_faith_registrations ORDER BY created_at DESC').all();
   const familyRegs = familyRegsRaw.map((reg) => ({
@@ -2701,7 +2869,7 @@ app.get('/admin/registrations', requireAuth, requireRole('admin'), asyncHandler(
   const sponsorRegs = await db.prepare('SELECT * FROM sponsor_confirmations ORDER BY created_at DESC').all();
 
   const ADULT_PROGRAMS = getAdultPrograms(res.locals.t);
-  res.render('admin-registrations', { studentRegs, familyRegs, adultRegs, sponsorRegs, ADULT_PROGRAMS, faithFormationSettings });
+  res.render('admin-registrations', { studentRegs, archivedStudentRegs, familyRegs, adultRegs, sponsorRegs, ADULT_PROGRAMS, faithFormationSettings });
 }));
 
 app.get('/admin/users', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
@@ -3072,6 +3240,54 @@ app.post('/admin/users/:id/resend-verification', requireAuth, requireRole('admin
       ? `Verification email resent to ${targetUser.email}.`
       : `Verification email could not be sent to ${targetUser.email}.`
   );
+  return res.redirect('/admin/users');
+}));
+
+app.post('/admin/users/:id/reset-password', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const userId = Number.parseInt(req.params.id, 10);
+  if (!Number.isInteger(userId)) {
+    req.flash('error', 'Invalid user.');
+    return res.redirect('/admin/users');
+  }
+
+  const targetUser = await db.prepare('SELECT id, email, full_name, provider FROM users WHERE id = ?').get(userId);
+  if (!targetUser) {
+    req.flash('error', 'User not found.');
+    return res.redirect('/admin/users');
+  }
+  if (targetUser.provider !== 'local') {
+    req.flash('error', 'Only local accounts have a password to reset.');
+    return res.redirect('/admin/users');
+  }
+
+  const resetToken = createVerificationToken();
+  const resetTokenHash = hashVerificationToken(resetToken);
+  const resetExpiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+  await db.prepare(`UPDATE users SET password_reset_token = ?, password_reset_expires_at = ? WHERE id = ?`).run(resetTokenHash, resetExpiresAt, targetUser.id);
+  const resetUrl = `${getBaseUrl(req)}/reset-password?token=${resetToken}`;
+
+  let delivery;
+  try {
+    delivery = await sendPasswordResetEmail({ to: targetUser.email, resetUrl, fullName: targetUser.full_name || '' });
+  } catch (error) {
+    console.error('[admin] Password reset email failed', {
+      email: targetUser.email,
+      message: error?.message || String(error),
+      code: error?.code || null,
+      response: error?.response || null,
+      responseCode: error?.responseCode || null,
+    });
+    req.flash('error', `Unable to send password reset email to ${targetUser.email}.`);
+    return res.redirect('/admin/users');
+  }
+
+  if (delivery.delivered) {
+    req.flash('success', `Password reset email sent to ${targetUser.email}.`);
+  } else if (process.env.NODE_ENV !== 'production') {
+    req.flash('success', `Password reset link (dev preview, email not sent): ${resetUrl}`);
+  } else {
+    req.flash('error', `Password reset email could not be sent to ${targetUser.email}.`);
+  }
   return res.redirect('/admin/users');
 }));
 
