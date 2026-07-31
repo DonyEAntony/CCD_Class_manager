@@ -1112,6 +1112,7 @@ app.use((req, res, next) => {
   res.locals.user = req.user;
   res.locals.success = req.flash('success');
   res.locals.error = req.flash('error');
+  res.locals.totalFeesDue = req.flash('totalFeesDue')[0] || null;
   res.locals.ADULT_PROGRAMS = getAdultPrograms(res.locals.t);
   next();
 });
@@ -2186,7 +2187,11 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
         const totalsRow = await db.prepare(
           `SELECT SUM(registration_fee + sacramental_fee + late_fee) AS total FROM student_registrations WHERE id IN (${groupIdsAfter.map(() => '?').join(', ')})`
         ).get(...groupIdsAfter);
-        req.flash('success', `Registration submitted. Total fees: $${totalsRow?.total || 0}`);
+        const totalFeesCharged = totalsRow?.total || 0;
+        req.flash('success', `Registration submitted. Total fees: $${totalFeesCharged}`);
+        if (totalFeesCharged > 0) {
+          req.flash('totalFeesDue', String(totalFeesCharged));
+        }
         return res.redirect('/dashboard');
       }
 
