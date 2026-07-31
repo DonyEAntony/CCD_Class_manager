@@ -10,6 +10,7 @@
 </head>
 <body>
 <%- include('_topbar') %>
+<% if (isAdmin) { %><%- include('_admin_nav') %><% } %>
 <main class="container py-4 app-shell mx-auto">
   <% const availableLeaders = Array.isArray(typeof leaders === 'undefined' ? null : leaders) ? leaders : []; %>
   <% const configuredVisitSlots = Array.isArray(typeof visitSlots === 'undefined' ? null : visitSlots) ? visitSlots : []; %>

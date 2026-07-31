@@ -395,6 +395,8 @@ const init = async () => {
     await ensureColumn('student_registrations', 'primary_contact_last_name', 'VARCHAR(255)');
     await ensureColumn('student_registrations', 'child_place_of_birth_city', 'TEXT');
     await ensureColumn('student_registrations', 'child_place_of_birth_country', 'TEXT');
+    await ensureColumn('student_registrations', 'sacramental_year', 'VARCHAR(30) NULL');
+    await ensureColumn('student_registrations', 'preferred_class_time', 'VARCHAR(100) NULL');
     await ensureColumn('sponsor_confirmations', 'is_st_matthew_parishioner', 'TINYINT(1) NOT NULL DEFAULT 0');
     await ensureColumn('sponsor_confirmations', 'sponsor_certificate_path', 'TEXT');
     await ensureColumn('sponsor_confirmations', 'admin_verified', 'TINYINT(1) NOT NULL DEFAULT 0');
@@ -511,9 +513,7 @@ const init = async () => {
     await pool.execute(
       `INSERT INTO registration_year_settings (school_year, faith_formation_open, sponsor_form_open)
        VALUES (?, ?, ?)
-       ON DUPLICATE KEY UPDATE
-         faith_formation_open = VALUES(faith_formation_open),
-         sponsor_form_open = VALUES(sponsor_form_open)`,
+       ON DUPLICATE KEY UPDATE school_year = school_year`,
       [legacyYear, legacyFaithOpen, legacySponsorOpen]
     );
     await pool.execute(

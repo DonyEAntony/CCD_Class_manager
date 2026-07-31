@@ -15,11 +15,31 @@
 <main class="container py-4 app-shell mx-auto">
   <% const availableStatusOptions = Array.isArray(typeof statusOptions === 'undefined' ? null : statusOptions) ? statusOptions : []; %>
   <% const visibleEvents = Array.isArray(typeof relevantEvents === 'undefined' ? null : relevantEvents) ? relevantEvents : []; %>
+  <% const wizardStage = typeof stage === 'string' ? stage : 'intro'; %>
+  <% const wizardTotal = typeof totalChildren === 'number' ? totalChildren : null; %>
+  <% const wizardIndex = typeof studentIndex === 'number' ? studentIndex : 1; %>
+  <% const wizardGroupIds = Array.isArray(typeof groupIds === 'undefined' ? null : groupIds) ? groupIds : []; %>
+  <% const parent = typeof parentInfo !== 'undefined' ? parentInfo : null; %>
+  <% const studentReg = typeof studentPrefill !== 'undefined' ? studentPrefill : null; %>
+  <% const wizardRegId = typeof currentRegistrationId !== 'undefined' ? currentRegistrationId : null; %>
+
+  <% const onStudentStage = !editing && wizardStage === 'student'; %>
+  <% const showParentSection = editing || !onStudentStage; %>
+  <% const showCountGate = !editing && !onStudentStage; %>
+  <% const isLastKnownStage = onStudentStage && wizardTotal ? wizardIndex >= wizardTotal : false; %>
+
+  <% const parentSource = editing ? reg : parent; %>
+  <% const studentSource = editing ? reg : studentReg; %>
 
   <div class="page-heading d-flex flex-wrap justify-content-between align-items-end gap-2">
     <div>
       <h1><%= t('registration_form_title') %></h1>
-      <p class="sub mb-0"><%= t('app_title') %> &mdash; <%= typeof schoolYearLabel === 'string' ? schoolYearLabel : t('school_year') %></p>
+      <p class="sub mb-0">
+        <%= t('app_title') %> &mdash; <%= typeof schoolYearLabel === 'string' ? schoolYearLabel : t('school_year') %>
+        <% if (onStudentStage && wizardTotal) { %>
+          &middot; Student <%= wizardIndex %> of <%= wizardTotal %>
+        <% } %>
+      </p>
     </div>
     <a class="btn btn-outline-secondary" href="/dashboard"><%= t('back') %></a>
   </div>
@@ -34,11 +54,11 @@
           <% visibleEvents.forEach((eventItem) => { %>
             <li>
               <strong><%= eventItem.title %></strong>
-              <% if (eventItem.schedule_type === 'recurring' && eventItem.recurrence_pattern) { %> · <%= eventItem.recurrence_pattern %><% } %>
-              <% if (eventItem.event_date) { %> · <%= eventItem.event_date %><% } %>
-              <% if (eventItem.event_time) { %> · <%= eventItem.event_time %><% } %>
+              <% if (eventItem.schedule_type === 'recurring' && eventItem.recurrence_pattern) { %> &middot; <%= eventItem.recurrence_pattern %><% } %>
+              <% if (eventItem.event_date) { %> &middot; <%= eventItem.event_date %><% } %>
+              <% if (eventItem.event_time) { %> &middot; <%= eventItem.event_time %><% } %>
               <% if (eventItem.event_end_time) { %> - <%= eventItem.event_end_time %><% } %>
-              <% if (eventItem.location) { %> · <%= eventItem.location %><% } %>
+              <% if (eventItem.location) { %> &middot; <%= eventItem.location %><% } %>
             </li>
           <% }) %>
         </ul>
@@ -69,9 +89,42 @@
         </div>
       <% } %>
 
-      <form method="post" action="/registration/children" enctype="multipart/form-data" class="row g-3">
+      <% if (editing && reg) { %>
+        <% const totalFeesDue = (reg.registration_fee || 0) + (reg.sacramental_fee || 0) + (reg.late_fee || 0); %>
+        <% if (totalFeesDue > 0) { %>
+          <div class="border rounded-3 p-3 bg-light mb-4 d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <div>
+              <div class="text-muted small">Total Fees Due</div>
+              <div class="fw-semibold fs-5">$<%= totalFeesDue %></div>
+            </div>
+            <a class="btn btn-primary" href="https://giving.myparishsoft.io/App/Form/5dd2d671-d113-4fb2-88d5-dced2fe8a5f3" target="_blank" rel="noreferrer">Pay Registration Fee Online</a>
+          </div>
+        <% } %>
+      <% } %>
+
+      <% if (showCountGate) { %>
+        <div class="border rounded-3 p-3 bg-light mb-4" id="child-count-gate">
+          <label class="form-label required mb-2">How many children are you registering for CCD?</label>
+          <div class="d-flex flex-wrap align-items-end gap-2">
+            <select class="form-select" style="max-width:220px" id="child-count-select" required>
+              <option value="" disabled selected><%= t('select_placeholder') %></option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+              <option value="6">6</option>
+            </select>
+          </div>
+        </div>
+      <% } %>
+
+      <form method="post" action="/registration/children" enctype="multipart/form-data" class="row g-3" id="registration-form">
         <input type="hidden" name="school_year" value="<%= typeof activeSchoolYear === 'string' ? activeSchoolYear : '' %>">
-        <input type="hidden" name="registration_id" value="<%= reg ? reg.id : '' %>">
+        <input type="hidden" name="registration_id" value="<%= editing ? (reg ? reg.id : '') : (wizardRegId || '') %>">
+        <input type="hidden" name="total_children" id="total-children-input" value="<%= editing ? '' : (wizardTotal || '') %>">
+        <input type="hidden" name="student_index" value="<%= editing ? '' : wizardIndex %>">
+        <input type="hidden" name="group_ids" value="<%= editing ? '' : wizardGroupIds.join(',') %>">
 
         <!-- Registration date -->
         <div class="col-12">
@@ -80,262 +133,275 @@
           </div>
         </div>
 
-        <!-- Primary contact and address -->
-        <fieldset class="col-12">
-          <legend><%= t('primary_parent_contact') %> & <%= t('address_information') %></legend>
+        <!-- Parent / guardian section -->
+        <div id="parent-section" class="col-12 <%= showParentSection ? '' : 'd-none' %>">
           <div class="row g-3">
-            <div class="col-md-6">
-              <label class="form-label required"><%= t('first_name') %></label>
-              <input class="form-control" type="text" name="primary_contact_first_name" value="<%= reg ? reg.primary_contact_first_name : '' %>" required>
+            <!-- Primary contact and address -->
+            <fieldset class="col-12">
+              <legend><%= t('primary_parent_contact') %> & <%= t('address_information') %></legend>
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label required"><%= t('first_name') %></label>
+                  <input class="form-control" type="text" name="primary_contact_first_name" value="<%= parentSource ? parentSource.primary_contact_first_name : '' %>" required>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label required"><%= t('last_name') %></label>
+                  <input class="form-control" type="text" name="primary_contact_last_name" value="<%= parentSource ? parentSource.primary_contact_last_name : '' %>" required>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label required"><%= t('primary_contact_phone') %></label>
+                  <input class="form-control" type="tel" name="primary_contact_phone" value="<%= parentSource ? parentSource.primary_contact_phone : '' %>" pattern="[0-9]{3}[.\- ]?[0-9]{3}[.\- ]?[0-9]{4}" title="Format: 123-456-7890 or 123.456.7890 or 123 456 7890" required>
+                  <div class="invalid-feedback">Please enter a valid phone number (XXX-XXX-XXXX format).</div>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label required"><%= t('primary_contact_email') %></label>
+                  <input class="form-control" type="email" name="primary_contact_email" value="<%= parentSource ? parentSource.primary_contact_email : '' %>" required>
+                  <div class="invalid-feedback">Please enter a valid email address.</div>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label required"><%= t('relationship') %></label>
+                  <select class="form-select" name="primary_contact_relationship" id="primary_contact_relationship" required>
+                    <option value="Father" <%= parentSource && parentSource.primary_contact_relationship === 'Father' ? 'selected' : '' %>><%= t('father') %></option>
+                    <option value="Mother" <%= parentSource && parentSource.primary_contact_relationship === 'Mother' ? 'selected' : '' %>><%= t('mother') %></option>
+                    <option value="Stepfather" <%= parentSource && parentSource.primary_contact_relationship === 'Stepfather' ? 'selected' : '' %>><%= t('stepfather') %></option>
+                    <option value="Stepmother" <%= parentSource && parentSource.primary_contact_relationship === 'Stepmother' ? 'selected' : '' %>><%= t('stepmother') %></option>
+                    <option value="Grandfather" <%= parentSource && parentSource.primary_contact_relationship === 'Grandfather' ? 'selected' : '' %>><%= t('grandfather') %></option>
+                    <option value="Grandmother" <%= parentSource && parentSource.primary_contact_relationship === 'Grandmother' ? 'selected' : '' %>><%= t('grandmother') %></option>
+                    <option value="Other" <%= parentSource && parentSource.primary_contact_relationship === 'Other' ? 'selected' : '' %>><%= t('other') %></option>
+                  </select>
+                </div>
+                <div class="col-12 d-none" id="relationship-other-wrap">
+                  <label class="form-label"><%= t('relationship_other') %></label>
+                  <input class="form-control" type="text" name="primary_contact_relationship_other" id="primary_contact_relationship_other" value="<%= parentSource ? parentSource.primary_contact_relationship_other : '' %>">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label required"><%= t('primary_contact_religion') %></label>
+                  <select class="form-select" name="primary_contact_religion" required>
+                    <option value="" disabled <%= !(parentSource && parentSource.primary_contact_religion) ? 'selected' : '' %>><%= t('select_placeholder') %></option>
+                    <option value="Catholic">Catholic</option>
+                    <option value="Non-denominational">Non-denominational</option>
+                    <option value="Protestant">Protestant</option>
+                    <option value="Muslim">Muslim</option>
+                    <option value="Hindu">Hindu</option>
+                    <option value="Buddhist">Buddhist</option>
+                    <option value="Agnostic">Agnostic</option>
+                    <option value="Atheist">Atheist</option>
+                  </select>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label required"><%= t('address') %></label>
+                  <input class="form-control" type="text" name="address" value="<%= parentSource ? parentSource.address : '' %>" required>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label required"><%= t('city') %></label>
+                  <input class="form-control" type="text" name="city" value="<%= reg ? reg.city : '' %>" required>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label required"><%= t('state') %></label>
+                  <select class="form-select" name="state" required>
+                    <option value="" disabled <%= !(reg && reg.state) ? 'selected' : '' %>><%= t('select_placeholder') %></option>
+                    <option value="AL" <%= reg && reg.state === 'AL' ? 'selected' : '' %>>Alabama</option>
+                    <option value="AK" <%= reg && reg.state === 'AK' ? 'selected' : '' %>>Alaska</option>
+                    <option value="AZ" <%= reg && reg.state === 'AZ' ? 'selected' : '' %>>Arizona</option>
+                    <option value="AR" <%= reg && reg.state === 'AR' ? 'selected' : '' %>>Arkansas</option>
+                    <option value="CA" <%= reg && reg.state === 'CA' ? 'selected' : '' %>>California</option>
+                    <option value="CO" <%= reg && reg.state === 'CO' ? 'selected' : '' %>>Colorado</option>
+                    <option value="CT" <%= reg && reg.state === 'CT' ? 'selected' : '' %>>Connecticut</option>
+                    <option value="DE" <%= reg && reg.state === 'DE' ? 'selected' : '' %>>Delaware</option>
+                    <option value="FL" <%= reg && reg.state === 'FL' ? 'selected' : '' %>>Florida</option>
+                    <option value="GA" <%= reg && reg.state === 'GA' ? 'selected' : '' %>>Georgia</option>
+                    <option value="HI" <%= reg && reg.state === 'HI' ? 'selected' : '' %>>Hawaii</option>
+                    <option value="ID" <%= reg && reg.state === 'ID' ? 'selected' : '' %>>Idaho</option>
+                    <option value="IL" <%= reg && reg.state === 'IL' ? 'selected' : '' %>>Illinois</option>
+                    <option value="IN" <%= reg && reg.state === 'IN' ? 'selected' : '' %>>Indiana</option>
+                    <option value="IA" <%= reg && reg.state === 'IA' ? 'selected' : '' %>>Iowa</option>
+                    <option value="KS" <%= reg && reg.state === 'KS' ? 'selected' : '' %>>Kansas</option>
+                    <option value="KY" <%= reg && reg.state === 'KY' ? 'selected' : '' %>>Kentucky</option>
+                    <option value="LA" <%= reg && reg.state === 'LA' ? 'selected' : '' %>>Louisiana</option>
+                    <option value="ME" <%= reg && reg.state === 'ME' ? 'selected' : '' %>>Maine</option>
+                    <option value="MD" <%= reg && reg.state === 'MD' ? 'selected' : '' %>>Maryland</option>
+                    <option value="MA" <%= reg && reg.state === 'MA' ? 'selected' : '' %>>Massachusetts</option>
+                    <option value="MI" <%= reg && reg.state === 'MI' ? 'selected' : '' %>>Michigan</option>
+                    <option value="MN" <%= reg && reg.state === 'MN' ? 'selected' : '' %>>Minnesota</option>
+                    <option value="MS" <%= reg && reg.state === 'MS' ? 'selected' : '' %>>Mississippi</option>
+                    <option value="MO" <%= reg && reg.state === 'MO' ? 'selected' : '' %>>Missouri</option>
+                    <option value="MT" <%= reg && reg.state === 'MT' ? 'selected' : '' %>>Montana</option>
+                    <option value="NE" <%= reg && reg.state === 'NE' ? 'selected' : '' %>>Nebraska</option>
+                    <option value="NV" <%= reg && reg.state === 'NV' ? 'selected' : '' %>>Nevada</option>
+                    <option value="NH" <%= reg && reg.state === 'NH' ? 'selected' : '' %>>New Hampshire</option>
+                    <option value="NJ" <%= reg && reg.state === 'NJ' ? 'selected' : '' %>>New Jersey</option>
+                    <option value="NM" <%= reg && reg.state === 'NM' ? 'selected' : '' %>>New Mexico</option>
+                    <option value="NY" <%= reg && reg.state === 'NY' ? 'selected' : '' %>>New York</option>
+                    <option value="NC" <%= reg && reg.state === 'NC' ? 'selected' : '' %>>North Carolina</option>
+                    <option value="ND" <%= reg && reg.state === 'ND' ? 'selected' : '' %>>North Dakota</option>
+                    <option value="OH" <%= reg && reg.state === 'OH' ? 'selected' : '' %>>Ohio</option>
+                    <option value="OK" <%= reg && reg.state === 'OK' ? 'selected' : '' %>>Oklahoma</option>
+                    <option value="OR" <%= reg && reg.state === 'OR' ? 'selected' : '' %>>Oregon</option>
+                    <option value="PA" <%= reg && reg.state === 'PA' ? 'selected' : '' %>>Pennsylvania</option>
+                    <option value="RI" <%= reg && reg.state === 'RI' ? 'selected' : '' %>>Rhode Island</option>
+                    <option value="SC" <%= reg && reg.state === 'SC' ? 'selected' : '' %>>South Carolina</option>
+                    <option value="SD" <%= reg && reg.state === 'SD' ? 'selected' : '' %>>South Dakota</option>
+                    <option value="TN" <%= reg && reg.state === 'TN' ? 'selected' : '' %>>Tennessee</option>
+                    <option value="TX" <%= reg && reg.state === 'TX' ? 'selected' : '' %>>Texas</option>
+                    <option value="UT" <%= reg && reg.state === 'UT' ? 'selected' : '' %>>Utah</option>
+                    <option value="VT" <%= reg && reg.state === 'VT' ? 'selected' : '' %>>Vermont</option>
+                    <option value="VA" <%= reg && reg.state === 'VA' ? 'selected' : '' %>>Virginia</option>
+                    <option value="WA" <%= reg && reg.state === 'WA' ? 'selected' : '' %>>Washington</option>
+                    <option value="WV" <%= reg && reg.state === 'WV' ? 'selected' : '' %>>West Virginia</option>
+                    <option value="WI" <%= reg && reg.state === 'WI' ? 'selected' : '' %>>Wisconsin</option>
+                    <option value="WY" <%= reg && reg.state === 'WY' ? 'selected' : '' %>>Wyoming</option>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label required"><%= t('zip') %></label>
+                  <input class="form-control" type="text" name="zip" value="<%= reg ? reg.zip : '' %>" required>
+                </div>
+              </div>
+            </fieldset>
+
+            <!-- Father fields (conditional) -->
+            <div id="father-fields" class="col-12 d-none">
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label"><%= t('father_name') %></label>
+                  <input class="form-control" type="text" name="father_name" value="<%= parentSource ? parentSource.father_name : '' %>">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label"><%= t('father_religion') %></label>
+                  <input class="form-control" type="text" name="father_religion" value="<%= parentSource ? parentSource.father_religion : '' %>">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label"><%= t('father_cell') %></label>
+                  <input class="form-control" type="tel" name="father_cell" value="<%= parentSource ? parentSource.father_cell : '' %>" pattern="[0-9]{3}[-. ]?[0-9]{3}[-. ]?[0-9]{4}" title="Format: 123-456-7890 or 123.456.7890 or 123 456 7890">
+                </div>
+              </div>
             </div>
-            <div class="col-md-6">
-              <label class="form-label required"><%= t('last_name') %></label>
-              <input class="form-control" type="text" name="primary_contact_last_name" value="<%= reg ? reg.primary_contact_last_name : '' %>" required>
+
+            <!-- Mother fields (conditional) -->
+            <div id="mother-fields" class="col-12 d-none">
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label required"><%= t('mother_maiden_name') %></label>
+                  <input class="form-control" type="text" name="mother_maiden_name" value="<%= parentSource ? parentSource.mother_maiden_name : '' %>" required>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label"><%= t('mother_religion') %></label>
+                  <input class="form-control" type="text" name="mother_religion" value="<%= parentSource ? parentSource.mother_religion : '' %>">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label"><%= t('mother_cell') %></label>
+                  <input class="form-control" type="tel" name="mother_cell" value="<%= parentSource ? parentSource.mother_cell : '' %>" pattern="[0-9]{3}[-. ]?[0-9]{3}[-. ]?[0-9]{4}" title="Format: 123-456-7890 or 123.456.7890 or 123 456 7890">
+                </div>
+              </div>
             </div>
+
+            <!-- Child lives with -->
             <div class="col-md-4">
-              <label class="form-label required"><%= t('primary_contact_phone') %></label>
-              <input class="form-control" type="tel" name="primary_contact_phone" pattern="[0-9]{3}[.\- ]?[0-9]{3}[.\- ]?[0-9]{4}" title="Format: 123-456-7890 or 123.456.7890 or 123 456 7890" required>
-              <div class="invalid-feedback">Please enter a valid phone number (XXX-XXX-XXXX format).</div>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label required"><%= t('primary_contact_email') %></label>
-              <input class="form-control" type="email" name="primary_contact_email" required>
-              <div class="invalid-feedback">Please enter a valid email address.</div>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label required"><%= t('relationship') %></label>
-              <select class="form-select" name="primary_contact_relationship" id="primary_contact_relationship" required>
-                <option value="Father"><%= t('father') %></option>
-                <option value="Mother"><%= t('mother') %></option>
-                <option value="Stepfather"><%= t('stepfather') %></option>
-                <option value="Stepmother"><%= t('stepmother') %></option>
-                <option value="Grandfather"><%= t('grandfather') %></option>
-                <option value="Grandmother"><%= t('grandmother') %></option>
-                <option value="Other"><%= t('other') %></option>
+              <label class="form-label"><%= t('child_lives_with') %></label>
+              <select class="form-select" name="child_lives_with">
+                <option <%= parentSource && parentSource.child_lives_with === t('both') ? 'selected' : '' %>><%= t('both') %></option>
+                <option <%= parentSource && parentSource.child_lives_with === t('father') ? 'selected' : '' %>><%= t('father') %></option>
+                <option <%= parentSource && parentSource.child_lives_with === t('mother') ? 'selected' : '' %>><%= t('mother') %></option>
+                <option <%= parentSource && parentSource.child_lives_with === t('grandparents') ? 'selected' : '' %>><%= t('grandparents') %></option>
+                <option <%= parentSource && parentSource.child_lives_with === t('other_lives_with') ? 'selected' : '' %>><%= t('other_lives_with') %></option>
               </select>
             </div>
-            <div class="col-12 d-none" id="relationship-other-wrap">
-              <label class="form-label"><%= t('relationship_other') %></label>
-              <input class="form-control" type="text" name="primary_contact_relationship_other" id="primary_contact_relationship_other">
+
+            <!-- Step parent fields (conditional) -->
+            <div id="step-parent-fields" class="col-12 d-none">
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label"><%= t('step_parent_name') %></label>
+                  <input class="form-control" type="text" name="step_parent_name" value="<%= parentSource ? parentSource.step_parent_name : '' %>">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label"><%= t('step_parent_religion') %></label>
+                  <input class="form-control" type="text" name="step_parent_religion" value="<%= parentSource ? parentSource.step_parent_religion : '' %>">
+                </div>
+              </div>
             </div>
+
             <div class="col-md-6">
-              <label class="form-label required"><%= t('primary_contact_religion') %></label>
-              <select class="form-select" name="primary_contact_religion" required>
-                <option value="" disabled selected><%= t('select_placeholder') %></option>
-                <option value="Catholic">Catholic</option>
-                <option value="Non-denominational">Non-denominational</option>
-                <option value="Protestant">Protestant</option>
-                <option value="Muslim">Muslim</option>
-                <option value="Hindu">Hindu</option>
-                <option value="Buddhist">Buddhist</option>
-                <option value="Agnostic">Agnostic</option>
-                <option value="Atheist">Atheist</option>
-              </select>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label required"><%= t('address') %></label>
-              <input class="form-control" type="text" name="address" value="<%= reg ? reg.address : '' %>" required>
+              <label class="form-label"><%= t('parent_signature') %></label>
+              <input class="form-control" type="text" name="parent_signature" value="<%= parentSource ? parentSource.parent_signature : '' %>">
             </div>
             <div class="col-md-4">
-              <label class="form-label required"><%= t('city') %></label>
-              <input class="form-control" type="text" name="city" required>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label required"><%= t('state') %></label>
-              <select class="form-select" name="state" required>
-                <option value="" disabled selected><%= t('select_placeholder') %></option>
-                <option value="AL">Alabama</option>
-                <option value="AK">Alaska</option>
-                <option value="AZ">Arizona</option>
-                <option value="AR">Arkansas</option>
-                <option value="CA">California</option>
-                <option value="CO">Colorado</option>
-                <option value="CT">Connecticut</option>
-                <option value="DE">Delaware</option>
-                <option value="FL">Florida</option>
-                <option value="GA">Georgia</option>
-                <option value="HI">Hawaii</option>
-                <option value="ID">Idaho</option>
-                <option value="IL">Illinois</option>
-                <option value="IN">Indiana</option>
-                <option value="IA">Iowa</option>
-                <option value="KS">Kansas</option>
-                <option value="KY">Kentucky</option>
-                <option value="LA">Louisiana</option>
-                <option value="ME">Maine</option>
-                <option value="MD">Maryland</option>
-                <option value="MA">Massachusetts</option>
-                <option value="MI">Michigan</option>
-                <option value="MN">Minnesota</option>
-                <option value="MS">Mississippi</option>
-                <option value="MO">Missouri</option>
-                <option value="MT">Montana</option>
-                <option value="NE">Nebraska</option>
-                <option value="NV">Nevada</option>
-                <option value="NH">New Hampshire</option>
-                <option value="NJ">New Jersey</option>
-                <option value="NM">New Mexico</option>
-                <option value="NY">New York</option>
-                <option value="NC">North Carolina</option>
-                <option value="ND">North Dakota</option>
-                <option value="OH">Ohio</option>
-                <option value="OK">Oklahoma</option>
-                <option value="OR">Oregon</option>
-                <option value="PA">Pennsylvania</option>
-                <option value="RI">Rhode Island</option>
-                <option value="SC">South Carolina</option>
-                <option value="SD">South Dakota</option>
-                <option value="TN">Tennessee</option>
-                <option value="TX">Texas</option>
-                <option value="UT">Utah</option>
-                <option value="VT">Vermont</option>
-                <option value="VA">Virginia</option>
-                <option value="WA">Washington</option>
-                <option value="WV">West Virginia</option>
-                <option value="WI">Wisconsin</option>
-                <option value="WY">Wyoming</option>
-              </select>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label required"><%= t('zip') %></label>
-              <input class="form-control" type="text" name="zip" required>
+              <label class="form-label"><%= t('email') %></label>
+              <input class="form-control" type="email" name="email" value="<%= parentSource ? parentSource.email : '' %>">
             </div>
           </div>
-        </fieldset>
 
-        <!-- Father fields (conditional) -->
-        <div id="father-fields" class="col-12 d-none">
-          <div class="row g-3">
-            <div class="col-md-4">
-              <label class="form-label"><%= t('father_name') %></label>
-              <input class="form-control" type="text" name="father_name">
+          <% if (showCountGate) { %>
+            <div class="col-12 mt-3">
+              <button type="button" class="btn btn-primary" id="continue-to-student">Continue to Student Info</button>
             </div>
-            <div class="col-md-4">
-              <label class="form-label"><%= t('father_religion') %></label>
-              <input class="form-control" type="text" name="father_religion">
-            </div>
-            <div class="col-md-4">
-              <label class="form-label"><%= t('father_cell') %></label>
-              <input class="form-control" type="tel" name="father_cell" pattern="[0-9]{3}[-. ]?[0-9]{3}[-. ]?[0-9]{4}" title="Format: 123-456-7890 or 123.456.7890 or 123 456 7890">
-            </div>
-          </div>
+          <% } %>
         </div>
 
-        <!-- Mother fields (conditional) -->
-        <div id="mother-fields" class="col-12 d-none">
-          <div class="row g-3">
-            <div class="col-md-4">
-              <label class="form-label required"><%= t('mother_maiden_name') %></label>
-              <input class="form-control" type="text" name="mother_maiden_name" required>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label"><%= t('mother_religion') %></label>
-              <input class="form-control" type="text" name="mother_religion">
-            </div>
-            <div class="col-md-4">
-              <label class="form-label"><%= t('mother_cell') %></label>
-              <input class="form-control" type="tel" name="mother_cell" pattern="[0-9]{3}[-. ]?[0-9]{3}[-. ]?[0-9]{4}" title="Format: 123-456-7890 or 123.456.7890 or 123 456 7890">
-            </div>
-          </div>
-        </div>
-
-        <!-- Child lives with -->
-        <div class="col-md-4">
-          <label class="form-label"><%= t('child_lives_with') %></label>
-          <select class="form-select" name="child_lives_with">
-            <option><%= t('both') %></option>
-            <option><%= t('father') %></option>
-            <option><%= t('mother') %></option>
-            <option><%= t('grandparents') %></option>
-            <option><%= t('other_lives_with') %></option>
-          </select>
-        </div>
-
-        <!-- Step parent fields (conditional) -->
-        <div id="step-parent-fields" class="col-12 d-none">
-          <div class="row g-3">
-            <div class="col-md-4">
-              <label class="form-label"><%= t('step_parent_name') %></label>
-              <input class="form-control" type="text" name="step_parent_name">
-            </div>
-            <div class="col-md-4">
-              <label class="form-label"><%= t('step_parent_religion') %></label>
-              <input class="form-control" type="text" name="step_parent_religion">
-            </div>
-          </div>
-        </div>
-
-        <!-- Student information -->
-        <div id="children-container" class="col-12">
+        <!-- Student information (one student per stage) -->
+        <div id="children-container" class="col-12 <%= showParentSection && showCountGate ? 'd-none' : '' %>">
+          <% if (onStudentStage && wizardIndex > 1) { %>
+            <a class="btn btn-sm btn-outline-secondary mb-3" href="/registration/children?stage=student&index=<%= wizardIndex - 1 %>&groupIds=<%= wizardGroupIds.join(',') %>&total=<%= wizardTotal %>">&larr; Back to Previous Student</a>
+          <% } %>
+          <% if (!editing && !onStudentStage) { %>
+            <button type="button" class="btn btn-sm btn-outline-secondary mb-3" id="back-to-parent">&larr; Back to Parent Info</button>
+          <% } %>
           <fieldset class="child-block border rounded p-3 mb-3">
-            <legend class="d-flex justify-content-between align-items-center">
-              <span><%= t('student_info') %></span>
-              <button type="button" class="btn btn-sm btn-outline-danger remove-child-btn d-none">Remove</button>
-            </legend>
+            <legend><%= t('student_info') %></legend>
             <div class="row g-3">
               <div class="col-md-4">
                 <label class="form-label required"><%= t('student_first_name') %></label>
-                <input class="form-control" type="text" name="student_first_name[]" required>
+                <input class="form-control" type="text" name="student_first_name" value="<%= studentSource ? studentSource.student_full_name && studentSource.student_full_name.split(' ')[0] : '' %>" required>
               </div>
               <div class="col-md-4">
                 <label class="form-label"><%= t('student_middle_name') || 'Middle name' %></label>
-                <input class="form-control" type="text" name="student_middle_name[]">
+                <input class="form-control" type="text" name="student_middle_name">
               </div>
               <div class="col-md-4">
                 <label class="form-label required"><%= t('student_last_name') %></label>
-                <input class="form-control" type="text" name="student_last_name[]" required>
+                <input class="form-control" type="text" name="student_last_name" value="<%= studentSource ? studentSource.student_full_name && studentSource.student_full_name.split(' ').slice(1).join(' ') : '' %>" required>
               </div>
               <div class="col-md-3">
                 <label class="form-label required"><%= t('gender') %></label>
-                <select class="form-select" name="student_gender[]" required>
-                  <option value="" disabled selected><%= t('select_placeholder') %></option>
-                  <option value="male"><%= t('male') %></option>
-                  <option value="female"><%= t('female') %></option>
+                <select class="form-select" name="student_gender" required>
+                  <option value="" disabled <%= !(studentSource && studentSource.student_gender) ? 'selected' : '' %>><%= t('select_placeholder') %></option>
+                  <option value="male" <%= studentSource && studentSource.student_gender === 'male' ? 'selected' : '' %>><%= t('male') %></option>
+                  <option value="female" <%= studentSource && studentSource.student_gender === 'female' ? 'selected' : '' %>><%= t('female') %></option>
                 </select>
                 <div class="invalid-feedback"><%= t('required_field') %></div>
               </div>
               <div class="col-md-3">
                 <label class="form-label required"><%= t('dob') %></label>
-                <input class="form-control" type="date" name="student_dob[]" required>
+                <input class="form-control" type="date" name="student_dob" value="<%= studentSource ? studentSource.student_dob : '' %>" required>
                 <div class="invalid-feedback"><%= t('required_field') %></div>
               </div>
 
               <div class="col-md-3">
                 <label class="form-label"><%= t('birth_city') || 'Birth city' %></label>
-                <input class="form-control" type="text" name="child_place_of_birth_city[]">
+                <input class="form-control" type="text" name="child_place_of_birth_city" value="<%= studentSource ? studentSource.child_place_of_birth_city : '' %>">
               </div>
               <div class="col-md-3">
                 <label class="form-label"><%= t('birth_country') || 'Birth country' %></label>
-                <input class="form-control" type="text" name="child_place_of_birth_country[]">
+                <input class="form-control" type="text" name="child_place_of_birth_country" value="<%= studentSource ? studentSource.child_place_of_birth_country : '' %>">
               </div>
               <% if (isStaff) { %>
                 <div class="col-md-3">
                 <label class="form-label"><%= t('ccd_grade_level') %></label>
-                <input class="form-control" type="text" name="ccd_grade_level[]">
+                <input class="form-control" type="text" name="ccd_grade_level" value="<%= studentSource ? studentSource.ccd_grade_level : '' %>">
                 </div>
               <% } %>
               <div class="col-md-3">
                 <label class="form-label"><%= t('school_grade_level') %></label>
-                <select class="form-select" name="school_grade_level[]">
-                  <option value="" disabled selected><%= t('select_placeholder') %></option>
-                  <option value="K">K</option>
-                  <option value="1">1</option>
-                  <option value="2">2</option>
-                  <option value="3">3</option>
-                  <option value="4">4</option>
-                  <option value="5">5</option>
-                  <option value="6">6</option>
-                  <option value="7">7</option>
-                  <option value="8">8</option>
-                  <option value="9">9</option>
-                  <option value="10">10</option>
-                  <option value="11">11</option>
-                  <option value="12">12</option>
+                <select class="form-select" name="school_grade_level">
+                  <option value="" disabled <%= !(studentSource && studentSource.school_grade_level) ? 'selected' : '' %>><%= t('select_placeholder') %></option>
+                  <% ['K','1','2','3','4','5','6','7','8','9','10','11','12'].forEach((g) => { %>
+                    <option value="<%= g %>" <%= studentSource && studentSource.school_grade_level === g ? 'selected' : '' %>><%= g %></option>
+                  <% }) %>
                 </select>
               </div>
               <div class="col-12">
                 <label class="form-label"><%= t('school_attending') %></label>
-                <input class="form-control" type="text" name="school_attending[]">
+                <input class="form-control" type="text" name="school_attending" value="<%= studentSource ? studentSource.school_attending : '' %>">
               </div>
             </div>
 
@@ -345,57 +411,89 @@
               <div class="row g-3">
                 <div class="col-md-3">
                   <label class="form-label"><%= t('baptism_date') %></label>
-                  <input class="form-control" type="date" name="baptism_date[]">
+                  <input class="form-control" type="date" name="baptism_date" value="<%= studentSource ? studentSource.baptism_date : '' %>">
                 </div>
                 <div class="col-md-9">
                   <label class="form-label"><%= t('baptism_church') %></label>
-                  <input class="form-control" type="text" name="baptism_church[]">
+                  <input class="form-control" type="text" name="baptism_church" value="<%= studentSource ? studentSource.baptism_church : '' %>">
                 </div>
                 <div class="col-md-3">
                   <label class="form-label"><%= t('first_communion_date') %></label>
-                  <input class="form-control" type="date" name="first_communion_date[]">
+                  <input class="form-control" type="date" name="first_communion_date" value="<%= studentSource ? studentSource.first_communion_date : '' %>">
                 </div>
                 <div class="col-md-9">
                   <label class="form-label"><%= t('first_communion_church') %></label>
-                  <input class="form-control" type="text" name="first_communion_church[]">
+                  <input class="form-control" type="text" name="first_communion_church" value="<%= studentSource ? studentSource.first_communion_church : '' %>">
                 </div>
               </div>
             </fieldset>
 
+            <!-- Second-year sacramental prep -->
+            <fieldset class="mt-3 sacramental-year-fieldset">
+              <legend>Second Year of Sacramental Preparation</legend>
+              <div class="row g-3">
+                <div class="col-12">
+                  <label class="form-label required">Are you registering for the second year of sacramental preparation?</label>
+                  <% const regSacramentalYear = studentSource ? (studentSource.sacramental_year || '') : ''; %>
+                  <% const regPreferredClassTime = studentSource ? (studentSource.preferred_class_time || '') : ''; %>
+                  <div class="form-check">
+                    <label class="form-check-label">
+                      <input class="form-check-input sacramental-year-radio" type="radio" name="sacramental_year_choice" value="second_year_communion" <%= regSacramentalYear === 'second_year_communion' ? 'checked' : '' %> required>
+                      Yes, Second Year of Holy Communion
+                    </label>
+                  </div>
+                  <div class="form-check">
+                    <label class="form-check-label">
+                      <input class="form-check-input sacramental-year-radio" type="radio" name="sacramental_year_choice" value="second_year_confirmation" <%= regSacramentalYear === 'second_year_confirmation' ? 'checked' : '' %>>
+                      Second year of Confirmation
+                    </label>
+                  </div>
+                  <div class="form-check">
+                    <label class="form-check-label">
+                      <input class="form-check-input sacramental-year-radio" type="radio" name="sacramental_year_choice" value="" <%= !regSacramentalYear ? 'checked' : '' %>>
+                      No
+                    </label>
+                  </div>
+                </div>
+                <div class="col-md-6 d-none communion-class-time-wrap">
+                  <label class="form-label">Preferred Class Time</label>
+                  <select class="form-select communion-class-time-select">
+                    <option value="" disabled <%= !regPreferredClassTime ? 'selected' : '' %>><%= t('select_placeholder') %></option>
+                    <option value="Monday 4:00-5:15 PM" <%= regPreferredClassTime === 'Monday 4:00-5:15 PM' ? 'selected' : '' %>>Monday 4:00&ndash;5:15 PM</option>
+                    <option value="Tuesday 4:00-5:15 PM" <%= regPreferredClassTime === 'Tuesday 4:00-5:15 PM' ? 'selected' : '' %>>Tuesday 4:00&ndash;5:15 PM</option>
+                    <option value="Wednesday 4:00-5:15 PM" <%= regPreferredClassTime === 'Wednesday 4:00-5:15 PM' ? 'selected' : '' %>>Wednesday 4:00&ndash;5:15 PM</option>
+                  </select>
+                </div>
+                <div class="col-md-6 d-none confirmation-class-time-wrap">
+                  <label class="form-label">Class Time</label>
+                  <div class="form-control-plaintext">Sunday 1:00&ndash;2:30 PM</div>
+                </div>
+                <input type="hidden" name="sacramental_year" class="sacramental-year-hidden" value="<%= regSacramentalYear %>">
+                <input type="hidden" name="preferred_class_time" class="preferred-class-time-hidden" value="<%= regPreferredClassTime %>">
+              </div>
+            </fieldset>
+
+            <!-- Certificate uploads -->
+            <div class="mt-3">
+              <h3 class="h6 mb-3" style="font-family:'Playfair Display',Georgia,serif;font-size:1.1rem;color:var(--forest)"><%= t('upload_scans') %></h3>
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label"><%= t('baptism_required') %></label>
+                  <input class="form-control" type="file" name="baptism_certificate" accept=".pdf,image/*">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label"><%= t('communion_required') %></label>
+                  <input class="form-control" type="file" name="first_communion_certificate" accept=".pdf,image/*">
+                </div>
+              </div>
+            </div>
+
             <!-- Comments -->
             <div class="mt-3">
               <label class="form-label"><%= t('comments') %></label>
-              <textarea class="form-control" rows="3" name="disabilities_comments[]"></textarea>
+              <textarea class="form-control" rows="3" name="disabilities_comments"><%= studentSource ? studentSource.disabilities_comments : '' %></textarea>
             </div>
           </fieldset>
-
-          <button type="button" id="add-child" class="btn btn-sm btn-outline-primary">Add another child</button>
-        </div>
-
-        <!-- Misc -->
-        <div class="col-md-6">
-          <label class="form-label"><%= t('parent_signature') %></label>
-          <input class="form-control" type="text" name="parent_signature">
-        </div>
-        <div class="col-md-4">
-          <label class="form-label"><%= t('email') %></label>
-          <input class="form-control" type="email" name="email">
-        </div>
-
-        <!-- Certificate uploads -->
-        <div class="col-12">
-          <hr class="section-rule">
-          <h3 class="h6 mb-3" style="font-family:'Playfair Display',Georgia,serif;font-size:1.1rem;color:var(--forest)"><%= t('upload_scans') %></h3>
-          <div class="row g-3">
-            <div class="col-md-6">
-              <label class="form-label"><%= t('baptism_required') %></label>
-              <input class="form-control" type="file" name="baptism_certificate" accept=".pdf,image/*">
-            </div>
-            <div class="col-md-6">
-              <label class="form-label"><%= t('communion_required') %></label>
-              <input class="form-control" type="file" name="first_communion_certificate" accept=".pdf,image/*">
-            </div>
-          </div>
         </div>
 
         <!-- Fee notice -->
@@ -406,9 +504,8 @@
         </div>
 
         <!-- Submit -->
-        <div class="col-12 d-flex gap-2">
-          <button class="btn btn-secondary" type="button" id="save-draft"><%= t('save_draft') %></button>
-          <button class="btn btn-primary" type="submit"><%= t('submit_registration') %></button>
+        <div class="col-12 d-flex gap-2 <%= showCountGate ? 'd-none' : '' %>" id="submit-row">
+          <button class="btn btn-primary" type="submit" id="submit-btn"><%= editing ? t('submit_registration') : (isLastKnownStage ? 'Submit Registration' : 'Save & Continue') %></button>
           <a class="btn btn-outline-secondary" href="/dashboard"><%= t('cancel') %></a>
         </div>
 
@@ -421,242 +518,125 @@
 
 <script>
   (function () {
+    const registrationForm = document.getElementById('registration-form');
+
+    // A hidden (d-none) required field that's also empty blocks submission with an
+    // "invalid form control ... is not focusable" error the browser can't show the
+    // user, silently killing the submit. Every field that's ever `required` in the
+    // markup gets tracked here; whenever visibility changes anywhere in the form,
+    // re-sync `required` to true only for fields with no d-none ancestor.
+    const isVisible = (el) => {
+      let node = el;
+      while (node && node !== registrationForm) {
+        if (node.classList && node.classList.contains('d-none')) return false;
+        node = node.parentElement;
+      }
+      return true;
+    };
+    const alwaysRequiredFields = Array.from(registrationForm.querySelectorAll('[required]'));
+    const syncRequiredByVisibility = () => {
+      alwaysRequiredFields.forEach((el) => { el.required = isVisible(el); });
+    };
+    syncRequiredByVisibility();
+
     const select = document.getElementById('primary_contact_relationship');
     const wrap   = document.getElementById('relationship-other-wrap');
     const other  = document.getElementById('primary_contact_relationship_other');
-    const childrenContainer = document.getElementById('children-container');
-    const addChildBtn = document.getElementById('add-child');
 
     const update = () => {
       const v = select.value;
       wrap.classList.toggle('d-none', v !== 'Other');
-      other.required = v === 'Other';
       if (v !== 'Other') other.value = '';
 
       document.getElementById('father-fields').classList.toggle('d-none', v === 'Father');
       document.getElementById('mother-fields').classList.toggle('d-none', v === 'Mother');
       document.getElementById('step-parent-fields').classList.toggle('d-none',
         v !== 'Stepfather' && v !== 'Stepmother');
+      syncRequiredByVisibility();
+      other.required = v === 'Other' && isVisible(other);
     };
-
-    const updateRemoveButtons = () => {
-      const blocks = childrenContainer.querySelectorAll('.child-block');
-      blocks.forEach((block, idx) => {
-        const btn = block.querySelector('.remove-child-btn');
-        if (!btn) return;
-        btn.classList.toggle('d-none', blocks.length === 1);
-        btn.dataset.index = idx;
-      });
-    };
-
-    const createChildBlock = () => {
-      const first = childrenContainer.querySelector('.child-block');
-      if (!first) return null;
-      const clone = first.cloneNode(true);
-      clone.querySelectorAll('input, select, textarea').forEach((el) => {
-        if (el.type === 'checkbox' || el.type === 'radio') {
-          el.checked = false;
-        } else {
-          el.value = '';
-        }
-      });
-      return clone;
-    };
-
-    const addChild = () => {
-      const block = createChildBlock();
-      if (!block) return;
-      childrenContainer.insertBefore(block, addChildBtn);
-      updateRemoveButtons();
-    };
-
-    const removeChild = (evt) => {
-      const btn = evt.target.closest('.remove-child-btn');
-      if (!btn) return;
-      const block = btn.closest('.child-block');
-      if (!block) return;
-      block.remove();
-      updateRemoveButtons();
-    };
-
-    addChildBtn.addEventListener('click', addChild);
-
-    childrenContainer.addEventListener('click', (evt) => {
-      if (evt.target.closest('.remove-child-btn')) {
-        removeChild(evt);
-      }
-    });
 
     select.addEventListener('change', update);
     update();
-    updateRemoveButtons();
-  }());
 
-  // Save draft functionality
-  (function () {
-    const form = document.querySelector('form');
-    const saveBtn = document.getElementById('save-draft');
+    // Second-year sacramental prep: toggle the class-time UI
+    const block = document.querySelector('.child-block');
+    const updateSacramentalYearUI = () => {
+      if (!block) return;
+      const checked = block.querySelector('.sacramental-year-radio:checked');
+      const value = checked ? checked.value : '';
+      const communionWrap = block.querySelector('.communion-class-time-wrap');
+      const confirmationWrap = block.querySelector('.confirmation-class-time-wrap');
+      const communionSelect = block.querySelector('.communion-class-time-select');
+      const classTimeHidden = block.querySelector('.preferred-class-time-hidden');
+      const sacramentalYearHidden = block.querySelector('.sacramental-year-hidden');
 
-    function saveFormData() {
-      const formData = new FormData(form);
-      const data = {};
-      for (let [key, value] of formData.entries()) {
-        if (data[key]) {
-          if (Array.isArray(data[key])) {
-            data[key].push(value);
-          } else {
-            data[key] = [data[key], value];
-          }
-        } else {
-          data[key] = value;
-        }
+      sacramentalYearHidden.value = value;
+      communionWrap.classList.toggle('d-none', value !== 'second_year_communion');
+      confirmationWrap.classList.toggle('d-none', value !== 'second_year_confirmation');
+
+      if (value === 'second_year_communion') {
+        classTimeHidden.value = communionSelect.value;
+      } else if (value === 'second_year_confirmation') {
+        classTimeHidden.value = 'Sunday 1:00-2:30 PM';
+      } else {
+        classTimeHidden.value = '';
       }
-      localStorage.setItem('registration-draft', JSON.stringify(data));
-      alert('Draft saved!');
-    }
-
-    function loadFormData() {
-      const data = localStorage.getItem('registration-draft');
-      if (data) {
-        const parsed = JSON.parse(data);
-        for (let key in parsed) {
-          const elements = form.querySelectorAll(`[name="${key}"]`);
-          if (elements.length > 1) {
-            // Array inputs
-            parsed[key].forEach((value, index) => {
-              if (elements[index]) {
-                if (elements[index].type === 'file') return; // Skip file inputs
-                if (elements[index].type === 'checkbox' || elements[index].type === 'radio') {
-                  elements[index].checked = value;
-                } else {
-                  elements[index].value = value;
-                }
-              }
-            });
-          } else if (elements[0]) {
-            if (elements[0].type === 'file') continue; // Skip file inputs
-            if (elements[0].type === 'checkbox' || elements[0].type === 'radio') {
-              elements[0].checked = parsed[key];
-            } else {
-              elements[0].value = parsed[key];
-            }
-          }
-        }
-        // Trigger updates
-        const select = document.getElementById('primary_contact_relationship');
-        const event = new Event('change');
-        select.dispatchEvent(event);
-      }
-    }
-
-    saveBtn.addEventListener('click', saveFormData);
-    loadFormData();
-
-    // Enable submit only if required fields are filled and valid
-    const submitBtn = document.querySelector('button[type="submit"]');
-    const validationForm = document.querySelector('form');
-    const emailInput = validationForm.querySelector('[name="primary_contact_email"]');
-    const phoneInput = validationForm.querySelector('[name="primary_contact_phone"]');
-    function checkRequired() {
-      const email = emailInput.value.trim();
-      const phone = phoneInput.value.trim();
-      const studentFirstNames = validationForm.querySelectorAll('[name="student_first_name[]"]');
-      const studentMiddleNames = validationForm.querySelectorAll('[name="student_middle_name[]"]');
-      const studentLastNames = validationForm.querySelectorAll('[name="student_last_name[]"]');
-      const studentGenders = validationForm.querySelectorAll('[name="student_gender[]"]');
-      const studentDobs = validationForm.querySelectorAll('[name="student_dob[]"]');
-
-      const hasStudent = Array.from(studentFirstNames).some((input, idx) => {
-        return input.value.trim() !== '' || (studentLastNames[idx]?.value || '').trim() !== '';
-      });
-
-      // Ensure that if a student name is entered, gender + DOB are filled
-      let studentsValid = true;
-      studentFirstNames.forEach((input, idx) => {
-        const firstName = input.value.trim();
-        const middleName = (studentMiddleNames[idx]?.value || '').trim();
-        const lastName = (studentLastNames[idx]?.value || '').trim();
-        const genderEl = studentGenders[idx];
-        const dobEl = studentDobs[idx];
-        const gender = genderEl?.value || '';
-        const dob = dobEl?.value || '';
-
-        // reset visual state for these fields
-        if (genderEl) {
-          genderEl.classList.remove('is-invalid', 'is-valid');
-        }
-        if (dobEl) {
-          dobEl.classList.remove('is-invalid', 'is-valid');
-        }
-
-        if (!firstName && !lastName) return; // skip empty rows
-
-        const rowValid = Boolean(firstName && lastName && gender.trim() && dob.trim());
-        if (!rowValid) studentsValid = false;
-
-        if (genderEl) {
-          genderEl.classList.toggle('is-invalid', !Boolean(gender.trim()));
-          genderEl.classList.toggle('is-valid', Boolean(gender.trim()));
-        }
-        if (dobEl) {
-          dobEl.classList.toggle('is-invalid', !Boolean(dob.trim()));
-          dobEl.classList.toggle('is-valid', Boolean(dob.trim()));
+    };
+    if (block) {
+      block.addEventListener('change', (evt) => {
+        if (evt.target.classList.contains('sacramental-year-radio') || evt.target.classList.contains('communion-class-time-select')) {
+          updateSacramentalYearUI();
         }
       });
-
-      // Email validation (HTML5 + regex)
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      const emailValid = emailInput.checkValidity() && emailRegex.test(email);
-
-      // Phone validation (HTML5 + regex)
-      const phoneRegex = /^\d{3}[-.\s]?\d{3}[-.\s]?\d{4}$/;
-      const phoneValid = phoneInput.checkValidity() && phoneRegex.test(phone);
-
-      // Visual feedback: ensure we don't leave stale valid/invalid classes
-      emailInput.classList.remove('is-invalid', 'is-valid');
-      phoneInput.classList.remove('is-invalid', 'is-valid');
-
-      if (email) {
-        emailInput.classList.toggle('is-invalid', !emailValid);
-        emailInput.classList.toggle('is-valid', emailValid);
-      }
-      if (phone) {
-        phoneInput.classList.toggle('is-invalid', !phoneValid);
-        phoneInput.classList.toggle('is-valid', phoneValid);
-      }
-
-      const contactValid = emailValid && phoneValid;
-      submitBtn.disabled = !(contactValid && hasStudent && studentsValid);
+      updateSacramentalYearUI();
     }
-    validationForm.addEventListener('input', checkRequired);
-    validationForm.addEventListener('change', checkRequired);
-    validationForm.addEventListener('submit', (e) => {
-      const email = emailInput.value.trim();
-      const phone = phoneInput.value.trim();
-      const studentFirstNames = validationForm.querySelectorAll('[name="student_first_name[]"]');
-      const studentLastNames = validationForm.querySelectorAll('[name="student_last_name[]"]');
-      const studentGenders = validationForm.querySelectorAll('[name="student_gender[]"]');
-      const studentDobs = validationForm.querySelectorAll('[name="student_dob[]"]');
-      const hasStudent = Array.from(studentFirstNames).some((input, idx) => input.value.trim() !== '' || (studentLastNames[idx]?.value || '').trim() !== '');
-      const studentsValid = Array.from(studentFirstNames).every((input, idx) => {
-        const firstName = input.value.trim();
-        const lastName = (studentLastNames[idx]?.value || '').trim();
-        if (!firstName && !lastName) return true;
-        const gender = studentGenders[idx]?.value || '';
-        const dob = studentDobs[idx]?.value || '';
-        return Boolean(firstName && lastName && gender.trim() && dob.trim());
+
+    // Intro stage: "how many children" pre-question drives total_children + reveals the student section
+    const childCountSelect = document.getElementById('child-count-select');
+    const totalChildrenInput = document.getElementById('total-children-input');
+    const continueBtn = document.getElementById('continue-to-student');
+    const backToParentBtn = document.getElementById('back-to-parent');
+    const parentSection = document.getElementById('parent-section');
+    const childrenContainer = document.getElementById('children-container');
+    const submitRow = document.getElementById('submit-row');
+    const submitBtn = document.getElementById('submit-btn');
+
+    if (childCountSelect && totalChildrenInput) {
+      const syncTotal = () => {
+        totalChildrenInput.value = childCountSelect.value || '';
+        if (submitBtn) {
+          submitBtn.textContent = childCountSelect.value === '1' ? 'Submit Registration' : 'Save & Continue';
+        }
+      };
+      childCountSelect.addEventListener('change', syncTotal);
+      syncTotal();
+    }
+
+    if (continueBtn && parentSection && childrenContainer && submitRow) {
+      continueBtn.addEventListener('click', () => {
+        if (!childCountSelect || !childCountSelect.value) {
+          childCountSelect.reportValidity();
+          return;
+        }
+        if (!registrationForm.reportValidity()) return;
+        parentSection.classList.add('d-none');
+        childrenContainer.classList.remove('d-none');
+        submitRow.classList.remove('d-none');
+        syncRequiredByVisibility();
+        const firstInput = childrenContainer.querySelector('input, select');
+        if (firstInput) firstInput.focus();
       });
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      const phoneRegex = /^\d{3}[-.\s]?\d{3}[-.\s]?\d{4}$/;
-      const emailValid = emailInput.checkValidity() && emailRegex.test(email);
-      const phoneValid = phoneInput.checkValidity() && phoneRegex.test(phone);
-      const contactValid = emailValid && phoneValid;
-      if (!contactValid || !hasStudent || !studentsValid) {
-        e.preventDefault();
-        alert('Please correct the validation errors before submitting.');
-      }
-    });
-    checkRequired(); // Initial check
+    }
+
+    if (backToParentBtn && parentSection && childrenContainer && submitRow) {
+      backToParentBtn.addEventListener('click', () => {
+        childrenContainer.classList.add('d-none');
+        submitRow.classList.add('d-none');
+        parentSection.classList.remove('d-none');
+        syncRequiredByVisibility();
+      });
+    }
   }());
 </script>
 </body>
