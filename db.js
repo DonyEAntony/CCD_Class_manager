@@ -389,6 +389,8 @@ const init = async () => {
     await ensureColumn('users', 'email_verified_at', 'DATETIME NULL');
     await ensureColumn('users', 'email_verification_token', 'VARCHAR(255) NULL');
     await ensureColumn('users', 'email_verification_expires_at', 'DATETIME NULL');
+    await ensureColumn('users', 'password_reset_token', 'VARCHAR(255) NULL');
+    await ensureColumn('users', 'password_reset_expires_at', 'DATETIME NULL');
     await ensureColumn('ccd_classes', 'catechist_user_id', 'INT NULL');
 
     await ensureColumn('student_registrations', 'primary_contact_first_name', 'VARCHAR(255)');
@@ -397,6 +399,7 @@ const init = async () => {
     await ensureColumn('student_registrations', 'child_place_of_birth_country', 'TEXT');
     await ensureColumn('student_registrations', 'sacramental_year', 'VARCHAR(30) NULL');
     await ensureColumn('student_registrations', 'preferred_class_time', 'VARCHAR(100) NULL');
+    await ensureColumn('student_registrations', 'archived_at', 'DATETIME NULL');
     await ensureColumn('sponsor_confirmations', 'is_st_matthew_parishioner', 'TINYINT(1) NOT NULL DEFAULT 0');
     await ensureColumn('sponsor_confirmations', 'sponsor_certificate_path', 'TEXT');
     await ensureColumn('sponsor_confirmations', 'admin_verified', 'TINYINT(1) NOT NULL DEFAULT 0');

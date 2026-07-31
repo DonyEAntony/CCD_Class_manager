@@ -88,6 +88,9 @@
         <a class="btn btn-outline-primary" href="/family-faith/visits/availability"><%= t('manage_visit_availability') %></a>
       <% } %>
       <a class="btn btn-outline-primary" href="/calendar"><%= t('calendar') %></a>
+      <% if (user.provider === 'local') { %>
+        <a class="btn btn-outline-secondary" href="/account/password"><%= t('change_password') %></a>
+      <% } %>
       <a class="btn btn-outline-secondary" href="/logout"><%= t('logout') %></a>
     </div>
   </div>
