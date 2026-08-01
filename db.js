@@ -339,7 +339,7 @@ const init = async () => {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS ccd_classes (
         id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-        grade_level VARCHAR(255) NOT NULL UNIQUE,
+        grade_level VARCHAR(255) NOT NULL,
         class_time VARCHAR(255),
         classroom VARCHAR(255),
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -392,13 +392,30 @@ const init = async () => {
     await ensureColumn('users', 'password_reset_token', 'VARCHAR(255) NULL');
     await ensureColumn('users', 'password_reset_expires_at', 'DATETIME NULL');
     await ensureColumn('ccd_classes', 'catechist_user_id', 'INT NULL');
+    // One-time normalization: legacy seed data used "1st Grade"/"2nd Grade" labels;
+    // the sacramental-prep grade scheme (1-9) now expects plain digit grade_level values.
+    try {
+      await pool.query("UPDATE ccd_classes SET grade_level = '1' WHERE grade_level = '1st Grade'");
+      await pool.query("UPDATE ccd_classes SET grade_level = '2' WHERE grade_level = '2nd Grade'");
+    } catch (error) {
+      console.warn('[migration] Skipped ccd_classes grade_level normalization', error?.message || error);
+    }
+    // A grade can now offer multiple time-slot sections (e.g. 3 options for Second
+    // Year Communion), so grade_level can no longer be unique. Drop the legacy index.
+    try {
+      await pool.query('ALTER TABLE ccd_classes DROP INDEX grade_level');
+    } catch (error) {
+      // Already dropped, or the index has a different name on this install — safe to ignore.
+    }
 
     await ensureColumn('student_registrations', 'primary_contact_first_name', 'VARCHAR(255)');
     await ensureColumn('student_registrations', 'primary_contact_last_name', 'VARCHAR(255)');
+    await ensureColumn('student_registrations', 'primary_contact_religion', 'VARCHAR(100) NULL');
     await ensureColumn('student_registrations', 'child_place_of_birth_city', 'TEXT');
     await ensureColumn('student_registrations', 'child_place_of_birth_country', 'TEXT');
     await ensureColumn('student_registrations', 'sacramental_year', 'VARCHAR(30) NULL');
     await ensureColumn('student_registrations', 'preferred_class_time', 'VARCHAR(100) NULL');
+    await ensureColumn('student_registrations', 'non_sacramental_grade', 'VARCHAR(10) NULL');
     await ensureColumn('student_registrations', 'archived_at', 'DATETIME NULL');
     await ensureColumn('sponsor_confirmations', 'is_st_matthew_parishioner', 'TINYINT(1) NOT NULL DEFAULT 0');
     await ensureColumn('sponsor_confirmations', 'sponsor_certificate_path', 'TEXT');
