@@ -7,6 +7,15 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
+  <style>
+    .sac-radio { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: .95rem; padding: 4px 0; }
+    .sac-radio input { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
+    .sac-radio .sac-dot { width: 18px; height: 18px; flex: 0 0 auto; border-radius: 50%; border: 1.5px solid var(--border); background: #fff; transition: border-color .15s, background .15s; }
+    .sac-radio:hover .sac-dot { border-color: var(--navy); }
+    .sac-radio input:checked + .sac-dot { border-color: var(--navy); background: var(--navy); box-shadow: inset 0 0 0 4px #fff; }
+    .sac-radio input:focus-visible + .sac-dot { outline: 2px solid var(--gold); outline-offset: 2px; }
+    .sac-panel { border: 1px solid var(--border); border-radius: 12px; padding: 1rem; margin-top: .75rem; background: var(--surface); }
+  </style>
 </head>
 <body>
 
@@ -15,6 +24,7 @@
 <main class="container py-4 app-shell mx-auto">
   <% const availableStatusOptions = Array.isArray(typeof statusOptions === 'undefined' ? null : statusOptions) ? statusOptions : []; %>
   <% const visibleEvents = Array.isArray(typeof relevantEvents === 'undefined' ? null : relevantEvents) ? relevantEvents : []; %>
+  <% const availableCcdClasses = Array.isArray(typeof ccdClasses === 'undefined' ? null : ccdClasses) ? ccdClasses : []; %>
   <% const wizardStage = typeof stage === 'string' ? stage : 'intro'; %>
   <% const wizardTotal = typeof totalChildren === 'number' ? totalChildren : null; %>
   <% const wizardIndex = typeof studentIndex === 'number' ? studentIndex : 1; %>
@@ -36,13 +46,20 @@
       <h1><%= t('registration_form_title') %></h1>
       <p class="sub mb-0">
         <%= t('app_title') %> &mdash; <%= typeof schoolYearLabel === 'string' ? schoolYearLabel : t('school_year') %>
-        <% if (onStudentStage && wizardTotal) { %>
-          &middot; Student <%= wizardIndex %> of <%= wizardTotal %>
-        <% } %>
       </p>
     </div>
     <a class="btn btn-outline-secondary" href="/dashboard"><%= t('back') %></a>
   </div>
+
+  <% if (!editing) { %>
+    <div class="mb-3" id="wizard-progress">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <span class="fw-semibold" id="wizard-progress-label"></span>
+        <span class="text-muted small" id="wizard-progress-fraction"></span>
+      </div>
+      <div class="d-flex gap-1" id="wizard-progress-steps"></div>
+    </div>
+  <% } %>
 
   <div class="page-card">
     <% if (error && error.length) { %><div class="alert alert-danger mb-3"><%= error[0] %></div><% } %>
@@ -428,45 +445,102 @@
               </div>
             </fieldset>
 
-            <!-- Second-year sacramental prep -->
+            <!-- Sacramental preparation -->
             <fieldset class="mt-3 sacramental-year-fieldset">
-              <legend>Second Year of Sacramental Preparation</legend>
+              <legend>Sacramental Preparation</legend>
+              <% const regSacramentalYear = studentSource ? (studentSource.sacramental_year || '') : ''; %>
+              <% const regPreferredClassTime = studentSource ? (studentSource.preferred_class_time || '') : ''; %>
+              <% const prefillSacrament = regSacramentalYear.indexOf('confirmation') !== -1 ? 'confirmation' : (regSacramentalYear.indexOf('communion') !== -1 ? 'communion' : ''); %>
+              <% const prefillYear = regSacramentalYear.indexOf('first_year') === 0 ? 'first' : (regSacramentalYear.indexOf('second_year') === 0 ? 'second' : ''); %>
+              <% const prefillCategory = regSacramentalYear ? 'sacramental' : (studentSource ? 'non_sacramental' : ''); %>
+              <% const classesByGrade = {}; availableCcdClasses.forEach((c) => {
+                if (!classesByGrade[c.grade_level]) classesByGrade[c.grade_level] = [];
+                classesByGrade[c.grade_level].push({ time: c.class_time || 'TBD', room: c.classroom || '' });
+              }); %>
+              <% const gradeSlotValue = (slot) => (slot.room ? `${slot.time} — ${slot.room}` : slot.time); %>
               <div class="row g-3">
                 <div class="col-12">
-                  <label class="form-label required">Are you registering for the second year of sacramental preparation?</label>
-                  <% const regSacramentalYear = studentSource ? (studentSource.sacramental_year || '') : ''; %>
-                  <% const regPreferredClassTime = studentSource ? (studentSource.preferred_class_time || '') : ''; %>
-                  <div class="form-check">
-                    <label class="form-check-label">
-                      <input class="form-check-input sacramental-year-radio" type="radio" name="sacramental_year_choice" value="second_year_communion" <%= regSacramentalYear === 'second_year_communion' ? 'checked' : '' %> required>
-                      Yes, Second Year of Holy Communion
+                  <label class="form-label required">What are you registering this child for?</label>
+                  <div class="d-flex flex-column mt-1">
+                    <label class="sac-radio">
+                      <input type="radio" name="sac_category" class="sac-category-radio" value="sacramental" <%= prefillCategory === 'sacramental' ? 'checked' : '' %> required>
+                      <span class="sac-dot"></span>
+                      <span>Sacramental Preparation Year</span>
+                    </label>
+                    <label class="sac-radio">
+                      <input type="radio" name="sac_category" class="sac-category-radio" value="non_sacramental" <%= prefillCategory === 'non_sacramental' ? 'checked' : '' %>>
+                      <span class="sac-dot"></span>
+                      <span>Non-Sacramental Year</span>
                     </label>
                   </div>
-                  <div class="form-check">
-                    <label class="form-check-label">
-                      <input class="form-check-input sacramental-year-radio" type="radio" name="sacramental_year_choice" value="second_year_confirmation" <%= regSacramentalYear === 'second_year_confirmation' ? 'checked' : '' %>>
-                      Second year of Confirmation
-                    </label>
+
+                  <div class="d-none" id="sac-sacrament-panel">
+                    <div class="sac-panel">
+                      <label class="form-label mb-1">Which sacrament?</label>
+                      <div class="d-flex flex-column mt-1">
+                        <label class="sac-radio">
+                          <input type="radio" name="sac_sacrament" class="sac-sacrament-radio" value="communion" <%= prefillSacrament === 'communion' ? 'checked' : '' %> required>
+                          <span class="sac-dot"></span>
+                          <span>Holy Communion</span>
+                        </label>
+                        <label class="sac-radio">
+                          <input type="radio" name="sac_sacrament" class="sac-sacrament-radio" value="confirmation" <%= prefillSacrament === 'confirmation' ? 'checked' : '' %>>
+                          <span class="sac-dot"></span>
+                          <span>Confirmation</span>
+                        </label>
+                      </div>
+
+                      <div class="d-none mt-3 pt-3" id="sac-year-panel" style="border-top:1px solid var(--border)">
+                        <label class="form-label mb-1">Which year?</label>
+                        <div class="d-flex flex-column mt-1">
+                          <label class="sac-radio">
+                            <input type="radio" name="sac_year" class="sac-year-radio" value="first" <%= prefillYear === 'first' ? 'checked' : '' %> required>
+                            <span class="sac-dot"></span>
+                            <span>First Year of <span class="sac-sacrament-name"></span></span>
+                          </label>
+                          <label class="sac-radio">
+                            <input type="radio" name="sac_year" class="sac-year-radio" value="second" <%= prefillYear === 'second' ? 'checked' : '' %>>
+                            <span class="sac-dot"></span>
+                            <span>Second Year of <span class="sac-sacrament-name"></span></span>
+                          </label>
+                        </div>
+                        <div class="mt-2" style="margin-left:28px;font-size:.78rem;color:var(--muted)">
+                          The child should have attended First Year of <span class="sac-sacrament-name"></span> to select Second Year.
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div class="form-check">
-                    <label class="form-check-label">
-                      <input class="form-check-input sacramental-year-radio" type="radio" name="sacramental_year_choice" value="" <%= !regSacramentalYear ? 'checked' : '' %>>
-                      No
-                    </label>
+
+                  <div class="d-none" id="sac-non-sacramental-panel">
+                    <div class="sac-panel">
+                      <label class="form-label mb-1" for="non_sacramental_grade">What grade is this child in for CCD?</label>
+                      <select class="form-select" style="max-width:280px" name="non_sacramental_grade" id="non_sacramental_grade" required>
+                        <option value="" disabled <%= !(studentSource && studentSource.non_sacramental_grade) ? 'selected' : '' %>><%= t('select_placeholder') %></option>
+                        <% ['3','4','5','6','7'].forEach((g) => { %>
+                          <% const gSlot = classesByGrade[g] && classesByGrade[g][0]; %>
+                          <option value="<%= g %>" <%= studentSource && studentSource.non_sacramental_grade === g ? 'selected' : '' %>>Grade <%= g %><%= gSlot ? ' — ' + gSlot.time : '' %></option>
+                        <% }) %>
+                      </select>
+                    </div>
                   </div>
                 </div>
                 <div class="col-md-6 d-none communion-class-time-wrap">
                   <label class="form-label">Preferred Class Time</label>
-                  <select class="form-select communion-class-time-select">
-                    <option value="" disabled <%= !regPreferredClassTime ? 'selected' : '' %>><%= t('select_placeholder') %></option>
-                    <option value="Monday 4:00-5:15 PM" <%= regPreferredClassTime === 'Monday 4:00-5:15 PM' ? 'selected' : '' %>>Monday 4:00&ndash;5:15 PM</option>
-                    <option value="Tuesday 4:00-5:15 PM" <%= regPreferredClassTime === 'Tuesday 4:00-5:15 PM' ? 'selected' : '' %>>Tuesday 4:00&ndash;5:15 PM</option>
-                    <option value="Wednesday 4:00-5:15 PM" <%= regPreferredClassTime === 'Wednesday 4:00-5:15 PM' ? 'selected' : '' %>>Wednesday 4:00&ndash;5:15 PM</option>
-                  </select>
+                  <select class="form-select communion-class-time-select"></select>
+                  <div class="form-text communion-class-time-empty d-none">Not yet scheduled — contact the parish office.</div>
+                  <script type="application/json" class="communion-class-time-data"><%- JSON.stringify({
+                    first: (classesByGrade['1'] || []).map((slot) => gradeSlotValue(slot)),
+                    second: (classesByGrade['2'] || []).map((slot) => gradeSlotValue(slot)),
+                  }) %></script>
                 </div>
                 <div class="col-md-6 d-none confirmation-class-time-wrap">
-                  <label class="form-label">Class Time</label>
-                  <div class="form-control-plaintext">Sunday 1:00&ndash;2:30 PM</div>
+                  <label class="form-label">Preferred Class Time</label>
+                  <select class="form-select confirmation-class-time-select"></select>
+                  <div class="form-text confirmation-class-time-empty d-none">Not yet scheduled — contact the parish office.</div>
+                  <script type="application/json" class="confirmation-class-time-data"><%- JSON.stringify({
+                    first: (classesByGrade['8'] || []).map((slot) => gradeSlotValue(slot)),
+                    second: (classesByGrade['9'] || []).map((slot) => gradeSlotValue(slot)),
+                  }) %></script>
                 </div>
                 <input type="hidden" name="sacramental_year" class="sacramental-year-hidden" value="<%= regSacramentalYear %>">
                 <input type="hidden" name="preferred_class_time" class="preferred-class-time-hidden" value="<%= regPreferredClassTime %>">
@@ -559,37 +633,112 @@
     select.addEventListener('change', update);
     update();
 
-    // Second-year sacramental prep: toggle the class-time UI
-    const block = document.querySelector('.child-block');
-    const updateSacramentalYearUI = () => {
-      if (!block) return;
-      const checked = block.querySelector('.sacramental-year-radio:checked');
-      const value = checked ? checked.value : '';
-      const communionWrap = block.querySelector('.communion-class-time-wrap');
-      const confirmationWrap = block.querySelector('.confirmation-class-time-wrap');
-      const communionSelect = block.querySelector('.communion-class-time-select');
-      const classTimeHidden = block.querySelector('.preferred-class-time-hidden');
-      const sacramentalYearHidden = block.querySelector('.sacramental-year-hidden');
+    // Sacramental preparation: cascading category -> sacrament -> year selector
+    const sacFieldset = document.querySelector('.sacramental-year-fieldset');
+    if (sacFieldset) {
+      const categoryRadios = Array.from(sacFieldset.querySelectorAll('.sac-category-radio'));
+      const sacramentRadios = Array.from(sacFieldset.querySelectorAll('.sac-sacrament-radio'));
+      const yearRadios = Array.from(sacFieldset.querySelectorAll('.sac-year-radio'));
+      const sacramentPanel = sacFieldset.querySelector('#sac-sacrament-panel');
+      const yearPanel = sacFieldset.querySelector('#sac-year-panel');
+      const nonSacramentalPanel = sacFieldset.querySelector('#sac-non-sacramental-panel');
+      const sacramentNameSpans = sacFieldset.querySelectorAll('.sac-sacrament-name');
+      const communionWrap = sacFieldset.querySelector('.communion-class-time-wrap');
+      const confirmationWrap = sacFieldset.querySelector('.confirmation-class-time-wrap');
+      const communionSelect = sacFieldset.querySelector('.communion-class-time-select');
+      const confirmationSelect = sacFieldset.querySelector('.confirmation-class-time-select');
+      const communionEmpty = sacFieldset.querySelector('.communion-class-time-empty');
+      const confirmationEmpty = sacFieldset.querySelector('.confirmation-class-time-empty');
+      const communionSlots = JSON.parse(sacFieldset.querySelector('.communion-class-time-data').textContent || '{}');
+      const confirmationSlots = JSON.parse(sacFieldset.querySelector('.confirmation-class-time-data').textContent || '{}');
+      const classTimeHidden = sacFieldset.querySelector('.preferred-class-time-hidden');
+      const sacramentalYearHidden = sacFieldset.querySelector('.sacramental-year-hidden');
 
-      sacramentalYearHidden.value = value;
-      communionWrap.classList.toggle('d-none', value !== 'second_year_communion');
-      confirmationWrap.classList.toggle('d-none', value !== 'second_year_confirmation');
+      const getChecked = (radios) => {
+        const found = radios.find((r) => r.checked);
+        return found ? found.value : '';
+      };
 
-      if (value === 'second_year_communion') {
-        classTimeHidden.value = communionSelect.value;
-      } else if (value === 'second_year_confirmation') {
-        classTimeHidden.value = 'Sunday 1:00-2:30 PM';
-      } else {
-        classTimeHidden.value = '';
-      }
-    };
-    if (block) {
-      block.addEventListener('change', (evt) => {
-        if (evt.target.classList.contains('sacramental-year-radio') || evt.target.classList.contains('communion-class-time-select')) {
-          updateSacramentalYearUI();
+      const populateClassTimeSelect = (selectEl, emptyEl, options, prefillValue) => {
+        selectEl.innerHTML = '';
+        if (!options.length) {
+          selectEl.classList.add('d-none');
+          emptyEl.classList.remove('d-none');
+          return '';
         }
-      });
-      updateSacramentalYearUI();
+        selectEl.classList.remove('d-none');
+        emptyEl.classList.add('d-none');
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.disabled = true;
+        placeholder.textContent = '<%= t('select_placeholder') %>';
+        selectEl.appendChild(placeholder);
+        let matched = '';
+        options.forEach((optionValue) => {
+          const opt = document.createElement('option');
+          opt.value = optionValue;
+          opt.textContent = optionValue;
+          if (optionValue === prefillValue) {
+            opt.selected = true;
+            matched = optionValue;
+          }
+          selectEl.appendChild(opt);
+        });
+        placeholder.selected = !matched;
+        return matched;
+      };
+
+      const updateSacUI = () => {
+        const category = getChecked(categoryRadios);
+        const sacrament = getChecked(sacramentRadios);
+        const year = getChecked(yearRadios);
+
+        sacramentPanel.classList.toggle('d-none', category !== 'sacramental');
+        yearPanel.classList.toggle('d-none', !sacrament);
+        nonSacramentalPanel.classList.toggle('d-none', category !== 'non_sacramental');
+
+        const sacramentLabel = sacrament === 'communion' ? 'Holy Communion' : (sacrament === 'confirmation' ? 'Confirmation' : '');
+        sacramentNameSpans.forEach((el) => { el.textContent = sacramentLabel; });
+
+        const finalValue = category === 'sacramental' && sacrament && year ? (year + '_year_' + sacrament) : '';
+        sacramentalYearHidden.value = finalValue;
+
+        communionWrap.classList.toggle('d-none', sacrament !== 'communion' || !year);
+        confirmationWrap.classList.toggle('d-none', sacrament !== 'confirmation' || !year);
+
+        const currentClassTime = classTimeHidden.value;
+        if (sacrament === 'communion' && year) {
+          const options = year === 'first' ? communionSlots.first : communionSlots.second;
+          classTimeHidden.value = populateClassTimeSelect(communionSelect, communionEmpty, options || [], currentClassTime);
+        } else if (sacrament === 'confirmation' && year) {
+          const options = year === 'first' ? confirmationSlots.first : confirmationSlots.second;
+          classTimeHidden.value = populateClassTimeSelect(confirmationSelect, confirmationEmpty, options || [], currentClassTime);
+        } else {
+          classTimeHidden.value = '';
+        }
+        syncRequiredByVisibility();
+      };
+
+      categoryRadios.forEach((r) => r.addEventListener('change', () => {
+        if (r.value === 'non_sacramental' && r.checked) {
+          sacramentRadios.forEach((sr) => { sr.checked = false; });
+          yearRadios.forEach((yr) => { yr.checked = false; });
+        }
+        if (r.value === 'sacramental' && r.checked) {
+          const gradeSelect = sacFieldset.querySelector('#non_sacramental_grade');
+          if (gradeSelect) gradeSelect.value = '';
+        }
+        updateSacUI();
+      }));
+      sacramentRadios.forEach((r) => r.addEventListener('change', () => {
+        yearRadios.forEach((yr) => { yr.checked = false; });
+        updateSacUI();
+      }));
+      yearRadios.forEach((r) => r.addEventListener('change', updateSacUI));
+      communionSelect.addEventListener('change', () => { classTimeHidden.value = communionSelect.value; });
+      confirmationSelect.addEventListener('change', () => { classTimeHidden.value = confirmationSelect.value; });
+
+      updateSacUI();
     }
 
     // Intro stage: "how many children" pre-question drives total_children + reveals the student section
@@ -611,6 +760,43 @@
       };
       childCountSelect.addEventListener('change', syncTotal);
       syncTotal();
+    }
+
+    // Progress indicator across the parent-info + per-child stages
+    const progressSteps = document.getElementById('wizard-progress-steps');
+    const progressLabel = document.getElementById('wizard-progress-label');
+    const progressFraction = document.getElementById('wizard-progress-fraction');
+    const wizardCurrentIndex = <%= onStudentStage ? wizardIndex : 1 %>;
+
+    const renderWizardProgress = (total) => {
+      if (!progressSteps) return;
+      progressSteps.innerHTML = '';
+      if (!total || total < 1) {
+        if (progressLabel) progressLabel.textContent = '';
+        if (progressFraction) progressFraction.textContent = '';
+        return;
+      }
+      for (let i = 1; i <= total; i++) {
+        const seg = document.createElement('div');
+        seg.className = 'flex-fill rounded-pill';
+        seg.style.height = '8px';
+        seg.style.background = i < wizardCurrentIndex ? 'var(--navy)' : (i === wizardCurrentIndex ? 'var(--gold)' : 'var(--border)');
+        seg.title = i === 1 ? 'Parent Info & Child 1' : ('Child ' + i);
+        progressSteps.appendChild(seg);
+      }
+      if (progressLabel) {
+        progressLabel.textContent = wizardCurrentIndex === 1 ? 'Parent Info & Child 1' : ('Child ' + wizardCurrentIndex + ' of ' + total);
+      }
+      if (progressFraction) {
+        progressFraction.textContent = 'Step ' + wizardCurrentIndex + ' of ' + total;
+      }
+    };
+
+    renderWizardProgress(<%= wizardTotal ? wizardTotal : 'null' %>);
+    if (childCountSelect) {
+      childCountSelect.addEventListener('change', () => {
+        renderWizardProgress(childCountSelect.value ? Number(childCountSelect.value) : null);
+      });
     }
 
     if (continueBtn && parentSection && childrenContainer && submitRow) {

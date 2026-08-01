@@ -33,7 +33,13 @@
 
   <ul class="nav nav-tabs mb-4" id="adminUsersTabs" role="tablist">
     <li class="nav-item" role="presentation">
-      <button class="nav-link active" id="users-settings-tab" data-bs-toggle="tab" data-bs-target="#users-settings-pane" type="button" role="tab" aria-controls="users-settings-pane" aria-selected="true">Users &amp; Settings</button>
+      <button class="nav-link active" id="users-tab" data-bs-toggle="tab" data-bs-target="#users-pane" type="button" role="tab" aria-controls="users-pane" aria-selected="true">Users</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="settings-tab" data-bs-toggle="tab" data-bs-target="#settings-pane" type="button" role="tab" aria-controls="settings-pane" aria-selected="false">Settings</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="event-scheduler-tab" data-bs-toggle="tab" data-bs-target="#event-scheduler-pane" type="button" role="tab" aria-controls="event-scheduler-pane" aria-selected="false">Event Scheduler</button>
     </li>
     <li class="nav-item" role="presentation">
       <button class="nav-link" id="eucharistic-adoration-tab" data-bs-toggle="tab" data-bs-target="#eucharistic-adoration-pane" type="button" role="tab" aria-controls="eucharistic-adoration-pane" aria-selected="false">Eucharistic Adoration</button>
@@ -41,7 +47,89 @@
   </ul>
 
   <div class="tab-content" id="adminUsersTabsContent">
-  <div class="tab-pane fade show active" id="users-settings-pane" role="tabpanel" aria-labelledby="users-settings-tab">
+  <div class="tab-pane fade show active" id="users-pane" role="tabpanel" aria-labelledby="users-tab">
+
+  <div class="page-card">
+    <div class="card-header d-flex flex-wrap align-items-center gap-2">
+      <label class="form-label mb-0" for="role-filter">Filter by user type</label>
+      <select class="form-select" id="role-filter" name="role" style="max-width:220px" onchange="window.location.href = this.value ? '/admin/users?role=' + this.value : '/admin/users';">
+        <option value="" <%= !roleFilter ? 'selected' : '' %>>All Users</option>
+        <option value="user" <%= roleFilter === 'user' ? 'selected' : '' %>>User</option>
+        <option value="catechist" <%= roleFilter === 'catechist' ? 'selected' : '' %>>Catechist</option>
+        <option value="family_faith_leader" <%= roleFilter === 'family_faith_leader' ? 'selected' : '' %>><%= t('family_faith_leader') %></option>
+        <option value="admin" <%= roleFilter === 'admin' ? 'selected' : '' %>>Admin</option>
+      </select>
+      <span class="text-muted" style="font-size:.85rem"><%= users.length %> <%= users.length === 1 ? 'user' : 'users' %></span>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table mb-0">
+          <thead>
+            <tr>
+              <th><%= t('email') %></th>
+              <th>Name</th>
+              <th>Phone</th>
+              <th><%= t('role') %></th>
+              <th>Status</th>
+              <th><%= t('provider') %></th>
+              <th><%= t('actions') %></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% users.forEach(u => { %>
+              <tr>
+                <td><%= u.email %></td>
+                <td><%= u.full_name || '—' %></td>
+                <td><%= u.phone || '—' %></td>
+                <td><span class="badge badge-role badge-<%= u.role %>"><%= u.role %></span></td>
+                <td>
+                  <% if (u.is_active) { %>
+                    <span class="badge text-bg-success">Verified</span>
+                  <% } else { %>
+                    <span class="badge text-bg-warning">Pending</span>
+                  <% } %>
+                </td>
+                <td style="font-size:.85rem;color:var(--muted)"><%= u.provider %></td>
+                <td>
+                  <div class="d-flex gap-2 flex-wrap">
+                    <form class="d-flex gap-2" method="post" action="/admin/users/<%= u.id %>/role">
+                      <select class="form-select" name="role" style="max-width:150px">
+                        <option value="user"      <%= u.role==='user'      ?'selected':'' %>>User</option>
+                        <option value="catechist" <%= u.role==='catechist' ?'selected':'' %>>Catechist</option>
+                        <option value="family_faith_leader" <%= u.role==='family_faith_leader' ?'selected':'' %>><%= t('family_faith_leader') %></option>
+                        <option value="admin"     <%= u.role==='admin'     ?'selected':'' %>>Admin</option>
+                      </select>
+                      <button class="btn btn-primary" type="submit"><%= t('save') %></button>
+                    </form>
+                    <% if (u.provider === 'local' && !u.is_active) { %>
+                      <a class="btn btn-outline-secondary" href="/admin/users/<%= u.id %>/verification-email" target="_blank" rel="noreferrer">Preview Email</a>
+                      <form method="post" action="/admin/users/<%= u.id %>/resend-verification">
+                        <button class="btn btn-outline-primary" type="submit">Resend</button>
+                      </form>
+                    <% } %>
+                    <% if (u.provider === 'local') { %>
+                      <form method="post" action="/admin/users/<%= u.id %>/reset-password">
+                        <button class="btn btn-outline-secondary" type="submit">Reset Password</button>
+                      </form>
+                    <% } %>
+                    <% if (!user || user.id !== u.id) { %>
+                      <form method="post" action="/admin/users/<%= u.id %>/delete" onsubmit="return confirm('Remove this user and all of their registrations?');">
+                        <button class="btn btn-outline-danger" type="submit"><%= t('remove') %></button>
+                      </form>
+                    <% } %>
+                  </div>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  </div>
+
+  <div class="tab-pane fade" id="settings-pane" role="tabpanel" aria-labelledby="settings-tab">
 
   <div class="page-card mb-4">
     <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
@@ -131,75 +219,36 @@
     </div>
   </div>
 
-  <div class="page-card">
-    <div class="card-body p-0">
-      <div class="table-responsive">
-        <table class="table mb-0">
-          <thead>
-            <tr>
-              <th><%= t('email') %></th>
-              <th>Name</th>
-              <th>Phone</th>
-              <th><%= t('role') %></th>
-              <th>Status</th>
-              <th><%= t('provider') %></th>
-              <th><%= t('actions') %></th>
-            </tr>
-          </thead>
-          <tbody>
-            <% users.forEach(u => { %>
-              <tr>
-                <td><%= u.email %></td>
-                <td><%= u.full_name || '—' %></td>
-                <td><%= u.phone || '—' %></td>
-                <td><span class="badge badge-role badge-<%= u.role %>"><%= u.role %></span></td>
-                <td>
-                  <% if (u.is_active) { %>
-                    <span class="badge text-bg-success">Verified</span>
-                  <% } else { %>
-                    <span class="badge text-bg-warning">Pending</span>
-                  <% } %>
-                </td>
-                <td style="font-size:.85rem;color:var(--muted)"><%= u.provider %></td>
-                <td>
-                  <div class="d-flex gap-2 flex-wrap">
-                    <form class="d-flex gap-2" method="post" action="/admin/users/<%= u.id %>/role">
-                      <select class="form-select" name="role" style="max-width:150px">
-                        <option value="user"      <%= u.role==='user'      ?'selected':'' %>>User</option>
-                        <option value="catechist" <%= u.role==='catechist' ?'selected':'' %>>Catechist</option>
-                        <option value="family_faith_leader" <%= u.role==='family_faith_leader' ?'selected':'' %>><%= t('family_faith_leader') %></option>
-                        <option value="admin"     <%= u.role==='admin'     ?'selected':'' %>>Admin</option>
-                      </select>
-                      <button class="btn btn-primary" type="submit"><%= t('save') %></button>
-                    </form>
-                    <% if (u.provider === 'local' && !u.is_active) { %>
-                      <a class="btn btn-outline-secondary" href="/admin/users/<%= u.id %>/verification-email" target="_blank" rel="noreferrer">Preview Email</a>
-                      <form method="post" action="/admin/users/<%= u.id %>/resend-verification">
-                        <button class="btn btn-outline-primary" type="submit">Resend</button>
-                      </form>
-                    <% } %>
-                    <% if (u.provider === 'local') { %>
-                      <form method="post" action="/admin/users/<%= u.id %>/reset-password">
-                        <button class="btn btn-outline-secondary" type="submit">Reset Password</button>
-                      </form>
-                    <% } %>
-                    <% if (!user || user.id !== u.id) { %>
-                      <form method="post" action="/admin/users/<%= u.id %>/delete" onsubmit="return confirm('Remove this user and all of their registrations?');">
-                        <button class="btn btn-outline-danger" type="submit"><%= t('remove') %></button>
-                      </form>
-                    <% } %>
-                  </div>
-                </td>
-              </tr>
-            <% }) %>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
   <div class="page-card mt-4">
     <div class="card-header"><h2 class="h5 mb-0">Catechist Assignments</h2></div>
+    <div class="card-body">
+      <% const availableCcdGradeMeanings = (typeof ccdGradeMeanings !== 'undefined' && ccdGradeMeanings) ? ccdGradeMeanings : {}; %>
+      <p class="text-muted mb-3" style="font-size:.85rem">
+        These classes drive the "Preferred Class Time" shown to parents during sacramental prep registration &mdash; grade 1&ndash;9 has a fixed meaning (below) so the two stay in sync.
+      </p>
+      <form class="row g-3 align-items-end mb-4" method="post" action="/admin/ccd-classes">
+        <div class="col-md-4">
+          <label class="form-label">Grade</label>
+          <select class="form-select" name="grade_level" required>
+            <option value="" disabled selected><%= t('select_placeholder') %></option>
+            <% Object.keys(availableCcdGradeMeanings).forEach((gradeKey) => { %>
+              <option value="<%= gradeKey %>"><%= gradeKey %> &mdash; <%= availableCcdGradeMeanings[gradeKey] %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Class Time</label>
+          <input class="form-control" type="text" name="class_time" placeholder="e.g. Monday 4:00-5:15 PM">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Room</label>
+          <input class="form-control" type="text" name="classroom" placeholder="e.g. Room 101">
+        </div>
+        <div class="col-md-2">
+          <button class="btn btn-primary" type="submit">Add Class</button>
+        </div>
+      </form>
+    </div>
     <div class="card-body p-0">
       <% if (!availableCcdClasses.length) { %>
         <div class="p-4 text-muted">No CCD classes have been configured yet.</div>
@@ -213,12 +262,18 @@
                 <th>Room</th>
                 <th>Assigned Catechist</th>
                 <th>Update</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               <% availableCcdClasses.forEach((ccdClass) => { %>
                 <tr>
-                  <td><strong><%= ccdClass.grade_level %></strong></td>
+                  <td>
+                    <strong><%= ccdClass.grade_level %></strong>
+                    <% if (availableCcdGradeMeanings[ccdClass.grade_level]) { %>
+                      <div style="font-size:.78rem;color:var(--muted)"><%= availableCcdGradeMeanings[ccdClass.grade_level] %></div>
+                    <% } %>
+                  </td>
                   <td><%= ccdClass.class_time || '—' %></td>
                   <td><%= ccdClass.classroom || '—' %></td>
                   <td>
@@ -242,156 +297,9 @@
                       <button class="btn btn-outline-primary" type="submit">Assign</button>
                     </form>
                   </td>
-                </tr>
-              <% }) %>
-            </tbody>
-          </table>
-        </div>
-      <% } %>
-    </div>
-  </div>
-
-  <div class="page-card mt-4">
-    <div class="card-header"><h2 class="h5"><%= t('event_definitions') %></h2></div>
-    <div class="card-body">
-      <form class="row g-3 align-items-end mb-4" method="post" action="/admin/events">
-        <div class="col-md-4">
-          <label class="form-label"><%= t('event_title') %></label>
-          <input class="form-control" type="text" name="title" required>
-        </div>
-        <div class="col-md-3">
-          <label class="form-label"><%= t('audience') %></label>
-          <select class="form-select" name="audience" required>
-            <option value="children"><%= t('children_faith_formation') %></option>
-            <option value="family_faith"><%= t('prog_family_title') %></option>
-            <option value="baptism_prep"><%= t('prog_baptism_title') %></option>
-            <option value="ocia"><%= t('prog_ocia_title') %></option>
-            <option value="general"><%= t('general_events') %></option>
-          </select>
-        </div>
-        <div class="col-md-2">
-          <button class="btn btn-primary" type="submit"><%= t('add_event') %></button>
-        </div>
-      </form>
-
-      <% if (!availableEventDefinitions.length) { %>
-        <p class="mb-0 text-muted"><%= t('no_event_definitions') %></p>
-      <% } else { %>
-        <div class="table-responsive">
-          <table class="table mb-0">
-            <thead>
-              <tr>
-                <th><%= t('event_title') %></th>
-                <th><%= t('audience') %></th>
-                <th><%= t('actions') %></th>
-              </tr>
-            </thead>
-            <tbody>
-              <% availableEventDefinitions.forEach((eventDefinition) => { %>
-                <tr>
-                  <td><%= eventDefinition.title %></td>
-                  <td><%= t(eventDefinition.audience === 'children' ? 'children_faith_formation' : eventDefinition.audience === 'family_faith' ? 'prog_family_title' : eventDefinition.audience === 'general' ? 'general_events' : eventDefinition.audience === 'baptism_prep' ? 'prog_baptism_title' : 'prog_ocia_title') %></td>
                   <td>
-                    <form method="post" action="/admin/events/<%= eventDefinition.id %>/delete">
-                      <button class="btn btn-outline-secondary btn-sm" type="submit"><%= t('remove') %></button>
-                    </form>
-                  </td>
-                </tr>
-              <% }) %>
-            </tbody>
-          </table>
-        </div>
-      <% } %>
-    </div>
-  </div>
-
-  <div class="page-card mt-4">
-    <div class="card-header"><h2 class="h5"><%= t('event_schedule') %></h2></div>
-    <div class="card-body">
-      <form class="row g-3 align-items-end mb-4" method="post" action="/admin/event-schedules">
-        <div class="col-md-4">
-          <label class="form-label"><%= t('event_title') %></label>
-          <select class="form-select" name="event_definition_id" required>
-            <option value="">Select event</option>
-            <% availableEventDefinitions.forEach((eventDefinition) => { %>
-              <option value="<%= eventDefinition.id %>"><%= eventDefinition.title %></option>
-            <% }) %>
-          </select>
-        </div>
-        <div class="col-md-2">
-          <label class="form-label"><%= t('schedule_type') %></label>
-          <select class="form-select" name="schedule_type" required>
-            <option value="one_time"><%= t('one_time_event') %></option>
-            <option value="recurring"><%= t('recurring_event') %></option>
-          </select>
-        </div>
-        <div class="col-md-2" id="event-date-field">
-          <label class="form-label"><%= t('event_date') %></label>
-          <input class="form-control" type="date" name="event_date">
-        </div>
-        <div class="col-md-1">
-          <label class="form-label"><%= t('event_time') %></label>
-          <input class="form-control" type="time" name="event_time">
-        </div>
-        <div class="col-md-1">
-          <label class="form-label"><%= t('event_end_time') %></label>
-          <input class="form-control" type="time" name="event_end_time">
-        </div>
-        <div class="col-md-3 d-none" id="event-weekday-field">
-          <label class="form-label"><%= t('weekday') %></label>
-          <select class="form-select" name="recurrence_pattern">
-            <option value="">Select weekday</option>
-            <% availableWeekdays.forEach((day) => { %>
-              <option value="<%= day %>"><%= day %></option>
-            <% }) %>
-          </select>
-        </div>
-        <div class="col-md-2">
-          <label class="form-label"><%= t('event_location') %></label>
-          <select class="form-select" name="location">
-            <option value="">Select classroom</option>
-            <% availableClassrooms.forEach((room) => { %>
-              <option value="<%= room %>"><%= room %></option>
-            <% }) %>
-          </select>
-        </div>
-        <div class="col-md-2">
-          <button class="btn btn-primary" type="submit"><%= t('schedule_event') %></button>
-        </div>
-      </form>
-
-      <% if (!availableManagedEvents.length) { %>
-        <p class="mb-0 text-muted"><%= t('no_events_configured') %></p>
-      <% } else { %>
-        <div class="table-responsive">
-          <table class="table mb-0">
-            <thead>
-              <tr>
-                <th><%= t('event_title') %></th>
-                <th><%= t('audience') %></th>
-                <th><%= t('schedule_type') %></th>
-                <th><%= t('weekday') %></th>
-                <th><%= t('event_date') %></th>
-                <th><%= t('event_time') %></th>
-                <th><%= t('event_end_time') %></th>
-                <th><%= t('event_location') %></th>
-                <th><%= t('actions') %></th>
-              </tr>
-            </thead>
-            <tbody>
-              <% availableManagedEvents.forEach((eventItem) => { %>
-                <tr>
-                  <td><%= eventItem.title %></td>
-                  <td><%= t(eventItem.audience === 'children' ? 'children_faith_formation' : eventItem.audience === 'family_faith' ? 'prog_family_title' : eventItem.audience === 'general' ? 'general_events' : eventItem.audience === 'baptism_prep' ? 'prog_baptism_title' : 'prog_ocia_title') %></td>
-                  <td><%= t(eventItem.schedule_type === 'recurring' ? 'recurring_event' : 'one_time_event') %></td>
-                  <td><%= eventItem.recurrence_pattern || '' %><% if (!eventItem.recurrence_pattern) { %><span style="color:var(--muted)">&mdash;</span><% } %></td>
-                  <td><%= eventItem.event_date || '' %><% if (!eventItem.event_date) { %><span style="color:var(--muted)">&mdash;</span><% } %></td>
-                  <td><%= eventItem.event_time || '' %><% if (!eventItem.event_time) { %><span style="color:var(--muted)">&mdash;</span><% } %></td>
-                  <td><%= eventItem.event_end_time || '' %><% if (!eventItem.event_end_time) { %><span style="color:var(--muted)">&mdash;</span><% } %></td>
-                  <td><%= eventItem.location || '' %><% if (!eventItem.location) { %><span style="color:var(--muted)">&mdash;</span><% } %></td>
-                  <td>
-                    <form method="post" action="/admin/event-schedules/<%= eventItem.id %>/delete">
-                      <button class="btn btn-outline-secondary btn-sm" type="submit"><%= t('remove') %></button>
+                    <form method="post" action="/admin/ccd-classes/<%= ccdClass.id %>/delete" onsubmit="return confirm('Remove this class? It will no longer appear as a preferred-time option.');">
+                      <button class="btn btn-outline-danger btn-sm" type="submit"><%= t('remove') %></button>
                     </form>
                   </td>
                 </tr>
@@ -524,6 +432,162 @@
                   <td>
                     <form method="post" action="/admin/altar-server/signups/<%= signup.id %>/delete" onsubmit="return confirm('Remove this altar server signup?');">
                       <button class="btn btn-outline-danger btn-sm" type="submit"><%= t('remove') %></button>
+                    </form>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+  </div>
+
+  </div>
+
+  <div class="tab-pane fade" id="event-scheduler-pane" role="tabpanel" aria-labelledby="event-scheduler-tab">
+
+  <div class="page-card mb-4">
+    <div class="card-header"><h2 class="h5"><%= t('event_definitions') %></h2></div>
+    <div class="card-body">
+      <form class="row g-3 align-items-end mb-4" method="post" action="/admin/events">
+        <div class="col-md-4">
+          <label class="form-label"><%= t('event_title') %></label>
+          <input class="form-control" type="text" name="title" required>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label"><%= t('audience') %></label>
+          <select class="form-select" name="audience" required>
+            <option value="children"><%= t('children_faith_formation') %></option>
+            <option value="family_faith"><%= t('prog_family_title') %></option>
+            <option value="baptism_prep"><%= t('prog_baptism_title') %></option>
+            <option value="ocia"><%= t('prog_ocia_title') %></option>
+            <option value="general"><%= t('general_events') %></option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <button class="btn btn-primary" type="submit"><%= t('add_event') %></button>
+        </div>
+      </form>
+
+      <% if (!availableEventDefinitions.length) { %>
+        <p class="mb-0 text-muted"><%= t('no_event_definitions') %></p>
+      <% } else { %>
+        <div class="table-responsive">
+          <table class="table mb-0">
+            <thead>
+              <tr>
+                <th><%= t('event_title') %></th>
+                <th><%= t('audience') %></th>
+                <th><%= t('actions') %></th>
+              </tr>
+            </thead>
+            <tbody>
+              <% availableEventDefinitions.forEach((eventDefinition) => { %>
+                <tr>
+                  <td><%= eventDefinition.title %></td>
+                  <td><%= t(eventDefinition.audience === 'children' ? 'children_faith_formation' : eventDefinition.audience === 'family_faith' ? 'prog_family_title' : eventDefinition.audience === 'general' ? 'general_events' : eventDefinition.audience === 'baptism_prep' ? 'prog_baptism_title' : 'prog_ocia_title') %></td>
+                  <td>
+                    <form method="post" action="/admin/events/<%= eventDefinition.id %>/delete">
+                      <button class="btn btn-outline-secondary btn-sm" type="submit"><%= t('remove') %></button>
+                    </form>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+  </div>
+
+  <div class="page-card">
+    <div class="card-header"><h2 class="h5"><%= t('event_schedule') %></h2></div>
+    <div class="card-body">
+      <form class="row g-3 align-items-end mb-4" method="post" action="/admin/event-schedules">
+        <div class="col-md-4">
+          <label class="form-label"><%= t('event_title') %></label>
+          <select class="form-select" name="event_definition_id" required>
+            <option value="">Select event</option>
+            <% availableEventDefinitions.forEach((eventDefinition) => { %>
+              <option value="<%= eventDefinition.id %>"><%= eventDefinition.title %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label"><%= t('schedule_type') %></label>
+          <select class="form-select" name="schedule_type" required>
+            <option value="one_time"><%= t('one_time_event') %></option>
+            <option value="recurring"><%= t('recurring_event') %></option>
+          </select>
+        </div>
+        <div class="col-md-2" id="event-date-field">
+          <label class="form-label"><%= t('event_date') %></label>
+          <input class="form-control" type="date" name="event_date">
+        </div>
+        <div class="col-md-1">
+          <label class="form-label"><%= t('event_time') %></label>
+          <input class="form-control" type="time" name="event_time">
+        </div>
+        <div class="col-md-1">
+          <label class="form-label"><%= t('event_end_time') %></label>
+          <input class="form-control" type="time" name="event_end_time">
+        </div>
+        <div class="col-md-3 d-none" id="event-weekday-field">
+          <label class="form-label"><%= t('weekday') %></label>
+          <select class="form-select" name="recurrence_pattern">
+            <option value="">Select weekday</option>
+            <% availableWeekdays.forEach((day) => { %>
+              <option value="<%= day %>"><%= day %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label"><%= t('event_location') %></label>
+          <select class="form-select" name="location">
+            <option value="">Select classroom</option>
+            <% availableClassrooms.forEach((room) => { %>
+              <option value="<%= room %>"><%= room %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <button class="btn btn-primary" type="submit"><%= t('schedule_event') %></button>
+        </div>
+      </form>
+
+      <% if (!availableManagedEvents.length) { %>
+        <p class="mb-0 text-muted"><%= t('no_events_configured') %></p>
+      <% } else { %>
+        <div class="table-responsive">
+          <table class="table mb-0">
+            <thead>
+              <tr>
+                <th><%= t('event_title') %></th>
+                <th><%= t('audience') %></th>
+                <th><%= t('schedule_type') %></th>
+                <th><%= t('weekday') %></th>
+                <th><%= t('event_date') %></th>
+                <th><%= t('event_time') %></th>
+                <th><%= t('event_end_time') %></th>
+                <th><%= t('event_location') %></th>
+                <th><%= t('actions') %></th>
+              </tr>
+            </thead>
+            <tbody>
+              <% availableManagedEvents.forEach((eventItem) => { %>
+                <tr>
+                  <td><%= eventItem.title %></td>
+                  <td><%= t(eventItem.audience === 'children' ? 'children_faith_formation' : eventItem.audience === 'family_faith' ? 'prog_family_title' : eventItem.audience === 'general' ? 'general_events' : eventItem.audience === 'baptism_prep' ? 'prog_baptism_title' : 'prog_ocia_title') %></td>
+                  <td><%= t(eventItem.schedule_type === 'recurring' ? 'recurring_event' : 'one_time_event') %></td>
+                  <td><%= eventItem.recurrence_pattern || '' %><% if (!eventItem.recurrence_pattern) { %><span style="color:var(--muted)">&mdash;</span><% } %></td>
+                  <td><%= eventItem.event_date || '' %><% if (!eventItem.event_date) { %><span style="color:var(--muted)">&mdash;</span><% } %></td>
+                  <td><%= eventItem.event_time || '' %><% if (!eventItem.event_time) { %><span style="color:var(--muted)">&mdash;</span><% } %></td>
+                  <td><%= eventItem.event_end_time || '' %><% if (!eventItem.event_end_time) { %><span style="color:var(--muted)">&mdash;</span><% } %></td>
+                  <td><%= eventItem.location || '' %><% if (!eventItem.location) { %><span style="color:var(--muted)">&mdash;</span><% } %></td>
+                  <td>
+                    <form method="post" action="/admin/event-schedules/<%= eventItem.id %>/delete">
+                      <button class="btn btn-outline-secondary btn-sm" type="submit"><%= t('remove') %></button>
                     </form>
                   </td>
                 </tr>
