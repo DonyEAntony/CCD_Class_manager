@@ -24,16 +24,27 @@
   </div>
 
   <!-- Children Registrations -->
+  <% const availableCcdGradeMeanings = (typeof ccdGradeMeanings !== 'undefined' && ccdGradeMeanings) ? ccdGradeMeanings : {}; %>
+  <% const activeGradeFilter = typeof gradeFilter !== 'undefined' ? gradeFilter : ''; %>
   <div class="page-card mb-4">
-    <div class="card-header collapsed" data-bs-toggle="collapse" data-bs-target="#children-regs-collapse" role="button" aria-expanded="false" aria-controls="children-regs-collapse" style="cursor:pointer">
+    <div class="card-header <%= activeGradeFilter ? '' : 'collapsed' %>" data-bs-toggle="collapse" data-bs-target="#children-regs-collapse" role="button" aria-expanded="<%= activeGradeFilter ? 'true' : 'false' %>" aria-controls="children-regs-collapse" style="cursor:pointer">
       <h2 class="h5 mb-0"><%= t('faith_formation_children') %></h2>
       <span class="badge" style="background:var(--surface);color:var(--navy-soft);font-size:.7rem;border-radius:2rem;padding:.3em .8em;font-weight:700;border:1px solid var(--border)"><%= (studentRegs || []).length %></span>
       <span class="collapse-chevron ms-auto">&#9656;</span>
     </div>
-    <div class="collapse" id="children-regs-collapse">
+    <div class="collapse <%= activeGradeFilter ? 'show' : '' %>" id="children-regs-collapse">
     <div class="card-body p-0">
+      <div class="d-flex flex-wrap align-items-center gap-2 p-3 border-bottom" onclick="event.stopPropagation()">
+        <label class="form-label mb-0" for="children-grade-filter" style="font-size:.85rem">Filter by grade</label>
+        <select class="form-select form-select-sm" id="children-grade-filter" style="max-width:280px" onchange="window.location.href = this.value ? '/admin/registrations?grade=' + this.value : '/admin/registrations';">
+          <option value="" <%= !activeGradeFilter ? 'selected' : '' %>>All Grades</option>
+          <% Object.keys(availableCcdGradeMeanings).forEach((g) => { %>
+            <option value="<%= g %>" <%= activeGradeFilter === g ? 'selected' : '' %>><%= g %> &mdash; <%= availableCcdGradeMeanings[g] %></option>
+          <% }) %>
+        </select>
+      </div>
       <% if (!studentRegs || studentRegs.length === 0) { %>
-        <div class="p-4 text-center" style="color:var(--muted);font-size:.9rem"><em><%= t('no_children_regs') %></em></div>
+        <div class="p-4 text-center" style="color:var(--muted);font-size:.9rem"><em><%= activeGradeFilter ? 'No registrations match this grade.' : t('no_children_regs') %></em></div>
       <% } else { %>
       <div class="table-responsive">
         <table class="table mb-0">
@@ -45,6 +56,7 @@
               <th><%= t('total_fees') %></th>
               <th><%= t('certificates') %></th>
               <th><%= t('status') %></th>
+              <th>Submitted</th>
               <th><%= t('actions') %></th>
             </tr>
           </thead>
@@ -52,8 +64,8 @@
           <% studentRegs.forEach(r => { %>
             <tr>
               <td style="font-weight:600"><%= r.student_full_name %></td>
-              <td><%= r.ccd_grade_level || '&mdash;' %></td>
-              <td style="font-size:.85rem"><%= r.parent_name || r.primary_contact_email || '&mdash;' %></td>
+              <td><%= (typeof resolveCcdGrade === 'function' ? resolveCcdGrade(r) : r.ccd_grade_level) || '—' %></td>
+              <td style="font-size:.85rem"><%= r.parent_name || r.primary_contact_email || '—' %></td>
               <td><strong>$<%= (r.registration_fee||0)+(r.sacramental_fee||0)+(r.late_fee||0) %></strong></td>
               <td style="font-size:.85rem">
                 <% if (r.baptism_certificate_path) { %><a href="/<%= r.baptism_certificate_path %>"><%= t('baptism') %></a><% } %>
@@ -66,6 +78,7 @@
                   <%= t(r.status) %>
                 </span>
               </td>
+              <td style="font-size:.8rem;color:var(--muted)"><%= r.created_at ? (typeof r.created_at === 'string' ? r.created_at.slice(0, 16).replace('T', ' ') : r.created_at.toISOString().slice(0, 16).replace('T', ' ')) : '—' %></td>
               <td>
                 <a href="/registration/children/edit/<%= r.id %>" class="btn btn-sm btn-outline-primary"><%= t('edit') %></a>
                 <form method="post" action="/admin/registrations/children/<%= r.id %>/archive" class="d-inline">
@@ -103,6 +116,7 @@
             <tr>
               <th><%= t('student') %></th>
               <th><%= t('primary_contact') %></th>
+              <th>Submitted</th>
               <th>Archived</th>
               <th><%= t('actions') %></th>
             </tr>
@@ -111,8 +125,9 @@
           <% archivedStudentRegs.forEach(r => { %>
             <tr>
               <td style="font-weight:600"><%= r.student_full_name %></td>
-              <td style="font-size:.85rem"><%= r.parent_name || r.primary_contact_email || '&mdash;' %></td>
-              <td style="font-size:.8rem;color:var(--muted)"><%= r.archived_at ? (typeof r.archived_at === 'string' ? r.archived_at.slice(0,10) : r.archived_at.toISOString().slice(0,10)) : '' %></td>
+              <td style="font-size:.85rem"><%= r.parent_name || r.primary_contact_email || '—' %></td>
+              <td style="font-size:.8rem;color:var(--muted)"><%= r.created_at ? (typeof r.created_at === 'string' ? r.created_at.slice(0, 16).replace('T', ' ') : r.created_at.toISOString().slice(0, 16).replace('T', ' ')) : '—' %></td>
+              <td style="font-size:.8rem;color:var(--muted)"><%= r.archived_at ? (typeof r.archived_at === 'string' ? r.archived_at.slice(0, 16).replace('T', ' ') : r.archived_at.toISOString().slice(0, 16).replace('T', ' ')) : '' %></td>
               <td>
                 <form method="post" action="/admin/registrations/children/<%= r.id %>/unarchive" class="d-inline">
                   <button class="btn btn-sm btn-outline-primary" type="submit">Unarchive</button>
@@ -152,6 +167,7 @@
               <th><%= t('family_badges') %></th>
               <th><%= t('visit_window') %></th>
               <th><%= t('status') %></th>
+              <th>Submitted</th>
               <th><%= t('actions') %></th>
             </tr>
           </thead>
@@ -160,8 +176,8 @@
             <tr>
               <td style="font-weight:600"><%= r.family_name %></td>
               <td style="font-size:.85rem">
-                <div><%= r.primary_contact_name || '&mdash;' %></div>
-                <div style="color:var(--muted)"><%= r.primary_contact_email || r.primary_contact_phone || '&mdash;' %></div>
+                <div><%= r.primary_contact_name || '—' %></div>
+                <div style="color:var(--muted)"><%= r.primary_contact_email || r.primary_contact_phone || '—' %></div>
               </td>
               <td style="font-size:.85rem">
                 <% if (!r.members.length) { %>
@@ -202,6 +218,7 @@
                   <%= t(r.status) %>
                 </span>
               </td>
+              <td style="font-size:.8rem;color:var(--muted)"><%= r.created_at ? (typeof r.created_at === 'string' ? r.created_at.slice(0, 16).replace('T', ' ') : r.created_at.toISOString().slice(0, 16).replace('T', ' ')) : '—' %></td>
               <td>
                 <a href="/registration/family-faith/edit/<%= r.id %>" class="btn btn-sm btn-outline-primary"><%= t('edit') %></a>
               </td>
@@ -250,9 +267,9 @@
                   <%= prog.title %>
                 </span>
               </td>
-              <td style="font-size:.85rem"><%= r.email || '&mdash;' %></td>
-              <td style="font-size:.85rem"><%= r.phone || '&mdash;' %></td>
-              <td style="font-size:.8rem;color:var(--muted)"><%= r.created_at ? (typeof r.created_at === 'string' ? r.created_at.slice(0,10) : r.created_at.toISOString().slice(0,10)) : '' %></td>
+              <td style="font-size:.85rem"><%= r.email || '—' %></td>
+              <td style="font-size:.85rem"><%= r.phone || '—' %></td>
+              <td style="font-size:.8rem;color:var(--muted)"><%= r.created_at ? (typeof r.created_at === 'string' ? r.created_at.slice(0, 16).replace('T', ' ') : r.created_at.toISOString().slice(0, 16).replace('T', ' ')) : '' %></td>
               <td>
                 <span class="badge" style="background:var(--surface);color:var(--navy-soft);font-size:.7rem;border-radius:2rem;padding:.3em .8em;font-weight:700;border:1px solid var(--border)">
                   <%= t(r.status) %>
@@ -300,7 +317,7 @@
           <% sponsorRegs.forEach(r => { %>
             <tr>
               <td style="font-weight:600"><%= r.student_name %></td>
-              <td><%= r.confirmation_name || '&mdash;' %></td>
+              <td><%= r.confirmation_name || '—' %></td>
               <td><%= r.sponsor_name %></td>
               <td>
                 <% if (Number(r.is_st_matthew_parishioner)) { %>
@@ -324,7 +341,7 @@
                   <span class="badge text-bg-danger">Missing certificate</span>
                 <% } %>
               </td>
-              <td style="font-size:.8rem;color:var(--muted)"><%= r.created_at ? (typeof r.created_at === 'string' ? r.created_at.slice(0,10) : r.created_at.toISOString().slice(0,10)) : '' %></td>
+              <td style="font-size:.8rem;color:var(--muted)"><%= r.created_at ? (typeof r.created_at === 'string' ? r.created_at.slice(0, 16).replace('T', ' ') : r.created_at.toISOString().slice(0, 16).replace('T', ' ')) : '' %></td>
               <td>
                 <span class="badge" style="background:var(--surface);color:var(--navy-soft);font-size:.7rem;border-radius:2rem;padding:.3em .8em;font-weight:700;border:1px solid var(--border)">
                   <%= t(r.status) %>

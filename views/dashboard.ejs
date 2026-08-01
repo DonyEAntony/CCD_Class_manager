@@ -215,6 +215,7 @@
               <th><%= t('total_fees') %></th>
               <th><%= t('certificates') %></th>
               <th><%= t('status') %></th>
+              <th>Submitted</th>
               <th><%= t('actions') %></th>
             </tr>
           </thead>
@@ -222,8 +223,8 @@
           <% studentRegs.forEach(r => { %>
             <tr>
               <td style="font-weight:600"><%= r.student_full_name %></td>
-              <td><%= r.ccd_grade_level || '&mdash;' %></td>
-              <td style="font-size:.85rem"><%= r.parent_name || r.primary_contact_email || '&mdash;' %></td>
+              <td><%= (typeof resolveCcdGrade === 'function' ? resolveCcdGrade(r) : r.ccd_grade_level) || '—' %></td>
+              <td style="font-size:.85rem"><%= r.parent_name || r.primary_contact_email || '—' %></td>
               <td><strong>$<%= (r.registration_fee||0)+(r.sacramental_fee||0)+(r.late_fee||0) %></strong></td>
               <td style="font-size:.85rem">
                 <% if (r.baptism_certificate_path) { %><a href="/<%= r.baptism_certificate_path %>"><%= t('baptism') %></a><% } %>
@@ -236,6 +237,7 @@
                   <%= t(r.status) %>
                 </span>
               </td>
+              <td style="font-size:.8rem;color:var(--muted)"><%= r.created_at ? (typeof r.created_at === 'string' ? r.created_at.slice(0, 16).replace('T', ' ') : r.created_at.toISOString().slice(0, 16).replace('T', ' ')) : '—' %></td>
               <td>
                 <% const canEditChildRow = String(r.user_id) === String(user.id); %>
                 <% if (!canEditChildRow) { %>
@@ -271,6 +273,7 @@
               <th><%= t('family_badges') %></th>
               <th><%= t('visit_window') %></th>
               <th><%= t('status') %></th>
+              <th>Submitted</th>
               <th><%= t('actions') %></th>
             </tr>
           </thead>
@@ -279,8 +282,8 @@
             <tr>
               <td style="font-weight:600"><%= r.family_name %></td>
               <td style="font-size:.85rem">
-                <div><%= r.primary_contact_name || '&mdash;' %></div>
-                <div style="color:var(--muted)"><%= r.primary_contact_email || r.primary_contact_phone || '&mdash;' %></div>
+                <div><%= r.primary_contact_name || '—' %></div>
+                <div style="color:var(--muted)"><%= r.primary_contact_email || r.primary_contact_phone || '—' %></div>
               </td>
               <td style="font-size:.85rem">
                 <% if (!r.members.length) { %>
@@ -321,6 +324,7 @@
                   <%= t(r.status) %>
                 </span>
               </td>
+              <td style="font-size:.8rem;color:var(--muted)"><%= r.created_at ? (typeof r.created_at === 'string' ? r.created_at.slice(0, 16).replace('T', ' ') : r.created_at.toISOString().slice(0, 16).replace('T', ' ')) : '—' %></td>
               <td>
                 <% if (String(r.user_id) === String(user.id)) { %>
                   <a href="/registration/family-faith/edit/<%= r.id %>" class="btn btn-sm btn-outline-primary"><%= t('edit') %></a>
@@ -367,9 +371,9 @@
                   <%= prog.title %>
                 </span>
               </td>
-              <td style="font-size:.85rem"><%= r.email || '&mdash;' %></td>
-              <td style="font-size:.85rem"><%= r.phone || '&mdash;' %></td>
-              <td style="font-size:.8rem;color:var(--muted)"><%= r.created_at ? (typeof r.created_at === 'string' ? r.created_at.slice(0,10) : r.created_at.toISOString().slice(0,10)) : '' %></td>
+              <td style="font-size:.85rem"><%= r.email || '—' %></td>
+              <td style="font-size:.85rem"><%= r.phone || '—' %></td>
+              <td style="font-size:.8rem;color:var(--muted)"><%= r.created_at ? (typeof r.created_at === 'string' ? r.created_at.slice(0, 16).replace('T', ' ') : r.created_at.toISOString().slice(0, 16).replace('T', ' ')) : '' %></td>
               <td>
                 <span class="badge" style="background:var(--surface);color:var(--navy-soft);font-size:.7rem;border-radius:2rem;padding:.3em .8em;font-weight:700;border:1px solid var(--border)">
                   <%= t(r.status) %>
@@ -415,7 +419,7 @@
           <% sponsorRegs.forEach(r => { %>
             <tr>
               <td style="font-weight:600"><%= r.student_name %></td>
-              <td><%= r.confirmation_name || '&mdash;' %></td>
+              <td><%= r.confirmation_name || '—' %></td>
               <td><%= r.sponsor_name %></td>
               <td>
                 <% if (Number(r.is_st_matthew_parishioner)) { %>
@@ -439,7 +443,7 @@
                   <span class="badge text-bg-danger">Missing certificate</span>
                 <% } %>
               </td>
-              <td style="font-size:.8rem;color:var(--muted)"><%= r.created_at ? (typeof r.created_at === 'string' ? r.created_at.slice(0,10) : r.created_at.toISOString().slice(0,10)) : '' %></td>
+              <td style="font-size:.8rem;color:var(--muted)"><%= r.created_at ? (typeof r.created_at === 'string' ? r.created_at.slice(0, 16).replace('T', ' ') : r.created_at.toISOString().slice(0, 16).replace('T', ' ')) : '' %></td>
               <td>
                 <span class="badge" style="background:var(--surface);color:var(--navy-soft);font-size:.7rem;border-radius:2rem;padding:.3em .8em;font-weight:700;border:1px solid var(--border)">
                   <%= t(r.status) %>

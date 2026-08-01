@@ -25,6 +25,7 @@ console.info('[startup] Mail configuration', {
 const STUDENT_REGISTRATION_STATUSES = [
   'in_progress',
   'conditionally_accepted',
+  'admitted',
   'completed',
   'cancelled',
   'discontinued',
@@ -394,6 +395,7 @@ const translations = {
     incomplete: 'Incomplete',
     in_progress: 'In Progress',
     conditionally_accepted: 'Conditionally Accepted',
+    admitted: 'Admitted',
     completed: 'Completed',
     cancelled: 'Cancelled',
     discontinued: 'Discontinued',
@@ -761,6 +763,7 @@ const translations = {
     incomplete: 'Incompleto',
     in_progress: 'En progreso',
     conditionally_accepted: 'Aceptado Condicionalmente',
+    admitted: 'Admitido',
     completed: 'Completado',
     cancelled: 'Cancelado',
     discontinued: 'Discontinuado',
@@ -861,6 +864,23 @@ const CCD_GRADE_MEANINGS = {
   '7': 'Grade 7',
   '8': 'First Year Confirmation',
   '9': 'Second Year Confirmation',
+};
+
+const CCD_GRADE_BY_SACRAMENTAL_YEAR = {
+  first_year_communion: '1',
+  second_year_communion: '2',
+  first_year_confirmation: '8',
+  second_year_confirmation: '9',
+};
+
+// The wizard never populates the legacy ccd_grade_level (admin-only) field —
+// derive the real CCD grade from what parents actually submit instead.
+const resolveCcdGrade = (reg) => {
+  if (reg.non_sacramental_grade) return reg.non_sacramental_grade;
+  if (reg.sacramental_year && CCD_GRADE_BY_SACRAMENTAL_YEAR[reg.sacramental_year]) {
+    return CCD_GRADE_BY_SACRAMENTAL_YEAR[reg.sacramental_year];
+  }
+  return reg.ccd_grade_level || null;
 };
 
 const getCcdClasses = async () =>
@@ -1812,7 +1832,7 @@ app.get('/dashboard', requireAuth, asyncHandler(async (req, res) => {
     : await db.prepare('SELECT * FROM sponsor_confirmations WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
 
   const ADULT_PROGRAMS = getAdultPrograms(res.locals.t);
-  res.render('dashboard', { studentRegs, familyRegs, adultRegs, sponsorRegs, ADULT_PROGRAMS, faithFormationSettings });
+  res.render('dashboard', { studentRegs, familyRegs, adultRegs, sponsorRegs, ADULT_PROGRAMS, faithFormationSettings, resolveCcdGrade });
 }));
 
 app.get('/family-faith/visits/availability', requireAuth, asyncHandler(async (req, res) => {
@@ -2266,7 +2286,7 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
             student_dob = ?, child_place_of_birth = ?, child_place_of_birth_city = ?, child_place_of_birth_country = ?,
             school_attending = ?, school_grade_level = ?,
             baptism_date = ?, baptism_church = ?,
-            first_communion_date = ?, first_communion_church = ?,
+            first_communion_date = ?, first_communion_church = ?, not_baptized = ?,
             sacramental_year = ?, preferred_class_time = ?, non_sacramental_grade = ?,
             disabilities_comments = ?, parent_signature = ?, email = ?,
             registration_fee = ?, sacramental_fee = ?, late_fee = ?,
@@ -2287,8 +2307,8 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
           studentFullName, gender,
           dob, placeOfBirthLegacy, orNull(city), orNull(country),
           orNull(req.body.school_attending), orNull(req.body.school_grade_level),
-          orNull(req.body.baptism_date), orNull(req.body.baptism_church),
-          orNull(req.body.first_communion_date), orNull(req.body.first_communion_church),
+          req.body.not_baptized ? null : orNull(req.body.baptism_date), req.body.not_baptized ? null : orNull(req.body.baptism_church),
+          req.body.not_baptized ? null : orNull(req.body.first_communion_date), req.body.not_baptized ? null : orNull(req.body.first_communion_church), req.body.not_baptized ? 1 : 0,
           req.body.sacramental_year || null, req.body.preferred_class_time || null, orNull(req.body.non_sacramental_grade),
           orNull(req.body.disabilities_comments), orNull(req.body.parent_signature), orNull(req.body.email),
           rowRegistrationFee, fees.sacramentalFee, fees.lateFee,
@@ -2307,11 +2327,11 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
             child_lives_with, step_parent_name, step_parent_religion, student_full_name, student_gender,
             student_dob, child_place_of_birth, child_place_of_birth_city, child_place_of_birth_country,
             school_attending, school_grade_level,
-            baptism_date, baptism_church, first_communion_date, first_communion_church,
+            baptism_date, baptism_church, first_communion_date, first_communion_church, not_baptized,
             sacramental_year, preferred_class_time, non_sacramental_grade,
             disabilities_comments, parent_signature, email, registration_fee, sacramental_fee, late_fee,
             baptism_certificate_path, first_communion_certificate_path, status
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
           req.user.id, faithFormationSettings.schoolYear,
           `${req.body.primary_contact_first_name || ''} ${req.body.primary_contact_last_name || ''}`,
@@ -2326,8 +2346,8 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
           studentFullName, gender,
           dob, placeOfBirthLegacy, orNull(city), orNull(country),
           orNull(req.body.school_attending), orNull(req.body.school_grade_level),
-          orNull(req.body.baptism_date), orNull(req.body.baptism_church),
-          orNull(req.body.first_communion_date), orNull(req.body.first_communion_church),
+          req.body.not_baptized ? null : orNull(req.body.baptism_date), req.body.not_baptized ? null : orNull(req.body.baptism_church),
+          req.body.not_baptized ? null : orNull(req.body.first_communion_date), req.body.not_baptized ? null : orNull(req.body.first_communion_church), req.body.not_baptized ? 1 : 0,
           req.body.sacramental_year || null, req.body.preferred_class_time || null, orNull(req.body.non_sacramental_grade),
           orNull(req.body.disabilities_comments), orNull(req.body.parent_signature), orNull(req.body.email),
           rowRegistrationFee, fees.sacramentalFee, fees.lateFee,
@@ -2401,7 +2421,7 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
         student_dob = ?, child_place_of_birth = ?, child_place_of_birth_city = ?, child_place_of_birth_country = ?, ccd_grade_level = ?,
         school_attending = ?, school_grade_level = ?,
         baptism_date = ?, baptism_church = ?,
-        first_communion_date = ?, first_communion_church = ?,
+        first_communion_date = ?, first_communion_church = ?, not_baptized = ?,
         sacramental_year = ?, preferred_class_time = ?, non_sacramental_grade = ?,
         disabilities_comments = ?, parent_signature = ?, email = ?,
         registration_fee = ?, sacramental_fee = ?, late_fee = ?,
@@ -2422,8 +2442,8 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
       studentFullName, orNull(req.body.student_gender),
       orNull(req.body.student_dob), placeOfBirthLegacy, orNull(city), orNull(country), orNull(req.body.ccd_grade_level),
       orNull(req.body.school_attending), orNull(req.body.school_grade_level),
-      orNull(req.body.baptism_date), orNull(req.body.baptism_church),
-      orNull(req.body.first_communion_date), orNull(req.body.first_communion_church),
+      req.body.not_baptized ? null : orNull(req.body.baptism_date), req.body.not_baptized ? null : orNull(req.body.baptism_church),
+      req.body.not_baptized ? null : orNull(req.body.first_communion_date), req.body.not_baptized ? null : orNull(req.body.first_communion_church), req.body.not_baptized ? 1 : 0,
       req.body.sacramental_year || null, req.body.preferred_class_time || null, orNull(req.body.non_sacramental_grade),
       orNull(req.body.disabilities_comments), orNull(req.body.parent_signature), orNull(req.body.email),
       fees.registrationFee, fees.sacramentalFee, fees.lateFee,
@@ -2872,7 +2892,12 @@ app.post('/admin/registrations/children/:id/delete', requireAuth, requireRole('a
 app.get('/admin/registrations', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   const faithFormationSettings = await getFaithFormationSettings();
 
-  const studentRegs = await db.prepare('SELECT * FROM student_registrations WHERE archived_at IS NULL ORDER BY created_at DESC').all();
+  const gradeFilter = Object.keys(CCD_GRADE_MEANINGS).includes(req.query.grade) ? req.query.grade : '';
+
+  const studentRegsAll = await db.prepare('SELECT * FROM student_registrations WHERE archived_at IS NULL ORDER BY created_at DESC').all();
+  const studentRegs = gradeFilter
+    ? studentRegsAll.filter((reg) => resolveCcdGrade(reg) === gradeFilter)
+    : studentRegsAll;
   const archivedStudentRegs = await db.prepare('SELECT * FROM student_registrations WHERE archived_at IS NOT NULL ORDER BY archived_at DESC').all();
 
   const familyRegsRaw = await db.prepare('SELECT * FROM family_faith_registrations ORDER BY created_at DESC').all();
@@ -2885,7 +2910,10 @@ app.get('/admin/registrations', requireAuth, requireRole('admin'), asyncHandler(
   const sponsorRegs = await db.prepare('SELECT * FROM sponsor_confirmations ORDER BY created_at DESC').all();
 
   const ADULT_PROGRAMS = getAdultPrograms(res.locals.t);
-  res.render('admin-registrations', { studentRegs, archivedStudentRegs, familyRegs, adultRegs, sponsorRegs, ADULT_PROGRAMS, faithFormationSettings });
+  res.render('admin-registrations', {
+    studentRegs, archivedStudentRegs, familyRegs, adultRegs, sponsorRegs, ADULT_PROGRAMS, faithFormationSettings,
+    resolveCcdGrade, ccdGradeMeanings: CCD_GRADE_MEANINGS, gradeFilter,
+  });
 }));
 
 app.get('/admin/users', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {

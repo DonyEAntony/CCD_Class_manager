@@ -422,8 +422,13 @@
               </div>
             </div>
 
+            <div class="form-check mt-3">
+              <input class="form-check-input" type="checkbox" id="child_not_baptized" name="not_baptized" value="1" <%= studentSource && Number(studentSource.not_baptized) ? 'checked' : '' %>>
+              <label class="form-check-label" for="child_not_baptized">This child is not baptized</label>
+            </div>
+
             <!-- Sacramental records -->
-            <fieldset class="mt-3">
+            <fieldset class="mt-3" id="sacramental-records-fieldset">
               <legend><%= t('sacramental_records') %></legend>
               <div class="row g-3">
                 <div class="col-md-3">
@@ -474,6 +479,8 @@
                     </label>
                   </div>
 
+                  <div class="alert alert-warning d-none mt-2 mb-0" id="sac-not-baptized-note" style="font-size:.85rem"></div>
+
                   <div class="d-none" id="sac-sacrament-panel">
                     <div class="sac-panel">
                       <label class="form-label mb-1">Which sacrament?</label>
@@ -498,14 +505,26 @@
                             <span class="sac-dot"></span>
                             <span>First Year of <span class="sac-sacrament-name"></span></span>
                           </label>
-                          <label class="sac-radio">
-                            <input type="radio" name="sac_year" class="sac-year-radio" value="second" <%= prefillYear === 'second' ? 'checked' : '' %>>
-                            <span class="sac-dot"></span>
-                            <span>Second Year of <span class="sac-sacrament-name"></span></span>
+                        </div>
+
+                        <div class="form-check mt-2" style="margin-left:28px">
+                          <input class="form-check-input" type="checkbox" id="sac-second-year-eligibility" <%= prefillYear === 'second' ? 'checked' : '' %>>
+                          <label class="form-check-label" for="sac-second-year-eligibility" style="font-size:.85rem">
+                            This child has attended the first year of <span class="sac-sacrament-name"></span> preparation
                           </label>
                         </div>
-                        <div class="mt-2" style="margin-left:28px;font-size:.78rem;color:var(--muted)">
-                          The child should have attended First Year of <span class="sac-sacrament-name"></span> to select Second Year.
+
+                        <div class="d-flex flex-column mt-1">
+                          <label class="sac-radio">
+                            <input type="radio" name="sac_year" class="sac-year-radio" value="second" <%= prefillYear === 'second' ? 'checked' : '' %> <%= prefillYear === 'second' ? '' : 'disabled' %>>
+                            <span class="sac-dot"></span>
+                            <span>Second Year of <span class="sac-sacrament-name"></span></span>
+                            <span class="ms-1" id="sac-second-year-hint" style="font-size:.78rem;color:var(--muted);font-style:italic;<%= prefillYear === 'second' ? 'display:none' : '' %>">(check the box above to enable)</span>
+                          </label>
+                        </div>
+
+                        <div class="alert alert-info d-none mt-3 mb-0" id="sac-first-year-info" style="font-size:.85rem">
+                          Parents are invited to join this journey of sacramental preparation for children by joining them in this program. These sessions will be slightly longer but less frequent (approximately 11 meetings until May).
                         </div>
                       </div>
                     </div>
@@ -633,14 +652,34 @@
     select.addEventListener('change', update);
     update();
 
+    // Hide the Sacramental Records block entirely when the child is not baptized
+    const notBaptizedCheckbox = document.getElementById('child_not_baptized');
+    const sacramentalRecordsFieldset = document.getElementById('sacramental-records-fieldset');
+    if (notBaptizedCheckbox && sacramentalRecordsFieldset) {
+      const updateNotBaptized = () => {
+        const hidden = notBaptizedCheckbox.checked;
+        sacramentalRecordsFieldset.classList.toggle('d-none', hidden);
+        if (hidden) {
+          sacramentalRecordsFieldset.querySelectorAll('input').forEach((field) => { field.value = ''; });
+        }
+        syncRequiredByVisibility();
+      };
+      notBaptizedCheckbox.addEventListener('change', updateNotBaptized);
+      updateNotBaptized();
+    }
+
     // Sacramental preparation: cascading category -> sacrament -> year selector
     const sacFieldset = document.querySelector('.sacramental-year-fieldset');
     if (sacFieldset) {
       const categoryRadios = Array.from(sacFieldset.querySelectorAll('.sac-category-radio'));
       const sacramentRadios = Array.from(sacFieldset.querySelectorAll('.sac-sacrament-radio'));
       const yearRadios = Array.from(sacFieldset.querySelectorAll('.sac-year-radio'));
+      const secondYearRadio = sacFieldset.querySelector('.sac-year-radio[value="second"]');
+      const secondYearEligibility = sacFieldset.querySelector('#sac-second-year-eligibility');
+      const secondYearHint = sacFieldset.querySelector('#sac-second-year-hint');
       const sacramentPanel = sacFieldset.querySelector('#sac-sacrament-panel');
       const yearPanel = sacFieldset.querySelector('#sac-year-panel');
+      const firstYearInfo = sacFieldset.querySelector('#sac-first-year-info');
       const nonSacramentalPanel = sacFieldset.querySelector('#sac-non-sacramental-panel');
       const sacramentNameSpans = sacFieldset.querySelectorAll('.sac-sacrament-name');
       const communionWrap = sacFieldset.querySelector('.communion-class-time-wrap');
@@ -696,6 +735,7 @@
         sacramentPanel.classList.toggle('d-none', category !== 'sacramental');
         yearPanel.classList.toggle('d-none', !sacrament);
         nonSacramentalPanel.classList.toggle('d-none', category !== 'non_sacramental');
+        firstYearInfo.classList.toggle('d-none', year !== 'first');
 
         const sacramentLabel = sacrament === 'communion' ? 'Holy Communion' : (sacrament === 'confirmation' ? 'Confirmation' : '');
         sacramentNameSpans.forEach((el) => { el.textContent = sacramentLabel; });
@@ -719,10 +759,20 @@
         syncRequiredByVisibility();
       };
 
+      const resetSecondYearEligibility = () => {
+        if (secondYearEligibility) secondYearEligibility.checked = false;
+        if (secondYearRadio) {
+          secondYearRadio.checked = false;
+          secondYearRadio.disabled = true;
+        }
+        if (secondYearHint) secondYearHint.style.display = '';
+      };
+
       categoryRadios.forEach((r) => r.addEventListener('change', () => {
         if (r.value === 'non_sacramental' && r.checked) {
           sacramentRadios.forEach((sr) => { sr.checked = false; });
           yearRadios.forEach((yr) => { yr.checked = false; });
+          resetSecondYearEligibility();
         }
         if (r.value === 'sacramental' && r.checked) {
           const gradeSelect = sacFieldset.querySelector('#non_sacramental_grade');
@@ -732,11 +782,108 @@
       }));
       sacramentRadios.forEach((r) => r.addEventListener('change', () => {
         yearRadios.forEach((yr) => { yr.checked = false; });
+        resetSecondYearEligibility();
         updateSacUI();
       }));
       yearRadios.forEach((r) => r.addEventListener('change', updateSacUI));
+      if (secondYearEligibility && secondYearRadio) {
+        secondYearEligibility.addEventListener('change', () => {
+          secondYearRadio.disabled = !secondYearEligibility.checked;
+          if (!secondYearEligibility.checked && secondYearRadio.checked) {
+            secondYearRadio.checked = false;
+          }
+          if (secondYearHint) secondYearHint.style.display = secondYearEligibility.checked ? 'none' : '';
+          updateSacUI();
+        });
+      }
       communionSelect.addEventListener('change', () => { classTimeHidden.value = communionSelect.value; });
       confirmationSelect.addEventListener('change', () => { classTimeHidden.value = confirmationSelect.value; });
+
+      // A child who has never been baptized can only start Sacramental Preparation
+      // from the very beginning: First Year of Holy Communion (under 9) or First
+      // Year of Confirmation (9+). Lock out every other path while that's true.
+      const notBaptizedNote = document.getElementById('sac-not-baptized-note');
+      const nonSacramentalRadio = categoryRadios.find((r) => r.value === 'non_sacramental');
+      const communionRadio = sacramentRadios.find((r) => r.value === 'communion');
+      const confirmationRadio = sacramentRadios.find((r) => r.value === 'confirmation');
+      const firstYearRadio = yearRadios.find((r) => r.value === 'first');
+      const studentDobInput = document.querySelector('[name="student_dob"]');
+
+      const calculateAge = (dobStr) => {
+        if (!dobStr) return null;
+        const dob = new Date(dobStr);
+        if (Number.isNaN(dob.getTime())) return null;
+        const today = new Date();
+        let age = today.getFullYear() - dob.getFullYear();
+        const monthDiff = today.getMonth() - dob.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) age -= 1;
+        return age;
+      };
+
+      const applyNotBaptizedRestrictions = () => {
+        const isNotBaptized = !!(notBaptizedCheckbox && notBaptizedCheckbox.checked);
+
+        if (nonSacramentalRadio) nonSacramentalRadio.disabled = isNotBaptized;
+
+        if (!isNotBaptized) {
+          if (communionRadio) communionRadio.disabled = false;
+          if (confirmationRadio) confirmationRadio.disabled = false;
+          if (secondYearEligibility) secondYearEligibility.disabled = false;
+          if (notBaptizedNote) notBaptizedNote.classList.add('d-none');
+          return;
+        }
+
+        const categoryRadio = categoryRadios.find((r) => r.value === 'sacramental');
+        if (categoryRadio && !categoryRadio.checked) {
+          categoryRadio.checked = true;
+          categoryRadio.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        const age = calculateAge(studentDobInput ? studentDobInput.value : '');
+        if (age === null) {
+          if (notBaptizedNote) {
+            notBaptizedNote.textContent = "Enter the child's date of birth above to determine whether First Year of Holy Communion or First Year of Confirmation applies.";
+            notBaptizedNote.classList.remove('d-none');
+          }
+          return;
+        }
+
+        const targetSacrament = age < 9 ? 'communion' : 'confirmation';
+        if (communionRadio) communionRadio.disabled = targetSacrament !== 'communion';
+        if (confirmationRadio) confirmationRadio.disabled = targetSacrament !== 'confirmation';
+
+        const targetRadio = targetSacrament === 'communion' ? communionRadio : confirmationRadio;
+        if (targetRadio && !targetRadio.checked) {
+          targetRadio.checked = true;
+          targetRadio.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        if (secondYearEligibility) {
+          secondYearEligibility.checked = false;
+          secondYearEligibility.disabled = true;
+        }
+        if (secondYearRadio) {
+          secondYearRadio.checked = false;
+          secondYearRadio.disabled = true;
+        }
+        if (firstYearRadio && !firstYearRadio.checked) {
+          firstYearRadio.checked = true;
+          firstYearRadio.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        if (notBaptizedNote) {
+          const label = targetSacrament === 'communion' ? 'Holy Communion' : 'Confirmation';
+          notBaptizedNote.textContent = `Since this child is not yet baptized, First Year of ${label} is the only option available, based on age.`;
+          notBaptizedNote.classList.remove('d-none');
+        }
+      };
+
+      if (notBaptizedCheckbox) notBaptizedCheckbox.addEventListener('change', applyNotBaptizedRestrictions);
+      if (studentDobInput) {
+        studentDobInput.addEventListener('change', applyNotBaptizedRestrictions);
+        studentDobInput.addEventListener('input', applyNotBaptizedRestrictions);
+      }
+      applyNotBaptizedRestrictions();
 
       updateSacUI();
     }

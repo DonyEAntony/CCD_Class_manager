@@ -416,6 +416,7 @@ const init = async () => {
     await ensureColumn('student_registrations', 'sacramental_year', 'VARCHAR(30) NULL');
     await ensureColumn('student_registrations', 'preferred_class_time', 'VARCHAR(100) NULL');
     await ensureColumn('student_registrations', 'non_sacramental_grade', 'VARCHAR(10) NULL');
+    await ensureColumn('student_registrations', 'not_baptized', 'TINYINT(1) NOT NULL DEFAULT 0');
     await ensureColumn('student_registrations', 'archived_at', 'DATETIME NULL');
     await ensureColumn('sponsor_confirmations', 'is_st_matthew_parishioner', 'TINYINT(1) NOT NULL DEFAULT 0');
     await ensureColumn('sponsor_confirmations', 'sponsor_certificate_path', 'TEXT');
