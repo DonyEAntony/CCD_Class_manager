@@ -62,13 +62,57 @@
 
   <% if (success.length) { %><div class="alert alert-success mb-3"><%= success[0] %></div><% } %>
   <% if (error.length) { %><div class="alert alert-danger mb-3"><%= error[0] %></div><% } %>
-  <% if (typeof totalFeesDue !== 'undefined' && totalFeesDue) { %>
-    <div class="border rounded-3 p-3 bg-light mb-3 d-flex flex-wrap justify-content-between align-items-center gap-3">
-      <div>
-        <div class="text-muted small">Total Fees Due</div>
-        <div class="fw-semibold fs-5">$<%= totalFeesDue %></div>
+  <% const myFeeBreakdown = Array.isArray(typeof feeBreakdown === 'undefined' ? null : feeBreakdown) ? feeBreakdown : []; %>
+  <% const myTotalFeesDue = typeof totalFeesDue === 'number' ? totalFeesDue : 0; %>
+  <% if (myTotalFeesDue > 0) { %>
+    <div class="border rounded-3 p-3 bg-light mb-3">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-2">
+        <div>
+          <div class="text-muted small"><%= t('total_fees_due_all_active') %></div>
+          <div class="fw-semibold fs-5">$<%= myTotalFeesDue %></div>
+        </div>
+        <a class="btn btn-primary" href="https://giving.myparishsoft.io/App/Form/5dd2d671-d113-4fb2-88d5-dced2fe8a5f3" target="_blank" rel="noreferrer"><%= t('pay_registration_fee_online') %></a>
       </div>
-      <a class="btn btn-primary" href="https://giving.myparishsoft.io/App/Form/5dd2d671-d113-4fb2-88d5-dced2fe8a5f3" target="_blank" rel="noreferrer">Pay Registration Fee Online</a>
+      <% if (myFeeBreakdown.length > 1) { %>
+        <div class="table-responsive mt-2">
+          <table class="table table-sm mb-0" style="font-size:.85rem">
+            <thead>
+              <tr>
+                <th><%= t('student') %></th>
+                <th><%= t('registration_fee_col') %></th>
+                <th><%= t('sacramental_fee_col') %></th>
+                <th><%= t('late_fee_col') %></th>
+                <th><%= t('subtotal_col') %></th>
+              </tr>
+            </thead>
+            <tbody>
+              <% myFeeBreakdown.forEach((item) => { %>
+                <tr>
+                  <td><%= item.name %></td>
+                  <td>$<%= item.registrationFee %></td>
+                  <td>$<%= item.sacramentalFee %></td>
+                  <td>$<%= item.lateFee %></td>
+                  <td><strong>$<%= item.total %></strong></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+  <% } %>
+
+  <% const myActiveStudentRegs = (studentRegs || []).filter((r) => String(r.user_id) === String(user.id) && !r.archived_at); %>
+  <% if (myActiveStudentRegs.length) { %>
+    <div class="alert alert-info d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+      <div>
+        <strong><%= t('already_have_prefix') %> <%= myActiveStudentRegs.length === 1 ? t('registration_singular') : (myActiveStudentRegs.length + ' ' + t('registrations_word')) %> <%= t('on_file_for_suffix') %></strong>
+        <span>
+          <% myActiveStudentRegs.forEach((r, i) => { %><%= i > 0 ? ', ' : ' ' %><%= r.student_full_name %> (<%= t(r.status) %>)<% }) %>
+        </span>
+        <div class="mt-1" style="font-size:.85rem"><%= t('check_my_registrations_prefix') %> "<%= t('my_registrations_tab') %>" <%= t('check_my_registrations_suffix') %></div>
+      </div>
+      <button type="button" class="btn btn-outline-primary btn-sm" id="jump-to-my-registrations"><%= t('view_my_registrations') %></button>
     </div>
   <% } %>
 
@@ -82,7 +126,7 @@
     </div>
     <div class="d-flex flex-wrap gap-2">
       <% if (user.role === 'admin') { %>
-        <a class="btn btn-primary" href="/admin">Admin Area</a>
+        <a class="btn btn-primary" href="/admin"><%= t('admin_area') %></a>
       <% } %>
       <% if (user.role === 'family_faith_leader') { %>
         <a class="btn btn-outline-primary" href="/family-faith/visits/availability"><%= t('manage_visit_availability') %></a>
@@ -103,7 +147,7 @@
       <button class="nav-link active" id="new-registration-tab" data-bs-toggle="tab" data-bs-target="#new-registration-pane" type="button" role="tab" aria-controls="new-registration-pane" aria-selected="true"><%= t('new_registration_heading') %></button>
     </li>
     <li class="nav-item" role="presentation">
-      <button class="nav-link" id="my-registrations-tab" data-bs-toggle="tab" data-bs-target="#my-registrations-pane" type="button" role="tab" aria-controls="my-registrations-pane" aria-selected="false">My Registrations</button>
+      <button class="nav-link" id="my-registrations-tab" data-bs-toggle="tab" data-bs-target="#my-registrations-pane" type="button" role="tab" aria-controls="my-registrations-pane" aria-selected="false"><%= t('my_registrations_tab') %></button>
     </li>
   </ul>
 
@@ -115,10 +159,10 @@
 
       <ul class="nav nav-tabs mb-4" id="registrationTabs" role="tablist">
         <li class="nav-item" role="presentation">
-          <button class="nav-link active" id="programs-tab" data-bs-toggle="tab" data-bs-target="#programs-pane" type="button" role="tab" aria-controls="programs-pane" aria-selected="true">Program Registrations</button>
+          <button class="nav-link active" id="programs-tab" data-bs-toggle="tab" data-bs-target="#programs-pane" type="button" role="tab" aria-controls="programs-pane" aria-selected="true"><%= t('program_registrations_tab') %></button>
         </li>
         <li class="nav-item" role="presentation">
-          <button class="nav-link" id="sponsor-ministry-tab" data-bs-toggle="tab" data-bs-target="#sponsor-ministry-pane" type="button" role="tab" aria-controls="sponsor-ministry-pane" aria-selected="false">Sponsor &amp; Ministry Signups</button>
+          <button class="nav-link" id="sponsor-ministry-tab" data-bs-toggle="tab" data-bs-target="#sponsor-ministry-pane" type="button" role="tab" aria-controls="sponsor-ministry-pane" aria-selected="false"><%= t('sponsor_ministry_signups_tab') %></button>
         </li>
       </ul>
 
@@ -129,8 +173,8 @@
               <a href="<%= canOpenFaithFormation ? '/registration/children' : '#' %>" class="program-card prog-children <%= canOpenFaithFormation ? '' : 'opacity-75' %>">
                 <div class="prog-icon">🎓</div>
                 <div class="prog-title"><%= t('prog_children_title') %></div>
-                <div class="prog-subtitle"><%= faithFormationSettings && faithFormationSettings.schoolYear ? `School Year ${faithFormationSettings.schoolYear}` : t('prog_children_subtitle') %></div>
-                <p class="prog-desc"><%= canOpenFaithFormation ? t('prog_children_desc') : 'Registration is currently closed. Contact the parish office or wait for an admin to open this year.' %></p>
+                <div class="prog-subtitle"><%= faithFormationSettings && faithFormationSettings.schoolYear ? `${t('school_year')} ${faithFormationSettings.schoolYear}` : t('prog_children_subtitle') %></div>
+                <p class="prog-desc"><%= canOpenFaithFormation ? t('prog_children_desc') : t('registration_closed_notice') %></p>
               </a>
             </div>
             <% if (user.role === 'admin') { %>
@@ -175,17 +219,17 @@
             <div class="col-sm-6 col-lg-4">
               <a href="<%= canOpenSponsorForm ? '/registration/sponsor-confirmation' : '#' %>" class="program-card prog-sponsor <%= canOpenSponsorForm ? '' : 'opacity-75' %>">
                 <div class="prog-icon">SC</div>
-                <div class="prog-title">Confirmation Sponsor Form</div>
-                <div class="prog-subtitle"><%= faithFormationSettings && faithFormationSettings.schoolYear ? `School Year ${faithFormationSettings.schoolYear}` : 'Student / Sponsor' %></div>
-                <p class="prog-desc"><%= canOpenSponsorForm ? 'Enter and save sponsor confirmation information, including sponsor address and signatures.' : 'Unavailable until the Sponsor Form is opened by an administrator.' %></p>
+                <div class="prog-title"><%= t('confirmation_sponsor_form_title') %></div>
+                <div class="prog-subtitle"><%= faithFormationSettings && faithFormationSettings.schoolYear ? `${t('school_year')} ${faithFormationSettings.schoolYear}` : t('student_sponsor_subtitle') %></div>
+                <p class="prog-desc"><%= canOpenSponsorForm ? t('sponsor_form_desc') : t('sponsor_form_unavailable') %></p>
               </a>
             </div>
             <div class="col-sm-6 col-lg-4">
               <a href="/altar-server-signup" class="program-card" style="--prog-color:rgba(168,85,247,0.12);--prog-text:rgb(109,40,217)">
                 <div class="prog-icon" style="background:rgba(168,85,247,0.12);color:rgb(109,40,217)">&#9765;</div>
-                <div class="prog-title">Altar Server Signup</div>
-                <div class="prog-subtitle">Ministry</div>
-                <p class="prog-desc">Sign up your child to serve at the altar at Saint Matthew Catholic Church. Training provided.</p>
+                <div class="prog-title"><%= t('altar_server_signup_title') %></div>
+                <div class="prog-subtitle"><%= t('ministry_subtitle') %></div>
+                <p class="prog-desc"><%= t('altar_server_signup_desc') %></p>
               </a>
             </div>
           </div>
@@ -215,7 +259,7 @@
               <th><%= t('total_fees') %></th>
               <th><%= t('certificates') %></th>
               <th><%= t('status') %></th>
-              <th>Submitted</th>
+              <th><%= t('submitted_col') %></th>
               <th><%= t('actions') %></th>
             </tr>
           </thead>
@@ -245,7 +289,7 @@
                 <% } else if (canOpenFaithFormation) { %>
                   <a href="/registration/children/edit/<%= r.id %>" class="btn btn-sm btn-outline-primary"><%= t('edit') %></a>
                 <% } else { %>
-                  <button class="btn btn-sm btn-outline-secondary" type="button" disabled>Closed</button>
+                  <button class="btn btn-sm btn-outline-secondary" type="button" disabled><%= t('closed_status') %></button>
                 <% } %>
               </td>
             </tr>
@@ -273,7 +317,7 @@
               <th><%= t('family_badges') %></th>
               <th><%= t('visit_window') %></th>
               <th><%= t('status') %></th>
-              <th>Submitted</th>
+              <th><%= t('submitted_col') %></th>
               <th><%= t('actions') %></th>
             </tr>
           </thead>
@@ -396,23 +440,23 @@
   </div>
 
   <div class="page-card mt-4">
-    <div class="card-header"><h2 class="h5">Sponsor Confirmation Forms</h2></div>
+    <div class="card-header"><h2 class="h5"><%= t('sponsor_confirmation_forms_header') %></h2></div>
     <div class="card-body p-0">
       <% if (!sponsorRegs || sponsorRegs.length === 0) { %>
-        <div class="p-4 text-center" style="color:var(--muted);font-size:.9rem"><em>No sponsor confirmation forms yet.</em></div>
+        <div class="p-4 text-center" style="color:var(--muted);font-size:.9rem"><em><%= t('no_sponsor_forms') %></em></div>
       <% } else { %>
       <div class="table-responsive">
         <table class="table mb-0">
           <thead>
             <tr>
-              <th>Student</th>
-              <th>Confirmation Name</th>
-              <th>Sponsor</th>
-              <th>Certificate</th>
-              <th>Verification</th>
-              <th>Submitted</th>
-              <th>Status</th>
-              <th>Actions</th>
+              <th><%= t('student') %></th>
+              <th><%= t('confirmation_name_col') %></th>
+              <th><%= t('sponsor_col') %></th>
+              <th><%= t('certificate_col') %></th>
+              <th><%= t('verification_col') %></th>
+              <th><%= t('submitted_col') %></th>
+              <th><%= t('status') %></th>
+              <th><%= t('actions') %></th>
             </tr>
           </thead>
           <tbody>
@@ -423,9 +467,9 @@
               <td><%= r.sponsor_name %></td>
               <td>
                 <% if (Number(r.is_st_matthew_parishioner)) { %>
-                  <span>St. Matthew parishioner</span>
+                  <span><%= t('st_matthew_parishioner') %></span>
                 <% } else if (r.sponsor_certificate_path) { %>
-                  <a href="/<%= r.sponsor_certificate_path %>">View File</a>
+                  <a href="/<%= r.sponsor_certificate_path %>"><%= t('view_file') %></a>
                 <% } else { %>
                   <span style="color:var(--muted)">&mdash;</span>
                 <% } %>
@@ -433,14 +477,14 @@
               <td>
                 <% if (Number(r.is_st_matthew_parishioner)) { %>
                   <% if (Number(r.admin_verified)) { %>
-                    <span class="badge text-bg-success">Admin verified</span>
+                    <span class="badge text-bg-success"><%= t('admin_verified') %></span>
                   <% } else { %>
-                    <span class="badge text-bg-warning">Pending admin review</span>
+                    <span class="badge text-bg-warning"><%= t('pending_admin_review') %></span>
                   <% } %>
                 <% } else if (r.sponsor_certificate_path) { %>
-                  <span style="color:var(--muted)">Certificate provided</span>
+                  <span style="color:var(--muted)"><%= t('certificate_provided') %></span>
                 <% } else { %>
-                  <span class="badge text-bg-danger">Missing certificate</span>
+                  <span class="badge text-bg-danger"><%= t('missing_certificate') %></span>
                 <% } %>
               </td>
               <td style="font-size:.8rem;color:var(--muted)"><%= r.created_at ? (typeof r.created_at === 'string' ? r.created_at.slice(0, 16).replace('T', ' ') : r.created_at.toISOString().slice(0, 16).replace('T', ' ')) : '' %></td>
@@ -456,7 +500,7 @@
                 <% } else if (canOpenSponsorForm) { %>
                   <a href="/registration/sponsor-confirmation/edit/<%= r.id %>" class="btn btn-sm btn-outline-primary"><%= t('edit') %></a>
                 <% } else { %>
-                  <button class="btn btn-sm btn-outline-secondary" type="button" disabled>Closed</button>
+                  <button class="btn btn-sm btn-outline-secondary" type="button" disabled><%= t('closed_status') %></button>
                 <% } %>
               </td>
             </tr>
@@ -474,5 +518,17 @@
   <p class="footer-note"><%= t('footer_note') %></p>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  (function () {
+    const jumpBtn = document.getElementById('jump-to-my-registrations');
+    const myRegTab = document.getElementById('my-registrations-tab');
+    if (jumpBtn && myRegTab) {
+      jumpBtn.addEventListener('click', () => {
+        bootstrap.Tab.getOrCreateInstance(myRegTab).show();
+        myRegTab.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    }
+  }());
+</script>
 </body>
 </html>
