@@ -154,16 +154,28 @@
 
   <div class="row g-4 mt-1">
     <div class="col-lg-8">
-      <h2 class="h6" style="text-transform:uppercase;letter-spacing:.06em;font-size:.75rem;color:var(--muted)"><%= t('roster_label') %> &mdash; <%= roster.length %> <%= roster.length === 1 ? t('student_count_singular') : t('student_count_plural') %></h2>
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h2 class="h6 mb-0" style="text-transform:uppercase;letter-spacing:.06em;font-size:.75rem;color:var(--muted)"><%= t('roster_label') %> &mdash; <%= roster.length %> <%= roster.length === 1 ? t('student_count_singular') : t('student_count_plural') %></h2>
+        <% if (roster.length) { %>
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-link btn-sm p-0" id="select-all-recipients"><%= t('select_all_label') %></button>
+            <button type="button" class="btn btn-link btn-sm p-0" id="select-none-recipients"><%= t('select_none_label') %></button>
+          </div>
+        <% } %>
+      </div>
 
       <% if (!roster.length) { %>
         <div class="page-card"><div class="p-4 text-center" style="color:var(--muted);font-size:.9rem"><em><%= t('no_students_in_class') %></em></div></div>
       <% } else { %>
+        <form id="class-message-form" method="post" action="/admin/classes/<%= ccdClass.id %>/message">
         <% roster.forEach((r) => { %>
           <% const nameParts = (r.student_full_name || '').trim().split(/\s+/).filter(Boolean); %>
           <% const initials = ((nameParts[0] ? nameParts[0][0] : '') + (nameParts.length > 1 ? nameParts[nameParts.length - 1][0] : '')).toUpperCase(); %>
           <% const currentStatus = attendanceByStudent[r.id] || ''; %>
           <div class="roster-card" data-student-row="<%= r.id %>">
+            <div class="form-check pt-1">
+              <input class="form-check-input message-recipient-checkbox" type="checkbox" name="student_registration_ids" value="<%= r.id %>" id="msg-check-<%= r.id %>" checked>
+            </div>
             <div class="roster-avatar"><%= initials %></div>
             <div class="roster-info">
               <div class="roster-name">
@@ -185,6 +197,23 @@
             </div>
           </div>
         <% }) %>
+
+        <div class="page-card mt-3">
+          <div class="card-body">
+            <h2 class="h6" style="text-transform:uppercase;letter-spacing:.06em;font-size:.75rem;color:var(--muted)"><%= t('send_message_label') %></h2>
+            <div class="mb-2" id="recipient-count-label" style="font-size:.85rem;color:var(--muted)"></div>
+            <div class="mb-2">
+              <label class="form-label mb-1" style="font-size:.75rem"><%= t('subject_label') %></label>
+              <input class="form-control form-control-sm" type="text" name="subject" placeholder="<%= t('subject_placeholder') %>">
+            </div>
+            <div class="mb-2">
+              <label class="form-label mb-1" style="font-size:.75rem"><%= t('message_label') %></label>
+              <textarea class="form-control" name="message" rows="5" required placeholder="<%= t('message_placeholder') %>"></textarea>
+            </div>
+            <button class="btn btn-primary" type="submit"><%= t('send_message_button') %></button>
+          </div>
+        </div>
+        </form>
       <% } %>
     </div>
 
@@ -271,6 +300,38 @@
           });
       });
     });
+  }());
+
+  (function () {
+    const checkboxes = Array.from(document.querySelectorAll('.message-recipient-checkbox'));
+    const countLabel = document.getElementById('recipient-count-label');
+    const selectAllBtn = document.getElementById('select-all-recipients');
+    const selectNoneBtn = document.getElementById('select-none-recipients');
+    const studentSingularLabel = <%- JSON.stringify(t('student_count_singular')) %>;
+    const studentPluralLabel = <%- JSON.stringify(t('student_count_plural')) %>;
+    const selectedSuffixLabel = <%- JSON.stringify(t('selected_suffix_label')) %>;
+    if (!checkboxes.length || !countLabel) return;
+
+    const updateCount = () => {
+      const checkedCount = checkboxes.filter((cb) => cb.checked).length;
+      const noun = checkedCount === 1 ? studentSingularLabel : studentPluralLabel;
+      countLabel.textContent = checkedCount + ' ' + noun + ' ' + selectedSuffixLabel;
+    };
+
+    checkboxes.forEach((cb) => cb.addEventListener('change', updateCount));
+    if (selectAllBtn) {
+      selectAllBtn.addEventListener('click', () => {
+        checkboxes.forEach((cb) => { cb.checked = true; });
+        updateCount();
+      });
+    }
+    if (selectNoneBtn) {
+      selectNoneBtn.addEventListener('click', () => {
+        checkboxes.forEach((cb) => { cb.checked = false; });
+        updateCount();
+      });
+    }
+    updateCount();
   }());
 </script>
 </body>

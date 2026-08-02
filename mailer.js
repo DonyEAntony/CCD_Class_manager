@@ -109,6 +109,62 @@ const sendVerificationEmail = async ({ to, verificationUrl, fullName }) => {
   return { delivered: true, messageId: info.messageId, response: info.response };
 };
 
+const escapeHtml = (value) => String(value == null ? '' : value)
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
+
+const buildClassMessageEmailContent = ({ subject, message, senderName }) => ({
+  subject: subject && subject.trim() ? subject.trim() : 'Message from Saint Matthew Faith Formation',
+  text: senderName ? `${message}\n\n— ${senderName}` : message,
+  html: `
+    <p>${escapeHtml(message).replace(/\n/g, '<br>')}</p>
+    ${senderName ? `<p>&mdash; ${escapeHtml(senderName)}</p>` : ''}
+  `,
+});
+
+const sendClassMessageEmail = async ({ to, subject, message, senderName }) => {
+  const transporter = createTransporter();
+  if (!transporter) {
+    console.warn('[mail] Class message email skipped: SMTP config incomplete', {
+      host: smtpLogConfig.host,
+      port: smtpLogConfig.port,
+      secure: smtpLogConfig.secure,
+      hasUser: smtpLogConfig.hasUser,
+      hasPass: smtpLogConfig.hasPass,
+      from: smtpLogConfig.from,
+    });
+    return { delivered: false };
+  }
+
+  console.info('[mail] Sending class message email', {
+    to,
+    host: smtpLogConfig.host,
+    port: smtpLogConfig.port,
+    secure: smtpLogConfig.secure,
+    from: smtpLogConfig.from,
+  });
+
+  const content = buildClassMessageEmailContent({ subject, message, senderName });
+  const info = await transporter.sendMail({
+    from: resolvedFrom,
+    to,
+    subject: content.subject,
+    text: content.text,
+    html: content.html,
+  });
+
+  console.info('[mail] Class message email accepted by SMTP server', {
+    to,
+    messageId: info.messageId,
+    response: info.response,
+  });
+
+  return { delivered: true, messageId: info.messageId, response: info.response };
+};
+
 const buildPasswordResetEmailContent = ({ resetUrl, fullName }) => ({
   subject: 'Reset your Saint Matthew CCD password',
   text: [
@@ -170,5 +226,5 @@ const sendPasswordResetEmail = async ({ to, resetUrl, fullName }) => {
 
 module.exports = {
   hasSmtpConfig, sendVerificationEmail, resolvedFrom, smtpLogConfig, verifyMailConfiguration, buildVerificationEmailContent,
-  sendPasswordResetEmail, buildPasswordResetEmailContent,
+  sendPasswordResetEmail, buildPasswordResetEmailContent, sendClassMessageEmail, buildClassMessageEmailContent,
 };
