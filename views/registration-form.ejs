@@ -111,17 +111,17 @@
         <% if (totalFeesDue > 0) { %>
           <div class="border rounded-3 p-3 bg-light mb-4 d-flex flex-wrap justify-content-between align-items-center gap-3">
             <div>
-              <div class="text-muted small">Total Fees Due</div>
+              <div class="text-muted small"><%= t('total_fees_due') %></div>
               <div class="fw-semibold fs-5">$<%= totalFeesDue %></div>
             </div>
-            <a class="btn btn-primary" href="https://giving.myparishsoft.io/App/Form/5dd2d671-d113-4fb2-88d5-dced2fe8a5f3" target="_blank" rel="noreferrer">Pay Registration Fee Online</a>
+            <a class="btn btn-primary" href="https://giving.myparishsoft.io/App/Form/5dd2d671-d113-4fb2-88d5-dced2fe8a5f3" target="_blank" rel="noreferrer"><%= t('pay_registration_fee_online') %></a>
           </div>
         <% } %>
       <% } %>
 
       <% if (showCountGate) { %>
         <div class="border rounded-3 p-3 bg-light mb-4" id="child-count-gate">
-          <label class="form-label required mb-2">How many children are you registering for CCD?</label>
+          <label class="form-label required mb-2"><%= t('how_many_children_ccd') %></label>
           <div class="d-flex flex-wrap align-items-end gap-2">
             <select class="form-select" style="max-width:220px" id="child-count-select" required>
               <option value="" disabled selected><%= t('select_placeholder') %></option>
@@ -167,13 +167,13 @@
                 </div>
                 <div class="col-md-4">
                   <label class="form-label required"><%= t('primary_contact_phone') %></label>
-                  <input class="form-control" type="tel" name="primary_contact_phone" value="<%= parentSource ? parentSource.primary_contact_phone : '' %>" pattern="[0-9]{3}[.\- ]?[0-9]{3}[.\- ]?[0-9]{4}" title="Format: 123-456-7890 or 123.456.7890 or 123 456 7890" required>
-                  <div class="invalid-feedback">Please enter a valid phone number (XXX-XXX-XXXX format).</div>
+                  <input class="form-control" type="tel" name="primary_contact_phone" value="<%= parentSource ? parentSource.primary_contact_phone : '' %>" pattern="[0-9]{3}[.\- ]?[0-9]{3}[.\- ]?[0-9]{4}" title="<%= t('phone_format_hint') %>" required>
+                  <div class="invalid-feedback"><%= t('invalid_phone_feedback') %></div>
                 </div>
                 <div class="col-md-4">
                   <label class="form-label required"><%= t('primary_contact_email') %></label>
                   <input class="form-control" type="email" name="primary_contact_email" value="<%= parentSource ? parentSource.primary_contact_email : '' %>" required>
-                  <div class="invalid-feedback">Please enter a valid email address.</div>
+                  <div class="invalid-feedback"><%= t('invalid_email_feedback') %></div>
                 </div>
                 <div class="col-md-4">
                   <label class="form-label required"><%= t('relationship') %></label>
@@ -195,14 +195,14 @@
                   <label class="form-label required"><%= t('primary_contact_religion') %></label>
                   <select class="form-select" name="primary_contact_religion" required>
                     <option value="" disabled <%= !(parentSource && parentSource.primary_contact_religion) ? 'selected' : '' %>><%= t('select_placeholder') %></option>
-                    <option value="Catholic">Catholic</option>
-                    <option value="Non-denominational">Non-denominational</option>
-                    <option value="Protestant">Protestant</option>
-                    <option value="Muslim">Muslim</option>
-                    <option value="Hindu">Hindu</option>
-                    <option value="Buddhist">Buddhist</option>
-                    <option value="Agnostic">Agnostic</option>
-                    <option value="Atheist">Atheist</option>
+                    <option value="Catholic"><%= t('religion_catholic') %></option>
+                    <option value="Non-denominational"><%= t('religion_non_denominational') %></option>
+                    <option value="Protestant"><%= t('religion_protestant') %></option>
+                    <option value="Muslim"><%= t('religion_muslim') %></option>
+                    <option value="Hindu"><%= t('religion_hindu') %></option>
+                    <option value="Buddhist"><%= t('religion_buddhist') %></option>
+                    <option value="Agnostic"><%= t('religion_agnostic') %></option>
+                    <option value="Atheist"><%= t('religion_atheist') %></option>
                   </select>
                 </div>
                 <div class="col-md-6">
@@ -217,56 +217,9 @@
                   <label class="form-label required"><%= t('state') %></label>
                   <select class="form-select" name="state" required>
                     <option value="" disabled <%= !(reg && reg.state) ? 'selected' : '' %>><%= t('select_placeholder') %></option>
-                    <option value="AL" <%= reg && reg.state === 'AL' ? 'selected' : '' %>>Alabama</option>
-                    <option value="AK" <%= reg && reg.state === 'AK' ? 'selected' : '' %>>Alaska</option>
-                    <option value="AZ" <%= reg && reg.state === 'AZ' ? 'selected' : '' %>>Arizona</option>
-                    <option value="AR" <%= reg && reg.state === 'AR' ? 'selected' : '' %>>Arkansas</option>
-                    <option value="CA" <%= reg && reg.state === 'CA' ? 'selected' : '' %>>California</option>
-                    <option value="CO" <%= reg && reg.state === 'CO' ? 'selected' : '' %>>Colorado</option>
-                    <option value="CT" <%= reg && reg.state === 'CT' ? 'selected' : '' %>>Connecticut</option>
-                    <option value="DE" <%= reg && reg.state === 'DE' ? 'selected' : '' %>>Delaware</option>
-                    <option value="FL" <%= reg && reg.state === 'FL' ? 'selected' : '' %>>Florida</option>
-                    <option value="GA" <%= reg && reg.state === 'GA' ? 'selected' : '' %>>Georgia</option>
-                    <option value="HI" <%= reg && reg.state === 'HI' ? 'selected' : '' %>>Hawaii</option>
-                    <option value="ID" <%= reg && reg.state === 'ID' ? 'selected' : '' %>>Idaho</option>
-                    <option value="IL" <%= reg && reg.state === 'IL' ? 'selected' : '' %>>Illinois</option>
-                    <option value="IN" <%= reg && reg.state === 'IN' ? 'selected' : '' %>>Indiana</option>
-                    <option value="IA" <%= reg && reg.state === 'IA' ? 'selected' : '' %>>Iowa</option>
-                    <option value="KS" <%= reg && reg.state === 'KS' ? 'selected' : '' %>>Kansas</option>
-                    <option value="KY" <%= reg && reg.state === 'KY' ? 'selected' : '' %>>Kentucky</option>
-                    <option value="LA" <%= reg && reg.state === 'LA' ? 'selected' : '' %>>Louisiana</option>
-                    <option value="ME" <%= reg && reg.state === 'ME' ? 'selected' : '' %>>Maine</option>
-                    <option value="MD" <%= reg && reg.state === 'MD' ? 'selected' : '' %>>Maryland</option>
-                    <option value="MA" <%= reg && reg.state === 'MA' ? 'selected' : '' %>>Massachusetts</option>
-                    <option value="MI" <%= reg && reg.state === 'MI' ? 'selected' : '' %>>Michigan</option>
-                    <option value="MN" <%= reg && reg.state === 'MN' ? 'selected' : '' %>>Minnesota</option>
-                    <option value="MS" <%= reg && reg.state === 'MS' ? 'selected' : '' %>>Mississippi</option>
-                    <option value="MO" <%= reg && reg.state === 'MO' ? 'selected' : '' %>>Missouri</option>
-                    <option value="MT" <%= reg && reg.state === 'MT' ? 'selected' : '' %>>Montana</option>
-                    <option value="NE" <%= reg && reg.state === 'NE' ? 'selected' : '' %>>Nebraska</option>
-                    <option value="NV" <%= reg && reg.state === 'NV' ? 'selected' : '' %>>Nevada</option>
-                    <option value="NH" <%= reg && reg.state === 'NH' ? 'selected' : '' %>>New Hampshire</option>
-                    <option value="NJ" <%= reg && reg.state === 'NJ' ? 'selected' : '' %>>New Jersey</option>
-                    <option value="NM" <%= reg && reg.state === 'NM' ? 'selected' : '' %>>New Mexico</option>
-                    <option value="NY" <%= reg && reg.state === 'NY' ? 'selected' : '' %>>New York</option>
-                    <option value="NC" <%= reg && reg.state === 'NC' ? 'selected' : '' %>>North Carolina</option>
-                    <option value="ND" <%= reg && reg.state === 'ND' ? 'selected' : '' %>>North Dakota</option>
-                    <option value="OH" <%= reg && reg.state === 'OH' ? 'selected' : '' %>>Ohio</option>
-                    <option value="OK" <%= reg && reg.state === 'OK' ? 'selected' : '' %>>Oklahoma</option>
-                    <option value="OR" <%= reg && reg.state === 'OR' ? 'selected' : '' %>>Oregon</option>
-                    <option value="PA" <%= reg && reg.state === 'PA' ? 'selected' : '' %>>Pennsylvania</option>
-                    <option value="RI" <%= reg && reg.state === 'RI' ? 'selected' : '' %>>Rhode Island</option>
-                    <option value="SC" <%= reg && reg.state === 'SC' ? 'selected' : '' %>>South Carolina</option>
-                    <option value="SD" <%= reg && reg.state === 'SD' ? 'selected' : '' %>>South Dakota</option>
-                    <option value="TN" <%= reg && reg.state === 'TN' ? 'selected' : '' %>>Tennessee</option>
-                    <option value="TX" <%= reg && reg.state === 'TX' ? 'selected' : '' %>>Texas</option>
-                    <option value="UT" <%= reg && reg.state === 'UT' ? 'selected' : '' %>>Utah</option>
-                    <option value="VT" <%= reg && reg.state === 'VT' ? 'selected' : '' %>>Vermont</option>
-                    <option value="VA" <%= reg && reg.state === 'VA' ? 'selected' : '' %>>Virginia</option>
-                    <option value="WA" <%= reg && reg.state === 'WA' ? 'selected' : '' %>>Washington</option>
-                    <option value="WV" <%= reg && reg.state === 'WV' ? 'selected' : '' %>>West Virginia</option>
-                    <option value="WI" <%= reg && reg.state === 'WI' ? 'selected' : '' %>>Wisconsin</option>
-                    <option value="WY" <%= reg && reg.state === 'WY' ? 'selected' : '' %>>Wyoming</option>
+                    <% ['AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY'].forEach((code) => { %>
+                      <option value="<%= code %>" <%= reg && reg.state === code ? 'selected' : '' %>><%= t('state_' + code) %></option>
+                    <% }) %>
                   </select>
                 </div>
                 <div class="col-md-4">
@@ -289,7 +242,7 @@
                 </div>
                 <div class="col-md-4">
                   <label class="form-label"><%= t('father_cell') %></label>
-                  <input class="form-control" type="tel" name="father_cell" value="<%= parentSource ? parentSource.father_cell : '' %>" pattern="[0-9]{3}[-. ]?[0-9]{3}[-. ]?[0-9]{4}" title="Format: 123-456-7890 or 123.456.7890 or 123 456 7890">
+                  <input class="form-control" type="tel" name="father_cell" value="<%= parentSource ? parentSource.father_cell : '' %>" pattern="[0-9]{3}[-. ]?[0-9]{3}[-. ]?[0-9]{4}" title="<%= t('phone_format_hint') %>">
                 </div>
               </div>
             </div>
@@ -307,7 +260,7 @@
                 </div>
                 <div class="col-md-4">
                   <label class="form-label"><%= t('mother_cell') %></label>
-                  <input class="form-control" type="tel" name="mother_cell" value="<%= parentSource ? parentSource.mother_cell : '' %>" pattern="[0-9]{3}[-. ]?[0-9]{3}[-. ]?[0-9]{4}" title="Format: 123-456-7890 or 123.456.7890 or 123 456 7890">
+                  <input class="form-control" type="tel" name="mother_cell" value="<%= parentSource ? parentSource.mother_cell : '' %>" pattern="[0-9]{3}[-. ]?[0-9]{3}[-. ]?[0-9]{4}" title="<%= t('phone_format_hint') %>">
                 </div>
               </div>
             </div>
@@ -350,7 +303,7 @@
 
           <% if (showCountGate) { %>
             <div class="col-12 mt-3">
-              <button type="button" class="btn btn-primary" id="continue-to-student">Continue to Student Info</button>
+              <button type="button" class="btn btn-primary" id="continue-to-student"><%= t('continue_to_student_info') %></button>
             </div>
           <% } %>
         </div>
@@ -358,10 +311,10 @@
         <!-- Student information (one student per stage) -->
         <div id="children-container" class="col-12 <%= showParentSection && showCountGate ? 'd-none' : '' %>">
           <% if (onStudentStage && wizardIndex > 1) { %>
-            <a class="btn btn-sm btn-outline-secondary mb-3" href="/registration/children?stage=student&index=<%= wizardIndex - 1 %>&groupIds=<%= wizardGroupIds.join(',') %>&total=<%= wizardTotal %>">&larr; Back to Previous Student</a>
+            <a class="btn btn-sm btn-outline-secondary mb-3" href="/registration/children?stage=student&index=<%= wizardIndex - 1 %>&groupIds=<%= wizardGroupIds.join(',') %>&total=<%= wizardTotal %>">&larr; <%= t('back_to_previous_student') %></a>
           <% } %>
           <% if (!editing && !onStudentStage) { %>
-            <button type="button" class="btn btn-sm btn-outline-secondary mb-3" id="back-to-parent">&larr; Back to Parent Info</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary mb-3" id="back-to-parent">&larr; <%= t('back_to_parent_info') %></button>
           <% } %>
           <fieldset class="child-block border rounded p-3 mb-3">
             <legend><%= t('student_info') %></legend>
@@ -371,7 +324,7 @@
                 <input class="form-control" type="text" name="student_first_name" value="<%= studentSource ? studentSource.student_full_name && studentSource.student_full_name.split(' ')[0] : '' %>" required>
               </div>
               <div class="col-md-4">
-                <label class="form-label"><%= t('student_middle_name') || 'Middle name' %></label>
+                <label class="form-label"><%= t('student_middle_name') %></label>
                 <input class="form-control" type="text" name="student_middle_name">
               </div>
               <div class="col-md-4">
@@ -394,11 +347,11 @@
               </div>
 
               <div class="col-md-3">
-                <label class="form-label"><%= t('birth_city') || 'Birth city' %></label>
+                <label class="form-label"><%= t('birth_city') %></label>
                 <input class="form-control" type="text" name="child_place_of_birth_city" value="<%= studentSource ? studentSource.child_place_of_birth_city : '' %>">
               </div>
               <div class="col-md-3">
-                <label class="form-label"><%= t('birth_country') || 'Birth country' %></label>
+                <label class="form-label"><%= t('birth_country') %></label>
                 <input class="form-control" type="text" name="child_place_of_birth_country" value="<%= studentSource ? studentSource.child_place_of_birth_country : '' %>">
               </div>
               <% if (isStaff) { %>
@@ -424,7 +377,7 @@
 
             <div class="form-check mt-3">
               <input class="form-check-input" type="checkbox" id="child_not_baptized" name="not_baptized" value="1" <%= studentSource && Number(studentSource.not_baptized) ? 'checked' : '' %>>
-              <label class="form-check-label" for="child_not_baptized">This child is not baptized</label>
+              <label class="form-check-label" for="child_not_baptized"><%= t('not_baptized_checkbox_label') %></label>
             </div>
 
             <!-- Sacramental records -->
@@ -452,7 +405,7 @@
 
             <!-- Sacramental preparation -->
             <fieldset class="mt-3 sacramental-year-fieldset">
-              <legend>Sacramental Preparation</legend>
+              <legend><%= t('sacramental_preparation_legend') %></legend>
               <% const regSacramentalYear = studentSource ? (studentSource.sacramental_year || '') : ''; %>
               <% const regPreferredClassTime = studentSource ? (studentSource.preferred_class_time || '') : ''; %>
               <% const prefillSacrament = regSacramentalYear.indexOf('confirmation') !== -1 ? 'confirmation' : (regSacramentalYear.indexOf('communion') !== -1 ? 'communion' : ''); %>
@@ -465,17 +418,17 @@
               <% const gradeSlotValue = (slot) => (slot.room ? `${slot.time} — ${slot.room}` : slot.time); %>
               <div class="row g-3">
                 <div class="col-12">
-                  <label class="form-label required">What are you registering this child for?</label>
+                  <label class="form-label required"><%= t('registering_child_for') %></label>
                   <div class="d-flex flex-column mt-1">
                     <label class="sac-radio">
                       <input type="radio" name="sac_category" class="sac-category-radio" value="sacramental" <%= prefillCategory === 'sacramental' ? 'checked' : '' %> required>
                       <span class="sac-dot"></span>
-                      <span>Sacramental Preparation Year</span>
+                      <span><%= t('sacramental_prep_year') %></span>
                     </label>
                     <label class="sac-radio">
                       <input type="radio" name="sac_category" class="sac-category-radio" value="non_sacramental" <%= prefillCategory === 'non_sacramental' ? 'checked' : '' %>>
                       <span class="sac-dot"></span>
-                      <span>Non-Sacramental Year</span>
+                      <span><%= t('non_sacramental_year') %></span>
                     </label>
                   </div>
 
@@ -483,34 +436,34 @@
 
                   <div class="d-none" id="sac-sacrament-panel">
                     <div class="sac-panel">
-                      <label class="form-label mb-1">Which sacrament?</label>
+                      <label class="form-label mb-1"><%= t('which_sacrament') %></label>
                       <div class="d-flex flex-column mt-1">
                         <label class="sac-radio">
                           <input type="radio" name="sac_sacrament" class="sac-sacrament-radio" value="communion" <%= prefillSacrament === 'communion' ? 'checked' : '' %> required>
                           <span class="sac-dot"></span>
-                          <span>Holy Communion</span>
+                          <span><%= t('holy_communion') %></span>
                         </label>
                         <label class="sac-radio">
                           <input type="radio" name="sac_sacrament" class="sac-sacrament-radio" value="confirmation" <%= prefillSacrament === 'confirmation' ? 'checked' : '' %>>
                           <span class="sac-dot"></span>
-                          <span>Confirmation</span>
+                          <span><%= t('confirmation') %></span>
                         </label>
                       </div>
 
                       <div class="d-none mt-3 pt-3" id="sac-year-panel" style="border-top:1px solid var(--border)">
-                        <label class="form-label mb-1">Which year?</label>
+                        <label class="form-label mb-1"><%= t('which_year') %></label>
                         <div class="d-flex flex-column mt-1">
                           <label class="sac-radio">
                             <input type="radio" name="sac_year" class="sac-year-radio" value="first" <%= prefillYear === 'first' ? 'checked' : '' %> required>
                             <span class="sac-dot"></span>
-                            <span>First Year of <span class="sac-sacrament-name"></span></span>
+                            <span><%= t('first_year_of') %> <span class="sac-sacrament-name"></span></span>
                           </label>
                         </div>
 
                         <div class="form-check mt-2" style="margin-left:28px">
                           <input class="form-check-input" type="checkbox" id="sac-second-year-eligibility" <%= prefillYear === 'second' ? 'checked' : '' %>>
                           <label class="form-check-label" for="sac-second-year-eligibility" style="font-size:.85rem">
-                            This child has attended the first year of <span class="sac-sacrament-name"></span> preparation
+                            <%= t('attended_first_year_prefix') %> <span class="sac-sacrament-name"></span> <%= t('preparation_word') %>
                           </label>
                         </div>
 
@@ -518,13 +471,13 @@
                           <label class="sac-radio">
                             <input type="radio" name="sac_year" class="sac-year-radio" value="second" <%= prefillYear === 'second' ? 'checked' : '' %> <%= prefillYear === 'second' ? '' : 'disabled' %>>
                             <span class="sac-dot"></span>
-                            <span>Second Year of <span class="sac-sacrament-name"></span></span>
-                            <span class="ms-1" id="sac-second-year-hint" style="font-size:.78rem;color:var(--muted);font-style:italic;<%= prefillYear === 'second' ? 'display:none' : '' %>">(check the box above to enable)</span>
+                            <span><%= t('second_year_of') %> <span class="sac-sacrament-name"></span></span>
+                            <span class="ms-1" id="sac-second-year-hint" style="font-size:.78rem;color:var(--muted);font-style:italic;<%= prefillYear === 'second' ? 'display:none' : '' %>"><%= t('check_box_above_enable') %></span>
                           </label>
                         </div>
 
                         <div class="alert alert-info d-none mt-3 mb-0" id="sac-first-year-info" style="font-size:.85rem">
-                          Parents are invited to join this journey of sacramental preparation for children by joining them in this program. These sessions will be slightly longer but less frequent (approximately 11 meetings until May).
+                          <%= t('first_year_info_notice') %>
                         </div>
                       </div>
                     </div>
@@ -532,30 +485,30 @@
 
                   <div class="d-none" id="sac-non-sacramental-panel">
                     <div class="sac-panel">
-                      <label class="form-label mb-1" for="non_sacramental_grade">What grade is this child in for CCD?</label>
+                      <label class="form-label mb-1" for="non_sacramental_grade"><%= t('what_grade_ccd') %></label>
                       <select class="form-select" style="max-width:280px" name="non_sacramental_grade" id="non_sacramental_grade" required>
                         <option value="" disabled <%= !(studentSource && studentSource.non_sacramental_grade) ? 'selected' : '' %>><%= t('select_placeholder') %></option>
                         <% ['3','4','5','6','7'].forEach((g) => { %>
                           <% const gSlot = classesByGrade[g] && classesByGrade[g][0]; %>
-                          <option value="<%= g %>" <%= studentSource && studentSource.non_sacramental_grade === g ? 'selected' : '' %>>Grade <%= g %><%= gSlot ? ' — ' + gSlot.time : '' %></option>
+                          <option value="<%= g %>" <%= studentSource && studentSource.non_sacramental_grade === g ? 'selected' : '' %>><%= t('grade') %> <%= g %><%= gSlot ? ' — ' + gSlot.time : '' %></option>
                         <% }) %>
                       </select>
                     </div>
                   </div>
                 </div>
                 <div class="col-md-6 d-none communion-class-time-wrap">
-                  <label class="form-label">Preferred Class Time</label>
+                  <label class="form-label"><%= t('preferred_class_time') %></label>
                   <select class="form-select communion-class-time-select"></select>
-                  <div class="form-text communion-class-time-empty d-none">Not yet scheduled — contact the parish office.</div>
+                  <div class="form-text communion-class-time-empty d-none"><%= t('not_yet_scheduled') %></div>
                   <script type="application/json" class="communion-class-time-data"><%- JSON.stringify({
                     first: (classesByGrade['1'] || []).map((slot) => gradeSlotValue(slot)),
                     second: (classesByGrade['2'] || []).map((slot) => gradeSlotValue(slot)),
                   }) %></script>
                 </div>
                 <div class="col-md-6 d-none confirmation-class-time-wrap">
-                  <label class="form-label">Preferred Class Time</label>
+                  <label class="form-label"><%= t('preferred_class_time') %></label>
                   <select class="form-select confirmation-class-time-select"></select>
-                  <div class="form-text confirmation-class-time-empty d-none">Not yet scheduled — contact the parish office.</div>
+                  <div class="form-text confirmation-class-time-empty d-none"><%= t('not_yet_scheduled') %></div>
                   <script type="application/json" class="confirmation-class-time-data"><%- JSON.stringify({
                     first: (classesByGrade['8'] || []).map((slot) => gradeSlotValue(slot)),
                     second: (classesByGrade['9'] || []).map((slot) => gradeSlotValue(slot)),
@@ -592,13 +545,13 @@
         <!-- Fee notice -->
         <div class="col-12">
           <div class="alert alert-info">
-            <strong>Fee Schedule &mdash;</strong> <%= t('fee_notice') %>
+            <strong><%= t('fee_schedule_label') %> &mdash;</strong> <%= t('fee_notice') %>
           </div>
         </div>
 
         <!-- Submit -->
         <div class="col-12 d-flex gap-2 <%= showCountGate ? 'd-none' : '' %>" id="submit-row">
-          <button class="btn btn-primary" type="submit" id="submit-btn"><%= editing ? t('submit_registration') : (isLastKnownStage ? 'Submit Registration' : 'Save & Continue') %></button>
+          <button class="btn btn-primary" type="submit" id="submit-btn"><%= editing ? t('submit_registration') : (isLastKnownStage ? t('submit_registration') : t('save_and_continue')) %></button>
           <a class="btn btn-outline-secondary" href="/dashboard"><%= t('cancel') %></a>
         </div>
 
@@ -612,6 +565,19 @@
 <script>
   (function () {
     const registrationForm = document.getElementById('registration-form');
+    const i18n = {
+      holyCommunion: <%- JSON.stringify(t('holy_communion')) %>,
+      confirmation: <%- JSON.stringify(t('confirmation')) %>,
+      notBaptizedAskDob: <%- JSON.stringify(t('not_baptized_ask_dob')) %>,
+      notBaptizedOnlyOptionPrefix: <%- JSON.stringify(t('not_baptized_only_option_prefix')) %>,
+      notBaptizedOnlyOptionSuffix: <%- JSON.stringify(t('not_baptized_only_option_suffix')) %>,
+      submitRegistration: <%- JSON.stringify(t('submit_registration')) %>,
+      saveAndContinue: <%- JSON.stringify(t('save_and_continue')) %>,
+      wizardParentInfoChild1: <%- JSON.stringify(t('wizard_parent_info_child1')) %>,
+      wizardChildWord: <%- JSON.stringify(t('wizard_child_word')) %>,
+      wizardOfWord: <%- JSON.stringify(t('wizard_of_word')) %>,
+      wizardStepWord: <%- JSON.stringify(t('wizard_step_word')) %>,
+    };
 
     // A hidden (d-none) required field that's also empty blocks submission with an
     // "invalid form control ... is not focusable" error the browser can't show the
@@ -737,7 +703,7 @@
         nonSacramentalPanel.classList.toggle('d-none', category !== 'non_sacramental');
         firstYearInfo.classList.toggle('d-none', year !== 'first');
 
-        const sacramentLabel = sacrament === 'communion' ? 'Holy Communion' : (sacrament === 'confirmation' ? 'Confirmation' : '');
+        const sacramentLabel = sacrament === 'communion' ? i18n.holyCommunion : (sacrament === 'confirmation' ? i18n.confirmation : '');
         sacramentNameSpans.forEach((el) => { el.textContent = sacramentLabel; });
 
         const finalValue = category === 'sacramental' && sacrament && year ? (year + '_year_' + sacrament) : '';
@@ -842,7 +808,7 @@
         const age = calculateAge(studentDobInput ? studentDobInput.value : '');
         if (age === null) {
           if (notBaptizedNote) {
-            notBaptizedNote.textContent = "Enter the child's date of birth above to determine whether First Year of Holy Communion or First Year of Confirmation applies.";
+            notBaptizedNote.textContent = i18n.notBaptizedAskDob;
             notBaptizedNote.classList.remove('d-none');
           }
           return;
@@ -872,8 +838,8 @@
         }
 
         if (notBaptizedNote) {
-          const label = targetSacrament === 'communion' ? 'Holy Communion' : 'Confirmation';
-          notBaptizedNote.textContent = `Since this child is not yet baptized, First Year of ${label} is the only option available, based on age.`;
+          const label = targetSacrament === 'communion' ? i18n.holyCommunion : i18n.confirmation;
+          notBaptizedNote.textContent = `${i18n.notBaptizedOnlyOptionPrefix} ${label} ${i18n.notBaptizedOnlyOptionSuffix}`;
           notBaptizedNote.classList.remove('d-none');
         }
       };
@@ -902,7 +868,7 @@
       const syncTotal = () => {
         totalChildrenInput.value = childCountSelect.value || '';
         if (submitBtn) {
-          submitBtn.textContent = childCountSelect.value === '1' ? 'Submit Registration' : 'Save & Continue';
+          submitBtn.textContent = childCountSelect.value === '1' ? i18n.submitRegistration : i18n.saveAndContinue;
         }
       };
       childCountSelect.addEventListener('change', syncTotal);
@@ -928,14 +894,14 @@
         seg.className = 'flex-fill rounded-pill';
         seg.style.height = '8px';
         seg.style.background = i < wizardCurrentIndex ? 'var(--navy)' : (i === wizardCurrentIndex ? 'var(--gold)' : 'var(--border)');
-        seg.title = i === 1 ? 'Parent Info & Child 1' : ('Child ' + i);
+        seg.title = i === 1 ? i18n.wizardParentInfoChild1 : (i18n.wizardChildWord + ' ' + i);
         progressSteps.appendChild(seg);
       }
       if (progressLabel) {
-        progressLabel.textContent = wizardCurrentIndex === 1 ? 'Parent Info & Child 1' : ('Child ' + wizardCurrentIndex + ' of ' + total);
+        progressLabel.textContent = wizardCurrentIndex === 1 ? i18n.wizardParentInfoChild1 : (i18n.wizardChildWord + ' ' + wizardCurrentIndex + ' ' + i18n.wizardOfWord + ' ' + total);
       }
       if (progressFraction) {
-        progressFraction.textContent = 'Step ' + wizardCurrentIndex + ' of ' + total;
+        progressFraction.textContent = i18n.wizardStepWord + ' ' + wizardCurrentIndex + ' ' + i18n.wizardOfWord + ' ' + total;
       }
     };
 

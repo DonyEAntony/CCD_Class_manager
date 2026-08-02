@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Registrations &mdash; <%= t('app_title') %></title>
+  <title><%= t('registrations_title') %> &mdash; <%= t('app_title') %></title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
@@ -18,8 +18,8 @@
 
   <div class="page-heading d-flex flex-wrap justify-content-between align-items-end gap-2">
     <div>
-      <h1>All Registrations</h1>
-      <p class="sub mb-0">Every family, child, adult, and sponsor confirmation submission across the parish.</p>
+      <h1><%= t('all_registrations_header') %></h1>
+      <p class="sub mb-0"><%= t('all_registrations_subtitle') %></p>
     </div>
   </div>
 
@@ -35,16 +35,16 @@
     <div class="collapse <%= activeGradeFilter ? 'show' : '' %>" id="children-regs-collapse">
     <div class="card-body p-0">
       <div class="d-flex flex-wrap align-items-center gap-2 p-3 border-bottom" onclick="event.stopPropagation()">
-        <label class="form-label mb-0" for="children-grade-filter" style="font-size:.85rem">Filter by grade</label>
+        <label class="form-label mb-0" for="children-grade-filter" style="font-size:.85rem"><%= t('filter_by_grade') %></label>
         <select class="form-select form-select-sm" id="children-grade-filter" style="max-width:280px" onchange="window.location.href = this.value ? '/admin/registrations?grade=' + this.value : '/admin/registrations';">
-          <option value="" <%= !activeGradeFilter ? 'selected' : '' %>>All Grades</option>
+          <option value="" <%= !activeGradeFilter ? 'selected' : '' %>><%= t('all_grades') %></option>
           <% Object.keys(availableCcdGradeMeanings).forEach((g) => { %>
             <option value="<%= g %>" <%= activeGradeFilter === g ? 'selected' : '' %>><%= g %> &mdash; <%= availableCcdGradeMeanings[g] %></option>
           <% }) %>
         </select>
       </div>
       <% if (!studentRegs || studentRegs.length === 0) { %>
-        <div class="p-4 text-center" style="color:var(--muted);font-size:.9rem"><em><%= activeGradeFilter ? 'No registrations match this grade.' : t('no_children_regs') %></em></div>
+        <div class="p-4 text-center" style="color:var(--muted);font-size:.9rem"><em><%= activeGradeFilter ? t('no_grade_match') : t('no_children_regs') %></em></div>
       <% } else { %>
       <div class="table-responsive">
         <table class="table mb-0">
@@ -56,7 +56,7 @@
               <th><%= t('total_fees') %></th>
               <th><%= t('certificates') %></th>
               <th><%= t('status') %></th>
-              <th>Submitted</th>
+              <th><%= t('submitted_col') %></th>
               <th><%= t('actions') %></th>
             </tr>
           </thead>
@@ -82,9 +82,9 @@
               <td>
                 <a href="/registration/children/edit/<%= r.id %>" class="btn btn-sm btn-outline-primary"><%= t('edit') %></a>
                 <form method="post" action="/admin/registrations/children/<%= r.id %>/archive" class="d-inline">
-                  <button class="btn btn-sm btn-outline-secondary" type="submit">Archive</button>
+                  <button class="btn btn-sm btn-outline-secondary" type="submit"><%= t('archive') %></button>
                 </form>
-                <form method="post" action="/admin/registrations/children/<%= r.id %>/delete" class="d-inline" onsubmit="return confirm('Permanently delete the registration for ' + <%- JSON.stringify(r.student_full_name || 'this student') %> + '? This cannot be undone.');">
+                <form method="post" action="/admin/registrations/children/<%= r.id %>/delete" class="d-inline" onsubmit="return confirm(<%- JSON.stringify(t('confirm_delete_registration_prefix')) %> + ' ' + <%- JSON.stringify(r.student_full_name || 'this student') %> + '? ' + <%- JSON.stringify(t('confirm_delete_registration_suffix')) %>);">
                   <button class="btn btn-sm btn-outline-danger" type="submit"><%= t('remove') %></button>
                 </form>
               </td>
@@ -101,14 +101,14 @@
   <!-- Archived Children Registrations -->
   <div class="page-card mb-4">
     <div class="card-header collapsed" data-bs-toggle="collapse" data-bs-target="#archived-children-regs-collapse" role="button" aria-expanded="false" aria-controls="archived-children-regs-collapse" style="cursor:pointer">
-      <h2 class="h5 mb-0">Archived Children Registrations</h2>
+      <h2 class="h5 mb-0"><%= t('archived_children_registrations_header') %></h2>
       <span class="badge" style="background:var(--surface);color:var(--navy-soft);font-size:.7rem;border-radius:2rem;padding:.3em .8em;font-weight:700;border:1px solid var(--border)"><%= (archivedStudentRegs || []).length %></span>
       <span class="collapse-chevron ms-auto">&#9656;</span>
     </div>
     <div class="collapse" id="archived-children-regs-collapse">
     <div class="card-body p-0">
       <% if (!archivedStudentRegs || archivedStudentRegs.length === 0) { %>
-        <div class="p-4 text-center" style="color:var(--muted);font-size:.9rem"><em>No archived registrations.</em></div>
+        <div class="p-4 text-center" style="color:var(--muted);font-size:.9rem"><em><%= t('no_archived_registrations') %></em></div>
       <% } else { %>
       <div class="table-responsive">
         <table class="table mb-0">
@@ -116,8 +116,8 @@
             <tr>
               <th><%= t('student') %></th>
               <th><%= t('primary_contact') %></th>
-              <th>Submitted</th>
-              <th>Archived</th>
+              <th><%= t('submitted_col') %></th>
+              <th><%= t('archived_col') %></th>
               <th><%= t('actions') %></th>
             </tr>
           </thead>
@@ -130,9 +130,9 @@
               <td style="font-size:.8rem;color:var(--muted)"><%= r.archived_at ? (typeof r.archived_at === 'string' ? r.archived_at.slice(0, 16).replace('T', ' ') : r.archived_at.toISOString().slice(0, 16).replace('T', ' ')) : '' %></td>
               <td>
                 <form method="post" action="/admin/registrations/children/<%= r.id %>/unarchive" class="d-inline">
-                  <button class="btn btn-sm btn-outline-primary" type="submit">Unarchive</button>
+                  <button class="btn btn-sm btn-outline-primary" type="submit"><%= t('unarchive') %></button>
                 </form>
-                <form method="post" action="/admin/registrations/children/<%= r.id %>/delete" class="d-inline" onsubmit="return confirm('Permanently delete the registration for ' + <%- JSON.stringify(r.student_full_name || 'this student') %> + '? This cannot be undone.');">
+                <form method="post" action="/admin/registrations/children/<%= r.id %>/delete" class="d-inline" onsubmit="return confirm(<%- JSON.stringify(t('confirm_delete_registration_prefix')) %> + ' ' + <%- JSON.stringify(r.student_full_name || 'this student') %> + '? ' + <%- JSON.stringify(t('confirm_delete_registration_suffix')) %>);">
                   <button class="btn btn-sm btn-outline-danger" type="submit"><%= t('remove') %></button>
                 </form>
               </td>
@@ -167,7 +167,7 @@
               <th><%= t('family_badges') %></th>
               <th><%= t('visit_window') %></th>
               <th><%= t('status') %></th>
-              <th>Submitted</th>
+              <th><%= t('submitted_col') %></th>
               <th><%= t('actions') %></th>
             </tr>
           </thead>
@@ -290,27 +290,27 @@
 
   <div class="page-card mb-4">
     <div class="card-header collapsed" data-bs-toggle="collapse" data-bs-target="#sponsor-regs-collapse" role="button" aria-expanded="false" aria-controls="sponsor-regs-collapse" style="cursor:pointer">
-      <h2 class="h5 mb-0">Sponsor Confirmation Forms</h2>
+      <h2 class="h5 mb-0"><%= t('sponsor_confirmation_forms_header') %></h2>
       <span class="badge" style="background:var(--surface);color:var(--navy-soft);font-size:.7rem;border-radius:2rem;padding:.3em .8em;font-weight:700;border:1px solid var(--border)"><%= (sponsorRegs || []).length %></span>
       <span class="collapse-chevron ms-auto">&#9656;</span>
     </div>
     <div class="collapse" id="sponsor-regs-collapse">
     <div class="card-body p-0">
       <% if (!sponsorRegs || sponsorRegs.length === 0) { %>
-        <div class="p-4 text-center" style="color:var(--muted);font-size:.9rem"><em>No sponsor confirmation forms yet.</em></div>
+        <div class="p-4 text-center" style="color:var(--muted);font-size:.9rem"><em><%= t('no_sponsor_forms') %></em></div>
       <% } else { %>
       <div class="table-responsive">
         <table class="table mb-0">
           <thead>
             <tr>
-              <th>Student</th>
-              <th>Confirmation Name</th>
-              <th>Sponsor</th>
-              <th>Certificate</th>
-              <th>Verification</th>
-              <th>Submitted</th>
-              <th>Status</th>
-              <th>Actions</th>
+              <th><%= t('student') %></th>
+              <th><%= t('confirmation_name_col') %></th>
+              <th><%= t('sponsor_col') %></th>
+              <th><%= t('certificate_col') %></th>
+              <th><%= t('verification_col') %></th>
+              <th><%= t('submitted_col') %></th>
+              <th><%= t('status') %></th>
+              <th><%= t('actions') %></th>
             </tr>
           </thead>
           <tbody>
@@ -321,9 +321,9 @@
               <td><%= r.sponsor_name %></td>
               <td>
                 <% if (Number(r.is_st_matthew_parishioner)) { %>
-                  <span>St. Matthew parishioner</span>
+                  <span><%= t('st_matthew_parishioner') %></span>
                 <% } else if (r.sponsor_certificate_path) { %>
-                  <a href="/<%= r.sponsor_certificate_path %>">View File</a>
+                  <a href="/<%= r.sponsor_certificate_path %>"><%= t('view_file') %></a>
                 <% } else { %>
                   <span style="color:var(--muted)">&mdash;</span>
                 <% } %>
@@ -331,14 +331,14 @@
               <td>
                 <% if (Number(r.is_st_matthew_parishioner)) { %>
                   <% if (Number(r.admin_verified)) { %>
-                    <span class="badge text-bg-success">Admin verified</span>
+                    <span class="badge text-bg-success"><%= t('admin_verified') %></span>
                   <% } else { %>
-                    <span class="badge text-bg-warning">Pending admin review</span>
+                    <span class="badge text-bg-warning"><%= t('pending_admin_review') %></span>
                   <% } %>
                 <% } else if (r.sponsor_certificate_path) { %>
-                  <span style="color:var(--muted)">Certificate provided</span>
+                  <span style="color:var(--muted)"><%= t('certificate_provided') %></span>
                 <% } else { %>
-                  <span class="badge text-bg-danger">Missing certificate</span>
+                  <span class="badge text-bg-danger"><%= t('missing_certificate') %></span>
                 <% } %>
               </td>
               <td style="font-size:.8rem;color:var(--muted)"><%= r.created_at ? (typeof r.created_at === 'string' ? r.created_at.slice(0, 16).replace('T', ' ') : r.created_at.toISOString().slice(0, 16).replace('T', ' ')) : '' %></td>
@@ -350,11 +350,11 @@
               <td>
                 <% if (Number(r.is_st_matthew_parishioner) && !Number(r.admin_verified)) { %>
                   <form method="post" action="/admin/sponsor-confirmation/<%= r.id %>/verify" class="d-inline">
-                    <button class="btn btn-sm btn-outline-success" type="submit">Verify</button>
+                    <button class="btn btn-sm btn-outline-success" type="submit"><%= t('verify') %></button>
                   </form>
                 <% } %>
                 <a href="/registration/sponsor-confirmation/edit/<%= r.id %>" class="btn btn-sm btn-outline-primary"><%= t('edit') %></a>
-                <form method="post" action="/admin/sponsor-confirmation/<%= r.id %>/delete" class="d-inline" onsubmit="return confirm('Delete this sponsor confirmation form? This is helpful for removing test entries.');">
+                <form method="post" action="/admin/sponsor-confirmation/<%= r.id %>/delete" class="d-inline" onsubmit="return confirm('<%= t('confirm_delete_sponsor_form') %>');">
                   <button class="btn btn-sm btn-outline-danger" type="submit"><%= t('remove') %></button>
                 </form>
               </td>

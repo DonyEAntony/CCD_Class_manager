@@ -33,16 +33,16 @@
 
   <ul class="nav nav-tabs mb-4" id="adminUsersTabs" role="tablist">
     <li class="nav-item" role="presentation">
-      <button class="nav-link active" id="users-tab" data-bs-toggle="tab" data-bs-target="#users-pane" type="button" role="tab" aria-controls="users-pane" aria-selected="true">Users</button>
+      <button class="nav-link active" id="users-tab" data-bs-toggle="tab" data-bs-target="#users-pane" type="button" role="tab" aria-controls="users-pane" aria-selected="true"><%= t('tab_users') %></button>
     </li>
     <li class="nav-item" role="presentation">
-      <button class="nav-link" id="settings-tab" data-bs-toggle="tab" data-bs-target="#settings-pane" type="button" role="tab" aria-controls="settings-pane" aria-selected="false">Settings</button>
+      <button class="nav-link" id="settings-tab" data-bs-toggle="tab" data-bs-target="#settings-pane" type="button" role="tab" aria-controls="settings-pane" aria-selected="false"><%= t('tab_settings') %></button>
     </li>
     <li class="nav-item" role="presentation">
-      <button class="nav-link" id="event-scheduler-tab" data-bs-toggle="tab" data-bs-target="#event-scheduler-pane" type="button" role="tab" aria-controls="event-scheduler-pane" aria-selected="false">Event Scheduler</button>
+      <button class="nav-link" id="event-scheduler-tab" data-bs-toggle="tab" data-bs-target="#event-scheduler-pane" type="button" role="tab" aria-controls="event-scheduler-pane" aria-selected="false"><%= t('tab_event_scheduler') %></button>
     </li>
     <li class="nav-item" role="presentation">
-      <button class="nav-link" id="eucharistic-adoration-tab" data-bs-toggle="tab" data-bs-target="#eucharistic-adoration-pane" type="button" role="tab" aria-controls="eucharistic-adoration-pane" aria-selected="false">Eucharistic Adoration</button>
+      <button class="nav-link" id="eucharistic-adoration-tab" data-bs-toggle="tab" data-bs-target="#eucharistic-adoration-pane" type="button" role="tab" aria-controls="eucharistic-adoration-pane" aria-selected="false"><%= t('tab_eucharistic_adoration') %></button>
     </li>
   </ul>
 
@@ -51,15 +51,15 @@
 
   <div class="page-card">
     <div class="card-header d-flex flex-wrap align-items-center gap-2">
-      <label class="form-label mb-0" for="role-filter">Filter by user type</label>
+      <label class="form-label mb-0" for="role-filter"><%= t('filter_by_user_type') %></label>
       <select class="form-select" id="role-filter" name="role" style="max-width:220px" onchange="window.location.href = this.value ? '/admin/users?role=' + this.value : '/admin/users';">
-        <option value="" <%= !roleFilter ? 'selected' : '' %>>All Users</option>
-        <option value="user" <%= roleFilter === 'user' ? 'selected' : '' %>>User</option>
-        <option value="catechist" <%= roleFilter === 'catechist' ? 'selected' : '' %>>Catechist</option>
+        <option value="" <%= !roleFilter ? 'selected' : '' %>><%= t('all_users') %></option>
+        <option value="user" <%= roleFilter === 'user' ? 'selected' : '' %>><%= t('role_user') %></option>
+        <option value="catechist" <%= roleFilter === 'catechist' ? 'selected' : '' %>><%= t('role_catechist') %></option>
         <option value="family_faith_leader" <%= roleFilter === 'family_faith_leader' ? 'selected' : '' %>><%= t('family_faith_leader') %></option>
-        <option value="admin" <%= roleFilter === 'admin' ? 'selected' : '' %>>Admin</option>
+        <option value="admin" <%= roleFilter === 'admin' ? 'selected' : '' %>><%= t('role_admin') %></option>
       </select>
-      <span class="text-muted" style="font-size:.85rem"><%= users.length %> <%= users.length === 1 ? 'user' : 'users' %></span>
+      <span class="text-muted" style="font-size:.85rem"><%= users.length %> <%= users.length === 1 ? t('user_singular') : t('user_plural') %></span>
     </div>
     <div class="card-body p-0">
       <div class="table-responsive">
@@ -67,10 +67,10 @@
           <thead>
             <tr>
               <th><%= t('email') %></th>
-              <th>Name</th>
-              <th>Phone</th>
+              <th><%= t('name') %></th>
+              <th><%= t('phone') %></th>
               <th><%= t('role') %></th>
-              <th>Status</th>
+              <th><%= t('status') %></th>
               <th><%= t('provider') %></th>
               <th><%= t('actions') %></th>
             </tr>
@@ -84,9 +84,9 @@
                 <td><span class="badge badge-role badge-<%= u.role %>"><%= u.role %></span></td>
                 <td>
                   <% if (u.is_active) { %>
-                    <span class="badge text-bg-success">Verified</span>
+                    <span class="badge text-bg-success"><%= t('verified_status') %></span>
                   <% } else { %>
-                    <span class="badge text-bg-warning">Pending</span>
+                    <span class="badge text-bg-warning"><%= t('pending_status') %></span>
                   <% } %>
                 </td>
                 <td style="font-size:.85rem;color:var(--muted)"><%= u.provider %></td>
@@ -94,26 +94,26 @@
                   <div class="d-flex gap-2 flex-wrap">
                     <form class="d-flex gap-2" method="post" action="/admin/users/<%= u.id %>/role">
                       <select class="form-select" name="role" style="max-width:150px">
-                        <option value="user"      <%= u.role==='user'      ?'selected':'' %>>User</option>
-                        <option value="catechist" <%= u.role==='catechist' ?'selected':'' %>>Catechist</option>
+                        <option value="user"      <%= u.role==='user'      ?'selected':'' %>><%= t('role_user') %></option>
+                        <option value="catechist" <%= u.role==='catechist' ?'selected':'' %>><%= t('role_catechist') %></option>
                         <option value="family_faith_leader" <%= u.role==='family_faith_leader' ?'selected':'' %>><%= t('family_faith_leader') %></option>
-                        <option value="admin"     <%= u.role==='admin'     ?'selected':'' %>>Admin</option>
+                        <option value="admin"     <%= u.role==='admin'     ?'selected':'' %>><%= t('role_admin') %></option>
                       </select>
                       <button class="btn btn-primary" type="submit"><%= t('save') %></button>
                     </form>
                     <% if (u.provider === 'local' && !u.is_active) { %>
-                      <a class="btn btn-outline-secondary" href="/admin/users/<%= u.id %>/verification-email" target="_blank" rel="noreferrer">Preview Email</a>
+                      <a class="btn btn-outline-secondary" href="/admin/users/<%= u.id %>/verification-email" target="_blank" rel="noreferrer"><%= t('preview_email') %></a>
                       <form method="post" action="/admin/users/<%= u.id %>/resend-verification">
-                        <button class="btn btn-outline-primary" type="submit">Resend</button>
+                        <button class="btn btn-outline-primary" type="submit"><%= t('resend') %></button>
                       </form>
                     <% } %>
                     <% if (u.provider === 'local') { %>
                       <form method="post" action="/admin/users/<%= u.id %>/reset-password">
-                        <button class="btn btn-outline-secondary" type="submit">Reset Password</button>
+                        <button class="btn btn-outline-secondary" type="submit"><%= t('reset_password_btn') %></button>
                       </form>
                     <% } %>
                     <% if (!user || user.id !== u.id) { %>
-                      <form method="post" action="/admin/users/<%= u.id %>/delete" onsubmit="return confirm('Remove this user and all of their registrations?');">
+                      <form method="post" action="/admin/users/<%= u.id %>/delete" onsubmit="return confirm('<%= t('confirm_remove_user') %>');">
                         <button class="btn btn-outline-danger" type="submit"><%= t('remove') %></button>
                       </form>
                     <% } %>
@@ -142,11 +142,11 @@
   </div>
 
   <div class="page-card mb-4">
-    <div class="card-header"><h2 class="h5">Faith Formation Registration</h2></div>
+    <div class="card-header"><h2 class="h5"><%= t('faith_formation_registration_header') %></h2></div>
     <div class="card-body">
       <form class="row g-3 align-items-end" method="post" action="/admin/settings/faith-formation">
         <div class="col-md-6">
-          <label class="form-label">Current Registration Year</label>
+          <label class="form-label"><%= t('current_registration_year') %></label>
           <select class="form-select" name="current_registration_year" required>
             <% selectableRegistrationYears.forEach((schoolYearOption) => { %>
               <option value="<%= schoolYearOption %>" <%= faithFormationSettings && faithFormationSettings.currentRegistrationYear === schoolYearOption ? 'selected' : '' %>>
@@ -156,28 +156,28 @@
           </select>
         </div>
         <div class="col-md-6">
-          <button class="btn btn-primary" type="submit">Set Current Registration Year</button>
+          <button class="btn btn-primary" type="submit"><%= t('set_current_registration_year') %></button>
         </div>
       </form>
       <div class="alert alert-secondary mt-3 mb-0">
-        Current registration year:
+        <%= t('current_registration_year_label') %>
         <strong><%= faithFormationSettings && faithFormationSettings.currentRegistrationYear ? faithFormationSettings.currentRegistrationYear : '2025-2026' %></strong>.
-        Opening and closing is controlled per year below, so you can keep 2025-2026 open while 2026-2027 stays closed.
+        <%= t('registration_year_toggle_notice') %>
       </div>
     </div>
   </div>
 
   <div class="page-card mb-4">
-    <div class="card-header"><h2 class="h5">Registration Availability By Year</h2></div>
+    <div class="card-header"><h2 class="h5"><%= t('registration_availability_by_year') %></h2></div>
     <div class="card-body p-0">
       <div class="table-responsive">
         <table class="table mb-0">
           <thead>
             <tr>
-              <th>School Year</th>
-              <th>Faith Formation</th>
-              <th>Sponsor Form</th>
-              <th>Actions</th>
+              <th><%= t('school_year_col') %></th>
+              <th><%= t('faith_formation_col') %></th>
+              <th><%= t('sponsor_form_col') %></th>
+              <th><%= t('actions') %></th>
             </tr>
           </thead>
           <tbody>
@@ -186,28 +186,28 @@
                 <td style="font-weight:600">
                   <%= yearRow.schoolYear %>
                   <% if (faithFormationSettings && faithFormationSettings.currentRegistrationYear === yearRow.schoolYear) { %>
-                    <span class="badge" style="background:var(--surface);color:var(--navy-soft);font-size:.7rem;border-radius:2rem;padding:.3em .8em;font-weight:700;border:1px solid var(--border);margin-left:.4rem">Current</span>
+                    <span class="badge" style="background:var(--surface);color:var(--navy-soft);font-size:.7rem;border-radius:2rem;padding:.3em .8em;font-weight:700;border:1px solid var(--border);margin-left:.4rem"><%= t('current_badge') %></span>
                   <% } %>
                 </td>
                 <td colspan="3">
                   <form class="row g-2 align-items-end" method="post" action="/admin/settings/faith-formation/year">
                     <input type="hidden" name="school_year" value="<%= yearRow.schoolYear %>">
                     <div class="col-md-4">
-                      <label class="form-label">Faith Formation</label>
+                      <label class="form-label"><%= t('faith_formation_col') %></label>
                       <select class="form-select" name="faith_formation_registration_open">
-                        <option value="1" <%= yearRow.faithFormationOpen ? 'selected' : '' %>>Open</option>
-                        <option value="0" <%= !yearRow.faithFormationOpen ? 'selected' : '' %>>Closed</option>
+                        <option value="1" <%= yearRow.faithFormationOpen ? 'selected' : '' %>><%= t('open_status') %></option>
+                        <option value="0" <%= !yearRow.faithFormationOpen ? 'selected' : '' %>><%= t('closed_status') %></option>
                       </select>
                     </div>
                     <div class="col-md-4">
-                      <label class="form-label">Sponsor Form</label>
+                      <label class="form-label"><%= t('sponsor_form_col') %></label>
                       <select class="form-select" name="sponsor_form_registration_open">
-                        <option value="1" <%= yearRow.sponsorFormOpen ? 'selected' : '' %>>Open</option>
-                        <option value="0" <%= !yearRow.sponsorFormOpen ? 'selected' : '' %>>Closed</option>
+                        <option value="1" <%= yearRow.sponsorFormOpen ? 'selected' : '' %>><%= t('open_status') %></option>
+                        <option value="0" <%= !yearRow.sponsorFormOpen ? 'selected' : '' %>><%= t('closed_status') %></option>
                       </select>
                     </div>
                     <div class="col-md-4">
-                      <button class="btn btn-primary" type="submit">Save <%= yearRow.schoolYear %></button>
+                      <button class="btn btn-primary" type="submit"><%= t('save') %> <%= yearRow.schoolYear %></button>
                     </div>
                   </form>
                 </td>
@@ -220,15 +220,15 @@
   </div>
 
   <div class="page-card mt-4">
-    <div class="card-header"><h2 class="h5 mb-0">Catechist Assignments</h2></div>
+    <div class="card-header"><h2 class="h5 mb-0"><%= t('catechist_assignments_header') %></h2></div>
     <div class="card-body">
       <% const availableCcdGradeMeanings = (typeof ccdGradeMeanings !== 'undefined' && ccdGradeMeanings) ? ccdGradeMeanings : {}; %>
       <p class="text-muted mb-3" style="font-size:.85rem">
-        These classes drive the "Preferred Class Time" shown to parents during sacramental prep registration &mdash; grade 1&ndash;9 has a fixed meaning (below) so the two stay in sync.
+        <%= t('preferred_class_time_notice') %>
       </p>
       <form class="row g-3 align-items-end mb-4" method="post" action="/admin/ccd-classes">
         <div class="col-md-4">
-          <label class="form-label">Grade</label>
+          <label class="form-label"><%= t('grade') %></label>
           <select class="form-select" name="grade_level" required>
             <option value="" disabled selected><%= t('select_placeholder') %></option>
             <% Object.keys(availableCcdGradeMeanings).forEach((gradeKey) => { %>
@@ -237,32 +237,32 @@
           </select>
         </div>
         <div class="col-md-3">
-          <label class="form-label">Class Time</label>
-          <input class="form-control" type="text" name="class_time" placeholder="e.g. Monday 4:00-5:15 PM">
+          <label class="form-label"><%= t('class_time_label') %></label>
+          <input class="form-control" type="text" name="class_time" placeholder="<%= t('class_time_placeholder') %>">
         </div>
         <div class="col-md-3">
-          <label class="form-label">Room</label>
-          <input class="form-control" type="text" name="classroom" placeholder="e.g. Room 101">
+          <label class="form-label"><%= t('room') %></label>
+          <input class="form-control" type="text" name="classroom" placeholder="<%= t('room_placeholder') %>">
         </div>
         <div class="col-md-2">
-          <button class="btn btn-primary" type="submit">Add Class</button>
+          <button class="btn btn-primary" type="submit"><%= t('add_class') %></button>
         </div>
       </form>
     </div>
     <div class="card-body p-0">
       <% if (!availableCcdClasses.length) { %>
-        <div class="p-4 text-muted">No CCD classes have been configured yet.</div>
+        <div class="p-4 text-muted"><%= t('no_ccd_classes') %></div>
       <% } else { %>
         <div class="table-responsive">
           <table class="table mb-0">
             <thead>
               <tr>
-                <th>Class</th>
-                <th>Time</th>
-                <th>Room</th>
-                <th>Assigned Catechist</th>
-                <th>Update</th>
-                <th>Actions</th>
+                <th><%= t('class_col') %></th>
+                <th><%= t('time') %></th>
+                <th><%= t('room') %></th>
+                <th><%= t('assigned_catechist_col') %></th>
+                <th><%= t('update') %></th>
+                <th><%= t('actions') %></th>
               </tr>
             </thead>
             <tbody>
@@ -281,24 +281,24 @@
                       <div><%= ccdClass.catechist_name || '—' %></div>
                       <div style="font-size:.82rem;color:var(--muted)"><%= ccdClass.catechist_email || '' %></div>
                     <% } else { %>
-                      <span style="color:var(--muted)">Unassigned</span>
+                      <span style="color:var(--muted)"><%= t('unassigned') %></span>
                     <% } %>
                   </td>
                   <td>
                     <form class="d-flex gap-2 flex-wrap" method="post" action="/admin/ccd-classes/<%= ccdClass.id %>/catechist">
                       <select class="form-select" name="catechist_user_id" style="min-width:240px">
-                        <option value="">Unassigned</option>
+                        <option value=""><%= t('unassigned') %></option>
                         <% availableCatechists.forEach((catechist) => { %>
                           <option value="<%= catechist.id %>" <%= Number(ccdClass.catechist_user_id) === Number(catechist.id) ? 'selected' : '' %>>
                             <%= catechist.full_name || catechist.email %> (<%= catechist.email %>)
                           </option>
                         <% }) %>
                       </select>
-                      <button class="btn btn-outline-primary" type="submit">Assign</button>
+                      <button class="btn btn-outline-primary" type="submit"><%= t('assign') %></button>
                     </form>
                   </td>
                   <td>
-                    <form method="post" action="/admin/ccd-classes/<%= ccdClass.id %>/delete" onsubmit="return confirm('Remove this class? It will no longer appear as a preferred-time option.');">
+                    <form method="post" action="/admin/ccd-classes/<%= ccdClass.id %>/delete" onsubmit="return confirm('<%= t('confirm_remove_class') %>');">
                       <button class="btn btn-outline-danger btn-sm" type="submit"><%= t('remove') %></button>
                     </form>
                   </td>
@@ -313,42 +313,42 @@
 
   <!-- Altar Server Training Dates -->
   <div class="page-card mt-4">
-    <div class="card-header"><h2 class="h5 mb-0">Altar Server Training Dates</h2></div>
+    <div class="card-header"><h2 class="h5 mb-0"><%= t('altar_training_dates_header') %></h2></div>
     <div class="card-body">
       <form class="row g-3 align-items-end mb-4" method="post" action="/admin/altar-server/training-dates">
         <div class="col-md-3">
-          <label class="form-label">Training Date</label>
+          <label class="form-label"><%= t('training_date_label') %></label>
           <input class="form-control" type="date" name="training_date" required>
         </div>
         <div class="col-md-2">
-          <label class="form-label">Time</label>
+          <label class="form-label"><%= t('time') %></label>
           <input class="form-control" type="time" name="training_time" value="09:00" required>
         </div>
         <div class="col-md-3">
-          <label class="form-label">Location</label>
-          <input class="form-control" type="text" name="location" placeholder="e.g. Parish Center">
+          <label class="form-label"><%= t('location') %></label>
+          <input class="form-control" type="text" name="location" placeholder="<%= t('location_placeholder_parish_center') %>">
         </div>
         <div class="col-md-2">
-          <label class="form-label">Notes</label>
-          <input class="form-control" type="text" name="notes" placeholder="Optional details">
+          <label class="form-label"><%= t('notes') %></label>
+          <input class="form-control" type="text" name="notes" placeholder="<%= t('notes_placeholder_optional') %>">
         </div>
         <div class="col-md-2">
-          <button class="btn btn-primary" type="submit">Add Training Date</button>
+          <button class="btn btn-primary" type="submit"><%= t('add_training_date') %></button>
         </div>
       </form>
 
       <% const availableAltarTrainingDates = Array.isArray(typeof altarServerTrainingDates === 'undefined' ? null : altarServerTrainingDates) ? altarServerTrainingDates : []; %>
       <% if (!availableAltarTrainingDates.length) { %>
-        <p class="mb-0 text-muted">No altar server training dates have been scheduled yet.</p>
+        <p class="mb-0 text-muted"><%= t('no_altar_training_dates') %></p>
       <% } else { %>
         <div class="table-responsive">
           <table class="table mb-0">
             <thead>
               <tr>
-                <th>Date &amp; Time</th>
-                <th>Location</th>
-                <th>Notes</th>
-                <th>Actions</th>
+                <th><%= t('date_time_col') %></th>
+                <th><%= t('location') %></th>
+                <th><%= t('notes') %></th>
+                <th><%= t('actions') %></th>
               </tr>
             </thead>
             <tbody>
@@ -358,7 +358,7 @@
                   <td><%= dateItem.location || '<span style="color:var(--muted)">—</span>' %></td>
                   <td><%= dateItem.notes || '<span style="color:var(--muted)">—</span>' %></td>
                   <td>
-                    <form method="post" action="/admin/altar-server/training-dates/<%= dateItem.id %>/delete" onsubmit="return confirm('Remove this training date?');">
+                    <form method="post" action="/admin/altar-server/training-dates/<%= dateItem.id %>/delete" onsubmit="return confirm('<%= t('confirm_remove_training_date') %>');">
                       <button class="btn btn-outline-danger btn-sm" type="submit"><%= t('remove') %></button>
                     </form>
                   </td>
@@ -373,31 +373,31 @@
 
   <!-- Altar Server Signups -->
   <div class="page-card mt-4">
-    <div class="card-header"><h2 class="h5 mb-0">Altar Server Signups</h2></div>
+    <div class="card-header"><h2 class="h5 mb-0"><%= t('altar_signups_header') %></h2></div>
     <div class="card-body p-0">
       <% const availableAltarSignups = Array.isArray(typeof altarServerSignups === 'undefined' ? null : altarServerSignups) ? altarServerSignups : []; %>
       <% if (!availableAltarSignups.length) { %>
-        <div class="p-4 text-muted">No altar server signups yet.</div>
+        <div class="p-4 text-muted"><%= t('no_altar_signups') %></div>
       <% } else { %>
         <div class="table-responsive">
           <table class="table mb-0">
             <thead>
               <tr>
-                <th>Child</th>
-                <th>Grade</th>
-                <th>Parent / Guardian</th>
-                <th>Preferred Training</th>
-                <th>Notes</th>
-                <th>Status</th>
-                <th>Submitted</th>
-                <th>Actions</th>
+                <th><%= t('child_col') %></th>
+                <th><%= t('grade') %></th>
+                <th><%= t('parent_guardian_col') %></th>
+                <th><%= t('preferred_training_col') %></th>
+                <th><%= t('notes') %></th>
+                <th><%= t('status') %></th>
+                <th><%= t('submitted_col') %></th>
+                <th><%= t('actions') %></th>
               </tr>
             </thead>
             <tbody>
               <% availableAltarSignups.forEach((signup) => { %>
                 <tr>
                   <td><strong><%= signup.child_first_name %> <%= signup.child_last_name %></strong>
-                    <% if (signup.child_dob) { %><div style="font-size:.82rem;color:var(--muted)">DOB: <%= signup.child_dob %></div><% } %>
+                    <% if (signup.child_dob) { %><div style="font-size:.82rem;color:var(--muted)"><%= t('dob_prefix') %> <%= signup.child_dob %></div><% } %>
                   </td>
                   <td><%= signup.child_grade || '<span style="color:var(--muted)">—</span>' %></td>
                   <td>
@@ -411,17 +411,17 @@
                       <% if (signup.training_time) { %><span style="color:var(--muted)"><%= formatTimeLabel(signup.training_time) %></span><% } %>
                       <% if (signup.training_location) { %><br><span style="color:var(--muted)"><%= signup.training_location %></span><% } %>
                     <% } else { %>
-                      <span style="color:var(--muted)">No preference</span>
+                      <span style="color:var(--muted)"><%= t('no_preference') %></span>
                     <% } %>
                   </td>
                   <td style="max-width:240px;font-size:.85rem"><%= signup.notes || '<span style="color:var(--muted)">—</span>' %></td>
                   <td>
                     <form class="d-flex gap-1 align-items-center" method="post" action="/admin/altar-server/signups/<%= signup.id %>/status">
                       <select class="form-select form-select-sm" name="status" style="max-width:130px">
-                        <option value="pending"   <%= signup.status === 'pending'   ? 'selected' : '' %>>Pending</option>
-                        <option value="confirmed" <%= signup.status === 'confirmed' ? 'selected' : '' %>>Confirmed</option>
-                        <option value="completed" <%= signup.status === 'completed' ? 'selected' : '' %>>Completed</option>
-                        <option value="cancelled" <%= signup.status === 'cancelled' ? 'selected' : '' %>>Cancelled</option>
+                        <option value="pending"   <%= signup.status === 'pending'   ? 'selected' : '' %>><%= t('pending_status') %></option>
+                        <option value="confirmed" <%= signup.status === 'confirmed' ? 'selected' : '' %>><%= t('confirmed_status') %></option>
+                        <option value="completed" <%= signup.status === 'completed' ? 'selected' : '' %>><%= t('completed') %></option>
+                        <option value="cancelled" <%= signup.status === 'cancelled' ? 'selected' : '' %>><%= t('cancelled') %></option>
                       </select>
                       <button class="btn btn-outline-primary btn-sm" type="submit"><%= t('save') %></button>
                     </form>
@@ -430,7 +430,7 @@
                     <%= signup.created_at ? (typeof signup.created_at === 'string' ? signup.created_at.slice(0, 16).replace('T', ' ') : signup.created_at.toISOString().slice(0, 16).replace('T', ' ')) : '—' %>
                   </td>
                   <td>
-                    <form method="post" action="/admin/altar-server/signups/<%= signup.id %>/delete" onsubmit="return confirm('Remove this altar server signup?');">
+                    <form method="post" action="/admin/altar-server/signups/<%= signup.id %>/delete" onsubmit="return confirm('<%= t('confirm_remove_altar_signup') %>');">
                       <button class="btn btn-outline-danger btn-sm" type="submit"><%= t('remove') %></button>
                     </form>
                   </td>
@@ -508,7 +508,7 @@
         <div class="col-md-4">
           <label class="form-label"><%= t('event_title') %></label>
           <select class="form-select" name="event_definition_id" required>
-            <option value="">Select event</option>
+            <option value=""><%= t('select_event') %></option>
             <% availableEventDefinitions.forEach((eventDefinition) => { %>
               <option value="<%= eventDefinition.id %>"><%= eventDefinition.title %></option>
             <% }) %>
@@ -536,7 +536,7 @@
         <div class="col-md-3 d-none" id="event-weekday-field">
           <label class="form-label"><%= t('weekday') %></label>
           <select class="form-select" name="recurrence_pattern">
-            <option value="">Select weekday</option>
+            <option value=""><%= t('select_weekday') %></option>
             <% availableWeekdays.forEach((day) => { %>
               <option value="<%= day %>"><%= day %></option>
             <% }) %>
@@ -545,7 +545,7 @@
         <div class="col-md-2">
           <label class="form-label"><%= t('event_location') %></label>
           <select class="form-select" name="location">
-            <option value="">Select classroom</option>
+            <option value=""><%= t('select_classroom') %></option>
             <% availableClassrooms.forEach((room) => { %>
               <option value="<%= room %>"><%= room %></option>
             <% }) %>
@@ -604,37 +604,37 @@
   <div class="tab-pane fade" id="eucharistic-adoration-pane" role="tabpanel" aria-labelledby="eucharistic-adoration-tab">
 
   <div class="page-card mb-4">
-    <div class="card-header"><h2 class="h5 mb-0">Eucharistic Adoration Calendar</h2></div>
+    <div class="card-header"><h2 class="h5 mb-0"><%= t('adoration_calendar_header') %></h2></div>
     <div class="card-body">
       <form class="row g-3 align-items-end mb-4" method="post" action="/admin/eucharistic-adoration/dates">
         <div class="col-md-4">
-          <label class="form-label">Available Date</label>
+          <label class="form-label"><%= t('available_date_label') %></label>
           <input class="form-control" type="date" name="adoration_date" required>
         </div>
         <div class="col-md-3">
-          <label class="form-label">Start Time</label>
+          <label class="form-label"><%= t('start_time_label') %></label>
           <input class="form-control" type="time" name="start_time" value="08:30" required>
         </div>
         <div class="col-md-3">
-          <label class="form-label">End Time</label>
+          <label class="form-label"><%= t('end_time_label') %></label>
           <input class="form-control" type="time" name="end_time" value="16:00" required>
         </div>
         <div class="col-md-2">
-          <button class="btn btn-primary" type="submit">Add Available Date</button>
+          <button class="btn btn-primary" type="submit"><%= t('add_available_date') %></button>
         </div>
       </form>
 
       <% if (!adorationAvailableDates || adorationAvailableDates.length === 0) { %>
-        <p class="mb-0 text-muted">No Eucharistic Adoration dates have been configured yet.</p>
+        <p class="mb-0 text-muted"><%= t('no_adoration_dates') %></p>
       <% } else { %>
         <div class="table-responsive">
           <table class="table mb-0">
             <thead>
               <tr>
-                <th>Date</th>
-                <th>Time Window</th>
-                <th>Signups</th>
-                <th>Actions</th>
+                <th><%= t('date_col') %></th>
+                <th><%= t('time_window_col') %></th>
+                <th><%= t('signups_col') %></th>
+                <th><%= t('actions') %></th>
               </tr>
             </thead>
             <tbody>
@@ -650,7 +650,7 @@
                   <td><%= dateItem.timeWindowLabel %></td>
                   <td><%= signupCount %></td>
                   <td>
-                    <form method="post" action="/admin/eucharistic-adoration/dates/<%= dateItem.id %>/delete" onsubmit="return confirm('Remove this available adoration date? Existing signup records for that day will remain for review.');">
+                    <form method="post" action="/admin/eucharistic-adoration/dates/<%= dateItem.id %>/delete" onsubmit="return confirm('<%= t('confirm_remove_adoration_date') %>');">
                       <button class="btn btn-outline-danger btn-sm" type="submit"><%= t('remove') %></button>
                     </form>
                   </td>
@@ -664,22 +664,22 @@
   </div>
 
   <div class="page-card mb-4">
-    <div class="card-header"><h2 class="h5 mb-0">Eucharistic Adoration Signups</h2></div>
+    <div class="card-header"><h2 class="h5 mb-0"><%= t('adoration_signups_header') %></h2></div>
     <div class="card-body p-0">
       <% if (!adorationSignups || adorationSignups.length === 0) { %>
-        <div class="p-4 text-muted">No Eucharistic Adoration signups yet.</div>
+        <div class="p-4 text-muted"><%= t('no_adoration_signups') %></div>
       <% } else { %>
         <div class="table-responsive">
           <table class="table mb-0">
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Contact</th>
-                <th>Date</th>
-                <th>Time Slot</th>
-                <th>Notes</th>
-                <th>Submitted</th>
-                <th>Actions</th>
+                <th><%= t('name') %></th>
+                <th><%= t('contact_col') %></th>
+                <th><%= t('date_col') %></th>
+                <th><%= t('time_slot_col') %></th>
+                <th><%= t('notes') %></th>
+                <th><%= t('submitted_col') %></th>
+                <th><%= t('actions') %></th>
               </tr>
             </thead>
             <tbody>
@@ -697,7 +697,7 @@
                     <%= signup.created_at ? (typeof signup.created_at === 'string' ? signup.created_at.slice(0, 16).replace('T', ' ') : signup.created_at.toISOString().slice(0, 16).replace('T', ' ')) : '—' %>
                   </td>
                   <td>
-                    <form method="post" action="/admin/eucharistic-adoration/<%= signup.id %>/delete" onsubmit="return confirm('Remove this adoration signup and reopen the slot?');">
+                    <form method="post" action="/admin/eucharistic-adoration/<%= signup.id %>/delete" onsubmit="return confirm('<%= t('confirm_remove_adoration_signup') %>');">
                       <button class="btn btn-outline-danger btn-sm" type="submit"><%= t('remove') %></button>
                     </form>
                   </td>
