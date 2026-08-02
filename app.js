@@ -378,8 +378,6 @@ const translations = {
     contact_col: 'Contact',
     submitted_col: 'Submitted',
     unassigned: 'Unassigned',
-    assign: 'Assign',
-    update: 'Update',
     select_event: 'Select event',
     select_weekday: 'Select weekday',
     select_classroom: 'Select classroom',
@@ -503,6 +501,26 @@ const translations = {
     ministry_subtitle: 'Ministry',
     altar_server_signup_desc: 'Sign up your child to serve at the altar at Saint Matthew Catholic Church. Training provided.',
     required_field: 'This field is required.',
+    classes_nav: 'Classes',
+    classes_header: 'Classes',
+    classes_subtitle: 'Rosters, parent contacts, and the schedule for each faith formation class.',
+    no_classes_configured_yet: 'No classes have been configured yet.',
+    student_count_singular: 'student',
+    student_count_plural: 'students',
+    next_label: 'Next',
+    back_to_classes: 'Back to Classes',
+    roster_label: 'Roster',
+    class_teacher_label: 'Teacher',
+    schedule_label: 'Schedule',
+    attendance_label: 'Attendance',
+    present_label: 'Present',
+    absent_label: 'Absent',
+    unmarked_label: 'unmarked',
+    no_students_in_class: 'No students match this class yet.',
+    pending_acceptance_label: 'Pending',
+    pending_count_label: 'pending',
+    section_col: 'Section',
+    section_label_placeholder: 'e.g. A',
     register_family: 'Register Family for Faith Formation',
     // Index accordion
     family_centered_title: 'A Family-Centered Vision',
@@ -936,8 +954,6 @@ const translations = {
     contact_col: 'Contacto',
     submitted_col: 'Enviado',
     unassigned: 'Sin asignar',
-    assign: 'Asignar',
-    update: 'Actualizar',
     select_event: 'Seleccionar evento',
     select_weekday: 'Seleccionar día de la semana',
     select_classroom: 'Seleccionar salón',
@@ -1061,6 +1077,26 @@ const translations = {
     ministry_subtitle: 'Ministerio',
     altar_server_signup_desc: 'Inscriba a su hijo para servir en el altar en la Iglesia Católica Saint Matthew. Se proporciona entrenamiento.',
     required_field: 'Este campo es obligatorio.',
+    classes_nav: 'Clases',
+    classes_header: 'Clases',
+    classes_subtitle: 'Listas de estudiantes, contactos de los padres y el horario de cada clase de formación en la fe.',
+    no_classes_configured_yet: 'Aún no se han configurado clases.',
+    student_count_singular: 'estudiante',
+    student_count_plural: 'estudiantes',
+    next_label: 'Próxima',
+    back_to_classes: 'Volver a Clases',
+    roster_label: 'Lista de Estudiantes',
+    class_teacher_label: 'Catequista',
+    schedule_label: 'Horario',
+    attendance_label: 'Asistencia',
+    present_label: 'Presente',
+    absent_label: 'Ausente',
+    unmarked_label: 'sin marcar',
+    no_students_in_class: 'Aún no hay estudiantes en esta clase.',
+    pending_acceptance_label: 'Pendiente',
+    pending_count_label: 'pendiente(s)',
+    section_col: 'Sección',
+    section_label_placeholder: 'ej. A',
     register_family: 'Inscribir Familia para Formación en la Fe',
     // Index accordion
     family_centered_title: 'Una Visión Centrada en la Familia',
@@ -1263,14 +1299,70 @@ const resolveCcdGrade = (reg) => {
   return reg.ccd_grade_level || null;
 };
 
+const CLASS_WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+const parseClassWeekday = (classTimeText) => {
+  if (!classTimeText) return null;
+  const match = String(classTimeText).trim().match(/^(Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)/i);
+  if (!match) return null;
+  const index = CLASS_WEEKDAY_NAMES.findIndex((day) => day.toLowerCase() === match[1].toLowerCase());
+  return index === -1 ? null : index;
+};
+
+// When a grade has more than one time-slot section (e.g. three Second Year Communion
+// sections), admins assign each a "A"/"B"/"C" section_label directly (see
+// POST /admin/ccd-classes/:id/section-label) so they can refer to "2A" instead of an
+// ambiguous repeated grade number. Stored, not computed, so it stays put once set.
 const getCcdClasses = async () =>
   db.prepare(`
     SELECT classes.id, classes.grade_level, classes.class_time, classes.classroom, classes.catechist_user_id,
-           users.full_name AS catechist_name, users.email AS catechist_email
+           classes.section_label AS sectionLabel,
+           users.full_name AS catechist_name, users.email AS catechist_email, users.phone AS catechist_phone
     FROM ccd_classes classes
     LEFT JOIN users ON users.id = classes.catechist_user_id
     ORDER BY classes.grade_level ASC
   `).all();
+
+const SACRAMENTAL_GRADE_LEVELS = new Set(Object.values(CCD_GRADE_BY_SACRAMENTAL_YEAR));
+
+const getClassSlotValue = (ccdClass) =>
+  ccdClass.classroom ? `${ccdClass.class_time} — ${ccdClass.classroom}` : ccdClass.class_time;
+
+// Sacramental grades (1, 2, 8, 9) can have multiple time-slot sections per grade, so a
+// student's stored preferred_class_time disambiguates which section they belong to.
+// Non-sacramental grades (3-7) only ever capture the grade on the registration form, so
+// every student in that grade is treated as belonging to that grade's one section.
+// Match on class_time alone (not the room-qualified slot value): a class's classroom can
+// be assigned/reassigned after a student already registered, so their stored
+// preferred_class_time may only have the time portion even though the class now has a room.
+const getClassRoster = (ccdClass, allStudentRegs) =>
+  allStudentRegs.filter((reg) => {
+    if (resolveCcdGrade(reg) !== ccdClass.grade_level) return false;
+    if (!SACRAMENTAL_GRADE_LEVELS.has(ccdClass.grade_level)) return true;
+    return reg.preferred_class_time === ccdClass.class_time || reg.preferred_class_time === getClassSlotValue(ccdClass);
+  });
+
+const getUpcomingSessionDates = (classTimeText, count = 6) => {
+  const weekday = parseClassWeekday(classTimeText);
+  if (weekday === null) return [];
+  const cursor = new Date();
+  cursor.setHours(0, 0, 0, 0);
+  cursor.setDate(cursor.getDate() + ((weekday - cursor.getDay() + 7) % 7));
+  const dates = [];
+  for (let i = 0; i < count; i++) {
+    dates.push(new Date(cursor));
+    cursor.setDate(cursor.getDate() + 7);
+  }
+  return dates;
+};
+
+const formatSessionDateValue = (date) => date.toISOString().slice(0, 10);
+
+// A student shows as a full roster member only once their registration has cleared the
+// acceptance gate (conditionally_accepted or later); anything earlier — in_progress,
+// incomplete, or otherwise — is still pending and shown as such in the class roster.
+const CLASS_ROSTER_ACCEPTED_STATUSES = new Set(['conditionally_accepted', 'admitted', 'completed', 'graduated']);
+const isPendingAcceptance = (reg) => !CLASS_ROSTER_ACCEPTED_STATUSES.has(reg.status);
 const getCatechists = async () =>
   db.prepare(`
     SELECT id, full_name, email
@@ -3796,8 +3888,11 @@ app.post('/admin/ccd-classes/:id/delete', requireAuth, requireRole('admin'), asy
   return res.redirect('/admin/users');
 }));
 
-app.post('/admin/ccd-classes/:id/catechist', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+app.post('/admin/ccd-classes/:id/update', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   const classId = Number.parseInt(req.params.id, 10);
+  const sectionLabel = typeof req.body.section_label === 'string' ? req.body.section_label.trim().slice(0, 10) : '';
+  const classTime = typeof req.body.class_time === 'string' ? req.body.class_time.trim() : '';
+  const classroom = typeof req.body.classroom === 'string' ? req.body.classroom.trim() : '';
   const catechistId = req.body.catechist_user_id ? Number.parseInt(req.body.catechist_user_id, 10) : null;
 
   if (!Number.isInteger(classId)) {
@@ -3813,9 +3908,105 @@ app.post('/admin/ccd-classes/:id/catechist', requireAuth, requireRole('admin'), 
     }
   }
 
-  await db.prepare('UPDATE ccd_classes SET catechist_user_id = ? WHERE id = ?').run(catechistId, classId);
-  req.flash('success', catechistId ? 'Catechist assignment updated.' : 'Catechist assignment cleared.');
+  await db.prepare(
+    'UPDATE ccd_classes SET section_label = ?, class_time = ?, classroom = ?, catechist_user_id = ? WHERE id = ?'
+  ).run(sectionLabel || null, classTime || null, classroom || null, catechistId, classId);
+  req.flash('success', 'Class updated.');
   return res.redirect('/admin/users');
+}));
+
+app.get('/admin/classes', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const ccdClasses = await getCcdClasses();
+  const activeStudentRegs = await db.prepare('SELECT * FROM student_registrations WHERE archived_at IS NULL').all();
+
+  const classes = ccdClasses.map((ccdClass) => {
+    const roster = getClassRoster(ccdClass, activeStudentRegs);
+    const upcomingDates = getUpcomingSessionDates(ccdClass.class_time);
+    return {
+      ...ccdClass,
+      studentCount: roster.length,
+      pendingCount: roster.filter(isPendingAcceptance).length,
+      nextSessionDate: upcomingDates[0] || null,
+    };
+  });
+
+  res.render('admin-classes', { classes, ccdGradeMeanings: CCD_GRADE_MEANINGS });
+}));
+
+app.get('/admin/classes/:id', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const classId = Number.parseInt(req.params.id, 10);
+  const ccdClasses = await getCcdClasses();
+  const ccdClass = ccdClasses.find((c) => c.id === classId);
+  if (!ccdClass) {
+    req.flash('error', 'Class not found.');
+    return res.redirect('/admin/classes');
+  }
+
+  const activeStudentRegs = await db.prepare('SELECT * FROM student_registrations WHERE archived_at IS NULL').all();
+  const roster = getClassRoster(ccdClass, activeStudentRegs)
+    .sort((a, b) => (a.student_full_name || '').localeCompare(b.student_full_name || ''));
+
+  const upcomingDates = getUpcomingSessionDates(ccdClass.class_time);
+  const nextSessionValue = upcomingDates[0] ? formatSessionDateValue(upcomingDates[0]) : null;
+  const requestedDate = typeof req.query.date === 'string' ? req.query.date : '';
+  const selectedDate = upcomingDates.some((d) => formatSessionDateValue(d) === requestedDate)
+    ? requestedDate
+    : (nextSessionValue || '');
+
+  const attendanceRows = selectedDate
+    ? await db.prepare(
+        'SELECT student_registration_id, status FROM ccd_class_attendance WHERE ccd_class_id = ? AND session_date = ?'
+      ).all(classId, selectedDate)
+    : [];
+  const attendanceByStudent = {};
+  attendanceRows.forEach((row) => { attendanceByStudent[row.student_registration_id] = row.status; });
+
+  const presentCount = attendanceRows.filter((row) => row.status === 'present').length;
+  const absentCount = attendanceRows.filter((row) => row.status === 'absent').length;
+
+  res.render('admin-class-detail', {
+    ccdClass,
+    roster,
+    isPendingAcceptance,
+    ccdGradeMeanings: CCD_GRADE_MEANINGS,
+    upcomingDates: upcomingDates.map((d) => ({ value: formatSessionDateValue(d), isNext: formatSessionDateValue(d) === nextSessionValue })),
+    selectedDate,
+    attendanceByStudent,
+    presentCount,
+    absentCount,
+    unmarkedCount: roster.length - presentCount - absentCount,
+  });
+}));
+
+app.post('/admin/classes/:id/attendance', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const classId = Number.parseInt(req.params.id, 10);
+  const studentRegistrationId = Number.parseInt(req.body.student_registration_id, 10);
+  const sessionDate = typeof req.body.session_date === 'string' ? req.body.session_date : '';
+  const status = typeof req.body.status === 'string' ? req.body.status : '';
+
+  if (!Number.isInteger(classId) || !Number.isInteger(studentRegistrationId) || !/^\d{4}-\d{2}-\d{2}$/.test(sessionDate)) {
+    return res.status(400).json({ ok: false, error: 'Invalid request.' });
+  }
+
+  if (status === 'present' || status === 'absent') {
+    await db.prepare(`
+      INSERT INTO ccd_class_attendance (ccd_class_id, student_registration_id, session_date, status, marked_by)
+      VALUES (?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE status = VALUES(status), marked_by = VALUES(marked_by)
+    `).run(classId, studentRegistrationId, sessionDate, status, req.user.id);
+  } else {
+    await db.prepare(
+      'DELETE FROM ccd_class_attendance WHERE ccd_class_id = ? AND student_registration_id = ? AND session_date = ?'
+    ).run(classId, studentRegistrationId, sessionDate);
+  }
+
+  const attendanceRows = await db.prepare(
+    'SELECT status FROM ccd_class_attendance WHERE ccd_class_id = ? AND session_date = ?'
+  ).all(classId, sessionDate);
+  const presentCount = attendanceRows.filter((row) => row.status === 'present').length;
+  const absentCount = attendanceRows.filter((row) => row.status === 'absent').length;
+
+  res.json({ ok: true, status: status === 'present' || status === 'absent' ? status : 'unmarked', presentCount, absentCount });
 }));
 
 app.post('/admin/events', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {

@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="<%= lang %>">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= ccdGradeMeanings[ccdClass.grade_level] || ccdClass.grade_level %> &mdash; <%= t('app_title') %></title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <style>
+    .roster-card {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface);
+      padding: 1rem 1.1rem;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.85rem;
+    }
+    .roster-avatar {
+      flex: 0 0 auto;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--gold-pale);
+      color: #7a5a1a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.85rem;
+    }
+    .roster-info { flex: 1 1 auto; min-width: 0; }
+    .roster-info .roster-name { font-weight: 600; color: var(--navy); }
+    .pending-badge {
+      display: inline-block;
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      background: var(--gold-pale);
+      color: #7a5a1a;
+      border: 1px solid #f0d090;
+      border-radius: 2rem;
+      padding: 0.15em 0.6em;
+      margin-left: 0.4rem;
+      vertical-align: middle;
+    }
+    .roster-info .roster-parent { font-size: 0.85rem; color: var(--muted); }
+    .roster-info .roster-contact {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.9rem;
+      margin-top: 0.35rem;
+      font-size: 0.82rem;
+    }
+    .roster-info .roster-contact a { color: var(--navy-soft); }
+    .roster-info .roster-note {
+      font-size: 0.8rem;
+      color: var(--muted);
+      font-style: italic;
+      margin-top: 0.3rem;
+    }
+    .attendance-toggle {
+      flex: 0 0 auto;
+      display: flex;
+      gap: 0.4rem;
+    }
+    .attendance-btn {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--white);
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-weight: 700;
+      transition: all 0.15s;
+    }
+    .attendance-btn:hover { border-color: var(--navy); }
+    .attendance-btn.present-btn.active { background: #2a7a5a; border-color: #2a7a5a; color: #fff; }
+    .attendance-btn.absent-btn.active { background: #b3261e; border-color: #b3261e; color: #fff; }
+
+    .sidebar-card {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface);
+      padding: 1rem 1.1rem;
+      margin-bottom: 1rem;
+    }
+    .sidebar-card h3 {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.6rem;
+    }
+    .schedule-list a {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem 0.6rem;
+      border-radius: 6px;
+      color: var(--ink-soft);
+      font-size: 0.88rem;
+      margin-bottom: 0.25rem;
+    }
+    .schedule-list a:hover { background: var(--white); text-decoration: none; }
+    .schedule-list a.selected { background: var(--white); border: 1px solid var(--gold); font-weight: 600; color: var(--navy); }
+    .schedule-list a .next-tag {
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: #7a5a1a;
+      background: var(--gold-pale);
+      border-radius: 2rem;
+      padding: 0.15em 0.6em;
+    }
+    .teacher-contact { display: flex; gap: 0.6rem; margin-top: 0.5rem; }
+    .teacher-contact a {
+      width: 32px; height: 32px; border-radius: 50%;
+      border: 1px solid var(--border); background: var(--white);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--navy-soft);
+    }
+  </style>
+</head>
+<body>
+<%- include('_topbar') %>
+<%- include('_admin_nav') %>
+<main class="container py-4 app-shell-wide mx-auto">
+
+  <% if (success.length) { %><div class="alert alert-success mb-3"><%= success[0] %></div><% } %>
+  <% if (error.length) { %><div class="alert alert-danger mb-3"><%= error[0] %></div><% } %>
+
+  <div class="page-heading d-flex align-items-center gap-3">
+    <a href="/admin/classes" class="btn btn-outline-secondary btn-sm" aria-label="<%= t('back_to_classes') %>">&larr;</a>
+    <div>
+      <div class="class-grade-eyebrow" style="font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gold)"><%= t('grade') %> <%= ccdClass.grade_level %><%= ccdClass.sectionLabel || '' %></div>
+      <h1 class="mb-0"><%= ccdGradeMeanings[ccdClass.grade_level] || ccdClass.grade_level %></h1>
+    </div>
+  </div>
+
+  <div class="row g-4 mt-1">
+    <div class="col-lg-8">
+      <h2 class="h6" style="text-transform:uppercase;letter-spacing:.06em;font-size:.75rem;color:var(--muted)"><%= t('roster_label') %> &mdash; <%= roster.length %> <%= roster.length === 1 ? t('student_count_singular') : t('student_count_plural') %></h2>
+
+      <% if (!roster.length) { %>
+        <div class="page-card"><div class="p-4 text-center" style="color:var(--muted);font-size:.9rem"><em><%= t('no_students_in_class') %></em></div></div>
+      <% } else { %>
+        <% roster.forEach((r) => { %>
+          <% const nameParts = (r.student_full_name || '').trim().split(/\s+/).filter(Boolean); %>
+          <% const initials = ((nameParts[0] ? nameParts[0][0] : '') + (nameParts.length > 1 ? nameParts[nameParts.length - 1][0] : '')).toUpperCase(); %>
+          <% const currentStatus = attendanceByStudent[r.id] || ''; %>
+          <div class="roster-card" data-student-row="<%= r.id %>">
+            <div class="roster-avatar"><%= initials %></div>
+            <div class="roster-info">
+              <div class="roster-name">
+                <%= r.student_full_name %>
+                <% if (isPendingAcceptance(r)) { %><span class="pending-badge"><%= t('pending_acceptance_label') %></span><% } %>
+              </div>
+              <div class="roster-parent">
+                <%= r.parent_name || '—' %><% if (r.primary_contact_relationship) { %> &middot; <%= t(r.primary_contact_relationship.toLowerCase()) %><% } %>
+              </div>
+              <div class="roster-contact">
+                <% if (r.primary_contact_phone) { %><a href="tel:<%= r.primary_contact_phone %>">&#128222; <%= r.primary_contact_phone %></a><% } %>
+                <% if (r.primary_contact_email) { %><a href="mailto:<%= r.primary_contact_email %>">&#9993; <%= r.primary_contact_email %></a><% } %>
+              </div>
+              <% if (r.disabilities_comments) { %><div class="roster-note"><%= r.disabilities_comments %></div><% } %>
+            </div>
+            <div class="attendance-toggle">
+              <button type="button" class="attendance-btn present-btn <%= currentStatus === 'present' ? 'active' : '' %>" data-student-id="<%= r.id %>" data-status="present" aria-label="<%= t('present_label') %>">&#10003;</button>
+              <button type="button" class="attendance-btn absent-btn <%= currentStatus === 'absent' ? 'active' : '' %>" data-student-id="<%= r.id %>" data-status="absent" aria-label="<%= t('absent_label') %>">&#10005;</button>
+            </div>
+          </div>
+        <% }) %>
+      <% } %>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="sidebar-card">
+        <h3><%= t('class_teacher_label') %></h3>
+        <% if (ccdClass.catechist_name) { %>
+          <div style="font-weight:600;color:var(--navy)"><%= ccdClass.catechist_name %></div>
+          <div class="teacher-contact">
+            <% if (ccdClass.catechist_phone) { %><a href="tel:<%= ccdClass.catechist_phone %>"><%- '&#128222;' %></a><% } %>
+            <% if (ccdClass.catechist_email) { %><a href="mailto:<%= ccdClass.catechist_email %>">&#9993;</a><% } %>
+          </div>
+        <% } else { %>
+          <div style="color:var(--muted)"><%= t('unassigned') %></div>
+        <% } %>
+      </div>
+
+      <div class="sidebar-card">
+        <h3><%= t('schedule_label') %></h3>
+        <div style="font-size:.85rem;color:var(--muted);margin-bottom:.5rem"><%= ccdClass.class_time || '—' %><% if (ccdClass.classroom) { %>, <%= ccdClass.classroom %><% } %></div>
+        <div class="schedule-list">
+          <% upcomingDates.forEach((d) => { %>
+            <a href="/admin/classes/<%= ccdClass.id %>?date=<%= d.value %>" class="<%= d.value === selectedDate ? 'selected' : '' %>">
+              <span><%= new Date(d.value + 'T00:00:00').toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric' }) %></span>
+              <% if (d.isNext) { %><span class="next-tag"><%= t('next_label') %></span><% } %>
+            </a>
+          <% }) %>
+        </div>
+      </div>
+
+      <div class="sidebar-card">
+        <h3><%= t('attendance_label') %> &mdash; <%= selectedDate ? new Date(selectedDate + 'T00:00:00').toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '—' %></h3>
+        <div id="attendance-summary" style="font-size:.85rem;color:var(--ink-soft)">
+          <%= presentCount %> <%= t('present_label').toLowerCase() %> &middot; <%= absentCount %> <%= t('absent_label').toLowerCase() %> &middot; <%= unmarkedCount %> <%= t('unmarked_label') %>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="footer-note"><%= t('footer_note') %></p>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  (function () {
+    const classId = <%- JSON.stringify(ccdClass.id) %>;
+    const sessionDate = <%- JSON.stringify(selectedDate) %>;
+    const presentLabel = <%- JSON.stringify(t('present_label').toLowerCase()) %>;
+    const absentLabel = <%- JSON.stringify(t('absent_label').toLowerCase()) %>;
+    const unmarkedLabel = <%- JSON.stringify(t('unmarked_label')) %>;
+    const summaryEl = document.getElementById('attendance-summary');
+
+    if (!sessionDate) return;
+
+    document.querySelectorAll('.attendance-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const studentId = btn.getAttribute('data-student-id');
+        const clickedStatus = btn.getAttribute('data-status');
+        const row = btn.closest('.roster-card');
+        const presentBtn = row.querySelector('.present-btn');
+        const absentBtn = row.querySelector('.absent-btn');
+        const alreadyActive = btn.classList.contains('active');
+        const nextStatus = alreadyActive ? 'unmarked' : clickedStatus;
+
+        fetch('/admin/classes/' + classId + '/attendance', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            student_registration_id: studentId,
+            session_date: sessionDate,
+            status: nextStatus,
+          }),
+        })
+          .then((r) => r.json())
+          .then((data) => {
+            if (!data.ok) return;
+            presentBtn.classList.toggle('active', data.status === 'present');
+            absentBtn.classList.toggle('active', data.status === 'absent');
+            const unmarked = <%- JSON.stringify(roster.length) %> - data.presentCount - data.absentCount;
+            summaryEl.textContent = data.presentCount + ' ' + presentLabel + ' · ' + data.absentCount + ' ' + absentLabel + ' · ' + unmarked + ' ' + unmarkedLabel;
+          });
+      });
+    });
+  }());
+</script>
+</body>
+</html>
