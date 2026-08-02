@@ -522,6 +522,9 @@ const translations = {
     section_col: 'Section',
     section_label_placeholder: 'e.g. A',
     my_classes_nav: 'My Classes',
+    catechists_more_suffix: 'more',
+    show_all_label: 'Show all',
+    show_less_label: 'Show less',
     register_family: 'Register Family for Faith Formation',
     // Index accordion
     family_centered_title: 'A Family-Centered Vision',
@@ -1099,6 +1102,9 @@ const translations = {
     section_col: 'Sección',
     section_label_placeholder: 'ej. A',
     my_classes_nav: 'Mis Clases',
+    catechists_more_suffix: 'más',
+    show_all_label: 'Mostrar todos',
+    show_less_label: 'Mostrar menos',
     register_family: 'Inscribir Familia para Formación en la Fe',
     // Index accordion
     family_centered_title: 'Una Visión Centrada en la Familia',

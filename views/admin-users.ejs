@@ -276,13 +276,23 @@
                   <td><%= ccdClass.class_time || '—' %></td>
                   <td><%= ccdClass.classroom || '—' %></td>
                   <td>
-                    <% if (ccdClass.catechists && ccdClass.catechists.length) { %>
-                      <% ccdClass.catechists.forEach((catechist) => { %>
+                    <% const rowCatechists = ccdClass.catechists || []; %>
+                    <% if (!rowCatechists.length) { %>
+                      <span style="color:var(--muted)"><%= t('unassigned') %></span>
+                    <% } else { %>
+                      <% rowCatechists.slice(0, 2).forEach((catechist) => { %>
                         <div><%= catechist.name || '—' %></div>
                         <div style="font-size:.82rem;color:var(--muted)"><%= catechist.email || '' %></div>
                       <% }) %>
-                    <% } else { %>
-                      <span style="color:var(--muted)"><%= t('unassigned') %></span>
+                      <% if (rowCatechists.length > 2) { %>
+                        <div class="d-none" id="catechists-more-<%= ccdClass.id %>">
+                          <% rowCatechists.slice(2).forEach((catechist) => { %>
+                            <div><%= catechist.name || '—' %></div>
+                            <div style="font-size:.82rem;color:var(--muted)"><%= catechist.email || '' %></div>
+                          <% }) %>
+                        </div>
+                        <button type="button" class="btn btn-link btn-sm p-0 catechists-show-toggle" data-target="catechists-more-<%= ccdClass.id %>" data-show-label="<%= t('show_all_label') %> (+<%= rowCatechists.length - 2 %>)" data-hide-label="<%= t('show_less_label') %>" style="font-size:.78rem"><%= t('show_all_label') %> (+<%= rowCatechists.length - 2 %>)</button>
+                      <% } %>
                     <% } %>
                   </td>
                   <td class="d-flex gap-2">
@@ -777,6 +787,17 @@
       btn.addEventListener('click', () => {
         const target = document.getElementById(btn.getAttribute('data-target'));
         if (target) target.classList.toggle('d-none');
+      });
+    });
+  }());
+
+  (function () {
+    document.querySelectorAll('.catechists-show-toggle').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const target = document.getElementById(btn.getAttribute('data-target'));
+        if (!target) return;
+        const nowHidden = target.classList.toggle('d-none');
+        btn.textContent = nowHidden ? btn.getAttribute('data-show-label') : btn.getAttribute('data-hide-label');
       });
     });
   }());

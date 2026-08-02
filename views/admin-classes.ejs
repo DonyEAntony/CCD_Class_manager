@@ -101,7 +101,9 @@
             <div class="class-grade-eyebrow"><%= t('grade') %> <%= ccdClass.grade_level %><%= ccdClass.sectionLabel || '' %></div>
             <div class="class-title"><%= ccdGradeMeanings[ccdClass.grade_level] || ccdClass.grade_level %></div>
             <div class="class-meta">
-              <%= ccdClass.catechists && ccdClass.catechists.length ? ccdClass.catechists.map((c) => c.name || c.email).join(', ') : t('unassigned') %> &middot; <%= ccdClass.class_time || '—' %><% if (ccdClass.classroom) { %>, <%= ccdClass.classroom %><% } %>
+              <% const cardCatechists = ccdClass.catechists || []; %>
+              <% const cardCatechistNames = cardCatechists.slice(0, 2).map((c) => c.name || c.email); %>
+              <%= cardCatechists.length ? cardCatechistNames.join(', ') : t('unassigned') %><% if (cardCatechists.length > 2) { %> +<%= cardCatechists.length - 2 %> <%= t('catechists_more_suffix') %><% } %> &middot; <%= ccdClass.class_time || '—' %><% if (ccdClass.classroom) { %>, <%= ccdClass.classroom %><% } %>
             </div>
             <div class="class-badges">
               <span class="class-badge"><%= ccdClass.studentCount %> <%= ccdClass.studentCount === 1 ? t('student_count_singular') : t('student_count_plural') %></span>
