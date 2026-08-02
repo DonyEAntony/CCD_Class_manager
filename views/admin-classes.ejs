@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="<%= lang %>">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= t('classes_header') %> &mdash; <%= t('app_title') %></title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <style>
+    .class-card {
+      display: block;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface);
+      padding: 1.25rem;
+      text-decoration: none;
+      transition: box-shadow 0.18s, transform 0.18s, border-color 0.18s;
+      height: 100%;
+    }
+    .class-card:hover {
+      box-shadow: 0 6px 24px var(--shadow-md);
+      transform: translateY(-2px);
+      border-color: var(--gold);
+      text-decoration: none;
+    }
+    .class-card .class-grade-eyebrow {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 0.35rem;
+    }
+    .class-card .class-title {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: var(--navy);
+      margin-bottom: 0.4rem;
+    }
+    .class-card .class-meta {
+      font-size: 0.82rem;
+      color: var(--ink-soft);
+      margin-bottom: 0.75rem;
+    }
+    .class-card .class-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+    .class-card .class-badge {
+      font-size: 0.7rem;
+      font-weight: 700;
+      border-radius: 2rem;
+      padding: 0.3em 0.8em;
+      border: 1px solid var(--border);
+      background: var(--white);
+      color: var(--navy-soft);
+    }
+    .class-card .class-badge.next-badge {
+      background: var(--gold-pale);
+      color: #7a5a1a;
+      border-color: #f0d090;
+    }
+  </style>
+</head>
+<body>
+<%- include('_topbar') %>
+<%- include('_admin_nav') %>
+<main class="container py-4 app-shell mx-auto">
+
+  <div class="page-heading d-flex flex-wrap justify-content-between align-items-end gap-2">
+    <div>
+      <h1><%= t('classes_header') %></h1>
+      <p class="sub mb-0"><%= t('classes_subtitle') %></p>
+    </div>
+  </div>
+
+  <% if (!classes || classes.length === 0) { %>
+    <div class="page-card">
+      <div class="p-4 text-center" style="color:var(--muted);font-size:.9rem"><em><%= t('no_classes_configured_yet') %></em></div>
+    </div>
+  <% } else { %>
+    <div class="row g-3">
+      <% classes.forEach((ccdClass) => { %>
+        <div class="col-sm-6 col-lg-4">
+          <a href="/admin/classes/<%= ccdClass.id %>" class="class-card">
+            <div class="class-grade-eyebrow"><%= t('grade') %> <%= ccdClass.grade_level %></div>
+            <div class="class-title"><%= ccdGradeMeanings[ccdClass.grade_level] || ccdClass.grade_level %></div>
+            <div class="class-meta">
+              <%= ccdClass.catechist_name || t('unassigned') %> &middot; <%= ccdClass.class_time || '—' %><% if (ccdClass.classroom) { %>, <%= ccdClass.classroom %><% } %>
+            </div>
+            <div class="class-badges">
+              <span class="class-badge"><%= ccdClass.studentCount %> <%= ccdClass.studentCount === 1 ? t('student_count_singular') : t('student_count_plural') %></span>
+              <% if (ccdClass.nextSessionDate) { %>
+                <span class="class-badge next-badge"><%= t('next_label') %>: <%= ccdClass.nextSessionDate.toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric' }) %></span>
+              <% } %>
+            </div>
+          </a>
+        </div>
+      <% }) %>
+    </div>
+  <% } %>
+
+  <p class="footer-note"><%= t('footer_note') %></p>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

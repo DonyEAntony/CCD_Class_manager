@@ -347,6 +347,22 @@ const init = async () => {
     `);
 
     await pool.query(`
+      CREATE TABLE IF NOT EXISTS ccd_class_attendance (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        ccd_class_id INT NOT NULL,
+        student_registration_id INT NOT NULL,
+        session_date DATE NOT NULL,
+        status VARCHAR(20) NOT NULL,
+        marked_by INT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_class_student_date (ccd_class_id, student_registration_id, session_date),
+        CONSTRAINT fk_attendance_class FOREIGN KEY (ccd_class_id) REFERENCES ccd_classes(id),
+        CONSTRAINT fk_attendance_student FOREIGN KEY (student_registration_id) REFERENCES student_registrations(id)
+      )
+    `);
+
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS faith_formation_events (
         id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
         title VARCHAR(255) NOT NULL,
