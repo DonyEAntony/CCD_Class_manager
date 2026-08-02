@@ -63,6 +63,11 @@
       color: #7a5a1a;
       border-color: #f0d090;
     }
+    .class-card .class-badge.pending-badge {
+      background: var(--gold-pale);
+      color: #7a5a1a;
+      border-color: #f0d090;
+    }
   </style>
 </head>
 <body>
@@ -93,6 +98,9 @@
             </div>
             <div class="class-badges">
               <span class="class-badge"><%= ccdClass.studentCount %> <%= ccdClass.studentCount === 1 ? t('student_count_singular') : t('student_count_plural') %></span>
+              <% if (ccdClass.pendingCount > 0) { %>
+                <span class="class-badge pending-badge"><%= ccdClass.pendingCount %> <%= t('pending_count_label') %></span>
+              <% } %>
               <% if (ccdClass.nextSessionDate) { %>
                 <span class="class-badge next-badge"><%= t('next_label') %>: <%= ccdClass.nextSessionDate.toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric' }) %></span>
               <% } %>

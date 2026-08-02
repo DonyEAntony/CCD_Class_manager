@@ -33,6 +33,20 @@
     }
     .roster-info { flex: 1 1 auto; min-width: 0; }
     .roster-info .roster-name { font-weight: 600; color: var(--navy); }
+    .pending-badge {
+      display: inline-block;
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      background: var(--gold-pale);
+      color: #7a5a1a;
+      border: 1px solid #f0d090;
+      border-radius: 2rem;
+      padding: 0.15em 0.6em;
+      margin-left: 0.4rem;
+      vertical-align: middle;
+    }
     .roster-info .roster-parent { font-size: 0.85rem; color: var(--muted); }
     .roster-info .roster-contact {
       display: flex;
@@ -145,7 +159,10 @@
           <div class="roster-card" data-student-row="<%= r.id %>">
             <div class="roster-avatar"><%= initials %></div>
             <div class="roster-info">
-              <div class="roster-name"><%= r.student_full_name %></div>
+              <div class="roster-name">
+                <%= r.student_full_name %>
+                <% if (isPendingAcceptance(r)) { %><span class="pending-badge"><%= t('pending_acceptance_label') %></span><% } %>
+              </div>
               <div class="roster-parent">
                 <%= r.parent_name || '—' %><% if (r.primary_contact_relationship) { %> &middot; <%= t(r.primary_contact_relationship.toLowerCase()) %><% } %>
               </div>

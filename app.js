@@ -519,6 +519,8 @@ const translations = {
     absent_label: 'Absent',
     unmarked_label: 'unmarked',
     no_students_in_class: 'No students match this class yet.',
+    pending_acceptance_label: 'Pending',
+    pending_count_label: 'pending',
     register_family: 'Register Family for Faith Formation',
     // Index accordion
     family_centered_title: 'A Family-Centered Vision',
@@ -1093,6 +1095,8 @@ const translations = {
     absent_label: 'Ausente',
     unmarked_label: 'sin marcar',
     no_students_in_class: 'Aún no hay estudiantes en esta clase.',
+    pending_acceptance_label: 'Pendiente',
+    pending_count_label: 'pendiente(s)',
     register_family: 'Inscribir Familia para Formación en la Fe',
     // Index accordion
     family_centered_title: 'Una Visión Centrada en la Familia',
@@ -1348,6 +1352,12 @@ const getUpcomingSessionDates = (classTimeText, count = 6) => {
 };
 
 const formatSessionDateValue = (date) => date.toISOString().slice(0, 10);
+
+// A student shows as a full roster member only once their registration has cleared the
+// acceptance gate (conditionally_accepted or later); anything earlier — in_progress,
+// incomplete, or otherwise — is still pending and shown as such in the class roster.
+const CLASS_ROSTER_ACCEPTED_STATUSES = new Set(['conditionally_accepted', 'admitted', 'completed', 'graduated']);
+const isPendingAcceptance = (reg) => !CLASS_ROSTER_ACCEPTED_STATUSES.has(reg.status);
 const getCatechists = async () =>
   db.prepare(`
     SELECT id, full_name, email
@@ -3905,6 +3915,7 @@ app.get('/admin/classes', requireAuth, requireRole('admin'), asyncHandler(async 
     return {
       ...ccdClass,
       studentCount: roster.length,
+      pendingCount: roster.filter(isPendingAcceptance).length,
       nextSessionDate: upcomingDates[0] || null,
     };
   });
@@ -3946,6 +3957,7 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin'), asyncHandler(as
   res.render('admin-class-detail', {
     ccdClass,
     roster,
+    isPendingAcceptance,
     ccdGradeMeanings: CCD_GRADE_MEANINGS,
     upcomingDates: upcomingDates.map((d) => ({ value: formatSessionDateValue(d), isNext: formatSessionDateValue(d) === nextSessionValue })),
     selectedDate,
