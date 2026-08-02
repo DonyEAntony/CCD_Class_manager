@@ -378,8 +378,6 @@ const translations = {
     contact_col: 'Contact',
     submitted_col: 'Submitted',
     unassigned: 'Unassigned',
-    assign: 'Assign',
-    update: 'Update',
     select_event: 'Select event',
     select_weekday: 'Select weekday',
     select_classroom: 'Select classroom',
@@ -956,8 +954,6 @@ const translations = {
     contact_col: 'Contacto',
     submitted_col: 'Enviado',
     unassigned: 'Sin asignar',
-    assign: 'Asignar',
-    update: 'Actualizar',
     select_event: 'Seleccionar evento',
     select_weekday: 'Seleccionar día de la semana',
     select_classroom: 'Seleccionar salón',
@@ -3892,8 +3888,11 @@ app.post('/admin/ccd-classes/:id/delete', requireAuth, requireRole('admin'), asy
   return res.redirect('/admin/users');
 }));
 
-app.post('/admin/ccd-classes/:id/catechist', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+app.post('/admin/ccd-classes/:id/update', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   const classId = Number.parseInt(req.params.id, 10);
+  const sectionLabel = typeof req.body.section_label === 'string' ? req.body.section_label.trim().slice(0, 10) : '';
+  const classTime = typeof req.body.class_time === 'string' ? req.body.class_time.trim() : '';
+  const classroom = typeof req.body.classroom === 'string' ? req.body.classroom.trim() : '';
   const catechistId = req.body.catechist_user_id ? Number.parseInt(req.body.catechist_user_id, 10) : null;
 
   if (!Number.isInteger(classId)) {
@@ -3909,22 +3908,10 @@ app.post('/admin/ccd-classes/:id/catechist', requireAuth, requireRole('admin'), 
     }
   }
 
-  await db.prepare('UPDATE ccd_classes SET catechist_user_id = ? WHERE id = ?').run(catechistId, classId);
-  req.flash('success', catechistId ? 'Catechist assignment updated.' : 'Catechist assignment cleared.');
-  return res.redirect('/admin/users');
-}));
-
-app.post('/admin/ccd-classes/:id/section-label', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
-  const classId = Number.parseInt(req.params.id, 10);
-  const sectionLabel = typeof req.body.section_label === 'string' ? req.body.section_label.trim().slice(0, 10) : '';
-
-  if (!Number.isInteger(classId)) {
-    req.flash('error', 'Invalid CCD class.');
-    return res.redirect('/admin/users');
-  }
-
-  await db.prepare('UPDATE ccd_classes SET section_label = ? WHERE id = ?').run(sectionLabel || null, classId);
-  req.flash('success', sectionLabel ? 'Section label updated.' : 'Section label cleared.');
+  await db.prepare(
+    'UPDATE ccd_classes SET section_label = ?, class_time = ?, classroom = ?, catechist_user_id = ? WHERE id = ?'
+  ).run(sectionLabel || null, classTime || null, classroom || null, catechistId, classId);
+  req.flash('success', 'Class updated.');
   return res.redirect('/admin/users');
 }));
 
