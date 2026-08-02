@@ -72,7 +72,14 @@
 </head>
 <body>
 <%- include('_topbar') %>
-<%- include('_admin_nav') %>
+<% if (user.role === 'admin') { %>
+  <%- include('_admin_nav') %>
+<% } else { %>
+  <div class="admin-nav">
+    <div class="admin-nav-links"></div>
+    <a class="admin-nav-back" href="/dashboard"><%= t('back_to_dashboard') %></a>
+  </div>
+<% } %>
 <main class="container py-4 app-shell mx-auto">
 
   <div class="page-heading d-flex flex-wrap justify-content-between align-items-end gap-2">
@@ -94,7 +101,9 @@
             <div class="class-grade-eyebrow"><%= t('grade') %> <%= ccdClass.grade_level %><%= ccdClass.sectionLabel || '' %></div>
             <div class="class-title"><%= ccdGradeMeanings[ccdClass.grade_level] || ccdClass.grade_level %></div>
             <div class="class-meta">
-              <%= ccdClass.catechist_name || t('unassigned') %> &middot; <%= ccdClass.class_time || '—' %><% if (ccdClass.classroom) { %>, <%= ccdClass.classroom %><% } %>
+              <% const cardCatechists = ccdClass.catechists || []; %>
+              <% const cardCatechistNames = cardCatechists.slice(0, 2).map((c) => c.name || c.email); %>
+              <%= cardCatechists.length ? cardCatechistNames.join(', ') : t('unassigned') %><% if (cardCatechists.length > 2) { %> +<%= cardCatechists.length - 2 %> <%= t('catechists_more_suffix') %><% } %> &middot; <%= ccdClass.class_time || '—' %><% if (ccdClass.classroom) { %>, <%= ccdClass.classroom %><% } %>
             </div>
             <div class="class-badges">
               <span class="class-badge"><%= ccdClass.studentCount %> <%= ccdClass.studentCount === 1 ? t('student_count_singular') : t('student_count_plural') %></span>

@@ -363,6 +363,18 @@ const init = async () => {
     `);
 
     await pool.query(`
+      CREATE TABLE IF NOT EXISTS ccd_class_catechists (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        ccd_class_id INT NOT NULL,
+        catechist_user_id INT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_class_catechist (ccd_class_id, catechist_user_id),
+        CONSTRAINT fk_class_catechists_class FOREIGN KEY (ccd_class_id) REFERENCES ccd_classes(id),
+        CONSTRAINT fk_class_catechists_user FOREIGN KEY (catechist_user_id) REFERENCES users(id)
+      )
+    `);
+
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS faith_formation_events (
         id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
         title VARCHAR(255) NOT NULL,
@@ -407,8 +419,21 @@ const init = async () => {
     await ensureColumn('users', 'email_verification_expires_at', 'DATETIME NULL');
     await ensureColumn('users', 'password_reset_token', 'VARCHAR(255) NULL');
     await ensureColumn('users', 'password_reset_expires_at', 'DATETIME NULL');
-    await ensureColumn('ccd_classes', 'catechist_user_id', 'INT NULL');
     await ensureColumn('ccd_classes', 'section_label', 'VARCHAR(10) NULL');
+    // A class can now have more than one catechist, so the single catechist_user_id
+    // column moved to the ccd_class_catechists join table. Migrate any existing
+    // assignment across, then drop the old column now that nothing reads it.
+    try {
+      if (await columnExists('ccd_classes', 'catechist_user_id')) {
+        await pool.query(`
+          INSERT IGNORE INTO ccd_class_catechists (ccd_class_id, catechist_user_id)
+          SELECT id, catechist_user_id FROM ccd_classes WHERE catechist_user_id IS NOT NULL
+        `);
+        await pool.query('ALTER TABLE ccd_classes DROP COLUMN catechist_user_id');
+      }
+    } catch (error) {
+      console.warn('[migration] Skipped ccd_classes.catechist_user_id -> ccd_class_catechists migration', error?.message || error);
+    }
     // One-time normalization: legacy seed data used "1st Grade"/"2nd Grade" labels;
     // the sacramental-prep grade scheme (1-9) now expects plain digit grade_level values.
     try {

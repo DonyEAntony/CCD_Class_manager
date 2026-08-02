@@ -521,6 +521,10 @@ const translations = {
     pending_count_label: 'pending',
     section_col: 'Section',
     section_label_placeholder: 'e.g. A',
+    my_classes_nav: 'My Classes',
+    catechists_more_suffix: 'more',
+    show_all_label: 'Show all',
+    show_less_label: 'Show less',
     register_family: 'Register Family for Faith Formation',
     // Index accordion
     family_centered_title: 'A Family-Centered Vision',
@@ -1097,6 +1101,10 @@ const translations = {
     pending_count_label: 'pendiente(s)',
     section_col: 'Sección',
     section_label_placeholder: 'ej. A',
+    my_classes_nav: 'Mis Clases',
+    catechists_more_suffix: 'más',
+    show_all_label: 'Mostrar todos',
+    show_less_label: 'Mostrar menos',
     register_family: 'Inscribir Familia para Formación en la Fe',
     // Index accordion
     family_centered_title: 'Una Visión Centrada en la Familia',
@@ -1313,15 +1321,34 @@ const parseClassWeekday = (classTimeText) => {
 // sections), admins assign each a "A"/"B"/"C" section_label directly (see
 // POST /admin/ccd-classes/:id/section-label) so they can refer to "2A" instead of an
 // ambiguous repeated grade number. Stored, not computed, so it stays put once set.
-const getCcdClasses = async () =>
-  db.prepare(`
-    SELECT classes.id, classes.grade_level, classes.class_time, classes.classroom, classes.catechist_user_id,
-           classes.section_label AS sectionLabel,
-           users.full_name AS catechist_name, users.email AS catechist_email, users.phone AS catechist_phone
+const getCcdClasses = async () => {
+  const ccdClasses = await db.prepare(`
+    SELECT classes.id, classes.grade_level, classes.class_time, classes.classroom,
+           classes.section_label AS sectionLabel
     FROM ccd_classes classes
-    LEFT JOIN users ON users.id = classes.catechist_user_id
     ORDER BY classes.grade_level ASC
   `).all();
+
+  const catechistLinks = await db.prepare(`
+    SELECT cc.ccd_class_id, u.id AS catechist_id, u.full_name AS catechist_name,
+           u.email AS catechist_email, u.phone AS catechist_phone
+    FROM ccd_class_catechists cc
+    JOIN users u ON u.id = cc.catechist_user_id
+    ORDER BY COALESCE(NULLIF(u.full_name, ''), u.email) ASC
+  `).all();
+
+  const catechistsByClass = {};
+  catechistLinks.forEach((row) => {
+    (catechistsByClass[row.ccd_class_id] || (catechistsByClass[row.ccd_class_id] = [])).push({
+      id: row.catechist_id,
+      name: row.catechist_name,
+      email: row.catechist_email,
+      phone: row.catechist_phone,
+    });
+  });
+
+  return ccdClasses.map((ccdClass) => ({ ...ccdClass, catechists: catechistsByClass[ccdClass.id] || [] }));
+};
 
 const SACRAMENTAL_GRADE_LEVELS = new Set(Object.values(CCD_GRADE_BY_SACRAMENTAL_YEAR));
 
@@ -2278,12 +2305,12 @@ app.post('/account/password', requireAuth, asyncHandler(async (req, res) => {
 
 // ── Dashboard ────────────────────────────────────────────────
 app.get('/dashboard', requireAuth, asyncHandler(async (req, res) => {
-  const isStaff = req.user.role === 'catechist';
   const faithFormationSettings = await getFaithFormationSettings();
 
-  const studentRegs = isStaff
-    ? await db.prepare('SELECT * FROM student_registrations ORDER BY created_at DESC').all()
-    : await db.prepare('SELECT * FROM student_registrations WHERE user_id = ? AND archived_at IS NULL ORDER BY created_at DESC').all(req.user.id);
+  // Every role sees only registrations they personally initiated here — catechists get
+  // their actual class rosters from the separate, properly-scoped My Classes feature
+  // instead of a blanket view of every family's registrations.
+  const studentRegs = await db.prepare('SELECT * FROM student_registrations WHERE user_id = ? AND archived_at IS NULL ORDER BY created_at DESC').all(req.user.id);
 
   const feeBreakdown = studentRegs
     .filter((reg) => String(reg.user_id) === String(req.user.id))
@@ -2301,22 +2328,16 @@ app.get('/dashboard', requireAuth, asyncHandler(async (req, res) => {
     });
   const totalFeesDue = feeBreakdown.reduce((sum, item) => sum + item.total, 0);
 
-  const familyRegsRaw = isStaff
-    ? await db.prepare('SELECT * FROM family_faith_registrations ORDER BY created_at DESC').all()
-    : await db.prepare('SELECT * FROM family_faith_registrations WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
+  const familyRegsRaw = await db.prepare('SELECT * FROM family_faith_registrations WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
 
-  const adultRegs = isStaff
-    ? await db.prepare('SELECT * FROM adult_registrations ORDER BY created_at DESC').all()
-    : await db.prepare('SELECT * FROM adult_registrations WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
+  const adultRegs = await db.prepare('SELECT * FROM adult_registrations WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
 
   const familyRegs = familyRegsRaw.map((reg) => ({
     ...reg,
     members: parseFamilyMembersFromStorage(reg.members_json),
   }));
 
-  const sponsorRegs = isStaff
-    ? await db.prepare('SELECT * FROM sponsor_confirmations ORDER BY created_at DESC').all()
-    : await db.prepare('SELECT * FROM sponsor_confirmations WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
+  const sponsorRegs = await db.prepare('SELECT * FROM sponsor_confirmations WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
 
   const ADULT_PROGRAMS = getAdultPrograms(res.locals.t);
   res.render('dashboard', { studentRegs, familyRegs, adultRegs, sponsorRegs, ADULT_PROGRAMS, faithFormationSettings, resolveCcdGrade, feeBreakdown, totalFeesDue });
@@ -3842,7 +3863,7 @@ app.post('/admin/users/:id/delete', requireAuth, requireRole('admin'), asyncHand
     return res.redirect('/admin/users');
   }
 
-  await db.prepare('UPDATE ccd_classes SET catechist_user_id = NULL WHERE catechist_user_id = ?').run(userId);
+  await db.prepare('DELETE FROM ccd_class_catechists WHERE catechist_user_id = ?').run(userId);
   await db.prepare(`
     UPDATE family_faith_visit_slots
     SET booked_registration_id = NULL
@@ -3893,30 +3914,47 @@ app.post('/admin/ccd-classes/:id/update', requireAuth, requireRole('admin'), asy
   const sectionLabel = typeof req.body.section_label === 'string' ? req.body.section_label.trim().slice(0, 10) : '';
   const classTime = typeof req.body.class_time === 'string' ? req.body.class_time.trim() : '';
   const classroom = typeof req.body.classroom === 'string' ? req.body.classroom.trim() : '';
-  const catechistId = req.body.catechist_user_id ? Number.parseInt(req.body.catechist_user_id, 10) : null;
+  const rawCatechistIds = req.body.catechist_user_ids;
+  const catechistIds = (Array.isArray(rawCatechistIds) ? rawCatechistIds : (rawCatechistIds ? [rawCatechistIds] : []))
+    .map((id) => Number.parseInt(id, 10))
+    .filter((id) => Number.isInteger(id));
 
   if (!Number.isInteger(classId)) {
     req.flash('error', 'Invalid CCD class.');
     return res.redirect('/admin/users');
   }
 
-  if (catechistId !== null) {
-    const catechist = await db.prepare('SELECT id FROM users WHERE id = ? AND role = ?').get(catechistId, 'catechist');
-    if (!catechist) {
-      req.flash('error', 'Selected user is not a catechist.');
+  if (catechistIds.length) {
+    const validCatechists = await db.prepare(
+      `SELECT id FROM users WHERE role = 'catechist' AND id IN (${catechistIds.map(() => '?').join(',')})`
+    ).all(...catechistIds);
+    if (validCatechists.length !== catechistIds.length) {
+      req.flash('error', 'One or more selected users is not a catechist.');
       return res.redirect('/admin/users');
     }
   }
 
   await db.prepare(
-    'UPDATE ccd_classes SET section_label = ?, class_time = ?, classroom = ?, catechist_user_id = ? WHERE id = ?'
-  ).run(sectionLabel || null, classTime || null, classroom || null, catechistId, classId);
+    'UPDATE ccd_classes SET section_label = ?, class_time = ?, classroom = ? WHERE id = ?'
+  ).run(sectionLabel || null, classTime || null, classroom || null, classId);
+
+  await db.prepare('DELETE FROM ccd_class_catechists WHERE ccd_class_id = ?').run(classId);
+  for (const catechistId of catechistIds) {
+    await db.prepare('INSERT INTO ccd_class_catechists (ccd_class_id, catechist_user_id) VALUES (?, ?)').run(classId, catechistId);
+  }
+
   req.flash('success', 'Class updated.');
   return res.redirect('/admin/users');
 }));
 
-app.get('/admin/classes', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
-  const ccdClasses = await getCcdClasses();
+const isClassCatechist = (ccdClass, userId) =>
+  (ccdClass.catechists || []).some((catechist) => Number(catechist.id) === Number(userId));
+
+app.get('/admin/classes', requireAuth, requireRole('admin', 'catechist'), asyncHandler(async (req, res) => {
+  const allCcdClasses = await getCcdClasses();
+  const ccdClasses = req.user.role === 'catechist'
+    ? allCcdClasses.filter((c) => isClassCatechist(c, req.user.id))
+    : allCcdClasses;
   const activeStudentRegs = await db.prepare('SELECT * FROM student_registrations WHERE archived_at IS NULL').all();
 
   const classes = ccdClasses.map((ccdClass) => {
@@ -3933,11 +3971,12 @@ app.get('/admin/classes', requireAuth, requireRole('admin'), asyncHandler(async 
   res.render('admin-classes', { classes, ccdGradeMeanings: CCD_GRADE_MEANINGS });
 }));
 
-app.get('/admin/classes/:id', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist'), asyncHandler(async (req, res) => {
   const classId = Number.parseInt(req.params.id, 10);
   const ccdClasses = await getCcdClasses();
   const ccdClass = ccdClasses.find((c) => c.id === classId);
-  if (!ccdClass) {
+  const ownsClass = ccdClass && (req.user.role === 'admin' || isClassCatechist(ccdClass, req.user.id));
+  if (!ownsClass) {
     req.flash('error', 'Class not found.');
     return res.redirect('/admin/classes');
   }
@@ -3978,7 +4017,7 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin'), asyncHandler(as
   });
 }));
 
-app.post('/admin/classes/:id/attendance', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+app.post('/admin/classes/:id/attendance', requireAuth, requireRole('admin', 'catechist'), asyncHandler(async (req, res) => {
   const classId = Number.parseInt(req.params.id, 10);
   const studentRegistrationId = Number.parseInt(req.body.student_registration_id, 10);
   const sessionDate = typeof req.body.session_date === 'string' ? req.body.session_date : '';
@@ -3986,6 +4025,15 @@ app.post('/admin/classes/:id/attendance', requireAuth, requireRole('admin'), asy
 
   if (!Number.isInteger(classId) || !Number.isInteger(studentRegistrationId) || !/^\d{4}-\d{2}-\d{2}$/.test(sessionDate)) {
     return res.status(400).json({ ok: false, error: 'Invalid request.' });
+  }
+
+  if (req.user.role === 'catechist') {
+    const ownedClass = await db.prepare(
+      'SELECT 1 FROM ccd_class_catechists WHERE ccd_class_id = ? AND catechist_user_id = ?'
+    ).get(classId, req.user.id);
+    if (!ownedClass) {
+      return res.status(403).json({ ok: false, error: 'Forbidden.' });
+    }
   }
 
   if (status === 'present' || status === 'absent') {
