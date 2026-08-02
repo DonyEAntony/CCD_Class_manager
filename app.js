@@ -521,6 +521,7 @@ const translations = {
     pending_count_label: 'pending',
     section_col: 'Section',
     section_label_placeholder: 'e.g. A',
+    my_classes_nav: 'My Classes',
     register_family: 'Register Family for Faith Formation',
     // Index accordion
     family_centered_title: 'A Family-Centered Vision',
@@ -1097,6 +1098,7 @@ const translations = {
     pending_count_label: 'pendiente(s)',
     section_col: 'Sección',
     section_label_placeholder: 'ej. A',
+    my_classes_nav: 'Mis Clases',
     register_family: 'Inscribir Familia para Formación en la Fe',
     // Index accordion
     family_centered_title: 'Una Visión Centrada en la Familia',
@@ -3915,8 +3917,11 @@ app.post('/admin/ccd-classes/:id/update', requireAuth, requireRole('admin'), asy
   return res.redirect('/admin/users');
 }));
 
-app.get('/admin/classes', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
-  const ccdClasses = await getCcdClasses();
+app.get('/admin/classes', requireAuth, requireRole('admin', 'catechist'), asyncHandler(async (req, res) => {
+  const allCcdClasses = await getCcdClasses();
+  const ccdClasses = req.user.role === 'catechist'
+    ? allCcdClasses.filter((c) => Number(c.catechist_user_id) === Number(req.user.id))
+    : allCcdClasses;
   const activeStudentRegs = await db.prepare('SELECT * FROM student_registrations WHERE archived_at IS NULL').all();
 
   const classes = ccdClasses.map((ccdClass) => {
@@ -3933,11 +3938,12 @@ app.get('/admin/classes', requireAuth, requireRole('admin'), asyncHandler(async 
   res.render('admin-classes', { classes, ccdGradeMeanings: CCD_GRADE_MEANINGS });
 }));
 
-app.get('/admin/classes/:id', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist'), asyncHandler(async (req, res) => {
   const classId = Number.parseInt(req.params.id, 10);
   const ccdClasses = await getCcdClasses();
   const ccdClass = ccdClasses.find((c) => c.id === classId);
-  if (!ccdClass) {
+  const ownsClass = ccdClass && (req.user.role === 'admin' || Number(ccdClass.catechist_user_id) === Number(req.user.id));
+  if (!ownsClass) {
     req.flash('error', 'Class not found.');
     return res.redirect('/admin/classes');
   }
@@ -3978,7 +3984,7 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin'), asyncHandler(as
   });
 }));
 
-app.post('/admin/classes/:id/attendance', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+app.post('/admin/classes/:id/attendance', requireAuth, requireRole('admin', 'catechist'), asyncHandler(async (req, res) => {
   const classId = Number.parseInt(req.params.id, 10);
   const studentRegistrationId = Number.parseInt(req.body.student_registration_id, 10);
   const sessionDate = typeof req.body.session_date === 'string' ? req.body.session_date : '';
@@ -3986,6 +3992,13 @@ app.post('/admin/classes/:id/attendance', requireAuth, requireRole('admin'), asy
 
   if (!Number.isInteger(classId) || !Number.isInteger(studentRegistrationId) || !/^\d{4}-\d{2}-\d{2}$/.test(sessionDate)) {
     return res.status(400).json({ ok: false, error: 'Invalid request.' });
+  }
+
+  if (req.user.role === 'catechist') {
+    const ownedClass = await db.prepare('SELECT catechist_user_id FROM ccd_classes WHERE id = ?').get(classId);
+    if (!ownedClass || Number(ownedClass.catechist_user_id) !== Number(req.user.id)) {
+      return res.status(403).json({ ok: false, error: 'Forbidden.' });
+    }
   }
 
   if (status === 'present' || status === 'absent') {

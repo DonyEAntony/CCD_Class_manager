@@ -131,7 +131,14 @@
 </head>
 <body>
 <%- include('_topbar') %>
-<%- include('_admin_nav') %>
+<% if (user.role === 'admin') { %>
+  <%- include('_admin_nav') %>
+<% } else { %>
+  <div class="admin-nav">
+    <div class="admin-nav-links"></div>
+    <a class="admin-nav-back" href="/dashboard"><%= t('back_to_dashboard') %></a>
+  </div>
+<% } %>
 <main class="container py-4 app-shell-wide mx-auto">
 
   <% if (success.length) { %><div class="alert alert-success mb-3"><%= success[0] %></div><% } %>
