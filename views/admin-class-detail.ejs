@@ -140,7 +140,7 @@
   <div class="page-heading d-flex align-items-center gap-3">
     <a href="/admin/classes" class="btn btn-outline-secondary btn-sm" aria-label="<%= t('back_to_classes') %>">&larr;</a>
     <div>
-      <div class="class-grade-eyebrow" style="font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gold)"><%= t('grade') %> <%= ccdClass.grade_level %></div>
+      <div class="class-grade-eyebrow" style="font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gold)"><%= t('grade') %> <%= ccdClass.grade_level %><%= ccdClass.sectionLabel || '' %></div>
       <h1 class="mb-0"><%= ccdGradeMeanings[ccdClass.grade_level] || ccdClass.grade_level %></h1>
     </div>
   </div>

@@ -269,7 +269,7 @@
               <% availableCcdClasses.forEach((ccdClass) => { %>
                 <tr>
                   <td>
-                    <strong><%= ccdClass.grade_level %></strong>
+                    <strong><%= ccdClass.grade_level %><%= ccdClass.sectionLabel || '' %></strong>
                     <% if (availableCcdGradeMeanings[ccdClass.grade_level]) { %>
                       <div style="font-size:.78rem;color:var(--muted)"><%= availableCcdGradeMeanings[ccdClass.grade_level] %></div>
                     <% } %>

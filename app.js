@@ -1299,14 +1299,51 @@ const resolveCcdGrade = (reg) => {
   return reg.ccd_grade_level || null;
 };
 
-const getCcdClasses = async () =>
-  db.prepare(`
+const CLASS_WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+const parseClassWeekday = (classTimeText) => {
+  if (!classTimeText) return null;
+  const match = String(classTimeText).trim().match(/^(Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)/i);
+  if (!match) return null;
+  const index = CLASS_WEEKDAY_NAMES.findIndex((day) => day.toLowerCase() === match[1].toLowerCase());
+  return index === -1 ? null : index;
+};
+
+// When a grade has more than one time-slot section (e.g. three Second Year Communion
+// sections), give each a stable-for-now "A"/"B"/"C" letter — ordered by day of the week,
+// falling back to id — so admins can refer to "2A" instead of an ambiguous repeated grade
+// number. Letters are recomputed on every call rather than stored, so adding or removing a
+// section can shift them; grades with only one section get no letter at all.
+const assignClassSectionLabels = (ccdClasses) => {
+  const byGrade = {};
+  ccdClasses.forEach((c) => {
+    (byGrade[c.grade_level] || (byGrade[c.grade_level] = [])).push(c);
+  });
+  Object.values(byGrade).forEach((group) => {
+    if (group.length < 2) return;
+    const sorted = [...group].sort((a, b) => {
+      const aw = parseClassWeekday(a.class_time);
+      const bw = parseClassWeekday(b.class_time);
+      if (aw !== null && bw !== null && aw !== bw) return aw - bw;
+      if (aw === null && bw !== null) return 1;
+      if (aw !== null && bw === null) return -1;
+      return a.id - b.id;
+    });
+    sorted.forEach((c, index) => { c.sectionLabel = String.fromCharCode(65 + index); });
+  });
+  return ccdClasses;
+};
+
+const getCcdClasses = async () => {
+  const ccdClasses = await db.prepare(`
     SELECT classes.id, classes.grade_level, classes.class_time, classes.classroom, classes.catechist_user_id,
            users.full_name AS catechist_name, users.email AS catechist_email, users.phone AS catechist_phone
     FROM ccd_classes classes
     LEFT JOIN users ON users.id = classes.catechist_user_id
     ORDER BY classes.grade_level ASC
   `).all();
+  return assignClassSectionLabels(ccdClasses);
+};
 
 const SACRAMENTAL_GRADE_LEVELS = new Set(Object.values(CCD_GRADE_BY_SACRAMENTAL_YEAR));
 
@@ -1326,16 +1363,6 @@ const getClassRoster = (ccdClass, allStudentRegs) =>
     if (!SACRAMENTAL_GRADE_LEVELS.has(ccdClass.grade_level)) return true;
     return reg.preferred_class_time === ccdClass.class_time || reg.preferred_class_time === getClassSlotValue(ccdClass);
   });
-
-const CLASS_WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-
-const parseClassWeekday = (classTimeText) => {
-  if (!classTimeText) return null;
-  const match = String(classTimeText).trim().match(/^(Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)/i);
-  if (!match) return null;
-  const index = CLASS_WEEKDAY_NAMES.findIndex((day) => day.toLowerCase() === match[1].toLowerCase());
-  return index === -1 ? null : index;
-};
 
 const getUpcomingSessionDates = (classTimeText, count = 6) => {
   const weekday = parseClassWeekday(classTimeText);
