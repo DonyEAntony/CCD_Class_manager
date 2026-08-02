@@ -1,24 +1,27 @@
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap');
 
 /* ── Design Tokens ─────────────────────────────────────────── */
+/* Palette matches saintmatthewcatholicchurch.org: deep forest-green nav,
+   classic gold accents, warm cream surfaces. */
 :root {
-  --navy:        #1a2744;
-  --navy-mid:    #243660;
-  --navy-soft:   #2e4480;
-  --blue-sky:    #4a7fc1;
-  --blue-light:  #dce8f7;
-  --gold:        #c8922a;
-  --gold-light:  #e8b84b;
-  --gold-pale:   #fdf3dc;
+  --navy:        #1d3131;
+  --navy-mid:    #24403f;
+  --navy-soft:   #3f6b6c;
+  --forest:      #2f6b3f;
+  --blue-sky:    #3f6b6c;
+  --blue-light:  #dde6e0;
+  --gold:        #d4af37;
+  --gold-light:  #f2c36b;
+  --gold-pale:   #fbf0d9;
   --white:       #ffffff;
-  --off-white:   #f8f9fc;
-  --surface:     #f0f4fb;
-  --ink:         #0f1929;
-  --ink-soft:    #2c3e5c;
-  --muted:       #6b7a99;
-  --border:      #d8e2f0;
-  --shadow:      rgba(26, 39, 68, 0.10);
-  --shadow-md:   rgba(26, 39, 68, 0.16);
+  --off-white:   #fbf6ed;
+  --surface:     #eef1f0;
+  --ink:         #1a1f1c;
+  --ink-soft:    #33403a;
+  --muted:       #6f7a75;
+  --border:      #e0e3de;
+  --shadow:      rgba(29, 49, 49, 0.10);
+  --shadow-md:   rgba(29, 49, 49, 0.16);
 }
 
 /* ── Base ──────────────────────────────────────────────────── */
@@ -86,6 +89,27 @@ a:hover { color: var(--blue-sky); }
 .site-topbar strong { color: #fff; font-weight: 600; }
 .site-topbar a { color: var(--gold-light); }
 .site-topbar a:hover { color: #fff; }
+
+.site-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--gold-light) !important;
+}
+.site-brand:hover { color: #fff !important; }
+.site-brand-logo {
+  height: 28px;
+  width: auto;
+  display: block;
+}
+.site-brand-tagline {
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+  color: inherit;
+}
+@media (max-width: 560px) {
+  .site-brand-tagline { display: none; }
+}
 
 /* ── Admin Nav ─────────────────────────────────────────────── */
 .admin-nav {
@@ -161,8 +185,8 @@ a:hover { color: var(--blue-sky); }
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse 55% 90% at 95% 50%, rgba(74,127,193,0.35) 0%, transparent 60%),
-    radial-gradient(ellipse 40% 60% at 5% 95%, rgba(200,146,42,0.12) 0%, transparent 50%);
+    radial-gradient(ellipse 55% 90% at 95% 50%, rgba(63,107,108,0.35) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 60% at 5% 95%, rgba(212,175,55,0.14) 0%, transparent 50%);
   pointer-events: none;
 }
 .hero-content {
@@ -361,7 +385,7 @@ legend {
   background: var(--navy-mid);
   border-color: var(--navy-mid);
   color: #fff;
-  box-shadow: 0 4px 14px rgba(26,39,68,0.25);
+  box-shadow: 0 4px 14px rgba(29,49,49,0.25);
 }
 .btn-outline-primary {
   border-color: var(--navy);
@@ -415,7 +439,7 @@ legend {
 }
 .form-control:focus, .form-select:focus {
   border-color: var(--blue-sky);
-  box-shadow: 0 0 0 3px rgba(74,127,193,0.15);
+  box-shadow: 0 0 0 3px rgba(63,107,108,0.15);
   outline: none;
 }
 
@@ -452,7 +476,7 @@ legend {
   box-shadow: none;
 }
 .accordion-button:not(.collapsed)::after { filter: brightness(10); }
-.accordion-button:focus { box-shadow: 0 0 0 3px rgba(74,127,193,0.2); }
+.accordion-button:focus { box-shadow: 0 0 0 3px rgba(63,107,108,0.2); }
 .accordion-body {
   font-size: 0.92rem;
   color: var(--ink-soft);
