@@ -2280,12 +2280,12 @@ app.post('/account/password', requireAuth, asyncHandler(async (req, res) => {
 
 // ── Dashboard ────────────────────────────────────────────────
 app.get('/dashboard', requireAuth, asyncHandler(async (req, res) => {
-  const isStaff = req.user.role === 'catechist';
   const faithFormationSettings = await getFaithFormationSettings();
 
-  const studentRegs = isStaff
-    ? await db.prepare('SELECT * FROM student_registrations ORDER BY created_at DESC').all()
-    : await db.prepare('SELECT * FROM student_registrations WHERE user_id = ? AND archived_at IS NULL ORDER BY created_at DESC').all(req.user.id);
+  // Every role sees only registrations they personally initiated here — catechists get
+  // their actual class rosters from the separate, properly-scoped My Classes feature
+  // instead of a blanket view of every family's registrations.
+  const studentRegs = await db.prepare('SELECT * FROM student_registrations WHERE user_id = ? AND archived_at IS NULL ORDER BY created_at DESC').all(req.user.id);
 
   const feeBreakdown = studentRegs
     .filter((reg) => String(reg.user_id) === String(req.user.id))
@@ -2303,22 +2303,16 @@ app.get('/dashboard', requireAuth, asyncHandler(async (req, res) => {
     });
   const totalFeesDue = feeBreakdown.reduce((sum, item) => sum + item.total, 0);
 
-  const familyRegsRaw = isStaff
-    ? await db.prepare('SELECT * FROM family_faith_registrations ORDER BY created_at DESC').all()
-    : await db.prepare('SELECT * FROM family_faith_registrations WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
+  const familyRegsRaw = await db.prepare('SELECT * FROM family_faith_registrations WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
 
-  const adultRegs = isStaff
-    ? await db.prepare('SELECT * FROM adult_registrations ORDER BY created_at DESC').all()
-    : await db.prepare('SELECT * FROM adult_registrations WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
+  const adultRegs = await db.prepare('SELECT * FROM adult_registrations WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
 
   const familyRegs = familyRegsRaw.map((reg) => ({
     ...reg,
     members: parseFamilyMembersFromStorage(reg.members_json),
   }));
 
-  const sponsorRegs = isStaff
-    ? await db.prepare('SELECT * FROM sponsor_confirmations ORDER BY created_at DESC').all()
-    : await db.prepare('SELECT * FROM sponsor_confirmations WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
+  const sponsorRegs = await db.prepare('SELECT * FROM sponsor_confirmations WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
 
   const ADULT_PROGRAMS = getAdultPrograms(res.locals.t);
   res.render('dashboard', { studentRegs, familyRegs, adultRegs, sponsorRegs, ADULT_PROGRAMS, faithFormationSettings, resolveCcdGrade, feeBreakdown, totalFeesDue });
