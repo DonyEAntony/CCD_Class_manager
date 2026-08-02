@@ -521,6 +521,8 @@ const translations = {
     no_students_in_class: 'No students match this class yet.',
     pending_acceptance_label: 'Pending',
     pending_count_label: 'pending',
+    section_col: 'Section',
+    section_label_placeholder: 'e.g. A',
     register_family: 'Register Family for Faith Formation',
     // Index accordion
     family_centered_title: 'A Family-Centered Vision',
@@ -1097,6 +1099,8 @@ const translations = {
     no_students_in_class: 'Aún no hay estudiantes en esta clase.',
     pending_acceptance_label: 'Pendiente',
     pending_count_label: 'pendiente(s)',
+    section_col: 'Sección',
+    section_label_placeholder: 'ej. A',
     register_family: 'Inscribir Familia para Formación en la Fe',
     // Index accordion
     family_centered_title: 'Una Visión Centrada en la Familia',
@@ -1310,40 +1314,18 @@ const parseClassWeekday = (classTimeText) => {
 };
 
 // When a grade has more than one time-slot section (e.g. three Second Year Communion
-// sections), give each a stable-for-now "A"/"B"/"C" letter — ordered by day of the week,
-// falling back to id — so admins can refer to "2A" instead of an ambiguous repeated grade
-// number. Letters are recomputed on every call rather than stored, so adding or removing a
-// section can shift them; grades with only one section get no letter at all.
-const assignClassSectionLabels = (ccdClasses) => {
-  const byGrade = {};
-  ccdClasses.forEach((c) => {
-    (byGrade[c.grade_level] || (byGrade[c.grade_level] = [])).push(c);
-  });
-  Object.values(byGrade).forEach((group) => {
-    if (group.length < 2) return;
-    const sorted = [...group].sort((a, b) => {
-      const aw = parseClassWeekday(a.class_time);
-      const bw = parseClassWeekday(b.class_time);
-      if (aw !== null && bw !== null && aw !== bw) return aw - bw;
-      if (aw === null && bw !== null) return 1;
-      if (aw !== null && bw === null) return -1;
-      return a.id - b.id;
-    });
-    sorted.forEach((c, index) => { c.sectionLabel = String.fromCharCode(65 + index); });
-  });
-  return ccdClasses;
-};
-
-const getCcdClasses = async () => {
-  const ccdClasses = await db.prepare(`
+// sections), admins assign each a "A"/"B"/"C" section_label directly (see
+// POST /admin/ccd-classes/:id/section-label) so they can refer to "2A" instead of an
+// ambiguous repeated grade number. Stored, not computed, so it stays put once set.
+const getCcdClasses = async () =>
+  db.prepare(`
     SELECT classes.id, classes.grade_level, classes.class_time, classes.classroom, classes.catechist_user_id,
+           classes.section_label AS sectionLabel,
            users.full_name AS catechist_name, users.email AS catechist_email, users.phone AS catechist_phone
     FROM ccd_classes classes
     LEFT JOIN users ON users.id = classes.catechist_user_id
     ORDER BY classes.grade_level ASC
   `).all();
-  return assignClassSectionLabels(ccdClasses);
-};
 
 const SACRAMENTAL_GRADE_LEVELS = new Set(Object.values(CCD_GRADE_BY_SACRAMENTAL_YEAR));
 
@@ -3929,6 +3911,20 @@ app.post('/admin/ccd-classes/:id/catechist', requireAuth, requireRole('admin'), 
 
   await db.prepare('UPDATE ccd_classes SET catechist_user_id = ? WHERE id = ?').run(catechistId, classId);
   req.flash('success', catechistId ? 'Catechist assignment updated.' : 'Catechist assignment cleared.');
+  return res.redirect('/admin/users');
+}));
+
+app.post('/admin/ccd-classes/:id/section-label', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const classId = Number.parseInt(req.params.id, 10);
+  const sectionLabel = typeof req.body.section_label === 'string' ? req.body.section_label.trim().slice(0, 10) : '';
+
+  if (!Number.isInteger(classId)) {
+    req.flash('error', 'Invalid CCD class.');
+    return res.redirect('/admin/users');
+  }
+
+  await db.prepare('UPDATE ccd_classes SET section_label = ? WHERE id = ?').run(sectionLabel || null, classId);
+  req.flash('success', sectionLabel ? 'Section label updated.' : 'Section label cleared.');
   return res.redirect('/admin/users');
 }));
 

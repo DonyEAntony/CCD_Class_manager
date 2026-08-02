@@ -408,6 +408,7 @@ const init = async () => {
     await ensureColumn('users', 'password_reset_token', 'VARCHAR(255) NULL');
     await ensureColumn('users', 'password_reset_expires_at', 'DATETIME NULL');
     await ensureColumn('ccd_classes', 'catechist_user_id', 'INT NULL');
+    await ensureColumn('ccd_classes', 'section_label', 'VARCHAR(10) NULL');
     // One-time normalization: legacy seed data used "1st Grade"/"2nd Grade" labels;
     // the sacramental-prep grade scheme (1-9) now expects plain digit grade_level values.
     try {
@@ -422,6 +423,35 @@ const init = async () => {
       await pool.query('ALTER TABLE ccd_classes DROP INDEX grade_level');
     } catch (error) {
       // Already dropped, or the index has a different name on this install — safe to ignore.
+    }
+    // One-time backfill: section_label used to be computed on the fly (ordered by weekday)
+    // before it became an admin-editable stored column. Seed any still-unlabeled rows
+    // within a multi-section grade using that same weekday order so existing admins don't
+    // lose the labels they were already seeing; going forward, admins edit this directly.
+    try {
+      const [unlabeledGroups] = await pool.query(`
+        SELECT grade_level FROM ccd_classes
+        WHERE section_label IS NULL OR section_label = ''
+        GROUP BY grade_level
+        HAVING COUNT(*) > 1
+      `);
+      for (const { grade_level: gradeLevel } of unlabeledGroups) {
+        const [rows] = await pool.query(
+          'SELECT id, class_time FROM ccd_classes WHERE grade_level = ? AND (section_label IS NULL OR section_label = ?)',
+          [gradeLevel, '']
+        );
+        const weekdayIndex = (classTime) => {
+          const match = String(classTime || '').trim().match(/^(Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)/i);
+          if (!match) return 7;
+          return ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'].indexOf(match[1].toLowerCase());
+        };
+        const sorted = [...rows].sort((a, b) => weekdayIndex(a.class_time) - weekdayIndex(b.class_time) || a.id - b.id);
+        for (let i = 0; i < sorted.length; i++) {
+          await pool.execute('UPDATE ccd_classes SET section_label = ? WHERE id = ?', [String.fromCharCode(65 + i), sorted[i].id]);
+        }
+      }
+    } catch (error) {
+      console.warn('[migration] Skipped ccd_classes section_label backfill', error?.message || error);
     }
 
     await ensureColumn('student_registrations', 'primary_contact_first_name', 'VARCHAR(255)');

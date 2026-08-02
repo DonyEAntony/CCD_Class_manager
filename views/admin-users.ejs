@@ -258,6 +258,7 @@
             <thead>
               <tr>
                 <th><%= t('class_col') %></th>
+                <th><%= t('section_col') %></th>
                 <th><%= t('time') %></th>
                 <th><%= t('room') %></th>
                 <th><%= t('assigned_catechist_col') %></th>
@@ -273,6 +274,12 @@
                     <% if (availableCcdGradeMeanings[ccdClass.grade_level]) { %>
                       <div style="font-size:.78rem;color:var(--muted)"><%= availableCcdGradeMeanings[ccdClass.grade_level] %></div>
                     <% } %>
+                  </td>
+                  <td>
+                    <form class="d-flex gap-1" method="post" action="/admin/ccd-classes/<%= ccdClass.id %>/section-label">
+                      <input class="form-control form-control-sm" style="max-width:70px" type="text" name="section_label" maxlength="10" value="<%= ccdClass.sectionLabel || '' %>" placeholder="<%= t('section_label_placeholder') %>">
+                      <button class="btn btn-outline-secondary btn-sm" type="submit"><%= t('save') %></button>
+                    </form>
                   </td>
                   <td><%= ccdClass.class_time || '—' %></td>
                   <td><%= ccdClass.classroom || '—' %></td>
