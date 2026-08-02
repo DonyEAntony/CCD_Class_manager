@@ -276,9 +276,11 @@
                   <td><%= ccdClass.class_time || '—' %></td>
                   <td><%= ccdClass.classroom || '—' %></td>
                   <td>
-                    <% if (ccdClass.catechist_name || ccdClass.catechist_email) { %>
-                      <div><%= ccdClass.catechist_name || '—' %></div>
-                      <div style="font-size:.82rem;color:var(--muted)"><%= ccdClass.catechist_email || '' %></div>
+                    <% if (ccdClass.catechists && ccdClass.catechists.length) { %>
+                      <% ccdClass.catechists.forEach((catechist) => { %>
+                        <div><%= catechist.name || '—' %></div>
+                        <div style="font-size:.82rem;color:var(--muted)"><%= catechist.email || '' %></div>
+                      <% }) %>
                     <% } else { %>
                       <span style="color:var(--muted)"><%= t('unassigned') %></span>
                     <% } %>
@@ -307,14 +309,21 @@
                       </div>
                       <div class="col-md-3">
                         <label class="form-label mb-1" style="font-size:.7rem"><%= t('assigned_catechist_col') %></label>
-                        <select class="form-select form-select-sm" name="catechist_user_id">
-                          <option value=""><%= t('unassigned') %></option>
-                          <% availableCatechists.forEach((catechist) => { %>
-                            <option value="<%= catechist.id %>" <%= Number(ccdClass.catechist_user_id) === Number(catechist.id) ? 'selected' : '' %>>
-                              <%= catechist.full_name || catechist.email %> (<%= catechist.email %>)
-                            </option>
-                          <% }) %>
-                        </select>
+                        <% const assignedCatechistIds = new Set((ccdClass.catechists || []).map((c) => Number(c.id))); %>
+                        <% if (!availableCatechists.length) { %>
+                          <div style="font-size:.8rem;color:var(--muted)"><%= t('unassigned') %></div>
+                        <% } else { %>
+                          <div class="border rounded p-2" style="max-height:110px;overflow-y:auto;background:var(--white)">
+                            <% availableCatechists.forEach((catechist) => { %>
+                              <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="catechist_user_ids" value="<%= catechist.id %>" id="catechist-<%= ccdClass.id %>-<%= catechist.id %>" <%= assignedCatechistIds.has(Number(catechist.id)) ? 'checked' : '' %>>
+                                <label class="form-check-label" style="font-size:.82rem" for="catechist-<%= ccdClass.id %>-<%= catechist.id %>">
+                                  <%= catechist.full_name || catechist.email %>
+                                </label>
+                              </div>
+                            <% }) %>
+                          </div>
+                        <% } %>
                       </div>
                       <div class="col-md-2 d-flex gap-2">
                         <button class="btn btn-primary btn-sm" type="submit"><%= t('save') %></button>

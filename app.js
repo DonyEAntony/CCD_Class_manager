@@ -1315,15 +1315,34 @@ const parseClassWeekday = (classTimeText) => {
 // sections), admins assign each a "A"/"B"/"C" section_label directly (see
 // POST /admin/ccd-classes/:id/section-label) so they can refer to "2A" instead of an
 // ambiguous repeated grade number. Stored, not computed, so it stays put once set.
-const getCcdClasses = async () =>
-  db.prepare(`
-    SELECT classes.id, classes.grade_level, classes.class_time, classes.classroom, classes.catechist_user_id,
-           classes.section_label AS sectionLabel,
-           users.full_name AS catechist_name, users.email AS catechist_email, users.phone AS catechist_phone
+const getCcdClasses = async () => {
+  const ccdClasses = await db.prepare(`
+    SELECT classes.id, classes.grade_level, classes.class_time, classes.classroom,
+           classes.section_label AS sectionLabel
     FROM ccd_classes classes
-    LEFT JOIN users ON users.id = classes.catechist_user_id
     ORDER BY classes.grade_level ASC
   `).all();
+
+  const catechistLinks = await db.prepare(`
+    SELECT cc.ccd_class_id, u.id AS catechist_id, u.full_name AS catechist_name,
+           u.email AS catechist_email, u.phone AS catechist_phone
+    FROM ccd_class_catechists cc
+    JOIN users u ON u.id = cc.catechist_user_id
+    ORDER BY COALESCE(NULLIF(u.full_name, ''), u.email) ASC
+  `).all();
+
+  const catechistsByClass = {};
+  catechistLinks.forEach((row) => {
+    (catechistsByClass[row.ccd_class_id] || (catechistsByClass[row.ccd_class_id] = [])).push({
+      id: row.catechist_id,
+      name: row.catechist_name,
+      email: row.catechist_email,
+      phone: row.catechist_phone,
+    });
+  });
+
+  return ccdClasses.map((ccdClass) => ({ ...ccdClass, catechists: catechistsByClass[ccdClass.id] || [] }));
+};
 
 const SACRAMENTAL_GRADE_LEVELS = new Set(Object.values(CCD_GRADE_BY_SACRAMENTAL_YEAR));
 
@@ -3838,7 +3857,7 @@ app.post('/admin/users/:id/delete', requireAuth, requireRole('admin'), asyncHand
     return res.redirect('/admin/users');
   }
 
-  await db.prepare('UPDATE ccd_classes SET catechist_user_id = NULL WHERE catechist_user_id = ?').run(userId);
+  await db.prepare('DELETE FROM ccd_class_catechists WHERE catechist_user_id = ?').run(userId);
   await db.prepare(`
     UPDATE family_faith_visit_slots
     SET booked_registration_id = NULL
@@ -3889,32 +3908,46 @@ app.post('/admin/ccd-classes/:id/update', requireAuth, requireRole('admin'), asy
   const sectionLabel = typeof req.body.section_label === 'string' ? req.body.section_label.trim().slice(0, 10) : '';
   const classTime = typeof req.body.class_time === 'string' ? req.body.class_time.trim() : '';
   const classroom = typeof req.body.classroom === 'string' ? req.body.classroom.trim() : '';
-  const catechistId = req.body.catechist_user_id ? Number.parseInt(req.body.catechist_user_id, 10) : null;
+  const rawCatechistIds = req.body.catechist_user_ids;
+  const catechistIds = (Array.isArray(rawCatechistIds) ? rawCatechistIds : (rawCatechistIds ? [rawCatechistIds] : []))
+    .map((id) => Number.parseInt(id, 10))
+    .filter((id) => Number.isInteger(id));
 
   if (!Number.isInteger(classId)) {
     req.flash('error', 'Invalid CCD class.');
     return res.redirect('/admin/users');
   }
 
-  if (catechistId !== null) {
-    const catechist = await db.prepare('SELECT id FROM users WHERE id = ? AND role = ?').get(catechistId, 'catechist');
-    if (!catechist) {
-      req.flash('error', 'Selected user is not a catechist.');
+  if (catechistIds.length) {
+    const validCatechists = await db.prepare(
+      `SELECT id FROM users WHERE role = 'catechist' AND id IN (${catechistIds.map(() => '?').join(',')})`
+    ).all(...catechistIds);
+    if (validCatechists.length !== catechistIds.length) {
+      req.flash('error', 'One or more selected users is not a catechist.');
       return res.redirect('/admin/users');
     }
   }
 
   await db.prepare(
-    'UPDATE ccd_classes SET section_label = ?, class_time = ?, classroom = ?, catechist_user_id = ? WHERE id = ?'
-  ).run(sectionLabel || null, classTime || null, classroom || null, catechistId, classId);
+    'UPDATE ccd_classes SET section_label = ?, class_time = ?, classroom = ? WHERE id = ?'
+  ).run(sectionLabel || null, classTime || null, classroom || null, classId);
+
+  await db.prepare('DELETE FROM ccd_class_catechists WHERE ccd_class_id = ?').run(classId);
+  for (const catechistId of catechistIds) {
+    await db.prepare('INSERT INTO ccd_class_catechists (ccd_class_id, catechist_user_id) VALUES (?, ?)').run(classId, catechistId);
+  }
+
   req.flash('success', 'Class updated.');
   return res.redirect('/admin/users');
 }));
 
+const isClassCatechist = (ccdClass, userId) =>
+  (ccdClass.catechists || []).some((catechist) => Number(catechist.id) === Number(userId));
+
 app.get('/admin/classes', requireAuth, requireRole('admin', 'catechist'), asyncHandler(async (req, res) => {
   const allCcdClasses = await getCcdClasses();
   const ccdClasses = req.user.role === 'catechist'
-    ? allCcdClasses.filter((c) => Number(c.catechist_user_id) === Number(req.user.id))
+    ? allCcdClasses.filter((c) => isClassCatechist(c, req.user.id))
     : allCcdClasses;
   const activeStudentRegs = await db.prepare('SELECT * FROM student_registrations WHERE archived_at IS NULL').all();
 
@@ -3936,7 +3969,7 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist'), as
   const classId = Number.parseInt(req.params.id, 10);
   const ccdClasses = await getCcdClasses();
   const ccdClass = ccdClasses.find((c) => c.id === classId);
-  const ownsClass = ccdClass && (req.user.role === 'admin' || Number(ccdClass.catechist_user_id) === Number(req.user.id));
+  const ownsClass = ccdClass && (req.user.role === 'admin' || isClassCatechist(ccdClass, req.user.id));
   if (!ownsClass) {
     req.flash('error', 'Class not found.');
     return res.redirect('/admin/classes');
@@ -3989,8 +4022,10 @@ app.post('/admin/classes/:id/attendance', requireAuth, requireRole('admin', 'cat
   }
 
   if (req.user.role === 'catechist') {
-    const ownedClass = await db.prepare('SELECT catechist_user_id FROM ccd_classes WHERE id = ?').get(classId);
-    if (!ownedClass || Number(ownedClass.catechist_user_id) !== Number(req.user.id)) {
+    const ownedClass = await db.prepare(
+      'SELECT 1 FROM ccd_class_catechists WHERE ccd_class_id = ? AND catechist_user_id = ?'
+    ).get(classId, req.user.id);
+    if (!ownedClass) {
       return res.status(403).json({ ok: false, error: 'Forbidden.' });
     }
   }

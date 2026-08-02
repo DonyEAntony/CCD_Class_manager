@@ -191,12 +191,16 @@
     <div class="col-lg-4">
       <div class="sidebar-card">
         <h3><%= t('class_teacher_label') %></h3>
-        <% if (ccdClass.catechist_name) { %>
-          <div style="font-weight:600;color:var(--navy)"><%= ccdClass.catechist_name %></div>
-          <div class="teacher-contact">
-            <% if (ccdClass.catechist_phone) { %><a href="tel:<%= ccdClass.catechist_phone %>"><%- '&#128222;' %></a><% } %>
-            <% if (ccdClass.catechist_email) { %><a href="mailto:<%= ccdClass.catechist_email %>">&#9993;</a><% } %>
-          </div>
+        <% if (ccdClass.catechists && ccdClass.catechists.length) { %>
+          <% ccdClass.catechists.forEach((catechist, index) => { %>
+            <div style="<%= index > 0 ? 'margin-top:.6rem' : '' %>">
+              <div style="font-weight:600;color:var(--navy)"><%= catechist.name || catechist.email %></div>
+              <div class="teacher-contact">
+                <% if (catechist.phone) { %><a href="tel:<%= catechist.phone %>"><%- '&#128222;' %></a><% } %>
+                <% if (catechist.email) { %><a href="mailto:<%= catechist.email %>">&#9993;</a><% } %>
+              </div>
+            </div>
+          <% }) %>
         <% } else { %>
           <div style="color:var(--muted)"><%= t('unassigned') %></div>
         <% } %>
