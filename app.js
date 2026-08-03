@@ -8,7 +8,7 @@ const multer = require('multer');
 const passport = require('./auth');
 const db = require('./db');
 const { processScanDocument, verifyDocumentAiConfiguration } = require('./document-ai');
-const { sendVerificationEmail, smtpLogConfig, verifyMailConfiguration, buildVerificationEmailContent, sendPasswordResetEmail } = require('./mailer');
+const { sendVerificationEmail, smtpLogConfig, verifyMailConfiguration, buildVerificationEmailContent, sendPasswordResetEmail, sendClassMessageEmail } = require('./mailer');
 const { requireAuth, requireRole } = require('./middleware');
 
 const app = express();
@@ -525,6 +525,15 @@ const translations = {
     catechists_more_suffix: 'more',
     show_all_label: 'Show all',
     show_less_label: 'Show less',
+    send_message_label: 'Send a Message',
+    select_all_label: 'Select all',
+    select_none_label: 'Select none',
+    selected_suffix_label: 'selected',
+    subject_label: 'Subject (optional)',
+    subject_placeholder: 'e.g. Reminder for this Sunday',
+    message_label: 'Message',
+    message_placeholder: 'Type your message to parents here...',
+    send_message_button: 'Send Message',
     register_family: 'Register Family for Faith Formation',
     // Index accordion
     family_centered_title: 'A Family-Centered Vision',
@@ -1105,6 +1114,15 @@ const translations = {
     catechists_more_suffix: 'más',
     show_all_label: 'Mostrar todos',
     show_less_label: 'Mostrar menos',
+    send_message_label: 'Enviar un Mensaje',
+    select_all_label: 'Seleccionar todos',
+    select_none_label: 'Deseleccionar todos',
+    selected_suffix_label: 'seleccionados',
+    subject_label: 'Asunto (opcional)',
+    subject_placeholder: 'ej. Recordatorio para este domingo',
+    message_label: 'Mensaje',
+    message_placeholder: 'Escriba su mensaje para los padres aquí...',
+    send_message_button: 'Enviar Mensaje',
     register_family: 'Inscribir Familia para Formación en la Fe',
     // Index accordion
     family_centered_title: 'Una Visión Centrada en la Familia',
@@ -4055,6 +4073,75 @@ app.post('/admin/classes/:id/attendance', requireAuth, requireRole('admin', 'cat
   const absentCount = attendanceRows.filter((row) => row.status === 'absent').length;
 
   res.json({ ok: true, status: status === 'present' || status === 'absent' ? status : 'unmarked', presentCount, absentCount });
+}));
+
+app.post('/admin/classes/:id/message', requireAuth, requireRole('admin', 'catechist'), asyncHandler(async (req, res) => {
+  const classId = Number.parseInt(req.params.id, 10);
+  if (!Number.isInteger(classId)) {
+    req.flash('error', 'Invalid class.');
+    return res.redirect('/admin/classes');
+  }
+
+  const ccdClasses = await getCcdClasses();
+  const ccdClass = ccdClasses.find((c) => c.id === classId);
+  const ownsClass = ccdClass && (req.user.role === 'admin' || isClassCatechist(ccdClass, req.user.id));
+  if (!ownsClass) {
+    req.flash('error', 'Class not found.');
+    return res.redirect('/admin/classes');
+  }
+
+  const message = typeof req.body.message === 'string' ? req.body.message.trim() : '';
+  const subject = typeof req.body.subject === 'string' ? req.body.subject.trim() : '';
+  if (!message) {
+    req.flash('error', 'Please enter a message to send.');
+    return res.redirect(`/admin/classes/${classId}`);
+  }
+
+  const rawIds = req.body.student_registration_ids;
+  const selectedIds = new Set(
+    (Array.isArray(rawIds) ? rawIds : (rawIds ? [rawIds] : []))
+      .map((id) => Number.parseInt(id, 10))
+      .filter((id) => Number.isInteger(id))
+  );
+
+  if (!selectedIds.size) {
+    req.flash('error', 'Select at least one student to message.');
+    return res.redirect(`/admin/classes/${classId}`);
+  }
+
+  const activeStudentRegs = await db.prepare('SELECT * FROM student_registrations WHERE archived_at IS NULL').all();
+  const selectedStudents = getClassRoster(ccdClass, activeStudentRegs).filter((r) => selectedIds.has(r.id));
+
+  // Dedupe by parent email so siblings selected in the same class don't get a duplicate copy.
+  const recipientsByEmail = new Map();
+  selectedStudents.forEach((r) => {
+    const email = (r.primary_contact_email || '').trim();
+    if (email) recipientsByEmail.set(email.toLowerCase(), email);
+  });
+
+  if (!recipientsByEmail.size) {
+    req.flash('error', 'None of the selected students have a contact email on file.');
+    return res.redirect(`/admin/classes/${classId}`);
+  }
+
+  const senderName = req.user.full_name || req.user.email;
+  let sentCount = 0;
+  for (const email of recipientsByEmail.values()) {
+    const result = await sendClassMessageEmail({ to: email, subject, message, senderName });
+    if (result.delivered) sentCount += 1;
+  }
+
+  const skippedCount = selectedStudents.length - recipientsByEmail.size;
+  if (sentCount === 0) {
+    req.flash('error', 'Message could not be sent — check the mail server configuration.');
+  } else {
+    req.flash(
+      'success',
+      `Message sent to ${sentCount} famil${sentCount === 1 ? 'y' : 'ies'}` +
+        (skippedCount ? ` (${skippedCount} selected student${skippedCount === 1 ? '' : 's'} had no contact email on file).` : '.')
+    );
+  }
+  return res.redirect(`/admin/classes/${classId}`);
 }));
 
 app.post('/admin/events', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
