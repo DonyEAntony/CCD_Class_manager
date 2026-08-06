@@ -58,23 +58,23 @@
               <input class="form-control" type="text" name="full_name" required>
             </div>
             <div class="col-md-6">
-              <label class="form-label"><%= t('email') %></label>
-              <input class="form-control" type="email" name="email">
+              <label class="form-label"><%= t('email') %><% if (program.key === 'ocia') { %> <span class="text-danger">*</span><% } %></label>
+              <input class="form-control" type="email" name="email" <%= program.key === 'ocia' ? 'required' : '' %>>
               <div class="invalid-feedback">Please enter a valid email address.</div>
             </div>
             <div class="col-md-4">
-              <label class="form-label"><%= t('phone') %></label>
-              <input class="form-control" type="tel" name="phone" pattern="[0-9]{3}[.\- ]?[0-9]{3}[.\- ]?[0-9]{4}" title="Format: 123-456-7890 or 123.456.7890 or 123 456 7890">
+              <label class="form-label"><%= t('phone') %><% if (program.key === 'ocia') { %> <span class="text-danger">*</span><% } %></label>
+              <input class="form-control" type="tel" name="phone" pattern="[0-9]{3}[.\- ]?[0-9]{3}[.\- ]?[0-9]{4}" title="Format: 123-456-7890 or 123.456.7890 or 123 456 7890" <%= program.key === 'ocia' ? 'required' : '' %>>
               <div class="invalid-feedback">Please enter a valid phone number (XXX-XXX-XXXX format).</div>
             </div>
             <div class="col-md-4">
-              <label class="form-label"><%= t('dob') %></label>
-              <input class="form-control" type="date" name="dob">
+              <label class="form-label"><%= t('dob') %><% if (program.key === 'ocia') { %> <span class="text-danger">*</span><% } %></label>
+              <input class="form-control" type="date" name="dob" <%= program.key === 'ocia' ? 'required' : '' %>>
             </div>
             <div class="col-md-4">
-              <label class="form-label"><%= t('are_you_baptized') %></label>
-              <select class="form-select" name="baptized">
-                <option value=""><%= t('select_placeholder') %></option>
+              <label class="form-label"><%= t('are_you_baptized') %><% if (program.key === 'ocia') { %> <span class="text-danger">*</span><% } %></label>
+              <select class="form-select" name="baptized" <%= program.key === 'ocia' ? 'required' : '' %>>
+                <option value="" disabled selected><%= t('select_placeholder') %></option>
                 <option value="yes_catholic"><%= t('baptized_yes_catholic') %></option>
                 <option value="yes_other"><%= t('baptized_yes_other') %></option>
                 <option value="no"><%= t('baptized_no') %></option>
@@ -89,20 +89,20 @@
           <legend><%= t('address_information') %></legend>
           <div class="row g-3">
             <div class="col-md-6">
-              <label class="form-label"><%= t('address') %></label>
-              <input class="form-control" type="text" name="address">
+              <label class="form-label"><%= t('address') %><% if (program.key === 'ocia') { %> <span class="text-danger">*</span><% } %></label>
+              <input class="form-control" type="text" name="address" <%= program.key === 'ocia' ? 'required' : '' %>>
             </div>
             <div class="col-md-4">
-              <label class="form-label"><%= t('city') %></label>
-              <input class="form-control" type="text" name="city">
+              <label class="form-label"><%= t('city') %><% if (program.key === 'ocia') { %> <span class="text-danger">*</span><% } %></label>
+              <input class="form-control" type="text" name="city" <%= program.key === 'ocia' ? 'required' : '' %>>
             </div>
             <div class="col-md-4">
-              <label class="form-label"><%= t('state') %></label>
-              <input class="form-control" type="text" name="state">
+              <label class="form-label"><%= t('state') %><% if (program.key === 'ocia') { %> <span class="text-danger">*</span><% } %></label>
+              <input class="form-control" type="text" name="state" <%= program.key === 'ocia' ? 'required' : '' %>>
             </div>
             <div class="col-md-4">
-              <label class="form-label"><%= t('zip') %></label>
-              <input class="form-control" type="text" name="zip">
+              <label class="form-label"><%= t('zip') %><% if (program.key === 'ocia') { %> <span class="text-danger">*</span><% } %></label>
+              <input class="form-control" type="text" name="zip" <%= program.key === 'ocia' ? 'required' : '' %>>
             </div>
           </div>
         </fieldset>
@@ -261,6 +261,7 @@
     // Enable submit only if required fields are filled and valid
     const submitBtn = document.querySelector('button[type="submit"]');
     const validationForm = document.querySelector('form');
+    const isOcia = <%- JSON.stringify(program.key === 'ocia') %>;
     const emailInput = validationForm.querySelector('[name="email"]');
     const phoneInput = validationForm.querySelector('[name="phone"]');
     function checkRequired() {
@@ -270,11 +271,11 @@
 
       // Email validation
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      const emailValid = !email || emailRegex.test(email); // Optional, but if provided, must be valid
+      const emailValid = (!isOcia && !email) || emailRegex.test(email);
 
       // Phone validation (allows XXX-XXX-XXXX, XXX.XXX.XXXX, XXX XXX XXXX)
       const phoneRegex = /^\d{3}[-.\s]?\d{3}[-.\s]?\d{4}$/;
-      const phoneValid = !phone || phoneRegex.test(phone); // Optional
+      const phoneValid = (!isOcia && !phone) || phoneRegex.test(phone);
 
       // Visual feedback
       if (email) {
@@ -294,8 +295,10 @@
       const hasInvalid = (email && !emailValid) || (phone && !phoneValid);
       validationForm.classList.toggle('was-validated', hasInvalid);
 
-      const contactValid = emailValid && phoneValid && (email || phone);
-      submitBtn.disabled = !(name && contactValid);
+      const requiredFieldsValid = Array.from(validationForm.querySelectorAll('[required]'))
+        .every((field) => field.value.trim());
+      const contactValid = emailValid && phoneValid && (isOcia ? (email && phone) : (email || phone));
+      submitBtn.disabled = !(name && requiredFieldsValid && contactValid);
     }
     validationForm.addEventListener('input', checkRequired);
     validationForm.addEventListener('change', checkRequired);
@@ -305,10 +308,12 @@
       const phone = phoneInput.value.trim();
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       const phoneRegex = /^\d{3}[-.\s]?\d{3}[-.\s]?\d{4}$/;
-      const emailValid = !email || emailRegex.test(email);
-      const phoneValid = !phone || phoneRegex.test(phone);
-      const contactValid = emailValid && phoneValid && (email || phone);
-      if (!name || !contactValid) {
+      const emailValid = (!isOcia && !email) || emailRegex.test(email);
+      const phoneValid = (!isOcia && !phone) || phoneRegex.test(phone);
+      const requiredFieldsValid = Array.from(validationForm.querySelectorAll('[required]'))
+        .every((field) => field.value.trim());
+      const contactValid = emailValid && phoneValid && (isOcia ? (email && phone) : (email || phone));
+      if (!name || !requiredFieldsValid || !contactValid) {
         e.preventDefault();
         alert('Please correct the validation errors before submitting.');
       }

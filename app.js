@@ -3300,18 +3300,46 @@ app.post('/registration/adult/:program', requireAuth, asyncHandler(async (req, r
   const ADULT_PROGRAMS = getAdultPrograms(res.locals.t);
   const program = ADULT_PROGRAMS[req.params.program];
   if (!program) return res.status(404).send('Unknown program.');
+  const orNull = (value) => (value === undefined || value === '' ? null : value);
+  const city = typeof req.body.city === 'string' ? req.body.city.trim() : '';
+  const stateZip = [req.body.state, req.body.zip]
+    .filter((value) => typeof value === 'string' && value.trim())
+    .map((value) => value.trim())
+    .join(' ');
+  const cityStateZip = city && stateZip ? `${city}, ${stateZip}` : (city || stateZip || null);
+  const redirectUrl = req.body.registration_id
+    ? `/registration/adult/edit/${program.key}/${req.body.registration_id}`
+    : `/registration/adult/${program.key}`;
 
   // Server-side validation
+  if (program.key === 'ocia') {
+    const requiredFields = [
+      ['full_name', 'Full name'],
+      ['email', 'Email'],
+      ['phone', 'Phone'],
+      ['dob', 'Date of birth'],
+      ['baptized', 'Baptism status'],
+      ['address', 'Address'],
+      ['city', 'City'],
+      ['state', 'State'],
+      ['zip', 'ZIP code'],
+    ];
+    const missingFields = requiredFields
+      .filter(([field]) => typeof req.body[field] !== 'string' || !req.body[field].trim())
+      .map(([, label]) => label);
+    if (missingFields.length) {
+      req.flash('error', `Please complete all required fields: ${missingFields.join(', ')}.`);
+      return res.redirect(redirectUrl);
+    }
+  }
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (req.body.email && !emailRegex.test(req.body.email)) {
     req.flash('error', 'Invalid email format.');
-    const redirectUrl = req.body.registration_id ? `/registration/adult/edit/${program.key}/${req.body.registration_id}` : `/registration/adult/${program.key}`;
     return res.redirect(redirectUrl);
   }
   const phoneRegex = /^\d{3}[-.\s]?\d{3}[-.\s]?\d{4}$/;
   if (req.body.phone && !phoneRegex.test(req.body.phone)) {
     req.flash('error', 'Invalid phone format. Use XXX-XXX-XXXX, XXX.XXX.XXXX, or XXX XXX XXXX.');
-    const redirectUrl = req.body.registration_id ? `/registration/adult/edit/${program.key}/${req.body.registration_id}` : `/registration/adult/${program.key}`;
     return res.redirect(redirectUrl);
   }
   const selectedClassScheduleId = Number(req.body.class_schedule_id);
@@ -3329,7 +3357,6 @@ app.post('/registration/adult/:program', requireAuth, asyncHandler(async (req, r
       : null;
     if (!selectedBaptismPrepSchedule) {
       req.flash('error', 'Please select an available Baptism Preparation class date.');
-      const redirectUrl = req.body.registration_id ? `/registration/adult/edit/${program.key}/${req.body.registration_id}` : `/registration/adult/${program.key}`;
       return res.redirect(redirectUrl);
     }
   }
@@ -3344,16 +3371,16 @@ app.post('/registration/adult/:program', requireAuth, asyncHandler(async (req, r
       WHERE id = ? AND (user_id = ? OR ? = 1) AND program_type = ?
     `).run(
       req.body.full_name,
-      req.body.email,
-      req.body.phone,
-      req.body.address,
-      `${req.body.city}, ${req.body.state} ${req.body.zip}`,
-      req.body.dob,
-      req.body.baptized,
-      req.body.baptism_church,
-      req.body.spouse_name,
-      req.body.godparent_for,
-      req.body.comments,
+      orNull(req.body.email),
+      orNull(req.body.phone),
+      orNull(req.body.address),
+      cityStateZip,
+      orNull(req.body.dob),
+      orNull(req.body.baptized),
+      orNull(req.body.baptism_church),
+      orNull(req.body.spouse_name),
+      orNull(req.body.godparent_for),
+      orNull(req.body.comments),
       program.key === 'baptism_prep' ? selectedClassScheduleId : null,
       program.key === 'baptism_prep' && selectedBaptismPrepSchedule ? formatScheduledEventLabel(selectedBaptismPrepSchedule) : null,
       req.body.registration_id, req.user.id, isAdmin ? 1 : 0, program.key
@@ -3371,16 +3398,16 @@ app.post('/registration/adult/:program', requireAuth, asyncHandler(async (req, r
     req.user.id,
     program.key,
     req.body.full_name,
-    req.body.email,
-    req.body.phone,
-    req.body.address,
-    `${req.body.city}, ${req.body.state} ${req.body.zip}`,
-    req.body.dob,
-    req.body.baptized,
-    req.body.baptism_church,
-    req.body.spouse_name,
-    req.body.godparent_for,
-    req.body.comments,
+    orNull(req.body.email),
+    orNull(req.body.phone),
+    orNull(req.body.address),
+    cityStateZip,
+    orNull(req.body.dob),
+    orNull(req.body.baptized),
+    orNull(req.body.baptism_church),
+    orNull(req.body.spouse_name),
+    orNull(req.body.godparent_for),
+    orNull(req.body.comments),
     program.key === 'baptism_prep' ? selectedClassScheduleId : null,
     program.key === 'baptism_prep' && selectedBaptismPrepSchedule ? formatScheduledEventLabel(selectedBaptismPrepSchedule) : null,
     'in_progress',
