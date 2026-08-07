@@ -1,0 +1,25 @@
+
+> st-matthew-ccd-manager@1.0.0 start
+> node app.js
+
+[startup] Mail configuration {
+  host: 'smtp.hostinger.com',
+  port: 465,
+  secure: true,
+  hasUser: true,
+  hasPass: true,
+  from: 'Webmaster <webmaster@saintmatthewcatholicchurch.org>',
+  appBaseUrl: 'http://localhost:3000'
+}
+St Matthew CCD app running at http://localhost:3004
+[admin] Mail health check completed {
+  ok: true,
+  config: {
+    host: 'smtp.hostinger.com',
+    port: 465,
+    secure: true,
+    hasUser: true,
+    hasPass: true,
+    from: 'Webmaster <webmaster@saintmatthewcatholicchurch.org>'
+  }
+}
