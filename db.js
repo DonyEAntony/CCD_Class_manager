@@ -150,6 +150,17 @@ const init = async () => {
     pool = mysql.createPool(dbConfig);
 
     await pool.query(`
+      CREATE TABLE IF NOT EXISTS sessions (
+        sid VARCHAR(255) NOT NULL PRIMARY KEY,
+        data LONGTEXT NOT NULL,
+        expires_at DATETIME NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_sessions_expires_at (expires_at)
+      )
+    `);
+
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
         email VARCHAR(255) NOT NULL UNIQUE,

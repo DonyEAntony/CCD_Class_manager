@@ -1,12 +1,14 @@
 require('dotenv').config();
 const path = require('path');
 const crypto = require('crypto');
+const fs = require('fs');
 const express = require('express');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const passport = require('./auth');
 const db = require('./db');
+const MySqlSessionStore = require('./session-store');
 const { processScanDocument, verifyDocumentAiConfiguration } = require('./document-ai');
 const { sendVerificationEmail, smtpLogConfig, verifyMailConfiguration, buildVerificationEmailContent, sendPasswordResetEmail, sendClassMessageEmail } = require('./mailer');
 const { requireAuth, requireRole } = require('./middleware');
@@ -1213,6 +1215,12 @@ const translations = {
   }
 };
 // ── Adult program metadata (locale-aware) ───────────────────
+const humanizeTranslationKey = (key) => `${key || ''}`
+  .replace(/_/g, ' ')
+  .replace(/\s+/g, ' ')
+  .trim()
+  .replace(/^./, (letter) => letter.toUpperCase());
+
 const getAdultPrograms = (t) => ({
   ocia: {
     key: 'ocia',
@@ -1618,8 +1626,13 @@ const buildCalendarWeeks = (occurrences, year, monthIndex) => {
   return weeks;
 };
 
+const uploadDir = path.resolve(process.env.UPLOAD_DIR || path.join(__dirname, 'uploads'));
+fs.mkdirSync(uploadDir, { recursive: true });
+
+const getPublicUploadPath = (file) => (file?.filename ? path.posix.join('uploads', file.filename) : null);
+
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, 'uploads/'),
+  destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => {
     const safe = file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_');
     cb(null, `${Date.now()}-${safe}`);
@@ -1635,16 +1648,17 @@ const scanUpload = multer({
 
 app.set('view engine', 'ejs');
 app.locals.lang = 'en';
-app.locals.t = (key) => translations.en[key] || key;
+app.locals.t = (key) => translations.en[key] || humanizeTranslationKey(key);
 app.locals.user = null;
 app.locals.success = [];
 app.locals.error = [];
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', express.static(uploadDir));
 
 app.use(
   session({
+    store: new MySqlSessionStore(),
     secret: process.env.SESSION_SECRET || 'change-me',
     resave: false,
     saveUninitialized: false,
@@ -1683,7 +1697,7 @@ app.get('/lang/:lang', (req, res) => {
 app.use((req, res, next) => {
   const lang = req.session.lang === 'es' ? 'es' : 'en';
   res.locals.lang = lang;
-  res.locals.t = (key) => translations[lang][key] || translations.en[key] || key;
+  res.locals.t = (key) => translations[lang][key] || translations.en[key] || humanizeTranslationKey(key);
   res.locals.user = req.user;
   res.locals.success = req.flash('success');
   res.locals.error = req.flash('error');
@@ -2587,7 +2601,7 @@ app.post('/registration/sponsor-confirmation', requireAuth, upload.single('spons
   const sponsorState = typeof req.body.sponsor_state === 'string' ? req.body.sponsor_state.trim() : '';
   const sponsorZip = typeof req.body.sponsor_zip === 'string' ? req.body.sponsor_zip.trim() : '';
   const isStMatthewParishioner = req.body.is_st_matthew_parishioner === '1' ? 1 : 0;
-  const sponsorCertificatePath = req.file?.path || null;
+  const sponsorCertificatePath = getPublicUploadPath(req.file);
   const isCompleteForm = Boolean(
     studentName &&
     confirmationName &&
@@ -2752,8 +2766,8 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const phoneRegex = /^\d{3}[-.\s]?\d{3}[-.\s]?\d{4}$/;
-    const baptismCert = req.files?.baptism_certificate?.[0]?.path || null;
-    const communionCert = req.files?.first_communion_certificate?.[0]?.path || null;
+    const baptismCert = getPublicUploadPath(req.files?.baptism_certificate?.[0]);
+    const communionCert = getPublicUploadPath(req.files?.first_communion_certificate?.[0]);
 
     const totalChildren = Number.parseInt(req.body.total_children, 10);
     const isWizardSubmission = Number.isInteger(totalChildren) && totalChildren > 0;
@@ -3300,7 +3314,11 @@ app.post('/registration/adult/:program', requireAuth, asyncHandler(async (req, r
   const ADULT_PROGRAMS = getAdultPrograms(res.locals.t);
   const program = ADULT_PROGRAMS[req.params.program];
   if (!program) return res.status(404).send('Unknown program.');
-  const orNull = (value) => (value === undefined || value === '' ? null : value);
+  const orNull = (value) => {
+    if (typeof value !== 'string') return null;
+    const trimmed = value.trim();
+    return trimmed ? trimmed : null;
+  };
   const city = typeof req.body.city === 'string' ? req.body.city.trim() : '';
   const stateZip = [req.body.state, req.body.zip]
     .filter((value) => typeof value === 'string' && value.trim())
@@ -3370,7 +3388,7 @@ app.post('/registration/adult/:program', requireAuth, asyncHandler(async (req, r
         dob = ?, baptized = ?, baptism_church = ?, spouse_name = ?, godparent_for = ?, comments = ?, class_schedule_id = ?, class_date = ?
       WHERE id = ? AND (user_id = ? OR ? = 1) AND program_type = ?
     `).run(
-      req.body.full_name,
+      orNull(req.body.full_name),
       orNull(req.body.email),
       orNull(req.body.phone),
       orNull(req.body.address),
@@ -3397,7 +3415,7 @@ app.post('/registration/adult/:program', requireAuth, asyncHandler(async (req, r
   `).run(
     req.user.id,
     program.key,
-    req.body.full_name,
+    orNull(req.body.full_name),
     orNull(req.body.email),
     orNull(req.body.phone),
     orNull(req.body.address),
