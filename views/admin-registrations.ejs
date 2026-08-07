@@ -26,6 +26,7 @@
   <% const availableCcdGradeMeanings = (typeof ccdGradeMeanings !== 'undefined' && ccdGradeMeanings) ? ccdGradeMeanings : {}; %>
   <% const activeGradeFilter = typeof gradeFilter !== 'undefined' ? gradeFilter : ''; %>
   <% const tabBadgeStyle = "background:var(--surface);color:var(--navy-soft);font-size:.7rem;border-radius:2rem;padding:.3em .8em;font-weight:700;border:1px solid var(--border)"; %>
+  <% const uploadHref = (filePath) => filePath ? `/${String(filePath).replace(/\\/g, '/')}` : ''; %>
 
   <ul class="nav nav-tabs mb-4" id="registrationsTabs" role="tablist">
     <li class="nav-item" role="presentation">
@@ -100,9 +101,9 @@
                   <td style="font-size:.85rem"><%= r.parent_name || r.primary_contact_email || '—' %></td>
                   <td><strong>$<%= (r.registration_fee||0)+(r.sacramental_fee||0)+(r.late_fee||0) %></strong></td>
                   <td style="font-size:.85rem">
-                    <% if (r.baptism_certificate_path) { %><a href="/<%= r.baptism_certificate_path %>"><%= t('baptism') %></a><% } %>
+                    <% if (r.baptism_certificate_path) { %><a href="<%= uploadHref(r.baptism_certificate_path) %>" target="_blank" rel="noopener"><%= t('baptism') %></a><% } %>
                     <% if (r.baptism_certificate_path && r.first_communion_certificate_path) { %> &middot; <% } %>
-                    <% if (r.first_communion_certificate_path) { %><a href="/<%= r.first_communion_certificate_path %>"><%= t('communion') %></a><% } %>
+                    <% if (r.first_communion_certificate_path) { %><a href="<%= uploadHref(r.first_communion_certificate_path) %>" target="_blank" rel="noopener"><%= t('communion') %></a><% } %>
                     <% if (!r.baptism_certificate_path && !r.first_communion_certificate_path) { %><span style="color:var(--muted)">&mdash;</span><% } %>
                   </td>
                   <td>
@@ -142,6 +143,7 @@
               <thead>
                 <tr>
                   <th><%= t('student') %></th>
+                  <th><%= t('certificates') %></th>
                   <th><%= t('primary_contact') %></th>
                   <th><%= t('submitted_col') %></th>
                   <th><%= t('archived_col') %></th>
@@ -152,6 +154,12 @@
               <% archivedStudentRegs.forEach(r => { %>
                 <tr>
                   <td style="font-weight:600"><%= r.student_full_name %></td>
+                  <td style="font-size:.85rem">
+                    <% if (r.baptism_certificate_path) { %><a href="<%= uploadHref(r.baptism_certificate_path) %>" target="_blank" rel="noopener"><%= t('baptism') %></a><% } %>
+                    <% if (r.baptism_certificate_path && r.first_communion_certificate_path) { %> &middot; <% } %>
+                    <% if (r.first_communion_certificate_path) { %><a href="<%= uploadHref(r.first_communion_certificate_path) %>" target="_blank" rel="noopener"><%= t('communion') %></a><% } %>
+                    <% if (!r.baptism_certificate_path && !r.first_communion_certificate_path) { %><span style="color:var(--muted)">&mdash;</span><% } %>
+                  </td>
                   <td style="font-size:.85rem"><%= r.parent_name || r.primary_contact_email || '—' %></td>
                   <td style="font-size:.8rem;color:var(--muted)"><%= r.created_at ? (typeof r.created_at === 'string' ? r.created_at.slice(0, 16).replace('T', ' ') : r.created_at.toISOString().slice(0, 16).replace('T', ' ')) : '—' %></td>
                   <td style="font-size:.8rem;color:var(--muted)"><%= r.archived_at ? (typeof r.archived_at === 'string' ? r.archived_at.slice(0, 16).replace('T', ' ') : r.archived_at.toISOString().slice(0, 16).replace('T', ' ')) : '' %></td>
@@ -337,7 +345,7 @@
                     <% if (Number(r.is_st_matthew_parishioner)) { %>
                       <span><%= t('st_matthew_parishioner') %></span>
                     <% } else if (r.sponsor_certificate_path) { %>
-                      <a href="/<%= r.sponsor_certificate_path %>"><%= t('view_file') %></a>
+                      <a href="<%= uploadHref(r.sponsor_certificate_path) %>" target="_blank" rel="noopener"><%= t('view_file') %></a>
                     <% } else { %>
                       <span style="color:var(--muted)">&mdash;</span>
                     <% } %>

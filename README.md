@@ -37,6 +37,14 @@ Web app for **Saint Matthew Catholic Church Faith Formation**.
    DB_PASSWORD=your-password
    DB_NAME=ccd_class_manager
    ```
+   In production, set `UPLOAD_DIR` to a persistent directory outside the deployed build folder so submitted files survive redeploys:
+   ```env
+   UPLOAD_DIR=/home/your-account/faithformation-uploads
+   ```
+   To recover files uploaded before `UPLOAD_DIR` was configured, run this once on the production server:
+   ```bash
+   node scripts/copy-legacy-uploads.js
+   ```
 4. Run:
    ```bash
    npm start

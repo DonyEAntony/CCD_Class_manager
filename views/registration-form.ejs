@@ -526,10 +526,22 @@
                 <div class="col-md-6">
                   <label class="form-label"><%= t('baptism_required') %></label>
                   <input class="form-control" type="file" name="baptism_certificate" accept=".pdf,image/*">
+                  <% if (studentSource && studentSource.baptism_certificate_path) { %>
+                    <div class="form-text">
+                      <%= t('sponsor_form_current_file') %>
+                      <a href="/<%= String(studentSource.baptism_certificate_path).replace(/\\/g, '/') %>" target="_blank" rel="noopener"><%= t('view_file') %></a>
+                    </div>
+                  <% } %>
                 </div>
                 <div class="col-md-6">
                   <label class="form-label"><%= t('communion_required') %></label>
                   <input class="form-control" type="file" name="first_communion_certificate" accept=".pdf,image/*">
+                  <% if (studentSource && studentSource.first_communion_certificate_path) { %>
+                    <div class="form-text">
+                      <%= t('sponsor_form_current_file') %>
+                      <a href="/<%= String(studentSource.first_communion_certificate_path).replace(/\\/g, '/') %>" target="_blank" rel="noopener"><%= t('view_file') %></a>
+                    </div>
+                  <% } %>
                 </div>
               </div>
             </div>
