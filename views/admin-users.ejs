@@ -49,6 +49,30 @@
   <div class="tab-content" id="adminUsersTabsContent">
   <div class="tab-pane fade show active" id="users-pane" role="tabpanel" aria-labelledby="users-tab">
 
+  <div class="page-card mb-4">
+    <div class="card-header"><h2 class="h5 mb-0"><%= t('invite_catechist_header') %></h2></div>
+    <div class="card-body">
+      <p class="text-muted" style="font-size:.85rem"><%= t('invite_catechist_desc') %></p>
+      <form method="post" action="/admin/users/catechists" class="row gy-2 gx-2 align-items-end">
+        <div class="col-12 col-md-3">
+          <label class="form-label" for="invite-full-name"><%= t('invite_full_name_label') %></label>
+          <input class="form-control" type="text" id="invite-full-name" name="full_name" required>
+        </div>
+        <div class="col-12 col-md-3">
+          <label class="form-label" for="invite-email"><%= t('invite_email_label') %></label>
+          <input class="form-control" type="email" id="invite-email" name="email" required>
+        </div>
+        <div class="col-12 col-md-3">
+          <label class="form-label" for="invite-phone"><%= t('invite_phone_label') %></label>
+          <input class="form-control" type="text" id="invite-phone" name="phone" placeholder="555-123-4567">
+        </div>
+        <div class="col-12 col-md-3">
+          <button class="btn btn-primary w-100" type="submit"><%= t('invite_catechist_submit') %></button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <div class="page-card">
     <div class="card-header d-flex flex-wrap align-items-center gap-2">
       <label class="form-label mb-0" for="role-filter"><%= t('filter_by_user_type') %></label>

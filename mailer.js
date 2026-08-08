@@ -224,7 +224,69 @@ const sendPasswordResetEmail = async ({ to, resetUrl, fullName }) => {
   return { delivered: true, messageId: info.messageId, response: info.response };
 };
 
+const buildCatechistInvitationEmailContent = ({ activationUrl, fullName }) => ({
+  subject: 'You are invited as a Catechist — Saint Matthew CCD',
+  text: [
+    `Hello ${fullName || ''}`.trim() + ',',
+    '',
+    'An administrator has created a Catechist account for you at Saint Matthew Faith Formation.',
+    'Set your password to activate your account. This link expires in 7 days.',
+    activationUrl,
+    '',
+    'If you were not expecting this invitation, you can ignore this message.',
+  ].join('\n'),
+  html: `
+    <p>Hello ${fullName || ''},</p>
+    <p>An administrator has created a Catechist account for you at Saint Matthew Faith Formation.</p>
+    <p>Set your password to activate your account. This link expires in 7 days.</p>
+    <p><a href="${activationUrl}">Activate your account</a></p>
+    <p>If you were not expecting this invitation, you can ignore this message.</p>
+  `,
+});
+
+const sendCatechistInvitationEmail = async ({ to, activationUrl, fullName }) => {
+  const transporter = createTransporter();
+  if (!transporter) {
+    console.warn('[mail] Catechist invitation email skipped: SMTP config incomplete', {
+      host: smtpLogConfig.host,
+      port: smtpLogConfig.port,
+      secure: smtpLogConfig.secure,
+      hasUser: smtpLogConfig.hasUser,
+      hasPass: smtpLogConfig.hasPass,
+      from: smtpLogConfig.from,
+    });
+    return { delivered: false };
+  }
+
+  console.info('[mail] Sending catechist invitation email', {
+    to,
+    host: smtpLogConfig.host,
+    port: smtpLogConfig.port,
+    secure: smtpLogConfig.secure,
+    from: smtpLogConfig.from,
+  });
+
+  const content = buildCatechistInvitationEmailContent({ activationUrl, fullName });
+  const info = await transporter.sendMail({
+    from: resolvedFrom,
+    to,
+    subject: content.subject,
+    text: content.text,
+    html: content.html,
+  });
+
+  console.info('[mail] Catechist invitation email accepted by SMTP server', {
+    to,
+    messageId: info.messageId,
+    response: info.response,
+    previewPath: activationUrl ? '/reset-password?token=[redacted]' : null,
+  });
+
+  return { delivered: true, messageId: info.messageId, response: info.response };
+};
+
 module.exports = {
   hasSmtpConfig, sendVerificationEmail, resolvedFrom, smtpLogConfig, verifyMailConfiguration, buildVerificationEmailContent,
   sendPasswordResetEmail, buildPasswordResetEmailContent, sendClassMessageEmail, buildClassMessageEmailContent,
+  sendCatechistInvitationEmail, buildCatechistInvitationEmailContent,
 };
