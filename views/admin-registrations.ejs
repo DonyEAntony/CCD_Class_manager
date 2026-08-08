@@ -89,6 +89,7 @@
                   <th><%= t('primary_contact') %></th>
                   <th><%= t('total_fees') %></th>
                   <th><%= t('certificates') %></th>
+                  <th><%= t('child_verification_col_header') %></th>
                   <th><%= t('status') %></th>
                   <th><%= t('submitted_col') %></th>
                   <th><%= t('actions') %></th>
@@ -106,6 +107,26 @@
                     <% if (r.baptism_certificate_path && r.first_communion_certificate_path) { %> &middot; <% } %>
                     <% if (r.first_communion_certificate_path) { %><a href="<%= uploadHref(r.first_communion_certificate_path) %>" target="_blank" rel="noopener"><%= uploadFileName(r.first_communion_certificate_path) || t('communion') %></a><% } %>
                     <% if (!r.baptism_certificate_path && !r.first_communion_certificate_path) { %><span style="color:var(--muted)">&mdash;</span><% } %>
+                  </td>
+                  <td style="font-size:.78rem;min-width:180px">
+                    <% ['certificates_verified', 'tuition_paid', 'parent_contacted'].forEach((field) => { %>
+                      <div class="form-check verification-check-row" style="margin-bottom:2px">
+                        <input
+                          type="checkbox"
+                          class="form-check-input verification-checkbox"
+                          data-registration-id="<%= r.id %>"
+                          data-field="<%= field %>"
+                          id="verify-<%= field %>-<%= r.id %>"
+                          <%= r[field] ? 'checked' : '' %>
+                        >
+                        <label class="form-check-label" for="verify-<%= field %>-<%= r.id %>"><%= t(field + '_label') %></label>
+                        <div class="verification-meta" style="color:var(--muted)">
+                          <% if (r[field] && r[field + '_by'] && verifierLookup && verifierLookup[r[field + '_by']]) { %>
+                            <%= t('verified_by_on').replace('%s', verifierLookup[r[field + '_by']]).replace('%s', (typeof r[field + '_at'] === 'string' ? r[field + '_at'].slice(0, 16).replace('T', ' ') : (r[field + '_at'] ? r[field + '_at'].toISOString().slice(0, 16).replace('T', ' ') : ''))) %>
+                          <% } %>
+                        </div>
+                      </div>
+                    <% }) %>
                   </td>
                   <td>
                     <span class="badge" style="<%= tabBadgeStyle %>">
@@ -404,5 +425,41 @@
   }());
 </script>
 <% } %>
+<script>
+  (function () {
+    var verifiedByOnTemplate = <%- JSON.stringify(t('verified_by_on')) %>;
+    document.querySelectorAll('.verification-checkbox').forEach(function (checkbox) {
+      checkbox.addEventListener('change', function () {
+        var registrationId = checkbox.dataset.registrationId;
+        var field = checkbox.dataset.field;
+        var checked = checkbox.checked;
+        checkbox.disabled = true;
+        fetch('/admin/registrations/children/' + registrationId + '/verification', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ field: field, checked: checked }),
+        })
+          .then(function (res) { return res.json(); })
+          .then(function (data) {
+            checkbox.disabled = false;
+            if (!data.ok) {
+              checkbox.checked = !checked;
+              return;
+            }
+            var metaEl = checkbox.closest('.verification-check-row').querySelector('.verification-meta');
+            if (data.checked && data.verifierName && data.at) {
+              metaEl.textContent = verifiedByOnTemplate.replace('%s', data.verifierName).replace('%s', String(data.at).slice(0, 16).replace('T', ' '));
+            } else {
+              metaEl.textContent = '';
+            }
+          })
+          .catch(function () {
+            checkbox.disabled = false;
+            checkbox.checked = !checked;
+          });
+      });
+    });
+  }());
+</script>
 </body>
 </html>

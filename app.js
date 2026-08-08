@@ -477,6 +477,11 @@ const translations = {
     certificate_provided: 'Certificate provided',
     missing_certificate: 'Missing certificate',
     verify: 'Verify',
+    certificates_verified_label: 'Certificates verified',
+    tuition_paid_label: 'Tuition paid',
+    parent_contacted_label: 'Parent contacted',
+    child_verification_col_header: 'Verification',
+    verified_by_on: 'by %s on %s',
     confirm_delete_sponsor_form: 'Delete this sponsor confirmation form? This is helpful for removing test entries.',
     total_fees_due_all_active: 'Total Fees Due — all active registrations',
     registration_fee_col: 'Registration',
@@ -1066,6 +1071,11 @@ const translations = {
     certificate_provided: 'Certificado proporcionado',
     missing_certificate: 'Certificado faltante',
     verify: 'Verificar',
+    certificates_verified_label: 'Certificados verificados',
+    tuition_paid_label: 'Matrícula pagada',
+    parent_contacted_label: 'Padre contactado',
+    child_verification_col_header: 'Verificación',
+    verified_by_on: 'por %s el %s',
     confirm_delete_sponsor_form: '¿Eliminar este formulario de confirmación de padrino? Esto es útil para eliminar entradas de prueba.',
     total_fees_due_all_active: 'Total de Cuotas Adeudadas — todas las inscripciones activas',
     registration_fee_col: 'Inscripción',
@@ -3457,6 +3467,50 @@ app.post('/admin/registrations/children/:id/delete', requireAuth, requireRole('a
   return res.redirect('/admin/registrations');
 }));
 
+const VERIFICATION_FIELDS = new Set(['certificates_verified', 'tuition_paid', 'parent_contacted']);
+
+app.post('/admin/registrations/children/:id/verification', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const registrationId = Number.parseInt(req.params.id, 10);
+  const field = req.body.field;
+  const checked = req.body.checked === 'true' || req.body.checked === true;
+
+  if (!Number.isInteger(registrationId) || !VERIFICATION_FIELDS.has(field)) {
+    return res.status(400).json({ ok: false, error: 'Invalid request.' });
+  }
+
+  const registration = await db.prepare('SELECT id FROM student_registrations WHERE id = ?').get(registrationId);
+  if (!registration) {
+    return res.status(404).json({ ok: false, error: 'Registration not found.' });
+  }
+
+  const atCol = `${field}_at`;
+  const byCol = `${field}_by`;
+
+  if (checked) {
+    await db.prepare(
+      `UPDATE student_registrations SET \`${field}\` = 1, \`${atCol}\` = CURRENT_TIMESTAMP, \`${byCol}\` = ? WHERE id = ?`
+    ).run(req.user.id, registrationId);
+  } else {
+    await db.prepare(
+      `UPDATE student_registrations SET \`${field}\` = 0, \`${atCol}\` = NULL, \`${byCol}\` = NULL WHERE id = ?`
+    ).run(registrationId);
+  }
+
+  const updated = await db.prepare(
+    `SELECT \`${field}\` AS checked, \`${atCol}\` AS at, \`${byCol}\` AS byId FROM student_registrations WHERE id = ?`
+  ).get(registrationId);
+
+  const verifierName = updated.byId ? (req.user.full_name || req.user.email) : null;
+
+  return res.json({
+    ok: true,
+    field,
+    checked: !!updated.checked,
+    at: updated.at,
+    verifierName,
+  });
+}));
+
 app.get('/admin/registrations', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   const faithFormationSettings = await getFaithFormationSettings();
 
@@ -3477,10 +3531,25 @@ app.get('/admin/registrations', requireAuth, requireRole('admin'), asyncHandler(
   const adultRegs = await db.prepare('SELECT * FROM adult_registrations ORDER BY created_at DESC').all();
   const sponsorRegs = await db.prepare('SELECT * FROM sponsor_confirmations ORDER BY created_at DESC').all();
 
+  const verifierUserIds = new Set();
+  [...studentRegs, ...archivedStudentRegs].forEach((reg) => {
+    ['certificates_verified_by', 'tuition_paid_by', 'parent_contacted_by'].forEach((col) => {
+      if (reg[col]) verifierUserIds.add(Number(reg[col]));
+    });
+  });
+  let verifierLookup = {};
+  if (verifierUserIds.size > 0) {
+    const ids = [...verifierUserIds];
+    const verifierRows = await db.prepare(
+      `SELECT id, full_name, email FROM users WHERE id IN (${ids.map(() => '?').join(',')})`
+    ).all(...ids);
+    verifierLookup = Object.fromEntries(verifierRows.map((row) => [row.id, row.full_name || row.email]));
+  }
+
   const ADULT_PROGRAMS = getAdultPrograms(res.locals.t);
   res.render('admin-registrations', {
     studentRegs, archivedStudentRegs, familyRegs, adultRegs, sponsorRegs, ADULT_PROGRAMS, faithFormationSettings,
-    resolveCcdGrade, ccdGradeMeanings: CCD_GRADE_MEANINGS, gradeFilter,
+    resolveCcdGrade, ccdGradeMeanings: CCD_GRADE_MEANINGS, gradeFilter, verifierLookup,
   });
 }));
 
