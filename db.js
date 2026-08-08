@@ -500,6 +500,15 @@ const init = async () => {
     await ensureColumn('student_registrations', 'non_sacramental_grade', 'VARCHAR(10) NULL');
     await ensureColumn('student_registrations', 'not_baptized', 'TINYINT(1) NOT NULL DEFAULT 0');
     await ensureColumn('student_registrations', 'archived_at', 'DATETIME NULL');
+    await ensureColumn('student_registrations', 'certificates_verified', 'TINYINT(1) NOT NULL DEFAULT 0');
+    await ensureColumn('student_registrations', 'certificates_verified_at', 'DATETIME NULL');
+    await ensureColumn('student_registrations', 'certificates_verified_by', 'INT NULL');
+    await ensureColumn('student_registrations', 'tuition_paid', 'TINYINT(1) NOT NULL DEFAULT 0');
+    await ensureColumn('student_registrations', 'tuition_paid_at', 'DATETIME NULL');
+    await ensureColumn('student_registrations', 'tuition_paid_by', 'INT NULL');
+    await ensureColumn('student_registrations', 'parent_contacted', 'TINYINT(1) NOT NULL DEFAULT 0');
+    await ensureColumn('student_registrations', 'parent_contacted_at', 'DATETIME NULL');
+    await ensureColumn('student_registrations', 'parent_contacted_by', 'INT NULL');
     await ensureColumn('sponsor_confirmations', 'is_st_matthew_parishioner', 'TINYINT(1) NOT NULL DEFAULT 0');
     await ensureColumn('sponsor_confirmations', 'sponsor_certificate_path', 'TEXT');
     await ensureColumn('sponsor_confirmations', 'admin_verified', 'TINYINT(1) NOT NULL DEFAULT 0');
