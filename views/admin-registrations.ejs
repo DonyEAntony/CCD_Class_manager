@@ -26,8 +26,9 @@
   <% const availableCcdGradeMeanings = (typeof ccdGradeMeanings !== 'undefined' && ccdGradeMeanings) ? ccdGradeMeanings : {}; %>
   <% const activeGradeFilter = typeof gradeFilter !== 'undefined' ? gradeFilter : ''; %>
   <% const tabBadgeStyle = "background:var(--surface);color:var(--navy-soft);font-size:.7rem;border-radius:2rem;padding:.3em .8em;font-weight:700;border:1px solid var(--border)"; %>
-  <% const uploadHref = (filePath) => filePath ? `/${String(filePath).replace(/\\/g, '/')}` : ''; %>
-  <% const uploadFileName = (filePath) => filePath ? String(filePath).replace(/\\/g, '/').split('/').pop() : ''; %>
+  <% const uploadHrefForView = typeof uploadHref === 'function' ? uploadHref : ((filePath) => filePath ? `/${String(filePath).replace(/\\/g, '/')}` : ''); %>
+  <% const uploadFileNameForView = typeof uploadFileName === 'function' ? uploadFileName : ((filePath) => filePath ? String(filePath).replace(/\\/g, '/').split('/').pop() : ''); %>
+  <% const uploadPathsForView = typeof certificateUploadPaths === 'function' ? certificateUploadPaths : ((value) => value ? [value] : []); %>
 
   <ul class="nav nav-tabs mb-4" id="registrationsTabs" role="tablist">
     <li class="nav-item" role="presentation">
@@ -103,10 +104,18 @@
                   <td style="font-size:.85rem"><%= r.parent_name || r.primary_contact_email || '—' %></td>
                   <td><strong>$<%= (r.registration_fee||0)+(r.sacramental_fee||0)+(r.late_fee||0) %></strong></td>
                   <td style="font-size:.85rem">
-                    <% if (r.baptism_certificate_path) { %><a href="<%= uploadHref(r.baptism_certificate_path) %>" target="_blank" rel="noopener"><%= uploadFileName(r.baptism_certificate_path) || t('baptism') %></a><% } %>
-                    <% if (r.baptism_certificate_path && r.first_communion_certificate_path) { %> &middot; <% } %>
-                    <% if (r.first_communion_certificate_path) { %><a href="<%= uploadHref(r.first_communion_certificate_path) %>" target="_blank" rel="noopener"><%= uploadFileName(r.first_communion_certificate_path) || t('communion') %></a><% } %>
-                    <% if (!r.baptism_certificate_path && !r.first_communion_certificate_path) { %><span style="color:var(--muted)">&mdash;</span><% } %>
+                    <% const baptismPaths = uploadPathsForView(r.baptism_certificate_path); %>
+                    <% const communionPaths = uploadPathsForView(r.first_communion_certificate_path); %>
+                    <% baptismPaths.forEach((filePath, index) => { %>
+                      <% if (index > 0) { %> &middot; <% } %>
+                      <a href="<%= uploadHrefForView(filePath) %>" target="_blank" rel="noopener"><%= uploadFileNameForView(filePath) || t('baptism') %></a>
+                    <% }) %>
+                    <% if (baptismPaths.length && communionPaths.length) { %> &middot; <% } %>
+                    <% communionPaths.forEach((filePath, index) => { %>
+                      <% if (index > 0) { %> &middot; <% } %>
+                      <a href="<%= uploadHrefForView(filePath) %>" target="_blank" rel="noopener"><%= uploadFileNameForView(filePath) || t('communion') %></a>
+                    <% }) %>
+                    <% if (!baptismPaths.length && !communionPaths.length) { %><span style="color:var(--muted)">&mdash;</span><% } %>
                   </td>
                   <td style="font-size:.78rem;min-width:180px">
                     <% ['certificates_verified', 'tuition_paid', 'parent_contacted'].forEach((field) => { %>
@@ -177,10 +186,18 @@
                 <tr>
                   <td style="font-weight:600"><%= r.student_full_name %></td>
                   <td style="font-size:.85rem">
-                    <% if (r.baptism_certificate_path) { %><a href="<%= uploadHref(r.baptism_certificate_path) %>" target="_blank" rel="noopener"><%= uploadFileName(r.baptism_certificate_path) || t('baptism') %></a><% } %>
-                    <% if (r.baptism_certificate_path && r.first_communion_certificate_path) { %> &middot; <% } %>
-                    <% if (r.first_communion_certificate_path) { %><a href="<%= uploadHref(r.first_communion_certificate_path) %>" target="_blank" rel="noopener"><%= uploadFileName(r.first_communion_certificate_path) || t('communion') %></a><% } %>
-                    <% if (!r.baptism_certificate_path && !r.first_communion_certificate_path) { %><span style="color:var(--muted)">&mdash;</span><% } %>
+                    <% const baptismPaths = uploadPathsForView(r.baptism_certificate_path); %>
+                    <% const communionPaths = uploadPathsForView(r.first_communion_certificate_path); %>
+                    <% baptismPaths.forEach((filePath, index) => { %>
+                      <% if (index > 0) { %> &middot; <% } %>
+                      <a href="<%= uploadHrefForView(filePath) %>" target="_blank" rel="noopener"><%= uploadFileNameForView(filePath) || t('baptism') %></a>
+                    <% }) %>
+                    <% if (baptismPaths.length && communionPaths.length) { %> &middot; <% } %>
+                    <% communionPaths.forEach((filePath, index) => { %>
+                      <% if (index > 0) { %> &middot; <% } %>
+                      <a href="<%= uploadHrefForView(filePath) %>" target="_blank" rel="noopener"><%= uploadFileNameForView(filePath) || t('communion') %></a>
+                    <% }) %>
+                    <% if (!baptismPaths.length && !communionPaths.length) { %><span style="color:var(--muted)">&mdash;</span><% } %>
                   </td>
                   <td style="font-size:.85rem"><%= r.parent_name || r.primary_contact_email || '—' %></td>
                   <td style="font-size:.8rem;color:var(--muted)"><%= r.created_at ? (typeof r.created_at === 'string' ? r.created_at.slice(0, 16).replace('T', ' ') : r.created_at.toISOString().slice(0, 16).replace('T', ' ')) : '—' %></td>

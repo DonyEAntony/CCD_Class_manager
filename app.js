@@ -47,6 +47,11 @@ const translations = {
     logout: 'Logout',
     open_dashboard: 'Open Dashboard',
     dashboard: 'Dashboard',
+    my_account: 'My Account',
+    account_profile: 'Account Profile',
+    account_profile_subtitle: 'Your sign-in and profile information.',
+    profile_information: 'Profile Information',
+    account_security: 'Account Security',
     signed_in_as: 'Signed in as',
     new_registration: 'New Registration',
     calendar: 'Calendar',
@@ -64,6 +69,14 @@ const translations = {
     user_administration: 'User Administration',
     back_to_dashboard: 'Back to Dashboard',
     email: 'Email',
+    phone: 'Phone',
+    account_status: 'Account Status',
+    active_status: 'Active',
+    inactive_status: 'Inactive',
+    verified_status: 'Verified',
+    not_verified_status: 'Not verified',
+    sign_in_method: 'Sign-in Method',
+    member_since: 'Member Since',
     role: 'Role',
     provider: 'Provider',
     update_role: 'Update Role',
@@ -151,6 +164,9 @@ const translations = {
     first_name: 'First Name',
     last_name: 'Last Name',
     upload_scans: 'Upload Certificate Scans',
+    multiple_files_hint: 'Select one or more files if the certificate has multiple pages.',
+    add_file: 'Add file',
+    remove_file: 'Remove file',
     baptism_required: 'Baptism Certificate (required if first year)',
     communion_required: 'First Holy Communion Certificate (required for 3rd grade+)',
     fee_notice: 'Fees: $150 one child / $200 family; sacramental fee $25 for second grade/SS2, $50 for second-year Confirmation.',
@@ -641,6 +657,11 @@ const translations = {
     logout: 'Cerrar sesión',
     open_dashboard: 'Abrir Panel',
     dashboard: 'Panel',
+    my_account: 'Mi Cuenta',
+    account_profile: 'Perfil de Cuenta',
+    account_profile_subtitle: 'Su informacion de inicio de sesion y perfil.',
+    profile_information: 'Informacion del Perfil',
+    account_security: 'Seguridad de la Cuenta',
     signed_in_as: 'Conectado como',
     new_registration: 'Nueva Inscripción',
     calendar: 'Calendario',
@@ -658,6 +679,14 @@ const translations = {
     user_administration: 'Administración de Usuarios',
     back_to_dashboard: 'Volver al Panel',
     email: 'Correo Electrónico',
+    phone: 'Telefono',
+    account_status: 'Estado de la Cuenta',
+    active_status: 'Activa',
+    inactive_status: 'Inactiva',
+    verified_status: 'Verificada',
+    not_verified_status: 'No verificada',
+    sign_in_method: 'Metodo de Inicio',
+    member_since: 'Miembro Desde',
     role: 'Rol',
     provider: 'Proveedor',
     update_role: 'Actualizar Rol',
@@ -745,6 +774,9 @@ const translations = {
     first_name: 'Nombre',
     last_name: 'Apellido',
     upload_scans: 'Subir Escaneos de Certificados',
+    multiple_files_hint: 'Seleccione uno o mas archivos si el certificado tiene varias paginas.',
+    add_file: 'Agregar archivo',
+    remove_file: 'Quitar archivo',
     baptism_required: 'Certificado de Bautismo (requerido si es el primer año)',
     communion_required: 'Certificado de Primera Comunión (requerido para 3er grado en adelante)',
     fee_notice: 'Cuotas: $150 por un hijo / $200 por familia; cuota sacramental de $25 para segundo grado/SS2, $50 para segundo año de Confirmación.',
@@ -1640,6 +1672,54 @@ const uploadDir = path.resolve(process.env.UPLOAD_DIR || path.join(__dirname, 'u
 fs.mkdirSync(uploadDir, { recursive: true });
 
 const getPublicUploadPath = (file) => (file?.filename ? path.posix.join('uploads', file.filename) : null);
+const getPublicUploadPaths = (files) => (Array.isArray(files) ? files.map(getPublicUploadPath).filter(Boolean) : []);
+const parseUploadPaths = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.map((item) => `${item || ''}`.trim()).filter(Boolean);
+
+  const raw = `${value}`.trim();
+  if (!raw) return [];
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed.map((item) => `${item || ''}`.trim()).filter(Boolean);
+    }
+  } catch (_error) {
+    // Older registrations stored a single upload path in this field.
+  }
+
+  return [raw];
+};
+const serializeUploadPaths = (paths) => {
+  const cleanPaths = [...new Set((Array.isArray(paths) ? paths : []).map((item) => `${item || ''}`.trim()).filter(Boolean))];
+  if (!cleanPaths.length) return null;
+  return cleanPaths.length === 1 ? cleanPaths[0] : JSON.stringify(cleanPaths);
+};
+const mergeUploadPaths = (existingValue, newPaths) => {
+  const cleanNewPaths = Array.isArray(newPaths) ? newPaths.filter(Boolean) : [];
+  if (!cleanNewPaths.length) return null;
+  return serializeUploadPaths([...parseUploadPaths(existingValue), ...cleanNewPaths]);
+};
+const uploadHref = (filePath) => (filePath ? `/${String(filePath).replace(/\\/g, '/')}` : '');
+const uploadFileName = (filePath) => (filePath ? String(filePath).replace(/\\/g, '/').split('/').pop() : '');
+const CERTIFICATE_UPLOAD_FIELD_NAMES = new Set([
+  'baptism_certificate',
+  'baptism_certificate[]',
+  'first_communion_certificate',
+  'first_communion_certificate[]',
+]);
+const normalizeCertificateUploads = (req, _res, next) => {
+  const filesByField = {};
+  (Array.isArray(req.files) ? req.files : []).forEach((file) => {
+    if (!CERTIFICATE_UPLOAD_FIELD_NAMES.has(file.fieldname)) return;
+    const normalizedFieldName = file.fieldname.replace(/\[\]$/, '');
+    if (!filesByField[normalizedFieldName]) filesByField[normalizedFieldName] = [];
+    filesByField[normalizedFieldName].push(file);
+  });
+  req.files = filesByField;
+  next();
+};
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
@@ -1649,6 +1729,15 @@ const storage = multer.diskStorage({
   },
 });
 const upload = multer({ storage });
+const certificateUpload = multer({
+  storage,
+  fileFilter: (_req, file, cb) => {
+    cb(null, CERTIFICATE_UPLOAD_FIELD_NAMES.has(file.fieldname));
+  },
+  limits: {
+    files: 30,
+  },
+});
 const scanUpload = multer({
   storage: multer.memoryStorage(),
   limits: {
@@ -1662,6 +1751,9 @@ app.locals.t = (key) => translations.en[key] || humanizeTranslationKey(key);
 app.locals.user = null;
 app.locals.success = [];
 app.locals.error = [];
+app.locals.certificateUploadPaths = parseUploadPaths;
+app.locals.uploadHref = uploadHref;
+app.locals.uploadFileName = uploadFileName;
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(uploadDir));
@@ -2312,6 +2404,18 @@ app.get('/logout', (req, res, next) => {
   });
 });
 
+app.get('/account', requireAuth, asyncHandler(async (req, res) => {
+  const account = await db.prepare(`
+    SELECT id, email, role, provider, full_name, first_name, last_name, phone,
+           is_active, email_verified_at, created_at
+    FROM users
+    WHERE id = ?
+  `).get(req.user.id);
+  if (!account) return res.status(404).send('Account not found.');
+
+  res.render('account-profile', { account });
+}));
+
 app.get('/account/password', requireAuth, (req, res) => res.render('change-password'));
 
 app.post('/account/password', requireAuth, asyncHandler(async (req, res) => {
@@ -2776,8 +2880,8 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const phoneRegex = /^\d{3}[-.\s]?\d{3}[-.\s]?\d{4}$/;
-    const baptismCert = getPublicUploadPath(req.files?.baptism_certificate?.[0]);
-    const communionCert = getPublicUploadPath(req.files?.first_communion_certificate?.[0]);
+    const baptismCertFiles = getPublicUploadPaths(req.files?.baptism_certificate);
+    const communionCertFiles = getPublicUploadPaths(req.files?.first_communion_certificate);
 
     const totalChildren = Number.parseInt(req.body.total_children, 10);
     const isWizardSubmission = Number.isInteger(totalChildren) && totalChildren > 0;
@@ -2820,6 +2924,19 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
 
       const rowRegistrationFee = studentIndex === 1 ? fees.registrationFee : 0;
       const existingRowId = req.body.registration_id ? Number(req.body.registration_id) : null;
+      const existingRowForUploads = existingRowId
+        ? await db.prepare(`
+            SELECT baptism_certificate_path, first_communion_certificate_path
+            FROM student_registrations
+            WHERE id = ? AND user_id = ?
+          `).get(existingRowId, req.user.id)
+        : null;
+      const baptismCert = existingRowId
+        ? mergeUploadPaths(existingRowForUploads?.baptism_certificate_path, baptismCertFiles)
+        : serializeUploadPaths(baptismCertFiles);
+      const communionCert = existingRowId
+        ? mergeUploadPaths(existingRowForUploads?.first_communion_certificate_path, communionCertFiles)
+        : serializeUploadPaths(communionCertFiles);
 
       let thisRowId;
       if (existingRowId) {
@@ -2943,13 +3060,15 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
     }
 
     const existingReg = await db.prepare(
-      'SELECT id, status FROM student_registrations WHERE id = ? AND (user_id = ? OR ? = 1)'
+      'SELECT id, status, baptism_certificate_path, first_communion_certificate_path FROM student_registrations WHERE id = ? AND (user_id = ? OR ? = 1)'
     ).get(req.body.registration_id, req.user.id, isAdmin ? 1 : 0);
     if (!existingReg) {
       return res.status(404).send('Registration not found.');
     }
 
     const nextStatus = isAdmin && requestedStatus ? requestedStatus : existingReg.status;
+    const baptismCert = mergeUploadPaths(existingReg.baptism_certificate_path, baptismCertFiles);
+    const communionCert = mergeUploadPaths(existingReg.first_communion_certificate_path, communionCertFiles);
     const studentFullName = [(req.body.student_first_name || '').trim(), (req.body.student_middle_name || '').trim(), (req.body.student_last_name || '').trim()].filter(Boolean).join(' ') || null;
     const city = (req.body.child_place_of_birth_city || '').trim();
     const country = (req.body.child_place_of_birth_country || '').trim();
@@ -3004,10 +3123,8 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
 app.post(
   '/registration/children',
   requireAuth,
-  upload.fields([
-    { name: 'baptism_certificate', maxCount: 1 },
-    { name: 'first_communion_certificate', maxCount: 1 },
-  ]),
+  certificateUpload.any(),
+  normalizeCertificateUploads,
   handleChildrenRegistration
 );
 
@@ -4338,7 +4455,8 @@ app.get('/registration/new', requireAuth, (req, res) => res.redirect('/registrat
 app.get('/registration/adult', requireAuth, (req, res) => res.redirect('/registration/adult/ocia'));
 // Old POST /registration — alias to /registration/children for any cached form submissions
 app.post('/registration', requireAuth,
-  upload.fields([{ name: 'baptism_certificate', maxCount: 1 }, { name: 'first_communion_certificate', maxCount: 1 }]),
+  certificateUpload.any(),
+  normalizeCertificateUploads,
   handleChildrenRegistration
 );
 

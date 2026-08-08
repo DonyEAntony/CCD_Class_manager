@@ -4,9 +4,20 @@
     <img src="/st-matthew-logo.png" alt="<%= t('app_title') %>" class="site-brand-logo">
     <span class="site-brand-tagline">&mdash; Office of Evangelization and Discipleship</span>
   </a>
-  <div class="lang-toggle">
-    <span style="opacity:.7"><%= t('language') %>:</span>
-    <a href="/lang/en" class="btn-lang <%= lang === 'en' ? 'active' : '' %>">EN</a>
-    <a href="/lang/es" class="btn-lang <%= lang === 'es' ? 'active' : '' %>">ES</a>
+  <div class="site-topbar-actions">
+    <% if (user) { %>
+      <a href="/account" class="topbar-account-link" aria-label="<%= t('my_account') %>">
+        <svg class="topbar-account-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M20 21a8 8 0 0 0-16 0"></path>
+          <circle cx="12" cy="7" r="4"></circle>
+        </svg>
+        <span><%= t('my_account') %></span>
+      </a>
+    <% } %>
+    <div class="lang-toggle">
+      <span style="opacity:.7"><%= t('language') %>:</span>
+      <a href="/lang/en" class="btn-lang <%= lang === 'en' ? 'active' : '' %>">EN</a>
+      <a href="/lang/es" class="btn-lang <%= lang === 'es' ? 'active' : '' %>">ES</a>
+    </div>
   </div>
 </div>

@@ -15,6 +15,10 @@
     .sac-radio input:checked + .sac-dot { border-color: var(--navy); background: var(--navy); box-shadow: inset 0 0 0 4px #fff; }
     .sac-radio input:focus-visible + .sac-dot { outline: 2px solid var(--gold); outline-offset: 2px; }
     .sac-panel { border: 1px solid var(--border); border-radius: 12px; padding: 1rem; margin-top: .75rem; background: var(--surface); }
+    .certificate-file-list { display: grid; gap: .5rem; }
+    .certificate-file-row { display: flex; align-items: center; gap: .5rem; }
+    .certificate-file-row .form-control { min-width: 0; }
+    .certificate-file-remove { flex: 0 0 auto; }
   </style>
 </head>
 <body>
@@ -32,6 +36,9 @@
   <% const parent = typeof parentInfo !== 'undefined' ? parentInfo : null; %>
   <% const studentReg = typeof studentPrefill !== 'undefined' ? studentPrefill : null; %>
   <% const wizardRegId = typeof currentRegistrationId !== 'undefined' ? currentRegistrationId : null; %>
+  <% const certificatePaths = typeof certificateUploadPaths === 'function' ? certificateUploadPaths : ((value) => value ? [value] : []); %>
+  <% const certificateHref = typeof uploadHref === 'function' ? uploadHref : ((value) => value ? '/' + String(value).replace(/\\/g, '/') : ''); %>
+  <% const certificateFileName = typeof uploadFileName === 'function' ? uploadFileName : ((value) => value ? String(value).replace(/\\/g, '/').split('/').pop() : ''); %>
 
   <% const onStudentStage = !editing && wizardStage === 'student'; %>
   <% const showParentSection = editing || !onStudentStage; %>
@@ -525,23 +532,45 @@
               <div class="row g-3">
                 <div class="col-md-6">
                   <label class="form-label"><%= t('baptism_required') %></label>
-                  <input class="form-control" type="file" name="baptism_certificate" accept=".pdf,image/*">
-                  <% if (studentSource && studentSource.baptism_certificate_path) { %>
+                  <div class="certificate-upload" data-upload-name="baptism_certificate" data-upload-accept=".pdf,image/*">
+                    <div class="certificate-file-list">
+                      <div class="certificate-file-row">
+                        <input class="form-control" type="file" name="baptism_certificate" accept=".pdf,image/*">
+                      </div>
+                    </div>
+                    <button class="btn btn-sm btn-outline-secondary mt-2 add-certificate-file" type="button"><%= t('add_file') %></button>
+                  </div>
+                  <div class="form-text"><%= t('multiple_files_hint') %></div>
+                  <% const baptismPaths = studentSource ? certificatePaths(studentSource.baptism_certificate_path) : []; %>
+                  <% if (baptismPaths.length) { %>
                     <div class="form-text">
                       <%= t('sponsor_form_current_file') %>
-                      <% const baptismFileName = String(studentSource.baptism_certificate_path).replace(/\\/g, '/').split('/').pop(); %>
-                      <a href="/<%= String(studentSource.baptism_certificate_path).replace(/\\/g, '/') %>" target="_blank" rel="noopener"><%= baptismFileName || t('view_file') %></a>
+                      <% baptismPaths.forEach((filePath, index) => { %>
+                        <% if (index > 0) { %> &middot; <% } %>
+                        <a href="<%= certificateHref(filePath) %>" target="_blank" rel="noopener"><%= certificateFileName(filePath) || t('view_file') %></a>
+                      <% }) %>
                     </div>
                   <% } %>
                 </div>
                 <div class="col-md-6">
                   <label class="form-label"><%= t('communion_required') %></label>
-                  <input class="form-control" type="file" name="first_communion_certificate" accept=".pdf,image/*">
-                  <% if (studentSource && studentSource.first_communion_certificate_path) { %>
+                  <div class="certificate-upload" data-upload-name="first_communion_certificate" data-upload-accept=".pdf,image/*">
+                    <div class="certificate-file-list">
+                      <div class="certificate-file-row">
+                        <input class="form-control" type="file" name="first_communion_certificate" accept=".pdf,image/*">
+                      </div>
+                    </div>
+                    <button class="btn btn-sm btn-outline-secondary mt-2 add-certificate-file" type="button"><%= t('add_file') %></button>
+                  </div>
+                  <div class="form-text"><%= t('multiple_files_hint') %></div>
+                  <% const communionPaths = studentSource ? certificatePaths(studentSource.first_communion_certificate_path) : []; %>
+                  <% if (communionPaths.length) { %>
                     <div class="form-text">
                       <%= t('sponsor_form_current_file') %>
-                      <% const communionFileName = String(studentSource.first_communion_certificate_path).replace(/\\/g, '/').split('/').pop(); %>
-                      <a href="/<%= String(studentSource.first_communion_certificate_path).replace(/\\/g, '/') %>" target="_blank" rel="noopener"><%= communionFileName || t('view_file') %></a>
+                      <% communionPaths.forEach((filePath, index) => { %>
+                        <% if (index > 0) { %> &middot; <% } %>
+                        <a href="<%= certificateHref(filePath) %>" target="_blank" rel="noopener"><%= certificateFileName(filePath) || t('view_file') %></a>
+                      <% }) %>
                     </div>
                   <% } %>
                 </div>
@@ -591,7 +620,60 @@
       wizardChildWord: <%- JSON.stringify(t('wizard_child_word')) %>,
       wizardOfWord: <%- JSON.stringify(t('wizard_of_word')) %>,
       wizardStepWord: <%- JSON.stringify(t('wizard_step_word')) %>,
+      removeFile: <%- JSON.stringify(t('remove_file')) %>,
     };
+
+    document.querySelectorAll('.certificate-upload').forEach((uploadWrap) => {
+      const list = uploadWrap.querySelector('.certificate-file-list');
+      const addBtn = uploadWrap.querySelector('.add-certificate-file');
+      const inputName = uploadWrap.dataset.uploadName || '';
+      const accept = uploadWrap.dataset.uploadAccept || '';
+      const maxFiles = 10;
+
+      const refreshRemoveButtons = () => {
+        const rows = Array.from(list.querySelectorAll('.certificate-file-row'));
+        rows.forEach((row, index) => {
+          let removeBtn = row.querySelector('.certificate-file-remove');
+          if (rows.length === 1) {
+            if (removeBtn) removeBtn.remove();
+            return;
+          }
+          if (!removeBtn) {
+            removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'btn btn-sm btn-outline-danger certificate-file-remove';
+            removeBtn.textContent = i18n.removeFile;
+            removeBtn.addEventListener('click', () => {
+              row.remove();
+              refreshRemoveButtons();
+            });
+            row.appendChild(removeBtn);
+          }
+          removeBtn.disabled = index === 0 && rows.length === 1;
+        });
+        if (addBtn) addBtn.disabled = rows.length >= maxFiles;
+      };
+
+      const addFileRow = () => {
+        if (!list || list.querySelectorAll('.certificate-file-row').length >= maxFiles) return;
+        const row = document.createElement('div');
+        row.className = 'certificate-file-row';
+        const input = document.createElement('input');
+        input.className = 'form-control';
+        input.type = 'file';
+        input.name = inputName;
+        input.accept = accept;
+        row.appendChild(input);
+        list.appendChild(row);
+        refreshRemoveButtons();
+        input.focus();
+      };
+
+      if (addBtn && list) {
+        addBtn.addEventListener('click', addFileRow);
+        refreshRemoveButtons();
+      }
+    });
 
     // A hidden (d-none) required field that's also empty blocks submission with an
     // "invalid form control ... is not focusable" error the browser can't show the
