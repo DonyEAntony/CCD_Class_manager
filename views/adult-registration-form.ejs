@@ -256,7 +256,10 @@
     }
 
     saveBtn.addEventListener('click', saveFormData);
-    loadFormData();
+    const isEditingExisting = <%- JSON.stringify(!!reg) %>;
+    if (!isEditingExisting) {
+      loadFormData();
+    }
 
     // Enable submit only if required fields are filled and valid
     const submitBtn = document.querySelector('button[type="submit"]');
