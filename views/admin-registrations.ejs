@@ -106,16 +106,18 @@
                   <td style="font-size:.85rem">
                     <% const baptismPaths = uploadPathsForView(r.baptism_certificate_path); %>
                     <% const communionPaths = uploadPathsForView(r.first_communion_certificate_path); %>
-                    <% baptismPaths.forEach((filePath, index) => { %>
-                      <% if (index > 0) { %> &middot; <% } %>
-                      <a href="<%= uploadHrefForView(filePath) %>" target="_blank" rel="noopener"><%= uploadFileNameForView(filePath) || t('baptism') %></a>
-                    <% }) %>
-                    <% if (baptismPaths.length && communionPaths.length) { %> &middot; <% } %>
-                    <% communionPaths.forEach((filePath, index) => { %>
-                      <% if (index > 0) { %> &middot; <% } %>
-                      <a href="<%= uploadHrefForView(filePath) %>" target="_blank" rel="noopener"><%= uploadFileNameForView(filePath) || t('communion') %></a>
-                    <% }) %>
-                    <% if (!baptismPaths.length && !communionPaths.length) { %><span style="color:var(--muted)">&mdash;</span><% } %>
+                    <%
+                      const certFiles = [];
+                      baptismPaths.forEach((filePath) => certFiles.push({ label: uploadFileNameForView(filePath) || t('baptism'), sub: t('baptism'), href: uploadHrefForView(filePath) }));
+                      communionPaths.forEach((filePath) => certFiles.push({ label: uploadFileNameForView(filePath) || t('communion'), sub: t('communion'), href: uploadHrefForView(filePath) }));
+                    %>
+                    <% if (certFiles.length) { %>
+                      <button type="button" class="btn btn-sm btn-outline-secondary cert-files-btn" data-files="<%= JSON.stringify(certFiles) %>" data-name="<%= r.student_full_name || '' %>">
+                        &#128206; <%= t('view_files_count').replace('%s', certFiles.length) %>
+                      </button>
+                    <% } else { %>
+                      <span style="color:var(--muted)">&mdash;</span>
+                    <% } %>
                   </td>
                   <td style="font-size:.78rem;min-width:180px">
                     <% ['certificates_verified', 'tuition_paid', 'parent_contacted'].forEach((field) => { %>
@@ -188,16 +190,18 @@
                   <td style="font-size:.85rem">
                     <% const baptismPaths = uploadPathsForView(r.baptism_certificate_path); %>
                     <% const communionPaths = uploadPathsForView(r.first_communion_certificate_path); %>
-                    <% baptismPaths.forEach((filePath, index) => { %>
-                      <% if (index > 0) { %> &middot; <% } %>
-                      <a href="<%= uploadHrefForView(filePath) %>" target="_blank" rel="noopener"><%= uploadFileNameForView(filePath) || t('baptism') %></a>
-                    <% }) %>
-                    <% if (baptismPaths.length && communionPaths.length) { %> &middot; <% } %>
-                    <% communionPaths.forEach((filePath, index) => { %>
-                      <% if (index > 0) { %> &middot; <% } %>
-                      <a href="<%= uploadHrefForView(filePath) %>" target="_blank" rel="noopener"><%= uploadFileNameForView(filePath) || t('communion') %></a>
-                    <% }) %>
-                    <% if (!baptismPaths.length && !communionPaths.length) { %><span style="color:var(--muted)">&mdash;</span><% } %>
+                    <%
+                      const certFiles = [];
+                      baptismPaths.forEach((filePath) => certFiles.push({ label: uploadFileNameForView(filePath) || t('baptism'), sub: t('baptism'), href: uploadHrefForView(filePath) }));
+                      communionPaths.forEach((filePath) => certFiles.push({ label: uploadFileNameForView(filePath) || t('communion'), sub: t('communion'), href: uploadHrefForView(filePath) }));
+                    %>
+                    <% if (certFiles.length) { %>
+                      <button type="button" class="btn btn-sm btn-outline-secondary cert-files-btn" data-files="<%= JSON.stringify(certFiles) %>" data-name="<%= r.student_full_name || '' %>">
+                        &#128206; <%= t('view_files_count').replace('%s', certFiles.length) %>
+                      </button>
+                    <% } else { %>
+                      <span style="color:var(--muted)">&mdash;</span>
+                    <% } %>
                   </td>
                   <td style="font-size:.85rem"><%= r.parent_name || r.primary_contact_email || '—' %></td>
                   <td style="font-size:.8rem;color:var(--muted)"><%= r.created_at ? (typeof r.created_at === 'string' ? r.created_at.slice(0, 16).replace('T', ' ') : r.created_at.toISOString().slice(0, 16).replace('T', ' ')) : '—' %></td>
@@ -433,6 +437,21 @@
 
   <p class="footer-note"><%= t('footer_note') %></p>
 </main>
+
+<div class="modal fade" id="certFilesModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="certFilesModalTitle"><%= t('certificate_files') %></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="<%= t('close') %>"></button>
+      </div>
+      <div class="modal-body">
+        <ul class="list-unstyled mb-0" id="certFilesModalList"></ul>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <% if (activeGradeFilter) { %>
 <script>
@@ -474,6 +493,47 @@
             checkbox.disabled = false;
             checkbox.checked = !checked;
           });
+      });
+    });
+  }());
+</script>
+<script>
+  (function () {
+    var modalEl = document.getElementById('certFilesModal');
+    var modalTitleEl = document.getElementById('certFilesModalTitle');
+    var modalListEl = document.getElementById('certFilesModalList');
+    var certFilesModalTitleTemplate = <%- JSON.stringify(t('certificate_files')) %>;
+    if (!modalEl) return;
+    var modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    document.querySelectorAll('.cert-files-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var files = [];
+        try {
+          files = JSON.parse(btn.dataset.files || '[]');
+        } catch (e) {
+          files = [];
+        }
+        modalTitleEl.textContent = btn.dataset.name ? (btn.dataset.name + ' — ' + certFilesModalTitleTemplate) : certFilesModalTitleTemplate;
+        modalListEl.innerHTML = '';
+        files.forEach(function (file) {
+          var li = document.createElement('li');
+          li.className = 'mb-2';
+          var link = document.createElement('a');
+          link.href = file.href;
+          link.target = '_blank';
+          link.rel = 'noopener';
+          link.textContent = file.label;
+          li.appendChild(link);
+          if (file.sub) {
+            var sub = document.createElement('span');
+            sub.style.color = 'var(--muted)';
+            sub.style.fontSize = '.8rem';
+            sub.textContent = ' (' + file.sub + ')';
+            li.appendChild(sub);
+          }
+          modalListEl.appendChild(li);
+        });
+        modal.show();
       });
     });
   }());
