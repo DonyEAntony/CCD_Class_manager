@@ -10,7 +10,7 @@ const passport = require('./auth');
 const db = require('./db');
 const MySqlSessionStore = require('./session-store');
 const { processScanDocument, verifyDocumentAiConfiguration } = require('./document-ai');
-const { sendVerificationEmail, smtpLogConfig, verifyMailConfiguration, buildVerificationEmailContent, sendPasswordResetEmail, sendClassMessageEmail } = require('./mailer');
+const { sendVerificationEmail, smtpLogConfig, verifyMailConfiguration, buildVerificationEmailContent, sendPasswordResetEmail, sendClassMessageEmail, sendCatechistInvitationEmail } = require('./mailer');
 const { requireAuth, requireRole } = require('./middleware');
 
 const app = express();
@@ -413,6 +413,12 @@ const translations = {
     role_admin: 'Admin',
     user_singular: 'user',
     user_plural: 'users',
+    invite_catechist_header: 'Invite a Catechist',
+    invite_catechist_desc: 'Create a Catechist account and send an activation link so they can set their own password.',
+    invite_full_name_label: 'Full Name',
+    invite_email_label: 'Email',
+    invite_phone_label: 'Phone (optional)',
+    invite_catechist_submit: 'Send Invitation',
     verified_status: 'Verified',
     pending_status: 'Pending',
     confirmed_status: 'Confirmed',
@@ -1023,6 +1029,12 @@ const translations = {
     role_admin: 'Administrador',
     user_singular: 'usuario',
     user_plural: 'usuarios',
+    invite_catechist_header: 'Invitar a un Catequista',
+    invite_catechist_desc: 'Crea una cuenta de Catequista y envía un enlace de activación para que puedan establecer su propia contraseña.',
+    invite_full_name_label: 'Nombre Completo',
+    invite_email_label: 'Correo Electrónico',
+    invite_phone_label: 'Teléfono (opcional)',
+    invite_catechist_submit: 'Enviar Invitación',
     verified_status: 'Verificado',
     pending_status: 'Pendiente',
     confirmed_status: 'Confirmado',
@@ -2375,7 +2387,8 @@ app.post('/reset-password', asyncHandler(async (req, res) => {
   const hash = bcrypt.hashSync(password, 10);
   await db.prepare(`
     UPDATE users
-    SET password_hash = ?, password_reset_token = NULL, password_reset_expires_at = NULL
+    SET password_hash = ?, password_reset_token = NULL, password_reset_expires_at = NULL,
+        is_active = 1, email_verified_at = COALESCE(email_verified_at, CURRENT_TIMESTAMP)
     WHERE id = ?
   `).run(hash, user.id);
 
@@ -3902,6 +3915,76 @@ app.post('/admin/scan-registration/process', requireAuth, requireRole('admin'), 
       code: error?.code || null,
     });
   }
+}));
+
+app.post('/admin/users/catechists', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const fullName = typeof req.body.full_name === 'string' ? req.body.full_name.trim() : '';
+  const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+  const phone = typeof req.body.phone === 'string' ? req.body.phone.trim() : '';
+
+  if (!fullName || !email) {
+    req.flash('error', 'Full name and email are required to invite a catechist.');
+    return res.redirect('/admin/users');
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    req.flash('error', 'Please enter a valid email address.');
+    return res.redirect('/admin/users');
+  }
+  if (phone && !phoneRegex.test(phone)) {
+    req.flash('error', 'Invalid phone format. Use XXX-XXX-XXXX, XXX.XXX.XXXX, or XXX XXX XXXX.');
+    return res.redirect('/admin/users');
+  }
+
+  const existing = await db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+  if (existing) {
+    req.flash('error', `An account already exists for ${email}.`);
+    return res.redirect('/admin/users');
+  }
+
+  const nameParts = fullName.split(/\s+/);
+  const firstName = nameParts[0] || '';
+  const lastName = nameParts.slice(1).join(' ') || '';
+
+  await db.prepare(`
+    INSERT INTO users (
+      email, password_hash, role, provider, full_name, first_name, last_name, phone, is_active
+    ) VALUES (?, NULL, 'catechist', 'local', ?, ?, ?, ?, 0)
+  `).run(email, fullName, firstName, lastName, phone || null);
+
+  const newUser = await db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+
+  const invitationToken = createVerificationToken();
+  const invitationTokenHash = hashVerificationToken(invitationToken);
+  const invitationExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  await db.prepare(`
+    UPDATE users SET password_reset_token = ?, password_reset_expires_at = ? WHERE id = ?
+  `).run(invitationTokenHash, invitationExpiresAt, newUser.id);
+
+  const activationUrl = `${getBaseUrl(req)}/reset-password?token=${invitationToken}`;
+
+  let delivery;
+  try {
+    delivery = await sendCatechistInvitationEmail({ to: email, activationUrl, fullName });
+  } catch (error) {
+    console.error('[admin] Catechist invitation email failed', {
+      email,
+      message: error?.message || String(error),
+      code: error?.code || null,
+      response: error?.response || null,
+      responseCode: error?.responseCode || null,
+    });
+    req.flash('error', `Catechist account created, but the invitation email could not be sent to ${email}.`);
+    return res.redirect('/admin/users');
+  }
+
+  if (delivery.delivered) {
+    req.flash('success', `Catechist account created and invitation sent to ${email}.`);
+  } else if (process.env.NODE_ENV !== 'production') {
+    req.flash('success', `Catechist account created (dev preview, email not sent): ${activationUrl}`);
+  } else {
+    req.flash('error', `Catechist account created, but the invitation email could not be sent to ${email}.`);
+  }
+  return res.redirect('/admin/users');
 }));
 
 app.post('/admin/users/:id/role', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
