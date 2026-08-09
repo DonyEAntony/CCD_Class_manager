@@ -111,6 +111,41 @@ a:hover { color: var(--blue-sky); }
   .site-brand-tagline { display: none; }
 }
 
+.site-topbar-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.topbar-account-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.18rem 0.65rem;
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 2rem;
+  color: rgba(255,255,255,0.78) !important;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+}
+.topbar-account-link:hover {
+  background: rgba(255,255,255,0.08);
+  border-color: var(--gold-light);
+  color: #fff !important;
+}
+.topbar-account-icon {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 /* ── Admin Nav ─────────────────────────────────────────────── */
 .admin-nav {
   background: var(--navy-mid);

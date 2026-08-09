@@ -58,6 +58,9 @@
 </head>
 <body>
 <%- include('_topbar') %>
+<% const uploadHrefForView = typeof uploadHref === 'function' ? uploadHref : ((filePath) => filePath ? `/${String(filePath).replace(/\\/g, '/')}` : ''); %>
+<% const uploadFileNameForView = typeof uploadFileName === 'function' ? uploadFileName : ((filePath) => filePath ? String(filePath).replace(/\\/g, '/').split('/').pop() : ''); %>
+<% const uploadPathsForView = typeof certificateUploadPaths === 'function' ? certificateUploadPaths : ((value) => value ? [value] : []); %>
 <main class="container py-4 app-shell mx-auto">
 
   <% if (success.length) { %><div class="alert alert-success mb-3"><%= success[0] %></div><% } %>
@@ -274,10 +277,18 @@
               <td style="font-size:.85rem"><%= r.parent_name || r.primary_contact_email || '—' %></td>
               <td><strong>$<%= (r.registration_fee||0)+(r.sacramental_fee||0)+(r.late_fee||0) %></strong></td>
               <td style="font-size:.85rem">
-                <% if (r.baptism_certificate_path) { %><a href="/<%= r.baptism_certificate_path %>"><%= t('baptism') %></a><% } %>
-                <% if (r.baptism_certificate_path && r.first_communion_certificate_path) { %> &middot; <% } %>
-                <% if (r.first_communion_certificate_path) { %><a href="/<%= r.first_communion_certificate_path %>"><%= t('communion') %></a><% } %>
-                <% if (!r.baptism_certificate_path && !r.first_communion_certificate_path) { %><span style="color:var(--muted)">&mdash;</span><% } %>
+                <% const baptismPaths = uploadPathsForView(r.baptism_certificate_path); %>
+                <% const communionPaths = uploadPathsForView(r.first_communion_certificate_path); %>
+                <% baptismPaths.forEach((filePath, index) => { %>
+                  <% if (index > 0) { %> &middot; <% } %>
+                  <a href="<%= uploadHrefForView(filePath) %>" target="_blank" rel="noopener"><%= uploadFileNameForView(filePath) || t('baptism') %></a>
+                <% }) %>
+                <% if (baptismPaths.length && communionPaths.length) { %> &middot; <% } %>
+                <% communionPaths.forEach((filePath, index) => { %>
+                  <% if (index > 0) { %> &middot; <% } %>
+                  <a href="<%= uploadHrefForView(filePath) %>" target="_blank" rel="noopener"><%= uploadFileNameForView(filePath) || t('communion') %></a>
+                <% }) %>
+                <% if (!baptismPaths.length && !communionPaths.length) { %><span style="color:var(--muted)">&mdash;</span><% } %>
               </td>
               <td>
                 <span class="badge" style="background:var(--surface);color:var(--navy-soft);font-size:.7rem;border-radius:2rem;padding:.3em .8em;font-weight:700;border:1px solid var(--border)">
