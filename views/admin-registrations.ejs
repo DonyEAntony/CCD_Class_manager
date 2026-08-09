@@ -56,6 +56,12 @@
       </button>
     </li>
     <li class="nav-item" role="presentation">
+      <button class="nav-link d-flex align-items-center gap-2" id="archived-adult-tab" data-bs-toggle="tab" data-bs-target="#archived-adult-pane" type="button" role="tab" aria-controls="archived-adult-pane" aria-selected="false">
+        <%= t('archived_adult_registrations_header') %>
+        <span class="badge" style="<%= tabBadgeStyle %>"><%= (archivedAdultRegs || []).length %></span>
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
       <button class="nav-link d-flex align-items-center gap-2" id="sponsor-tab" data-bs-toggle="tab" data-bs-target="#sponsor-pane" type="button" role="tab" aria-controls="sponsor-pane" aria-selected="false">
         <%= t('sponsor_confirmation_forms_header') %>
         <span class="badge" style="<%= tabBadgeStyle %>"><%= (sponsorRegs || []).length %></span>
@@ -346,6 +352,64 @@
                   </td>
                   <td>
                     <a href="/registration/adult/edit/<%= r.program_type %>/<%= r.id %>" class="btn btn-sm btn-outline-primary"><%= t('edit') %></a>
+                    <form method="post" action="/admin/registrations/adult/<%= r.id %>/archive" class="d-inline">
+                      <button class="btn btn-sm btn-outline-secondary" type="submit"><%= t('archive') %></button>
+                    </form>
+                    <form method="post" action="/admin/registrations/adult/<%= r.id %>/delete" class="d-inline" onsubmit="return confirm(<%- JSON.stringify(t('confirm_delete_registration_prefix')) %> + ' ' + <%- JSON.stringify(r.full_name || 'this person') %> + '? ' + <%- JSON.stringify(t('confirm_delete_registration_suffix')) %>);">
+                      <button class="btn btn-sm btn-outline-danger" type="submit"><%= t('remove') %></button>
+                    </form>
+                  </td>
+                </tr>
+              <% }) %>
+              </tbody>
+            </table>
+          </div>
+          <% } %>
+        </div>
+      </div>
+    </div>
+
+    <!-- Archived Adult Registrations -->
+    <div class="tab-pane fade" id="archived-adult-pane" role="tabpanel" aria-labelledby="archived-adult-tab">
+      <div class="page-card mb-4">
+        <div class="card-body p-0">
+          <% if (!archivedAdultRegs || archivedAdultRegs.length === 0) { %>
+            <div class="p-4 text-center" style="color:var(--muted);font-size:.9rem"><em><%= t('no_archived_registrations') %></em></div>
+          <% } else { %>
+          <div class="table-responsive">
+            <table class="table mb-0">
+              <thead>
+                <tr>
+                  <th><%= t('name_col') %></th>
+                  <th><%= t('program_col') %></th>
+                  <th><%= t('email') %></th>
+                  <th><%= t('phone') %></th>
+                  <th><%= t('date_col') %></th>
+                  <th><%= t('archived_col') %></th>
+                  <th><%= t('actions') %></th>
+                </tr>
+              </thead>
+              <tbody>
+              <% archivedAdultRegs.forEach(r => { %>
+                <% const prog = ADULT_PROGRAMS[r.program_type] || { title: r.program_type }; %>
+                <tr>
+                  <td style="font-weight:600"><%= r.full_name %></td>
+                  <td>
+                    <span class="badge" style="<%= tabBadgeStyle %>">
+                      <%= prog.title %>
+                    </span>
+                  </td>
+                  <td style="font-size:.85rem"><%= r.email || '—' %></td>
+                  <td style="font-size:.85rem"><%= r.phone || '—' %></td>
+                  <td style="font-size:.8rem;color:var(--muted)"><%= r.created_at ? (typeof r.created_at === 'string' ? r.created_at.slice(0, 16).replace('T', ' ') : r.created_at.toISOString().slice(0, 16).replace('T', ' ')) : '' %></td>
+                  <td style="font-size:.8rem;color:var(--muted)"><%= r.archived_at ? (typeof r.archived_at === 'string' ? r.archived_at.slice(0, 16).replace('T', ' ') : r.archived_at.toISOString().slice(0, 16).replace('T', ' ')) : '' %></td>
+                  <td>
+                    <form method="post" action="/admin/registrations/adult/<%= r.id %>/unarchive" class="d-inline">
+                      <button class="btn btn-sm btn-outline-primary" type="submit"><%= t('unarchive') %></button>
+                    </form>
+                    <form method="post" action="/admin/registrations/adult/<%= r.id %>/delete" class="d-inline" onsubmit="return confirm(<%- JSON.stringify(t('confirm_delete_registration_prefix')) %> + ' ' + <%- JSON.stringify(r.full_name || 'this person') %> + '? ' + <%- JSON.stringify(t('confirm_delete_registration_suffix')) %>);">
+                      <button class="btn btn-sm btn-outline-danger" type="submit"><%= t('remove') %></button>
+                    </form>
                   </td>
                 </tr>
               <% }) %>

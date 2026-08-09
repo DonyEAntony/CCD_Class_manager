@@ -483,6 +483,7 @@ const translations = {
     confirm_delete_registration_prefix: 'Permanently delete the registration for',
     confirm_delete_registration_suffix: 'This cannot be undone.',
     archived_children_registrations_header: 'Archived Children Registrations',
+    archived_adult_registrations_header: 'Archived Adult Registrations',
     no_archived_registrations: 'No archived registrations.',
     archived_col: 'Archived',
     unarchive: 'Unarchive',
@@ -1102,6 +1103,7 @@ const translations = {
     confirm_delete_registration_prefix: 'Eliminar permanentemente la inscripción de',
     confirm_delete_registration_suffix: 'Esto no se puede deshacer.',
     archived_children_registrations_header: 'Inscripciones de Niños Archivadas',
+    archived_adult_registrations_header: 'Inscripciones de Adultos Archivadas',
     no_archived_registrations: 'No hay inscripciones archivadas.',
     archived_col: 'Archivado',
     unarchive: 'Desarchivar',
@@ -3603,6 +3605,25 @@ app.post('/admin/registrations/children/:id/delete', requireAuth, requireRole('a
   return res.redirect('/admin/registrations');
 }));
 
+app.post('/admin/registrations/adult/:id/archive', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  await db.prepare('UPDATE adult_registrations SET archived_at = NOW() WHERE id = ?').run(req.params.id);
+  req.flash('success', 'Registration archived.');
+  return res.redirect('/admin/registrations');
+}));
+
+app.post('/admin/registrations/adult/:id/unarchive', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  await db.prepare('UPDATE adult_registrations SET archived_at = NULL WHERE id = ?').run(req.params.id);
+  req.flash('success', 'Registration restored.');
+  return res.redirect('/admin/registrations');
+}));
+
+app.post('/admin/registrations/adult/:id/delete', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const registration = await db.prepare('SELECT full_name FROM adult_registrations WHERE id = ?').get(req.params.id);
+  await db.prepare('DELETE FROM adult_registrations WHERE id = ?').run(req.params.id);
+  req.flash('success', `Deleted registration for ${registration ? registration.full_name : 'that person'}.`);
+  return res.redirect('/admin/registrations');
+}));
+
 const VERIFICATION_FIELDS = new Set(['certificates_verified', 'tuition_paid', 'parent_contacted']);
 
 app.post('/admin/registrations/children/:id/verification', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
@@ -3664,7 +3685,8 @@ app.get('/admin/registrations', requireAuth, requireRole('admin'), asyncHandler(
     members: parseFamilyMembersFromStorage(reg.members_json),
   }));
 
-  const adultRegs = await db.prepare('SELECT * FROM adult_registrations ORDER BY created_at DESC').all();
+  const adultRegs = await db.prepare('SELECT * FROM adult_registrations WHERE archived_at IS NULL ORDER BY created_at DESC').all();
+  const archivedAdultRegs = await db.prepare('SELECT * FROM adult_registrations WHERE archived_at IS NOT NULL ORDER BY archived_at DESC').all();
   const sponsorRegs = await db.prepare('SELECT * FROM sponsor_confirmations ORDER BY created_at DESC').all();
 
   const verifierUserIds = new Set();
@@ -3684,7 +3706,7 @@ app.get('/admin/registrations', requireAuth, requireRole('admin'), asyncHandler(
 
   const ADULT_PROGRAMS = getAdultPrograms(res.locals.t);
   res.render('admin-registrations', {
-    studentRegs, archivedStudentRegs, familyRegs, adultRegs, sponsorRegs, ADULT_PROGRAMS, faithFormationSettings,
+    studentRegs, archivedStudentRegs, familyRegs, adultRegs, archivedAdultRegs, sponsorRegs, ADULT_PROGRAMS, faithFormationSettings,
     resolveCcdGrade, ccdGradeMeanings: CCD_GRADE_MEANINGS, gradeFilter, verifierLookup,
   });
 }));
