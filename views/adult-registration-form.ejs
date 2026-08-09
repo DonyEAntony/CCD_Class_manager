@@ -55,30 +55,30 @@
           <div class="row g-3">
             <div class="col-md-6">
               <label class="form-label"><%= t('full_name') %> <span class="text-danger">*</span></label>
-              <input class="form-control" type="text" name="full_name" required>
+              <input class="form-control" type="text" name="full_name" value="<%= reg ? (reg.full_name || '') : '' %>" required>
             </div>
             <div class="col-md-6">
               <label class="form-label"><%= t('email') %><% if (program.key === 'ocia') { %> <span class="text-danger">*</span><% } %></label>
-              <input class="form-control" type="email" name="email" <%= program.key === 'ocia' ? 'required' : '' %>>
+              <input class="form-control" type="email" name="email" value="<%= reg ? (reg.email || '') : '' %>" <%= program.key === 'ocia' ? 'required' : '' %>>
               <div class="invalid-feedback">Please enter a valid email address.</div>
             </div>
             <div class="col-md-4">
               <label class="form-label"><%= t('phone') %><% if (program.key === 'ocia') { %> <span class="text-danger">*</span><% } %></label>
-              <input class="form-control" type="tel" name="phone" pattern="[0-9]{3}[.\- ]?[0-9]{3}[.\- ]?[0-9]{4}" title="Format: 123-456-7890 or 123.456.7890 or 123 456 7890" <%= program.key === 'ocia' ? 'required' : '' %>>
+              <input class="form-control" type="tel" name="phone" value="<%= reg ? (reg.phone || '') : '' %>" pattern="[0-9]{3}[.\- ]?[0-9]{3}[.\- ]?[0-9]{4}" title="Format: 123-456-7890 or 123.456.7890 or 123 456 7890" <%= program.key === 'ocia' ? 'required' : '' %>>
               <div class="invalid-feedback">Please enter a valid phone number (XXX-XXX-XXXX format).</div>
             </div>
             <div class="col-md-4">
               <label class="form-label"><%= t('dob') %><% if (program.key === 'ocia') { %> <span class="text-danger">*</span><% } %></label>
-              <input class="form-control" type="date" name="dob" <%= program.key === 'ocia' ? 'required' : '' %>>
+              <input class="form-control" type="date" name="dob" value="<%= reg ? (reg.dob || '') : '' %>" <%= program.key === 'ocia' ? 'required' : '' %>>
             </div>
             <div class="col-md-4">
               <label class="form-label"><%= t('are_you_baptized') %><% if (program.key === 'ocia') { %> <span class="text-danger">*</span><% } %></label>
               <select class="form-select" name="baptized" <%= program.key === 'ocia' ? 'required' : '' %>>
-                <option value="" disabled selected><%= t('select_placeholder') %></option>
-                <option value="yes_catholic"><%= t('baptized_yes_catholic') %></option>
-                <option value="yes_other"><%= t('baptized_yes_other') %></option>
-                <option value="no"><%= t('baptized_no') %></option>
-                <option value="unsure"><%= t('baptized_unsure') %></option>
+                <option value="" disabled <%= !reg || !reg.baptized ? 'selected' : '' %>><%= t('select_placeholder') %></option>
+                <option value="yes_catholic" <%= reg && reg.baptized === 'yes_catholic' ? 'selected' : '' %>><%= t('baptized_yes_catholic') %></option>
+                <option value="yes_other" <%= reg && reg.baptized === 'yes_other' ? 'selected' : '' %>><%= t('baptized_yes_other') %></option>
+                <option value="no" <%= reg && reg.baptized === 'no' ? 'selected' : '' %>><%= t('baptized_no') %></option>
+                <option value="unsure" <%= reg && reg.baptized === 'unsure' ? 'selected' : '' %>><%= t('baptized_unsure') %></option>
               </select>
             </div>
           </div>
@@ -90,19 +90,19 @@
           <div class="row g-3">
             <div class="col-md-6">
               <label class="form-label"><%= t('address') %><% if (program.key === 'ocia') { %> <span class="text-danger">*</span><% } %></label>
-              <input class="form-control" type="text" name="address" <%= program.key === 'ocia' ? 'required' : '' %>>
+              <input class="form-control" type="text" name="address" value="<%= reg ? (reg.address || '') : '' %>" <%= program.key === 'ocia' ? 'required' : '' %>>
             </div>
             <div class="col-md-4">
               <label class="form-label"><%= t('city') %><% if (program.key === 'ocia') { %> <span class="text-danger">*</span><% } %></label>
-              <input class="form-control" type="text" name="city" <%= program.key === 'ocia' ? 'required' : '' %>>
+              <input class="form-control" type="text" name="city" value="<%= reg ? (reg.city || '') : '' %>" <%= program.key === 'ocia' ? 'required' : '' %>>
             </div>
             <div class="col-md-4">
               <label class="form-label"><%= t('state') %><% if (program.key === 'ocia') { %> <span class="text-danger">*</span><% } %></label>
-              <input class="form-control" type="text" name="state" <%= program.key === 'ocia' ? 'required' : '' %>>
+              <input class="form-control" type="text" name="state" value="<%= reg ? (reg.state || '') : '' %>" <%= program.key === 'ocia' ? 'required' : '' %>>
             </div>
             <div class="col-md-4">
               <label class="form-label"><%= t('zip') %><% if (program.key === 'ocia') { %> <span class="text-danger">*</span><% } %></label>
-              <input class="form-control" type="text" name="zip" <%= program.key === 'ocia' ? 'required' : '' %>>
+              <input class="form-control" type="text" name="zip" value="<%= reg ? (reg.zip || '') : '' %>" <%= program.key === 'ocia' ? 'required' : '' %>>
             </div>
           </div>
         </fieldset>
@@ -134,14 +134,14 @@
             </div>
             <div class="col-md-6">
               <label class="form-label"><%= t('name_of_person_baptized') %></label>
-              <input class="form-control" type="text" name="godparent_for">
+              <input class="form-control" type="text" name="godparent_for" value="<%= reg ? (reg.godparent_for || '') : '' %>">
             </div>
             <div class="col-md-6">
               <label class="form-label"><%= t('your_role') %></label>
               <select class="form-select" name="baptism_role">
-                <option value="parent"><%= t('role_parent') %></option>
-                <option value="godparent"><%= t('role_godparent') %></option>
-                <option value="both"><%= t('role_both') %></option>
+                <option value="parent" <%= !reg || reg.baptism_role === 'parent' ? 'selected' : '' %>><%= t('role_parent') %></option>
+                <option value="godparent" <%= reg && reg.baptism_role === 'godparent' ? 'selected' : '' %>><%= t('role_godparent') %></option>
+                <option value="both" <%= reg && reg.baptism_role === 'both' ? 'selected' : '' %>><%= t('role_both') %></option>
               </select>
             </div>
             <div class="col-md-6">
@@ -149,7 +149,7 @@
                 <%= t('spouse_coparent_name') %>
                 <span style="font-weight:400;font-size:.78rem;color:var(--muted)"><%= t('if_attending_together') %></span>
               </label>
-              <input class="form-control" type="text" name="spouse_name">
+              <input class="form-control" type="text" name="spouse_name" value="<%= reg ? (reg.spouse_name || '') : '' %>">
             </div>
           </div>
         </fieldset>
@@ -162,20 +162,20 @@
           <div class="row g-3">
             <div class="col-md-8">
               <label class="form-label"><%= t('church_where_baptized') %></label>
-              <input class="form-control" type="text" name="baptism_church" placeholder="<%= t('church_placeholder') %>">
+              <input class="form-control" type="text" name="baptism_church" placeholder="<%= t('church_placeholder') %>" value="<%= reg ? (reg.baptism_church || '') : '' %>">
             </div>
             <div class="col-md-4">
               <label class="form-label">
                 <%= t('baptism_date_approx') %>
                 <span style="font-weight:400;font-size:.78rem;color:var(--muted)"><%= t('approx_ok') %></span>
               </label>
-              <input class="form-control" type="date" name="baptism_date_conf">
+              <input class="form-control" type="date" name="baptism_date_conf" value="<%= reg ? (reg.baptism_date_conf || '') : '' %>">
             </div>
             <div class="col-md-6">
               <label class="form-label"><%= t('received_first_communion') %></label>
               <select class="form-select" name="received_communion">
-                <option value="yes"><%= t('yes') %></option>
-                <option value="no"><%= t('no') %></option>
+                <option value="yes" <%= !reg || reg.received_communion !== 'no' ? 'selected' : '' %>><%= t('yes') %></option>
+                <option value="no" <%= reg && reg.received_communion === 'no' ? 'selected' : '' %>><%= t('no') %></option>
               </select>
             </div>
           </div>
