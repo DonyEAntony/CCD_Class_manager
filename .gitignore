@@ -11,3 +11,5 @@ api-project-910463796029-c858fae15508.json
 .idea
 .local-server.err.log
 .local-server.out.log
+server-*.log
+test-cookies*.txt
