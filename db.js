@@ -524,6 +524,7 @@ const init = async () => {
     await ensureColumn('adult_registrations', 'class_schedule_id', 'INT NULL');
     await ensureColumn('adult_registrations', 'class_date', 'TEXT');
     await ensureColumn('adult_registrations', 'status', "VARCHAR(50) DEFAULT 'in_progress'");
+    await ensureColumn('adult_registrations', 'archived_at', 'DATETIME NULL');
 
     await ensureColumn('family_faith_registrations', 'primary_contact_email', 'VARCHAR(255)');
     await ensureColumn('family_faith_registrations', 'primary_contact_phone', 'VARCHAR(50)');
