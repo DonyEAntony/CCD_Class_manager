@@ -14,6 +14,7 @@ const { sendVerificationEmail, smtpLogConfig, verifyMailConfiguration, buildVeri
 const { requireAuth, requireRole } = require('./middleware');
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 console.info('[startup] Mail configuration', {
   host: smtpLogConfig.host,
