@@ -446,7 +446,8 @@ const translations = {
     preview_email: 'Preview Email',
     resend: 'Resend',
     reset_password_btn: 'Reset Password',
-    confirm_remove_user: 'Remove this user and all of their registrations?',
+    deactivate_user: 'Deactivate',
+    confirm_remove_user: 'Deactivate this user account? Existing registrations and records will remain.',
     faith_formation_registration_header: 'Faith Formation Registration',
     current_registration_year: 'Current Registration Year',
     set_current_registration_year: 'Set Current Registration Year',
@@ -1087,7 +1088,8 @@ const translations = {
     preview_email: 'Vista Previa del Correo',
     resend: 'Reenviar',
     reset_password_btn: 'Restablecer Contraseña',
-    confirm_remove_user: '¿Eliminar a este usuario y todas sus inscripciones?',
+    deactivate_user: 'Desactivar',
+    confirm_remove_user: '¿Desactivar esta cuenta de usuario? Las inscripciones y registros existentes permanecerán.',
     faith_formation_registration_header: 'Inscripción de Formación en la Fe',
     current_registration_year: 'Año de Inscripción Actual',
     set_current_registration_year: 'Establecer Año de Inscripción Actual',
@@ -4426,37 +4428,13 @@ app.post('/admin/users/:id/delete', requireAuth, requireRole('admin'), asyncHand
     return res.redirect('/admin/users');
   }
 
-  const studentRegistrationIds = (await db.prepare(
-    'SELECT id FROM student_registrations WHERE user_id = ?'
-  ).all(userId)).map((registration) => registration.id);
-
-  await db.prepare('DELETE FROM ccd_class_catechists WHERE catechist_user_id = ?').run(userId);
   await db.prepare(`
-    UPDATE family_faith_visit_slots
-    SET booked_registration_id = NULL
-    WHERE booked_registration_id IN (
-      SELECT id FROM family_faith_registrations WHERE user_id = ?
-    )
+    UPDATE users
+    SET is_active = 0, deactivated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
   `).run(userId);
-  await db.prepare(`
-    UPDATE family_faith_registrations
-    SET assigned_leader_user_id = NULL, visit_slot_id = NULL, visit_start = NULL, visit_end = NULL, visit_label = NULL
-    WHERE assigned_leader_user_id = ?
-  `).run(userId);
-  await db.prepare('DELETE FROM family_faith_visit_slots WHERE leader_user_id = ?').run(userId);
-  if (studentRegistrationIds.length) {
-    const placeholders = studentRegistrationIds.map(() => '?').join(', ');
-    await db.prepare(
-      `DELETE FROM ccd_class_attendance WHERE student_registration_id IN (${placeholders})`
-    ).run(...studentRegistrationIds);
-  }
-  await db.prepare('DELETE FROM student_registrations WHERE user_id = ?').run(userId);
-  await db.prepare('DELETE FROM family_faith_registrations WHERE user_id = ?').run(userId);
-  await db.prepare('DELETE FROM adult_registrations WHERE user_id = ?').run(userId);
-  await db.prepare('DELETE FROM sponsor_confirmations WHERE user_id = ?').run(userId);
-  await db.prepare('DELETE FROM users WHERE id = ?').run(userId);
 
-  req.flash('success', `Removed user ${existingUser.email}.`);
+  req.flash('success', `Deactivated user ${existingUser.email}. Existing records were preserved.`);
   return res.redirect('/admin/users');
 }));
 

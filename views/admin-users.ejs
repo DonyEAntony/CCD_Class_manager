@@ -159,7 +159,7 @@
                     <% if (!user || user.id !== u.id) { %>
                       <div class="user-menu-divider"></div>
                       <form method="post" action="/admin/users/<%= u.id %>/delete" onsubmit="return confirm('<%= t('confirm_remove_user') %>');">
-                        <button class="user-menu-item user-menu-item-danger" type="submit"><%= t('remove') %></button>
+                        <button class="user-menu-item user-menu-item-danger" type="submit"><%= t('deactivate_user') %></button>
                       </form>
                     <% } %>
                   </div>

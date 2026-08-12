@@ -12,6 +12,9 @@ passport.use(
       if (!user || !user.password_hash) {
         return done(null, false, { message: 'Invalid email or password.' });
       }
+      if (user.deactivated_at) {
+        return done(null, false, { message: 'This account has been deactivated.' });
+      }
       if (!user.is_active) {
         return done(null, false, { message: 'Please verify your email before logging in.' });
       }
@@ -37,10 +40,18 @@ const upsertOAuthUser = async (provider, profile, done) => {
     const existing = await db
       .prepare('SELECT * FROM users WHERE provider = ? AND provider_id = ?')
       .get(provider, providerId);
-    if (existing) return done(null, existing);
+    if (existing) {
+      if (existing.deactivated_at) {
+        return done(null, false, { message: 'This account has been deactivated.' });
+      }
+      return done(null, existing);
+    }
 
     const linkedByEmail = await db.prepare('SELECT * FROM users WHERE email = ?').get(email);
     if (linkedByEmail) {
+      if (linkedByEmail.deactivated_at) {
+        return done(null, false, { message: 'This account has been deactivated.' });
+      }
       await db.prepare(`
         UPDATE users
         SET provider = ?, provider_id = ?, is_active = 1,
