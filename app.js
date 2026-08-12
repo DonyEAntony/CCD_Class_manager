@@ -53,6 +53,13 @@ const translations = {
     account_profile_subtitle: 'Your sign-in and profile information.',
     profile_information: 'Profile Information',
     account_security: 'Account Security',
+    my_uploads: 'My Uploads',
+    user_uploads: 'User Uploads',
+    uploaded_documents: 'Uploaded Documents',
+    uploaded_documents_subtitle: 'Files attached to your registrations.',
+    no_uploads: 'No uploaded files are associated with your account yet.',
+    document_type: 'Document Type',
+    registration: 'Registration',
     signed_in_as: 'Signed in as',
     new_registration: 'New Registration',
     calendar: 'Calendar',
@@ -68,8 +75,13 @@ const translations = {
     baptism: 'Baptism',
     communion: 'Communion',
     user_administration: 'User Administration',
+    user_registrations: 'User Registrations',
+    view_registrations: 'View Registrations',
+    associated_registrations: 'Associated Registrations',
+    associated_registrations_subtitle: 'Registrations connected to this user account.',
     back_to_dashboard: 'Back to Dashboard',
     email: 'Email',
+    file: 'File',
     phone: 'Phone',
     account_status: 'Account Status',
     active_status: 'Active',
@@ -489,6 +501,7 @@ const translations = {
     archived_col: 'Archived',
     unarchive: 'Unarchive',
     sponsor_confirmation_forms_header: 'Sponsor Confirmation Forms',
+    sponsor_form_certificate_upload: 'Sponsor Certificate',
     no_sponsor_forms: 'No sponsor confirmation forms yet.',
     confirmation_name_col: 'Confirmation Name',
     sponsor_col: 'Sponsor',
@@ -673,6 +686,13 @@ const translations = {
     account_profile_subtitle: 'Su informacion de inicio de sesion y perfil.',
     profile_information: 'Informacion del Perfil',
     account_security: 'Seguridad de la Cuenta',
+    my_uploads: 'Mis Archivos',
+    user_uploads: 'Archivos del Usuario',
+    uploaded_documents: 'Documentos Subidos',
+    uploaded_documents_subtitle: 'Archivos adjuntos a sus inscripciones.',
+    no_uploads: 'Todavia no hay archivos subidos asociados con su cuenta.',
+    document_type: 'Tipo de Documento',
+    registration: 'Inscripcion',
     signed_in_as: 'Conectado como',
     new_registration: 'Nueva Inscripción',
     calendar: 'Calendario',
@@ -688,8 +708,13 @@ const translations = {
     baptism: 'Bautismo',
     communion: 'Comunión',
     user_administration: 'Administración de Usuarios',
+    user_registrations: 'Inscripciones del Usuario',
+    view_registrations: 'Ver Inscripciones',
+    associated_registrations: 'Inscripciones Asociadas',
+    associated_registrations_subtitle: 'Inscripciones conectadas a esta cuenta de usuario.',
     back_to_dashboard: 'Volver al Panel',
     email: 'Correo Electrónico',
+    file: 'Archivo',
     phone: 'Telefono',
     account_status: 'Estado de la Cuenta',
     active_status: 'Activa',
@@ -1109,6 +1134,7 @@ const translations = {
     archived_col: 'Archivado',
     unarchive: 'Desarchivar',
     sponsor_confirmation_forms_header: 'Formularios de Confirmación de Padrino',
+    sponsor_form_certificate_upload: 'Certificado del Padrino',
     no_sponsor_forms: 'Aún no hay formularios de confirmación de padrino.',
     confirmation_name_col: 'Nombre de Confirmación',
     sponsor_col: 'Padrino',
@@ -1724,6 +1750,69 @@ const mergeUploadPaths = (existingValue, newPaths) => {
 };
 const uploadHref = (filePath) => (filePath ? `/${String(filePath).replace(/\\/g, '/')}` : '');
 const uploadFileName = (filePath) => (filePath ? String(filePath).replace(/\\/g, '/').split('/').pop() : '');
+const findUserIdByEmail = async (email) => {
+  const normalizedEmail = `${email || ''}`.trim().toLowerCase();
+  if (!normalizedEmail) return null;
+  const user = await db.prepare('SELECT id FROM users WHERE LOWER(email) = ? LIMIT 1').get(normalizedEmail);
+  return user?.id || null;
+};
+const resolveRegistrationOwnerUserId = async (req, email) => {
+  if (req.user?.role !== 'admin') return req.user.id;
+  return (await findUserIdByEmail(email)) || req.user.id;
+};
+const getUploadsForUser = async (userId) => {
+  const uploads = [];
+
+  const studentRegs = await db.prepare(`
+    SELECT id, student_full_name, baptism_certificate_path, first_communion_certificate_path, created_at
+    FROM student_registrations
+    WHERE user_id = ?
+    ORDER BY created_at DESC
+  `).all(userId);
+  studentRegs.forEach((reg) => {
+    parseUploadPaths(reg.baptism_certificate_path).forEach((filePath) => {
+      uploads.push({
+        filePath,
+        documentTypeKey: 'baptism',
+        registrationTypeKey: 'faith_formation_children',
+        registrationLabel: reg.student_full_name || '',
+        registrationHref: `/registration/children/edit/${reg.id}`,
+        createdAt: reg.created_at,
+      });
+    });
+    parseUploadPaths(reg.first_communion_certificate_path).forEach((filePath) => {
+      uploads.push({
+        filePath,
+        documentTypeKey: 'communion',
+        registrationTypeKey: 'faith_formation_children',
+        registrationLabel: reg.student_full_name || '',
+        registrationHref: `/registration/children/edit/${reg.id}`,
+        createdAt: reg.created_at,
+      });
+    });
+  });
+
+  const sponsorRegs = await db.prepare(`
+    SELECT id, student_name, sponsor_name, sponsor_certificate_path, created_at
+    FROM sponsor_confirmations
+    WHERE user_id = ?
+    ORDER BY created_at DESC
+  `).all(userId);
+  sponsorRegs.forEach((reg) => {
+    parseUploadPaths(reg.sponsor_certificate_path).forEach((filePath) => {
+      uploads.push({
+        filePath,
+        documentTypeKey: 'sponsor_form_certificate_upload',
+        registrationTypeKey: 'sponsor_confirmation_forms_header',
+        registrationLabel: [reg.student_name, reg.sponsor_name].filter(Boolean).join(' / '),
+        registrationHref: `/registration/sponsor-confirmation/edit/${reg.id}`,
+        createdAt: reg.created_at,
+      });
+    });
+  });
+
+  return uploads.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+};
 const CERTIFICATE_UPLOAD_FIELD_NAMES = new Set([
   'baptism_certificate',
   'baptism_certificate[]',
@@ -2438,6 +2527,11 @@ app.get('/account', requireAuth, asyncHandler(async (req, res) => {
   res.render('account-profile', { account });
 }));
 
+app.get('/account/uploads', requireAuth, asyncHandler(async (req, res) => {
+  const uploads = await getUploadsForUser(req.user.id);
+  res.render('account-uploads', { uploads, targetUser: null, adminView: false });
+}));
+
 app.get('/account/password', requireAuth, (req, res) => res.render('change-password'));
 
 app.post('/account/password', requireAuth, asyncHandler(async (req, res) => {
@@ -2946,12 +3040,26 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
 
       const rowRegistrationFee = studentIndex === 1 ? fees.registrationFee : 0;
       const existingRowId = req.body.registration_id ? Number(req.body.registration_id) : null;
+      let registrationOwnerUserId = req.user.id;
+      if (existingRowId) {
+        const existingOwnerRow = await db.prepare(
+          'SELECT user_id FROM student_registrations WHERE id = ? AND (user_id = ? OR ? = 1)'
+        ).get(existingRowId, req.user.id, isAdmin ? 1 : 0);
+        registrationOwnerUserId = existingOwnerRow?.user_id || req.user.id;
+      } else if (priorGroupIds.length) {
+        const groupOwnerRow = await db.prepare(
+          'SELECT user_id FROM student_registrations WHERE id = ? AND (user_id = ? OR ? = 1)'
+        ).get(priorGroupIds[0], req.user.id, isAdmin ? 1 : 0);
+        registrationOwnerUserId = groupOwnerRow?.user_id || req.user.id;
+      } else {
+        registrationOwnerUserId = await resolveRegistrationOwnerUserId(req, req.body.primary_contact_email);
+      }
       const existingRowForUploads = existingRowId
         ? await db.prepare(`
             SELECT baptism_certificate_path, first_communion_certificate_path
             FROM student_registrations
-            WHERE id = ? AND user_id = ?
-          `).get(existingRowId, req.user.id)
+            WHERE id = ? AND (user_id = ? OR ? = 1)
+          `).get(existingRowId, req.user.id, isAdmin ? 1 : 0)
         : null;
       const baptismCert = existingRowId
         ? mergeUploadPaths(existingRowForUploads?.baptism_certificate_path, baptismCertFiles)
@@ -2982,7 +3090,7 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
             baptism_certificate_path = COALESCE(?, baptism_certificate_path),
             first_communion_certificate_path = COALESCE(?, first_communion_certificate_path),
             status = ?
-          WHERE id = ? AND user_id = ?
+          WHERE id = ? AND (user_id = ? OR ? = 1)
         `).run(
           `${req.body.primary_contact_first_name || ''} ${req.body.primary_contact_last_name || ''}`,
           orNull(req.body.primary_contact_first_name), orNull(req.body.primary_contact_last_name),
@@ -3003,7 +3111,7 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
           rowRegistrationFee, fees.sacramentalFee, fees.lateFee,
           baptismCert, communionCert,
           isLastStage ? 'in_progress' : 'incomplete',
-          existingRowId, req.user.id
+          existingRowId, req.user.id, isAdmin ? 1 : 0
         );
         thisRowId = existingRowId;
       } else {
@@ -3022,7 +3130,7 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
             baptism_certificate_path, first_communion_certificate_path, status
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
-          req.user.id, faithFormationSettings.schoolYear,
+          registrationOwnerUserId, faithFormationSettings.schoolYear,
           `${req.body.primary_contact_first_name || ''} ${req.body.primary_contact_last_name || ''}`,
           orNull(req.body.primary_contact_first_name), orNull(req.body.primary_contact_last_name),
           orNull(req.body.primary_contact_phone), orNull(req.body.primary_contact_email), orNull(req.body.primary_contact_religion),
@@ -3052,8 +3160,8 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
         if (groupIdsAfter.length) {
           const placeholders = groupIdsAfter.map(() => '?').join(', ');
           await db.prepare(
-            `UPDATE student_registrations SET status = 'in_progress' WHERE id IN (${placeholders}) AND user_id = ?`
-          ).run(...groupIdsAfter, req.user.id);
+            `UPDATE student_registrations SET status = 'in_progress' WHERE id IN (${placeholders}) AND (user_id = ? OR ? = 1)`
+          ).run(...groupIdsAfter, registrationOwnerUserId, isAdmin ? 1 : 0);
         }
         const totalsRow = await db.prepare(
           `SELECT SUM(registration_fee + sacramental_fee + late_fee) AS total FROM student_registrations WHERE id IN (${groupIdsAfter.map(() => '?').join(', ')})`
@@ -3760,6 +3868,84 @@ app.get('/admin/users', requireAuth, requireRole('admin'), asyncHandler(async (r
     altarServerTrainingDates,
     altarServerSignups,
   });
+}));
+
+app.get('/admin/users/:id/registrations', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const userId = Number.parseInt(req.params.id, 10);
+  if (!Number.isInteger(userId)) {
+    req.flash('error', 'Invalid user.');
+    return res.redirect('/admin/users');
+  }
+
+  const targetUser = await db.prepare(`
+    SELECT id, email, role, provider, full_name, phone, is_active, email_verified_at, created_at
+    FROM users
+    WHERE id = ?
+  `).get(userId);
+  if (!targetUser) {
+    req.flash('error', 'User not found.');
+    return res.redirect('/admin/users');
+  }
+
+  const studentRegs = await db.prepare(`
+    SELECT *
+    FROM student_registrations
+    WHERE user_id = ?
+    ORDER BY archived_at IS NULL DESC, created_at DESC
+  `).all(userId);
+  const familyRegsRaw = await db.prepare(`
+    SELECT *
+    FROM family_faith_registrations
+    WHERE user_id = ?
+    ORDER BY created_at DESC
+  `).all(userId);
+  const familyRegs = familyRegsRaw.map((reg) => ({
+    ...reg,
+    members: parseFamilyMembersFromStorage(reg.members_json),
+  }));
+  const adultRegs = await db.prepare(`
+    SELECT *
+    FROM adult_registrations
+    WHERE user_id = ?
+    ORDER BY archived_at IS NULL DESC, created_at DESC
+  `).all(userId);
+  const sponsorRegs = await db.prepare(`
+    SELECT *
+    FROM sponsor_confirmations
+    WHERE user_id = ?
+    ORDER BY created_at DESC
+  `).all(userId);
+
+  res.render('admin-user-registrations', {
+    targetUser,
+    studentRegs,
+    familyRegs,
+    adultRegs,
+    sponsorRegs,
+    ADULT_PROGRAMS: getAdultPrograms(res.locals.t),
+    resolveCcdGrade,
+  });
+}));
+
+app.get('/admin/users/:id/uploads', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const userId = Number.parseInt(req.params.id, 10);
+  if (!Number.isInteger(userId)) {
+    req.flash('error', 'Invalid user.');
+    return res.redirect('/admin/users');
+  }
+
+  const targetUser = await db.prepare(`
+    SELECT id, email, role, provider, full_name, phone, is_active, email_verified_at, created_at
+    FROM users
+    WHERE id = ?
+  `).get(userId);
+  if (!targetUser) {
+    req.flash('error', 'User not found.');
+    return res.redirect('/admin/users');
+  }
+
+  const uploads = await getUploadsForUser(userId);
+  res.render('account-uploads', { uploads, targetUser, adminView: true });
 }));
 
 app.post('/admin/eucharistic-adoration/dates', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
