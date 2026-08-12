@@ -89,6 +89,7 @@
         <option value="All"><%= t('all_statuses') %></option>
         <option value="verified"><%= t('verified_status') %></option>
         <option value="pending"><%= t('pending_status') %></option>
+        <option value="deleted"><%= t('deleted_status') %></option>
       </select>
       <span class="text-muted" style="font-size:.85rem;white-space:nowrap" id="user-count-label" data-singular="<%= t('user_singular') %>" data-plural="<%= t('user_plural') %>"><%= users.length %> <%= users.length === 1 ? t('user_singular') : t('user_plural') %></span>
     </div>
@@ -107,7 +108,7 @@
           </thead>
           <tbody>
             <% users.forEach(u => { %>
-              <tr class="user-row" data-search="<%= `${u.full_name || ''} ${u.email}`.toLowerCase() %>" data-status="<%= u.is_active ? 'verified' : 'pending' %>">
+              <tr class="user-row" data-search="<%= `${u.full_name || ''} ${u.email}`.toLowerCase() %>" data-status="<%= u.account_status === 'deleted' ? 'deleted' : (u.is_active ? 'verified' : 'pending') %>">
                 <td>
                   <div class="d-flex align-items-center">
                     <span class="provider-badge" title="Signed in via <%= u.provider %>" style="color:<%= providerBadgeColors[u.provider] || 'var(--muted)' %>"><%= (u.provider || '?').charAt(0).toUpperCase() %></span>
@@ -118,7 +119,9 @@
                 <td><%= u.phone || '—' %></td>
                 <td><span class="badge badge-role badge-<%= u.role %>"><%= u.role %></span></td>
                 <td>
-                  <% if (u.is_active) { %>
+                  <% if (u.account_status === 'deleted') { %>
+                    <span class="badge text-bg-secondary"><%= t('deleted_status') %></span>
+                  <% } else if (u.is_active) { %>
                     <span class="badge text-bg-success"><%= t('verified_status') %></span>
                   <% } else { %>
                     <span class="badge text-bg-warning"><%= t('pending_status') %></span>
@@ -145,21 +148,21 @@
                         <button class="btn btn-primary btn-sm" type="submit"><%= t('save') %></button>
                       </form>
                     </div>
-                    <% if (u.provider === 'local' && !u.is_active) { %>
+                    <% if (u.provider === 'local' && !u.is_active && u.account_status !== 'deleted') { %>
                       <a class="user-menu-item" href="/admin/users/<%= u.id %>/verification-email" target="_blank" rel="noreferrer"><%= t('preview_email') %></a>
                       <form method="post" action="/admin/users/<%= u.id %>/resend-verification">
                         <button class="user-menu-item" type="submit"><%= t('resend') %></button>
                       </form>
                     <% } %>
-                    <% if (u.provider === 'local') { %>
+                    <% if (u.provider === 'local' && u.account_status !== 'deleted') { %>
                       <form method="post" action="/admin/users/<%= u.id %>/reset-password">
                         <button class="user-menu-item" type="submit"><%= t('reset_password_btn') %></button>
                       </form>
                     <% } %>
-                    <% if (!user || user.id !== u.id) { %>
+                    <% if ((!user || user.id !== u.id) && u.account_status !== 'deleted') { %>
                       <div class="user-menu-divider"></div>
                       <form method="post" action="/admin/users/<%= u.id %>/delete" onsubmit="return confirm('<%= t('confirm_remove_user') %>');">
-                        <button class="user-menu-item user-menu-item-danger" type="submit"><%= t('deactivate_user') %></button>
+                        <button class="user-menu-item user-menu-item-danger" type="submit"><%= t('mark_deleted_user') %></button>
                       </form>
                     <% } %>
                   </div>

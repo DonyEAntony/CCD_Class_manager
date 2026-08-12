@@ -446,8 +446,9 @@ const translations = {
     preview_email: 'Preview Email',
     resend: 'Resend',
     reset_password_btn: 'Reset Password',
-    deactivate_user: 'Deactivate',
-    confirm_remove_user: 'Deactivate this user account? Existing registrations and records will remain.',
+    deleted_status: 'Deleted',
+    mark_deleted_user: 'Mark Deleted',
+    confirm_remove_user: 'Mark this user account as deleted? Existing registrations and records will remain.',
     faith_formation_registration_header: 'Faith Formation Registration',
     current_registration_year: 'Current Registration Year',
     set_current_registration_year: 'Set Current Registration Year',
@@ -1088,8 +1089,9 @@ const translations = {
     preview_email: 'Vista Previa del Correo',
     resend: 'Reenviar',
     reset_password_btn: 'Restablecer Contraseña',
-    deactivate_user: 'Desactivar',
-    confirm_remove_user: '¿Desactivar esta cuenta de usuario? Las inscripciones y registros existentes permanecerán.',
+    deleted_status: 'Eliminada',
+    mark_deleted_user: 'Marcar Eliminada',
+    confirm_remove_user: '¿Marcar esta cuenta de usuario como eliminada? Las inscripciones y registros existentes permanecerán.',
     faith_formation_registration_header: 'Inscripción de Formación en la Fe',
     current_registration_year: 'Año de Inscripción Actual',
     set_current_registration_year: 'Establecer Año de Inscripción Actual',
@@ -2366,7 +2368,10 @@ app.post('/signup', asyncHandler(async (req, res) => {
       response: error?.response || null,
       responseCode: error?.responseCode || null,
     });
-    await db.prepare('DELETE FROM users WHERE email = ? AND is_active = 0').run(normalizedEmail);
+    await db.prepare(`
+      DELETE FROM users
+      WHERE email = ? AND is_active = 0 AND COALESCE(account_status, 'active') <> 'deleted'
+    `).run(normalizedEmail);
     req.flash('error', 'Unable to send verification email. Please try again.');
     return res.redirect('/signup');
   }
@@ -2381,13 +2386,18 @@ app.get('/verify-email', asyncHandler(async (req, res) => {
 
   const tokenHash = hashVerificationToken(token);
   const user = await db.prepare(`
-    SELECT id, email, is_active, email_verification_expires_at
+    SELECT id, email, is_active, account_status, email_verification_expires_at
     FROM users
     WHERE email_verification_token = ?
   `).get(tokenHash);
 
   if (!user) {
     req.flash('error', 'Verification link is invalid or has already been used.');
+    return res.redirect('/login');
+  }
+
+  if (user.account_status === 'deleted') {
+    req.flash('error', 'This account has been deleted.');
     return res.redirect('/login');
   }
 
@@ -2429,8 +2439,8 @@ app.post('/forgot-password', asyncHandler(async (req, res) => {
   let previewUrl = null;
 
   if (email) {
-    const user = await db.prepare('SELECT id, email, full_name, provider FROM users WHERE email = ?').get(email);
-    if (user && user.provider === 'local') {
+    const user = await db.prepare('SELECT id, email, full_name, provider, account_status FROM users WHERE email = ?').get(email);
+    if (user && user.provider === 'local' && user.account_status !== 'deleted') {
       const resetToken = createVerificationToken();
       const resetTokenHash = hashVerificationToken(resetToken);
       const resetExpiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
@@ -2460,10 +2470,10 @@ app.get('/reset-password', asyncHandler(async (req, res) => {
   }
   const tokenHash = hashVerificationToken(token);
   const user = await db.prepare(
-    'SELECT id, password_reset_expires_at FROM users WHERE password_reset_token = ?'
+    'SELECT id, account_status, password_reset_expires_at FROM users WHERE password_reset_token = ?'
   ).get(tokenHash);
 
-  if (!user || !user.password_reset_expires_at || new Date(user.password_reset_expires_at) < new Date()) {
+  if (!user || user.account_status === 'deleted' || !user.password_reset_expires_at || new Date(user.password_reset_expires_at) < new Date()) {
     req.flash('error', 'Password reset link is invalid or has expired. Please request a new one.');
     return res.redirect('/forgot-password');
   }
@@ -2483,10 +2493,10 @@ app.post('/reset-password', asyncHandler(async (req, res) => {
 
   const tokenHash = hashVerificationToken(token);
   const user = await db.prepare(
-    'SELECT id, password_reset_expires_at FROM users WHERE password_reset_token = ?'
+    'SELECT id, account_status, password_reset_expires_at FROM users WHERE password_reset_token = ?'
   ).get(tokenHash);
 
-  if (!user || !user.password_reset_expires_at || new Date(user.password_reset_expires_at) < new Date()) {
+  if (!user || user.account_status === 'deleted' || !user.password_reset_expires_at || new Date(user.password_reset_expires_at) < new Date()) {
     req.flash('error', 'Password reset link is invalid or has expired. Please request a new one.');
     return res.redirect('/forgot-password');
   }
@@ -3842,7 +3852,7 @@ app.get('/admin/users', requireAuth, requireRole('admin'), asyncHandler(async (r
   const validRoles = ['user', 'catechist', 'family_faith_leader', 'admin'];
   const roleFilter = validRoles.includes(req.query.role) ? req.query.role : '';
   const users = await db.prepare(`
-    SELECT id, email, role, provider, full_name, phone, is_active, email_verified_at, created_at
+    SELECT id, email, role, provider, full_name, phone, is_active, account_status, email_verified_at, created_at
     FROM users
     ${roleFilter ? 'WHERE role = ?' : ''}
     ORDER BY created_at DESC
@@ -4278,7 +4288,7 @@ app.get('/admin/users/:id/verification-email', requireAuth, requireRole('admin')
   }
 
   const targetUser = await db.prepare(`
-    SELECT id, email, full_name, provider, is_active
+    SELECT id, email, full_name, provider, is_active, account_status
     FROM users
     WHERE id = ?
   `).get(userId);
@@ -4287,6 +4297,9 @@ app.get('/admin/users/:id/verification-email', requireAuth, requireRole('admin')
   }
   if (targetUser.provider !== 'local') {
     return res.status(400).send('Verification email preview is only available for local accounts.');
+  }
+  if (targetUser.account_status === 'deleted') {
+    return res.status(400).send('This account has been deleted.');
   }
   if (targetUser.is_active) {
     return res.status(400).send('This account is already active.');
@@ -4313,7 +4326,7 @@ app.post('/admin/users/:id/resend-verification', requireAuth, requireRole('admin
   }
 
   const targetUser = await db.prepare(`
-    SELECT id, email, full_name, role, provider, is_active
+    SELECT id, email, full_name, role, provider, is_active, account_status
     FROM users
     WHERE id = ?
   `).get(userId);
@@ -4323,6 +4336,10 @@ app.post('/admin/users/:id/resend-verification', requireAuth, requireRole('admin
   }
   if (targetUser.provider !== 'local') {
     req.flash('error', 'Only local accounts use verification emails.');
+    return res.redirect('/admin/users');
+  }
+  if (targetUser.account_status === 'deleted') {
+    req.flash('error', 'This account has been deleted.');
     return res.redirect('/admin/users');
   }
   if (targetUser.is_active) {
@@ -4369,13 +4386,17 @@ app.post('/admin/users/:id/reset-password', requireAuth, requireRole('admin'), a
     return res.redirect('/admin/users');
   }
 
-  const targetUser = await db.prepare('SELECT id, email, full_name, provider FROM users WHERE id = ?').get(userId);
+  const targetUser = await db.prepare('SELECT id, email, full_name, provider, account_status FROM users WHERE id = ?').get(userId);
   if (!targetUser) {
     req.flash('error', 'User not found.');
     return res.redirect('/admin/users');
   }
   if (targetUser.provider !== 'local') {
     req.flash('error', 'Only local accounts have a password to reset.');
+    return res.redirect('/admin/users');
+  }
+  if (targetUser.account_status === 'deleted') {
+    req.flash('error', 'This account has been deleted.');
     return res.redirect('/admin/users');
   }
 
@@ -4430,11 +4451,11 @@ app.post('/admin/users/:id/delete', requireAuth, requireRole('admin'), asyncHand
 
   await db.prepare(`
     UPDATE users
-    SET is_active = 0, deactivated_at = CURRENT_TIMESTAMP
+    SET is_active = 0, account_status = 'deleted'
     WHERE id = ?
   `).run(userId);
 
-  req.flash('success', `Deactivated user ${existingUser.email}. Existing records were preserved.`);
+  req.flash('success', `Marked user ${existingUser.email} as deleted. Existing records were preserved.`);
   return res.redirect('/admin/users');
 }));
 
