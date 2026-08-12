@@ -73,21 +73,28 @@
     </div>
   </div>
 
+  <% const providerBadgeColors = { local: 'var(--muted)', google: '#4285F4', github: '#24292f' }; %>
   <div class="page-card">
     <div class="card-header d-flex flex-wrap align-items-center gap-2">
       <label class="form-label mb-0" for="role-filter"><%= t('filter_by_user_type') %></label>
-      <select class="form-select" id="role-filter" name="role" style="max-width:220px" onchange="window.location.href = this.value ? '/admin/users?role=' + this.value : '/admin/users';">
+      <select class="form-select" id="role-filter" name="role" style="max-width:200px" onchange="window.location.href = this.value ? '/admin/users?role=' + this.value : '/admin/users';">
         <option value="" <%= !roleFilter ? 'selected' : '' %>><%= t('all_users') %></option>
         <option value="user" <%= roleFilter === 'user' ? 'selected' : '' %>><%= t('role_user') %></option>
         <option value="catechist" <%= roleFilter === 'catechist' ? 'selected' : '' %>><%= t('role_catechist') %></option>
         <option value="family_faith_leader" <%= roleFilter === 'family_faith_leader' ? 'selected' : '' %>><%= t('family_faith_leader') %></option>
         <option value="admin" <%= roleFilter === 'admin' ? 'selected' : '' %>><%= t('role_admin') %></option>
       </select>
-      <span class="text-muted" style="font-size:.85rem"><%= users.length %> <%= users.length === 1 ? t('user_singular') : t('user_plural') %></span>
+      <input type="text" class="form-control" id="user-search-input" placeholder="<%= t('search_users_placeholder') %>" style="flex:1;min-width:180px">
+      <select class="form-select" id="status-filter" style="max-width:180px">
+        <option value="All"><%= t('all_statuses') %></option>
+        <option value="verified"><%= t('verified_status') %></option>
+        <option value="pending"><%= t('pending_status') %></option>
+      </select>
+      <span class="text-muted" style="font-size:.85rem;white-space:nowrap" id="user-count-label" data-singular="<%= t('user_singular') %>" data-plural="<%= t('user_plural') %>"><%= users.length %> <%= users.length === 1 ? t('user_singular') : t('user_plural') %></span>
     </div>
     <div class="card-body p-0">
       <div class="table-responsive">
-        <table class="table mb-0">
+        <table class="table mb-0" id="user-table">
           <thead>
             <tr>
               <th><%= t('email') %></th>
@@ -95,14 +102,18 @@
               <th><%= t('phone') %></th>
               <th><%= t('role') %></th>
               <th><%= t('status') %></th>
-              <th><%= t('provider') %></th>
-              <th><%= t('actions') %></th>
+              <th style="text-align:right;min-width:200px"><%= t('actions') %></th>
             </tr>
           </thead>
           <tbody>
             <% users.forEach(u => { %>
-              <tr>
-                <td><%= u.email %></td>
+              <tr class="user-row" data-search="<%= `${u.full_name || ''} ${u.email}`.toLowerCase() %>" data-status="<%= u.is_active ? 'verified' : 'pending' %>">
+                <td>
+                  <div class="d-flex align-items-center">
+                    <span class="provider-badge" title="Signed in via <%= u.provider %>" style="color:<%= providerBadgeColors[u.provider] || 'var(--muted)' %>"><%= (u.provider || '?').charAt(0).toUpperCase() %></span>
+                    <%= u.email %>
+                  </div>
+                </td>
                 <td><%= u.full_name || '—' %></td>
                 <td><%= u.phone || '—' %></td>
                 <td><span class="badge badge-role badge-<%= u.role %>"><%= u.role %></span></td>
@@ -113,34 +124,42 @@
                     <span class="badge text-bg-warning"><%= t('pending_status') %></span>
                   <% } %>
                 </td>
-                <td style="font-size:.85rem;color:var(--muted)"><%= u.provider %></td>
-                <td>
-                  <div class="d-flex gap-2 flex-wrap">
+                <td style="text-align:right;position:relative">
+                  <div class="d-inline-flex gap-2 align-items-center">
                     <a class="btn btn-outline-primary" href="/admin/users/<%= u.id %>/registrations"><%= t('view_registrations') %></a>
-                    <a class="btn btn-outline-primary" href="/admin/users/<%= u.id %>/uploads"><%= t('user_uploads') %></a>
-                    <form class="d-flex gap-2" method="post" action="/admin/users/<%= u.id %>/role">
-                      <select class="form-select" name="role" style="max-width:150px">
-                        <option value="user"      <%= u.role==='user'      ?'selected':'' %>><%= t('role_user') %></option>
-                        <option value="catechist" <%= u.role==='catechist' ?'selected':'' %>><%= t('role_catechist') %></option>
-                        <option value="family_faith_leader" <%= u.role==='family_faith_leader' ?'selected':'' %>><%= t('family_faith_leader') %></option>
-                        <option value="admin"     <%= u.role==='admin'     ?'selected':'' %>><%= t('role_admin') %></option>
-                      </select>
-                      <button class="btn btn-primary" type="submit"><%= t('save') %></button>
-                    </form>
+                    <button type="button" class="icon-btn user-menu-toggle" aria-label="<%= t('more_actions') %>" data-target="user-menu-<%= u.id %>">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+                    </button>
+                  </div>
+                  <div class="user-menu d-none" id="user-menu-<%= u.id %>">
+                    <a class="user-menu-item" href="/admin/users/<%= u.id %>/uploads"><%= t('user_uploads') %></a>
+                    <button type="button" class="user-menu-item user-role-toggle" data-target="user-role-form-<%= u.id %>"><%= t('change_role') %></button>
+                    <div class="d-none user-role-form" id="user-role-form-<%= u.id %>">
+                      <form class="d-flex gap-2" method="post" action="/admin/users/<%= u.id %>/role">
+                        <select class="form-select form-select-sm" name="role">
+                          <option value="user"      <%= u.role==='user'      ?'selected':'' %>><%= t('role_user') %></option>
+                          <option value="catechist" <%= u.role==='catechist' ?'selected':'' %>><%= t('role_catechist') %></option>
+                          <option value="family_faith_leader" <%= u.role==='family_faith_leader' ?'selected':'' %>><%= t('family_faith_leader') %></option>
+                          <option value="admin"     <%= u.role==='admin'     ?'selected':'' %>><%= t('role_admin') %></option>
+                        </select>
+                        <button class="btn btn-primary btn-sm" type="submit"><%= t('save') %></button>
+                      </form>
+                    </div>
                     <% if (u.provider === 'local' && !u.is_active) { %>
-                      <a class="btn btn-outline-secondary" href="/admin/users/<%= u.id %>/verification-email" target="_blank" rel="noreferrer"><%= t('preview_email') %></a>
+                      <a class="user-menu-item" href="/admin/users/<%= u.id %>/verification-email" target="_blank" rel="noreferrer"><%= t('preview_email') %></a>
                       <form method="post" action="/admin/users/<%= u.id %>/resend-verification">
-                        <button class="btn btn-outline-primary" type="submit"><%= t('resend') %></button>
+                        <button class="user-menu-item" type="submit"><%= t('resend') %></button>
                       </form>
                     <% } %>
                     <% if (u.provider === 'local') { %>
                       <form method="post" action="/admin/users/<%= u.id %>/reset-password">
-                        <button class="btn btn-outline-secondary" type="submit"><%= t('reset_password_btn') %></button>
+                        <button class="user-menu-item" type="submit"><%= t('reset_password_btn') %></button>
                       </form>
                     <% } %>
                     <% if (!user || user.id !== u.id) { %>
+                      <div class="user-menu-divider"></div>
                       <form method="post" action="/admin/users/<%= u.id %>/delete" onsubmit="return confirm('<%= t('confirm_remove_user') %>');">
-                        <button class="btn btn-outline-danger" type="submit"><%= t('remove') %></button>
+                        <button class="user-menu-item user-menu-item-danger" type="submit"><%= t('remove') %></button>
                       </form>
                     <% } %>
                   </div>
@@ -149,6 +168,13 @@
             <% }) %>
           </tbody>
         </table>
+      </div>
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 p-3" id="user-pagination" style="border-top:1px solid var(--border)">
+        <span class="text-muted" style="font-size:.85rem" id="user-page-label" data-template="<%= t('page_x_of_y') %>"></span>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-outline-secondary btn-sm" id="user-page-prev"><%= t('previous_page') %></button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" id="user-page-next"><%= t('next_page') %></button>
+        </div>
       </div>
     </div>
   </div>
@@ -826,6 +852,94 @@
         btn.textContent = nowHidden ? btn.getAttribute('data-show-label') : btn.getAttribute('data-hide-label');
       });
     });
+  }());
+
+  (function () {
+    const closeAllMenus = (except) => {
+      document.querySelectorAll('.user-menu').forEach((menu) => {
+        if (menu !== except) menu.classList.add('d-none');
+      });
+    };
+
+    document.querySelectorAll('.user-menu-toggle').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const menu = document.getElementById(btn.getAttribute('data-target'));
+        if (!menu) return;
+        const willOpen = menu.classList.contains('d-none');
+        closeAllMenus();
+        if (willOpen) menu.classList.remove('d-none');
+      });
+    });
+
+    document.querySelectorAll('.user-role-toggle').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const form = document.getElementById(btn.getAttribute('data-target'));
+        if (form) form.classList.toggle('d-none');
+      });
+    });
+
+    document.querySelectorAll('.user-menu').forEach((menu) => {
+      menu.addEventListener('click', (e) => e.stopPropagation());
+    });
+
+    document.addEventListener('click', () => closeAllMenus());
+  }());
+
+  (function () {
+    const searchInput = document.getElementById('user-search-input');
+    const statusFilter = document.getElementById('status-filter');
+    const countLabel = document.getElementById('user-count-label');
+    const pageLabel = document.getElementById('user-page-label');
+    const prevBtn = document.getElementById('user-page-prev');
+    const nextBtn = document.getElementById('user-page-next');
+    const pagination = document.getElementById('user-pagination');
+    const rows = Array.from(document.querySelectorAll('#user-table .user-row'));
+    if (!searchInput || !statusFilter || !rows.length) return;
+
+    const PAGE_SIZE = 10;
+    let currentPage = 1;
+
+    const getMatches = () => {
+      const query = searchInput.value.trim().toLowerCase();
+      const status = statusFilter.value;
+      return rows.filter((row) => {
+        const matchesQuery = !query || row.getAttribute('data-search').includes(query);
+        const matchesStatus = status === 'All' || row.getAttribute('data-status') === status;
+        return matchesQuery && matchesStatus;
+      });
+    };
+
+    const render = () => {
+      const matches = getMatches();
+      const totalPages = Math.max(1, Math.ceil(matches.length / PAGE_SIZE));
+      if (currentPage > totalPages) currentPage = totalPages;
+
+      const start = (currentPage - 1) * PAGE_SIZE;
+      const pageRows = new Set(matches.slice(start, start + PAGE_SIZE));
+      rows.forEach((row) => row.classList.toggle('d-none', !pageRows.has(row)));
+
+      if (countLabel) {
+        const label = matches.length === 1 ? countLabel.getAttribute('data-singular') : countLabel.getAttribute('data-plural');
+        countLabel.textContent = `${matches.length} ${label}`;
+      }
+      if (pageLabel) {
+        pageLabel.textContent = pageLabel.getAttribute('data-template')
+          .replace('{page}', currentPage)
+          .replace('{total}', totalPages);
+      }
+      if (pagination) pagination.classList.toggle('d-none', matches.length <= PAGE_SIZE);
+      if (prevBtn) prevBtn.disabled = currentPage <= 1;
+      if (nextBtn) nextBtn.disabled = currentPage >= totalPages;
+    };
+
+    searchInput.addEventListener('input', () => { currentPage = 1; render(); });
+    statusFilter.addEventListener('change', () => { currentPage = 1; render(); });
+    if (prevBtn) prevBtn.addEventListener('click', () => { currentPage -= 1; render(); });
+    if (nextBtn) nextBtn.addEventListener('click', () => { currentPage += 1; render(); });
+
+    render();
   }());
 </script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
