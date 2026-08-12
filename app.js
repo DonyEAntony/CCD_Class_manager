@@ -4426,6 +4426,10 @@ app.post('/admin/users/:id/delete', requireAuth, requireRole('admin'), asyncHand
     return res.redirect('/admin/users');
   }
 
+  const studentRegistrationIds = (await db.prepare(
+    'SELECT id FROM student_registrations WHERE user_id = ?'
+  ).all(userId)).map((registration) => registration.id);
+
   await db.prepare('DELETE FROM ccd_class_catechists WHERE catechist_user_id = ?').run(userId);
   await db.prepare(`
     UPDATE family_faith_visit_slots
@@ -4440,9 +4444,16 @@ app.post('/admin/users/:id/delete', requireAuth, requireRole('admin'), asyncHand
     WHERE assigned_leader_user_id = ?
   `).run(userId);
   await db.prepare('DELETE FROM family_faith_visit_slots WHERE leader_user_id = ?').run(userId);
+  if (studentRegistrationIds.length) {
+    const placeholders = studentRegistrationIds.map(() => '?').join(', ');
+    await db.prepare(
+      `DELETE FROM ccd_class_attendance WHERE student_registration_id IN (${placeholders})`
+    ).run(...studentRegistrationIds);
+  }
   await db.prepare('DELETE FROM student_registrations WHERE user_id = ?').run(userId);
   await db.prepare('DELETE FROM family_faith_registrations WHERE user_id = ?').run(userId);
   await db.prepare('DELETE FROM adult_registrations WHERE user_id = ?').run(userId);
+  await db.prepare('DELETE FROM sponsor_confirmations WHERE user_id = ?').run(userId);
   await db.prepare('DELETE FROM users WHERE id = ?').run(userId);
 
   req.flash('success', `Removed user ${existingUser.email}.`);
