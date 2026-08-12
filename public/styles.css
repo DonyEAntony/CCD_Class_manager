@@ -453,6 +453,67 @@ legend {
   color: #fff;
 }
 
+/* ── Provider badge + user actions menu ───────────────────────── */
+.provider-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--surface);
+  font: 700 8.5px 'Inter', sans-serif;
+  flex: none;
+  margin-right: 6px;
+}
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+  flex: none;
+}
+.icon-btn:hover { background: var(--surface); }
+.icon-btn svg { width: 14px; height: 14px; }
+
+.user-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 5;
+  width: 190px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(29,49,49,.18);
+  padding: 6px;
+  text-align: left;
+}
+.user-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  font: 400 12.5px 'Inter', sans-serif;
+  border-radius: 6px;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--ink-soft);
+  text-decoration: none;
+}
+.user-menu-item:hover { background: var(--surface); color: var(--ink-soft); }
+.user-menu-item-danger { color: #dc3545; }
+.user-menu-item-danger:hover { background: #fef2f2; color: #dc3545; }
+.user-menu-divider { height: 1px; background: var(--border); margin: 4px 6px; }
+.user-role-form { padding: 8px 10px 2px; }
+
 /* ── Forms ─────────────────────────────────────────────────── */
 .form-label {
   font-weight: 600;
