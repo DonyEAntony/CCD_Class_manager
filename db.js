@@ -664,7 +664,14 @@ const prepare = (sql) => ({
   },
 });
 
+// Users are soft-deleted (account_status set to 'deleted', row and its
+// registrations kept) rather than removed, so every access-control check
+// needs to treat that status as "gone". Centralized here so the status
+// value only needs to change in one place.
+const isDeletedAccount = (user) => user?.account_status === 'deleted';
+
 module.exports = {
   init,
   prepare,
+  isDeletedAccount,
 };

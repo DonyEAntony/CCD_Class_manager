@@ -12,7 +12,7 @@ passport.use(
       if (!user || !user.password_hash) {
         return done(null, false, { message: 'Invalid email or password.' });
       }
-      if (user.account_status === 'deleted') {
+      if (db.isDeletedAccount(user)) {
         return done(null, false, { message: 'This account has been deleted.' });
       }
       if (!user.is_active) {
@@ -41,20 +41,23 @@ const upsertOAuthUser = async (provider, profile, done) => {
       .prepare('SELECT * FROM users WHERE provider = ? AND provider_id = ?')
       .get(provider, providerId);
     if (existing) {
-      if (existing.account_status === 'deleted') {
-        return done(null, false, { message: 'This account has been deleted.' });
+      if (db.isDeletedAccount(existing)) {
+        // A previously deleted account signing back in via OAuth: the provider has
+        // already verified this identity, so reactivate immediately.
+        await db.prepare(`UPDATE users SET account_status = 'active', is_active = 1 WHERE id = ?`).run(existing.id);
+        const reactivated = await db.prepare('SELECT * FROM users WHERE id = ?').get(existing.id);
+        return done(null, reactivated);
       }
       return done(null, existing);
     }
 
     const linkedByEmail = await db.prepare('SELECT * FROM users WHERE email = ?').get(email);
     if (linkedByEmail) {
-      if (linkedByEmail.account_status === 'deleted') {
-        return done(null, false, { message: 'This account has been deleted.' });
-      }
+      // Reactivates a previously deleted row in place if account_status was 'deleted',
+      // since email stays UNIQUE across the table.
       await db.prepare(`
         UPDATE users
-        SET provider = ?, provider_id = ?, is_active = 1,
+        SET provider = ?, provider_id = ?, is_active = 1, account_status = 'active',
             email_verified_at = COALESCE(email_verified_at, CURRENT_TIMESTAMP),
             email_verification_token = NULL, email_verification_expires_at = NULL
         WHERE id = ?

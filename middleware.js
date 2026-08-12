@@ -1,8 +1,10 @@
+const db = require('./db');
+
 const requireAuth = (req, res, next) => {
   if (!req.isAuthenticated || !req.isAuthenticated()) {
     return res.redirect('/login');
   }
-  if (req.user?.account_status === 'deleted' || Number(req.user?.is_active) === 0) {
+  if (db.isDeletedAccount(req.user) || Number(req.user?.is_active) === 0) {
     const redirectToLogin = () => {
       if (req.flash) req.flash('error', 'This account is no longer active.');
       return res.redirect('/login');
