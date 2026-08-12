@@ -869,6 +869,22 @@
       });
     };
 
+    // Menus are position:fixed so they can escape the table's horizontal-scroll
+    // container instead of being clipped by it; position them against the
+    // viewport here, flipping above the toggle button when there isn't room below.
+    const positionMenu = (btn, menu) => {
+      const btnRect = btn.getBoundingClientRect();
+      const menuRect = menu.getBoundingClientRect();
+      const margin = 4;
+      const left = Math.max(8, Math.min(btnRect.right - menuRect.width, window.innerWidth - menuRect.width - 8));
+      let top = btnRect.bottom + margin;
+      if (top + menuRect.height > window.innerHeight - 8) {
+        top = btnRect.top - menuRect.height - margin;
+      }
+      menu.style.left = `${left}px`;
+      menu.style.top = `${Math.max(8, top)}px`;
+    };
+
     document.querySelectorAll('.user-menu-toggle').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -876,7 +892,10 @@
         if (!menu) return;
         const willOpen = menu.classList.contains('d-none');
         closeAllMenus();
-        if (willOpen) menu.classList.remove('d-none');
+        if (willOpen) {
+          menu.classList.remove('d-none');
+          positionMenu(btn, menu);
+        }
       });
     });
 
@@ -893,6 +912,10 @@
     });
 
     document.addEventListener('click', () => closeAllMenus());
+    // A fixed-position menu doesn't move with page or table scroll, so just close it
+    // rather than let it drift away from the button that opened it.
+    window.addEventListener('scroll', () => closeAllMenus(), true);
+    window.addEventListener('resize', () => closeAllMenus());
   }());
 
   (function () {

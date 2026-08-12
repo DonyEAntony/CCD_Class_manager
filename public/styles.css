@@ -483,10 +483,8 @@ legend {
 .icon-btn svg { width: 14px; height: 14px; }
 
 .user-menu {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 4px);
-  z-index: 5;
+  position: fixed;
+  z-index: 1000;
   width: 190px;
   background: #fff;
   border: 1px solid var(--border);
