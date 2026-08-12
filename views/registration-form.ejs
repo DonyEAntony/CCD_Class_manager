@@ -201,15 +201,20 @@
                 <div class="col-md-6">
                   <label class="form-label required"><%= t('primary_contact_religion') %></label>
                   <select class="form-select" name="primary_contact_religion" required>
+                    <% const primaryContactReligionValue = parentSource && parentSource.primary_contact_religion ? String(parentSource.primary_contact_religion).trim() : ''; %>
+                    <% const primaryContactReligionOptions = ['Catholic', 'Non-denominational', 'Protestant', 'Muslim', 'Hindu', 'Buddhist', 'Agnostic', 'Atheist']; %>
                     <option value="" disabled <%= !(parentSource && parentSource.primary_contact_religion) ? 'selected' : '' %>><%= t('select_placeholder') %></option>
-                    <option value="Catholic"><%= t('religion_catholic') %></option>
-                    <option value="Non-denominational"><%= t('religion_non_denominational') %></option>
-                    <option value="Protestant"><%= t('religion_protestant') %></option>
-                    <option value="Muslim"><%= t('religion_muslim') %></option>
-                    <option value="Hindu"><%= t('religion_hindu') %></option>
-                    <option value="Buddhist"><%= t('religion_buddhist') %></option>
-                    <option value="Agnostic"><%= t('religion_agnostic') %></option>
-                    <option value="Atheist"><%= t('religion_atheist') %></option>
+                    <% if (primaryContactReligionValue && !primaryContactReligionOptions.includes(primaryContactReligionValue)) { %>
+                      <option value="<%= primaryContactReligionValue %>" selected><%= primaryContactReligionValue %></option>
+                    <% } %>
+                    <option value="Catholic" <%= primaryContactReligionValue === 'Catholic' ? 'selected' : '' %>><%= t('religion_catholic') %></option>
+                    <option value="Non-denominational" <%= primaryContactReligionValue === 'Non-denominational' ? 'selected' : '' %>><%= t('religion_non_denominational') %></option>
+                    <option value="Protestant" <%= primaryContactReligionValue === 'Protestant' ? 'selected' : '' %>><%= t('religion_protestant') %></option>
+                    <option value="Muslim" <%= primaryContactReligionValue === 'Muslim' ? 'selected' : '' %>><%= t('religion_muslim') %></option>
+                    <option value="Hindu" <%= primaryContactReligionValue === 'Hindu' ? 'selected' : '' %>><%= t('religion_hindu') %></option>
+                    <option value="Buddhist" <%= primaryContactReligionValue === 'Buddhist' ? 'selected' : '' %>><%= t('religion_buddhist') %></option>
+                    <option value="Agnostic" <%= primaryContactReligionValue === 'Agnostic' ? 'selected' : '' %>><%= t('religion_agnostic') %></option>
+                    <option value="Atheist" <%= primaryContactReligionValue === 'Atheist' ? 'selected' : '' %>><%= t('religion_atheist') %></option>
                   </select>
                 </div>
                 <div class="col-md-6">

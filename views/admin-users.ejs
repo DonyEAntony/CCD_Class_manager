@@ -116,6 +116,8 @@
                 <td style="font-size:.85rem;color:var(--muted)"><%= u.provider %></td>
                 <td>
                   <div class="d-flex gap-2 flex-wrap">
+                    <a class="btn btn-outline-primary" href="/admin/users/<%= u.id %>/registrations"><%= t('view_registrations') %></a>
+                    <a class="btn btn-outline-primary" href="/admin/users/<%= u.id %>/uploads"><%= t('user_uploads') %></a>
                     <form class="d-flex gap-2" method="post" action="/admin/users/<%= u.id %>/role">
                       <select class="form-select" name="role" style="max-width:150px">
                         <option value="user"      <%= u.role==='user'      ?'selected':'' %>><%= t('role_user') %></option>

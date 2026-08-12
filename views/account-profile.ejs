@@ -78,6 +78,7 @@
               <div class="text-muted small"><%= t('verified_status') %></div>
               <div class="fw-semibold"><%= verifiedLabel || t('not_verified_status') %></div>
             </div>
+            <a class="btn btn-outline-primary" href="/account/uploads"><%= t('my_uploads') %></a>
             <% if (account.provider === 'local') { %>
               <a class="btn btn-primary" href="/account/password"><%= t('change_password') %></a>
             <% } %>
