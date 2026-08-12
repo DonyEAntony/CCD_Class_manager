@@ -430,6 +430,7 @@ const init = async () => {
     await ensureColumn('users', 'email_verification_expires_at', 'DATETIME NULL');
     await ensureColumn('users', 'password_reset_token', 'VARCHAR(255) NULL');
     await ensureColumn('users', 'password_reset_expires_at', 'DATETIME NULL');
+    await ensureColumn('users', 'account_status', "VARCHAR(50) NOT NULL DEFAULT 'active'");
     await ensureColumn('ccd_classes', 'section_label', 'VARCHAR(10) NULL');
     // A class can now have more than one catechist, so the single catechist_user_id
     // column moved to the ccd_class_catechists join table. Migrate any existing
@@ -663,7 +664,14 @@ const prepare = (sql) => ({
   },
 });
 
+// Users are soft-deleted (account_status set to 'deleted', row and its
+// registrations kept) rather than removed, so every access-control check
+// needs to treat that status as "gone". Centralized here so the status
+// value only needs to change in one place.
+const isDeletedAccount = (user) => user?.account_status === 'deleted';
+
 module.exports = {
   init,
   prepare,
+  isDeletedAccount,
 };
