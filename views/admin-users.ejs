@@ -50,6 +50,39 @@
   <div class="tab-pane fade show active" id="users-pane" role="tabpanel" aria-labelledby="users-tab">
 
   <div class="page-card mb-4">
+    <div class="card-header"><h2 class="h5 mb-0"><%= t('create_user_header') %></h2></div>
+    <div class="card-body">
+      <p class="text-muted" style="font-size:.85rem"><%= t('create_user_desc') %></p>
+      <form method="post" action="/admin/users/create" class="row gy-2 gx-2 align-items-end">
+        <div class="col-12 col-md-3">
+          <label class="form-label" for="create-user-full-name"><%= t('invite_full_name_label') %></label>
+          <input class="form-control" type="text" id="create-user-full-name" name="full_name" required>
+        </div>
+        <div class="col-12 col-md-3">
+          <label class="form-label" for="create-user-email"><%= t('invite_email_label') %></label>
+          <input class="form-control" type="email" id="create-user-email" name="email" required>
+        </div>
+        <div class="col-12 col-md-2">
+          <label class="form-label" for="create-user-phone"><%= t('invite_phone_label') %></label>
+          <input class="form-control" type="text" id="create-user-phone" name="phone" placeholder="555-123-4567">
+        </div>
+        <div class="col-12 col-md-2">
+          <label class="form-label" for="create-user-role"><%= t('create_user_role_label') %></label>
+          <select class="form-select" id="create-user-role" name="role">
+            <option value="user"><%= t('role_user') %></option>
+            <option value="catechist"><%= t('role_catechist') %></option>
+            <option value="family_faith_leader"><%= t('family_faith_leader') %></option>
+            <option value="admin"><%= t('role_admin') %></option>
+          </select>
+        </div>
+        <div class="col-12 col-md-2">
+          <button class="btn btn-primary w-100" type="submit"><%= t('create_user_submit') %></button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="page-card mb-4">
     <div class="card-header"><h2 class="h5 mb-0"><%= t('invite_catechist_header') %></h2></div>
     <div class="card-body">
       <p class="text-muted" style="font-size:.85rem"><%= t('invite_catechist_desc') %></p>

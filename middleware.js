@@ -17,6 +17,10 @@ const requireAuth = (req, res, next) => {
     }
     return redirectToLogin();
   }
+  if (Number(req.user?.must_change_password) === 1 && req.path !== '/account/password') {
+    if (req.flash) req.flash('error', 'Please set a new password before continuing.');
+    return res.redirect('/account/password');
+  }
   return next();
 };
 

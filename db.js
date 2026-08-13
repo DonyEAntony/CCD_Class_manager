@@ -431,6 +431,7 @@ const init = async () => {
     await ensureColumn('users', 'password_reset_token', 'VARCHAR(255) NULL');
     await ensureColumn('users', 'password_reset_expires_at', 'DATETIME NULL');
     await ensureColumn('users', 'account_status', "VARCHAR(50) NOT NULL DEFAULT 'active'");
+    await ensureColumn('users', 'must_change_password', 'TINYINT(1) NOT NULL DEFAULT 0');
     await ensureColumn('ccd_classes', 'section_label', 'VARCHAR(10) NULL');
     // A class can now have more than one catechist, so the single catechist_user_id
     // column moved to the ccd_class_catechists join table. Migrate any existing
