@@ -10,7 +10,7 @@ const passport = require('./auth');
 const db = require('./db');
 const MySqlSessionStore = require('./session-store');
 const { processScanDocument, verifyDocumentAiConfiguration } = require('./document-ai');
-const { sendVerificationEmail, smtpLogConfig, verifyMailConfiguration, buildVerificationEmailContent, sendPasswordResetEmail, sendClassMessageEmail, sendCatechistInvitationEmail } = require('./mailer');
+const { sendVerificationEmail, smtpLogConfig, verifyMailConfiguration, buildVerificationEmailContent, sendPasswordResetEmail, sendClassMessageEmail, sendCatechistInvitationEmail, sendTemporaryPasswordEmail } = require('./mailer');
 const { requireAuth, requireRole } = require('./middleware');
 
 const app = express();
@@ -440,6 +440,10 @@ const translations = {
     invite_email_label: 'Email',
     invite_phone_label: 'Phone (optional)',
     invite_catechist_submit: 'Send Invitation',
+    create_user_header: 'Create a User',
+    create_user_desc: 'Create an account with a temporary password. They can log in immediately and will be asked to set a new password on first login.',
+    create_user_role_label: 'Role',
+    create_user_submit: 'Create User',
     verified_status: 'Verified',
     pending_status: 'Pending',
     confirmed_status: 'Confirmed',
@@ -1084,6 +1088,10 @@ const translations = {
     invite_email_label: 'Correo Electrónico',
     invite_phone_label: 'Teléfono (opcional)',
     invite_catechist_submit: 'Enviar Invitación',
+    create_user_header: 'Crear un Usuario',
+    create_user_desc: 'Crea una cuenta con una contraseña temporal. Podrán iniciar sesión de inmediato y se les pedirá establecer una nueva contraseña en el primer inicio de sesión.',
+    create_user_role_label: 'Rol',
+    create_user_submit: 'Crear Usuario',
     verified_status: 'Verificado',
     pending_status: 'Pendiente',
     confirmed_status: 'Confirmado',
@@ -2138,6 +2146,15 @@ const getAvailableAdorationDates = async ({ includePast = false } = {}) => {
 
 const createVerificationToken = () => crypto.randomBytes(32).toString('hex');
 const hashVerificationToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
+const TEMP_PASSWORD_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+const generateTempPassword = (length = 12) => {
+  const bytes = crypto.randomBytes(length);
+  let password = '';
+  for (let i = 0; i < length; i += 1) {
+    password += TEMP_PASSWORD_CHARS[bytes[i] % TEMP_PASSWORD_CHARS.length];
+  }
+  return password;
+};
 const getBaseUrl = (req) => process.env.APP_BASE_URL || `${req.protocol}://${req.get('host')}`;
 const issueVerificationForUser = async ({ userId, email, fullName, role, req }) => {
   const verificationToken = createVerificationToken();
@@ -2603,7 +2620,7 @@ app.post('/account/password', requireAuth, asyncHandler(async (req, res) => {
   }
 
   const hash = bcrypt.hashSync(newPassword, 10);
-  await db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hash, req.user.id);
+  await db.prepare('UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?').run(hash, req.user.id);
 
   req.flash('success', 'Your password has been updated.');
   return res.redirect('/dashboard');
@@ -4176,6 +4193,83 @@ app.post('/admin/scan-registration/process', requireAuth, requireRole('admin'), 
       code: error?.code || null,
     });
   }
+}));
+
+app.post('/admin/users/create', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const allowedRoles = new Set(['user', 'catechist', 'family_faith_leader', 'admin']);
+  const fullName = typeof req.body.full_name === 'string' ? req.body.full_name.trim() : '';
+  const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+  const phone = typeof req.body.phone === 'string' ? req.body.phone.trim() : '';
+  const role = allowedRoles.has(req.body.role) ? req.body.role : 'user';
+
+  if (!fullName || !email) {
+    req.flash('error', 'Full name and email are required to create a user.');
+    return res.redirect('/admin/users');
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    req.flash('error', 'Please enter a valid email address.');
+    return res.redirect('/admin/users');
+  }
+  if (phone && !phoneRegex.test(phone)) {
+    req.flash('error', 'Invalid phone format. Use XXX-XXX-XXXX, XXX.XXX.XXXX, or XXX XXX XXXX.');
+    return res.redirect('/admin/users');
+  }
+
+  const existing = await db.prepare('SELECT id, account_status FROM users WHERE email = ?').get(email);
+  if (existing && !db.isDeletedAccount(existing)) {
+    req.flash('error', `An account already exists for ${email}.`);
+    return res.redirect('/admin/users');
+  }
+
+  const nameParts = fullName.split(/\s+/);
+  const firstName = nameParts[0] || '';
+  const lastName = nameParts.slice(1).join(' ') || '';
+
+  const tempPassword = generateTempPassword();
+  const passwordHash = bcrypt.hashSync(tempPassword, 10);
+
+  if (existing) {
+    // A previously deleted account reusing this email: reactivate the row in place
+    // rather than inserting a new one, since email stays UNIQUE across the table.
+    await db.prepare(`
+      UPDATE users
+      SET password_hash = ?, role = ?, provider = 'local', full_name = ?, first_name = ?, last_name = ?, phone = ?,
+          is_active = 1, account_status = 'active', email_verified_at = CURRENT_TIMESTAMP,
+          email_verification_token = NULL, email_verification_expires_at = NULL,
+          password_reset_token = NULL, password_reset_expires_at = NULL, must_change_password = 1
+      WHERE id = ?
+    `).run(passwordHash, role, fullName, firstName, lastName, phone || null, existing.id);
+  } else {
+    await db.prepare(`
+      INSERT INTO users (
+        email, password_hash, role, provider, full_name, first_name, last_name, phone, is_active, email_verified_at, must_change_password
+      ) VALUES (?, ?, ?, 'local', ?, ?, ?, ?, 1, CURRENT_TIMESTAMP, 1)
+    `).run(email, passwordHash, role, fullName, firstName, lastName, phone || null);
+  }
+
+  const loginUrl = `${getBaseUrl(req)}/login`;
+
+  let delivery;
+  try {
+    delivery = await sendTemporaryPasswordEmail({ to: email, tempPassword, loginUrl, fullName });
+  } catch (error) {
+    console.error('[admin] Temporary password email failed', {
+      email,
+      message: error?.message || String(error),
+      code: error?.code || null,
+      response: error?.response || null,
+      responseCode: error?.responseCode || null,
+    });
+    req.flash('error', `Account created for ${email}, but the email could not be sent. Temporary password: ${tempPassword}`);
+    return res.redirect('/admin/users');
+  }
+
+  if (delivery.delivered) {
+    req.flash('success', `Account created and temporary password emailed to ${email}.`);
+  } else {
+    req.flash('success', `Account created for ${email}. Temporary password (email not sent): ${tempPassword}`);
+  }
+  return res.redirect('/admin/users');
 }));
 
 app.post('/admin/users/catechists', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {

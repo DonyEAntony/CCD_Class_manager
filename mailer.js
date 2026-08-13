@@ -244,6 +244,69 @@ const buildCatechistInvitationEmailContent = ({ activationUrl, fullName }) => ({
   `,
 });
 
+const buildTemporaryPasswordEmailContent = ({ tempPassword, loginUrl, fullName }) => ({
+  subject: 'Your Saint Matthew CCD account has been created',
+  text: [
+    `Hello ${fullName || ''}`.trim() + ',',
+    '',
+    'An administrator has created an account for you at Saint Matthew Faith Formation.',
+    `Temporary password: ${tempPassword}`,
+    '',
+    `Log in here: ${loginUrl}`,
+    'You will be asked to set a new password the first time you log in.',
+    '',
+    'If you were not expecting this account, you can ignore this message.',
+  ].join('\n'),
+  html: `
+    <p>Hello ${fullName || ''},</p>
+    <p>An administrator has created an account for you at Saint Matthew Faith Formation.</p>
+    <p>Temporary password: <strong>${tempPassword}</strong></p>
+    <p><a href="${loginUrl}">Log in</a></p>
+    <p>You will be asked to set a new password the first time you log in.</p>
+    <p>If you were not expecting this account, you can ignore this message.</p>
+  `,
+});
+
+const sendTemporaryPasswordEmail = async ({ to, tempPassword, loginUrl, fullName }) => {
+  const transporter = createTransporter();
+  if (!transporter) {
+    console.warn('[mail] Temporary password email skipped: SMTP config incomplete', {
+      host: smtpLogConfig.host,
+      port: smtpLogConfig.port,
+      secure: smtpLogConfig.secure,
+      hasUser: smtpLogConfig.hasUser,
+      hasPass: smtpLogConfig.hasPass,
+      from: smtpLogConfig.from,
+    });
+    return { delivered: false };
+  }
+
+  console.info('[mail] Sending temporary password email', {
+    to,
+    host: smtpLogConfig.host,
+    port: smtpLogConfig.port,
+    secure: smtpLogConfig.secure,
+    from: smtpLogConfig.from,
+  });
+
+  const content = buildTemporaryPasswordEmailContent({ tempPassword, loginUrl, fullName });
+  const info = await transporter.sendMail({
+    from: resolvedFrom,
+    to,
+    subject: content.subject,
+    text: content.text,
+    html: content.html,
+  });
+
+  console.info('[mail] Temporary password email accepted by SMTP server', {
+    to,
+    messageId: info.messageId,
+    response: info.response,
+  });
+
+  return { delivered: true, messageId: info.messageId, response: info.response };
+};
+
 const sendCatechistInvitationEmail = async ({ to, activationUrl, fullName }) => {
   const transporter = createTransporter();
   if (!transporter) {
@@ -289,4 +352,5 @@ module.exports = {
   hasSmtpConfig, sendVerificationEmail, resolvedFrom, smtpLogConfig, verifyMailConfiguration, buildVerificationEmailContent,
   sendPasswordResetEmail, buildPasswordResetEmailContent, sendClassMessageEmail, buildClassMessageEmailContent,
   sendCatechistInvitationEmail, buildCatechistInvitationEmailContent,
+  sendTemporaryPasswordEmail, buildTemporaryPasswordEmailContent,
 };
