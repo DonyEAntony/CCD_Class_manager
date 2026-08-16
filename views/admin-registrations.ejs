@@ -21,6 +21,9 @@
       <h1><%= t('all_registrations_header') %></h1>
       <p class="sub mb-0"><%= t('all_registrations_subtitle') %></p>
     </div>
+    <a class="btn btn-outline-primary" href="/admin/registrations/export.csv" download>
+      <%= t('export_registrations_csv') %>
+    </a>
   </div>
 
   <% const availableCcdGradeMeanings = (typeof ccdGradeMeanings !== 'undefined' && ccdGradeMeanings) ? ccdGradeMeanings : {}; %>

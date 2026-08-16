@@ -476,6 +476,7 @@ const translations = {
     registrations_title: 'Registrations',
     all_registrations_header: 'All Registrations',
     all_registrations_subtitle: 'Every family, child, adult, and sponsor confirmation submission across the parish.',
+    export_registrations_csv: 'Export CSV',
     filter_by_grade: 'Filter by grade',
     all_grades: 'All Grades',
     no_grade_match: 'No registrations match this grade.',
@@ -1092,6 +1093,7 @@ const translations = {
     registrations_title: 'Inscripciones',
     all_registrations_header: 'Todas las Inscripciones',
     all_registrations_subtitle: 'Cada inscripción de familia, niño, adulto y confirmación de padrino en toda la parroquia.',
+    export_registrations_csv: 'Exportar CSV',
     filter_by_grade: 'Filtrar por grado',
     all_grades: 'Todos los Grados',
     no_grade_match: 'No hay inscripciones que coincidan con este grado.',
@@ -3639,6 +3641,48 @@ app.post('/admin/registrations/children/:id/verification', requireAuth, requireR
     at: updated.at,
     verifierName,
   });
+}));
+
+const csvCell = (value) => {
+  if (value === null || value === undefined) return '""';
+  let text = value instanceof Date ? value.toISOString() : String(value);
+  // Prevent spreadsheet applications from interpreting submitted text as a formula.
+  if (/^[\t\r ]*[=+\-@]/.test(text)) text = `'${text}`;
+  return `"${text.replace(/"/g, '""')}"`;
+};
+
+app.get('/admin/registrations/export.csv', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const [studentRegs, familyRegs, adultRegs, sponsorRegs] = await Promise.all([
+    db.prepare('SELECT * FROM student_registrations ORDER BY created_at DESC').all(),
+    db.prepare('SELECT * FROM family_faith_registrations ORDER BY created_at DESC').all(),
+    db.prepare('SELECT * FROM adult_registrations ORDER BY created_at DESC').all(),
+    db.prepare('SELECT * FROM sponsor_confirmations ORDER BY created_at DESC').all(),
+  ]);
+
+  const rows = [
+    ...studentRegs.map((registration) => ({ registration_type: 'child', ...registration })),
+    ...familyRegs.map((registration) => ({ registration_type: 'family_faith', ...registration })),
+    ...adultRegs.map((registration) => ({ registration_type: 'adult', ...registration })),
+    ...sponsorRegs.map((registration) => ({ registration_type: 'sponsor_confirmation', ...registration })),
+  ];
+  const headers = ['registration_type'];
+  rows.forEach((row) => {
+    Object.keys(row).forEach((key) => {
+      if (!headers.includes(key)) headers.push(key);
+    });
+  });
+  const csv = [
+    headers.map(csvCell).join(','),
+    ...rows.map((row) => headers.map((header) => csvCell(row[header])).join(',')),
+  ].join('\r\n');
+  const dateStamp = new Date().toISOString().slice(0, 10);
+
+  res.set({
+    'Content-Type': 'text/csv; charset=utf-8',
+    'Content-Disposition': `attachment; filename="registrations-${dateStamp}.csv"`,
+    'Cache-Control': 'no-store',
+  });
+  return res.send(`\uFEFF${csv}`);
 }));
 
 app.get('/admin/registrations', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
