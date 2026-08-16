@@ -3647,9 +3647,17 @@ const csvCell = (value) => {
   if (value === null || value === undefined) return '""';
   let text = value instanceof Date ? value.toISOString() : String(value);
   // Prevent spreadsheet applications from interpreting submitted text as a formula.
-  if (/^[\t\r ]*[=+\-@]/.test(text)) text = `'${text}`;
+  if (/^[\t\r\n\v\f ]*[=+\-@]/.test(text)) text = `'${text}`;
   return `"${text.replace(/"/g, '""')}"`;
 };
+
+const summarizeFamilyMembers = (membersJson) => parseFamilyMembersFromStorage(membersJson)
+  .map((member) => {
+    const name = [member.firstName, member.lastName].filter(Boolean).join(' ') || 'Unnamed';
+    const details = [member.role, member.dob ? `DOB ${member.dob}` : ''].filter(Boolean).join(', ');
+    return details ? `${name} (${details})` : name;
+  })
+  .join('; ');
 
 app.get('/admin/registrations/export.csv', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   const [studentRegs, familyRegs, adultRegs, sponsorRegs] = await Promise.all([
@@ -3659,22 +3667,48 @@ app.get('/admin/registrations/export.csv', requireAuth, requireRole('admin'), as
     db.prepare('SELECT * FROM sponsor_confirmations ORDER BY created_at DESC').all(),
   ]);
 
+  const verifierUserIds = new Set();
+  studentRegs.forEach((reg) => {
+    ['certificates_verified_by', 'tuition_paid_by', 'parent_contacted_by'].forEach((col) => {
+      if (reg[col]) verifierUserIds.add(Number(reg[col]));
+    });
+  });
+  let verifierLookup = {};
+  if (verifierUserIds.size > 0) {
+    const ids = [...verifierUserIds];
+    const verifierRows = await db.prepare(
+      `SELECT id, full_name, email FROM users WHERE id IN (${ids.map(() => '?').join(',')})`
+    ).all(...ids);
+    verifierLookup = Object.fromEntries(verifierRows.map((row) => [row.id, row.full_name || row.email]));
+  }
+  const resolveVerifier = (userId) => (userId ? (verifierLookup[Number(userId)] || userId) : userId);
+
   const rows = [
-    ...studentRegs.map((registration) => ({ registration_type: 'child', ...registration })),
-    ...familyRegs.map((registration) => ({ registration_type: 'family_faith', ...registration })),
+    ...studentRegs.map((registration) => ({
+      registration_type: 'child',
+      ...registration,
+      certificates_verified_by: resolveVerifier(registration.certificates_verified_by),
+      tuition_paid_by: resolveVerifier(registration.tuition_paid_by),
+      parent_contacted_by: resolveVerifier(registration.parent_contacted_by),
+    })),
+    ...familyRegs.map(({ members_json, ...registration }) => ({
+      registration_type: 'family_faith',
+      ...registration,
+      family_members: summarizeFamilyMembers(members_json),
+    })),
     ...adultRegs.map((registration) => ({ registration_type: 'adult', ...registration })),
     ...sponsorRegs.map((registration) => ({ registration_type: 'sponsor_confirmation', ...registration })),
   ];
   const headers = ['registration_type'];
+  const seenHeaders = new Set(headers);
   rows.forEach((row) => {
     Object.keys(row).forEach((key) => {
-      if (!headers.includes(key)) headers.push(key);
+      if (!seenHeaders.has(key)) {
+        seenHeaders.add(key);
+        headers.push(key);
+      }
     });
   });
-  const csv = [
-    headers.map(csvCell).join(','),
-    ...rows.map((row) => headers.map((header) => csvCell(row[header])).join(',')),
-  ].join('\r\n');
   const dateStamp = new Date().toISOString().slice(0, 10);
 
   res.set({
@@ -3682,7 +3716,11 @@ app.get('/admin/registrations/export.csv', requireAuth, requireRole('admin'), as
     'Content-Disposition': `attachment; filename="registrations-${dateStamp}.csv"`,
     'Cache-Control': 'no-store',
   });
-  return res.send(`\uFEFF${csv}`);
+  res.write(`\uFEFF${headers.map(csvCell).join(',')}`);
+  rows.forEach((row) => {
+    res.write(`\r\n${headers.map((header) => csvCell(row[header])).join(',')}`);
+  });
+  return res.end();
 }));
 
 app.get('/admin/registrations', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
