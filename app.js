@@ -2384,7 +2384,6 @@ const getIncompleteStudentRegistrationFields = (reg) => {
   }
   if (!hasValue(reg.address)) missing.push('street address');
   if (!hasValue(reg.city_state_zip)) missing.push('city, state, and zip');
-  if (!hasValue(reg.mother_maiden_name)) missing.push('mother maiden name');
 
   const studentNames = getListValues(reg.student_full_name);
   const studentGenders = getListValues(reg.student_gender);
