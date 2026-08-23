@@ -559,7 +559,12 @@ const translations = {
     tuition_import_already_imported_detail: 'A registration already has this transaction ID on file — this payment was imported previously, so it will be skipped.',
     tuition_import_already_imported_summary: '%s of these rows were already imported previously and will be skipped automatically.',
     tuition_import_skip_row: 'Skip this row',
-    tuition_import_no_candidates: 'No registration found for this year with a matching email. Apply manually from the Registrations page if this payment is valid.',
+    tuition_import_no_candidates: 'No registration found for this year with a matching email, name, or phone number. Apply manually from the Registrations page if this payment is valid.',
+    tuition_import_possible_matches_label: 'Possible matches (not automatically selected — please verify)',
+    tuition_import_matched_by: 'Matched by',
+    tuition_import_reason_phone: 'phone number',
+    tuition_import_reason_parent_name: 'parent name',
+    tuition_import_reason_student_name: 'student name',
     tuition_import_confirm: 'Apply Selected Payments',
     tuition_import_cancel: 'Cancel',
     archive: 'Archive',
@@ -1251,7 +1256,12 @@ const translations = {
     tuition_import_already_imported_detail: 'Una inscripción ya tiene este ID de transacción registrado — este pago se importó anteriormente, así que se omitirá.',
     tuition_import_already_imported_summary: '%s de estas filas ya se importaron anteriormente y se omitirán automáticamente.',
     tuition_import_skip_row: 'Omitir esta fila',
-    tuition_import_no_candidates: 'No se encontró ninguna inscripción para este año con un correo coincidente. Aplique manualmente desde la página de Inscripciones si este pago es válido.',
+    tuition_import_no_candidates: 'No se encontró ninguna inscripción para este año con un correo, nombre o teléfono coincidente. Aplique manualmente desde la página de Inscripciones si este pago es válido.',
+    tuition_import_possible_matches_label: 'Posibles coincidencias (no seleccionadas automáticamente — verifique)',
+    tuition_import_matched_by: 'Coincide por',
+    tuition_import_reason_phone: 'número de teléfono',
+    tuition_import_reason_parent_name: 'nombre del padre/madre',
+    tuition_import_reason_student_name: 'nombre del estudiante',
     tuition_import_confirm: 'Aplicar Pagos Seleccionados',
     tuition_import_cancel: 'Cancelar',
     archive: 'Archivar',
@@ -4450,21 +4460,47 @@ const extractTuitionImportNameTokens = (raw) => {
     .filter(Boolean);
 };
 
-const nameTokenMatchesStudent = (token, studentFullName) => {
-  const normalizedToken = token.toLowerCase().replace(/[^a-z\s]/g, ' ').replace(/\s+/g, ' ').trim();
-  const normalizedName = String(studentFullName || '').toLowerCase();
-  if (!normalizedToken) return false;
-  return normalizedToken.split(' ').some((word) => word.length > 1 && normalizedName.includes(word));
+const normalizeNameWords = (value) => String(value || '')
+  .toLowerCase()
+  .replace(/[^a-z\s]/g, ' ')
+  .split(/\s+/)
+  .filter((word) => word.length > 1);
+
+// Loose (not exact) name match: true if the two free-text names share at
+// least one word of real length in common — good enough to surface a
+// candidate/possible match, not to auto-apply anything on its own.
+const namesLooselyMatch = (a, b) => {
+  const wordsA = new Set(normalizeNameWords(a));
+  if (!wordsA.size) return false;
+  return normalizeNameWords(b).some((word) => wordsA.has(word));
 };
 
+// Keeps only the last 10 digits so a leading country code ("1-561-...")
+// doesn't prevent an otherwise-identical phone number from matching.
+const normalizePhoneDigits = (value) => String(value || '').replace(/\D/g, '').slice(-10);
+
 // Parses the uploaded CSV and, for each payment row, looks up that year's
-// registrations by parent/billing email to propose which student(s) the
-// payment covers. This never writes anything — it only builds the review
-// screen's data. POST /admin/tuition-import/apply does the actual writes,
-// and only for whatever the admin confirms there.
+// registrations by parent/billing email (case-insensitively) to propose
+// which student(s) the payment covers, then falls back to suggesting
+// possible matches by student name, parent name, or phone number when email
+// alone doesn't resolve it. This never writes anything — it only builds the
+// review screen's data. POST /admin/tuition-import/apply does the actual
+// writes, and only for whatever the admin confirms there.
 const buildTuitionImportPreview = async (schoolYear, csvBuffer) => {
   const records = parseCsv(csvBuffer, { relax_column_count: true, skip_empty_lines: true, bom: true });
   const dataRows = records.slice(1); // drop the header row
+
+  // Fetched once and matched against in memory for every row, rather than a
+  // query per row — this is also what makes email matching properly
+  // case-insensitive (and whitespace-insensitive) regardless of the DB
+  // column's collation, since both sides are normalized the same way here.
+  const yearRegistrations = await db.prepare(
+    `SELECT id, student_full_name, parent_name, primary_contact_email, primary_contact_phone
+     FROM student_registrations
+     WHERE school_year = ? AND status <> 'cancelled'
+     ORDER BY student_full_name ASC`
+  ).all(schoolYear);
+  const normalizedEmailOf = (r) => String(r.primary_contact_email || '').trim().toLowerCase();
 
   const rows = [];
   for (let i = 0; i < dataRows.length; i++) {
@@ -4490,24 +4526,39 @@ const buildTuitionImportPreview = async (schoolYear, csvBuffer) => {
       : false;
 
     const rawChildNames = get('childNames');
+    const contactPhone = get('contactPhone');
+    const billingName = get('billingName');
     const parentEmail = get('parentEmail');
     const billingEmail = get('billingEmail');
     const candidateEmails = [...new Set([parentEmail, billingEmail]
       .map((e) => e.trim().toLowerCase())
       .filter(Boolean))];
 
-    let candidateRegistrations = [];
-    if (!alreadyImported && candidateEmails.length) {
-      const placeholders = candidateEmails.map(() => '?').join(',');
-      candidateRegistrations = await db.prepare(
-        `SELECT id, student_full_name, parent_name, primary_contact_email
-         FROM student_registrations
-         WHERE school_year = ? AND status <> 'cancelled' AND LOWER(primary_contact_email) IN (${placeholders})
-         ORDER BY student_full_name ASC`
-      ).all(schoolYear, ...candidateEmails);
-    }
+    let candidateRegistrations = alreadyImported ? [] : yearRegistrations.filter((r) =>
+      candidateEmails.includes(normalizedEmailOf(r)));
 
     const nameTokens = extractTuitionImportNameTokens(rawChildNames);
+    const rowPhoneDigits = normalizePhoneDigits(contactPhone);
+
+    // Possible matches: anyone in this year's roster who isn't already an
+    // email match, but whose student name, parent name, or phone number
+    // lines up with something on the payment row. These are suggestions
+    // only — never pre-selected — for when the parent paid with a
+    // different email than what's on the registration.
+    let possibleMatches = [];
+    if (!alreadyImported) {
+      const candidateIds = new Set(candidateRegistrations.map((r) => r.id));
+      possibleMatches = yearRegistrations
+        .map((r) => {
+          const matchReasons = [];
+          if (rowPhoneDigits.length === 10 && normalizePhoneDigits(r.primary_contact_phone) === rowPhoneDigits) matchReasons.push('phone');
+          if (billingName && namesLooselyMatch(billingName, r.parent_name)) matchReasons.push('parent_name');
+          if (nameTokens.some((token) => namesLooselyMatch(token, r.student_full_name))) matchReasons.push('student_name');
+          return { ...r, matchReasons };
+        })
+        .filter((r) => !candidateIds.has(r.id) && r.matchReasons.length);
+    }
+
     let selectedIds = candidateRegistrations.map((r) => r.id);
     let matchStatus = 'no_match';
 
@@ -4518,7 +4569,7 @@ const buildTuitionImportPreview = async (schoolYear, csvBuffer) => {
       matchStatus = 'matched';
     } else if (candidateRegistrations.length > 1) {
       const nameMatched = candidateRegistrations.filter((r) =>
-        nameTokens.some((token) => nameTokenMatchesStudent(token, r.student_full_name)));
+        nameTokens.some((token) => namesLooselyMatch(token, r.student_full_name)));
       if (nameMatched.length && nameMatched.length < candidateRegistrations.length) {
         selectedIds = nameMatched.map((r) => r.id);
         matchStatus = 'matched';
@@ -4529,6 +4580,10 @@ const buildTuitionImportPreview = async (schoolYear, csvBuffer) => {
         // row for the admin to confirm rather than treating it as settled.
         matchStatus = 'review';
       }
+    } else if (possibleMatches.length) {
+      // No email match, but name/parent-name/phone turned up leads — worth
+      // a look rather than reporting this as a dead end.
+      matchStatus = 'review';
     }
 
     rows.push({
@@ -4539,10 +4594,10 @@ const buildTuitionImportPreview = async (schoolYear, csvBuffer) => {
       paidAtIso: toMySqlDateTime(paidAtDate || new Date()),
       raw: {
         childNames: rawChildNames,
-        contactPhone: get('contactPhone'),
+        contactPhone,
         parentEmail,
         billingEmail,
-        billingName: get('billingName'),
+        billingName,
         totalAmount: get('totalAmount'),
         amountPaid: get('amountPaid'),
         transactionId,
@@ -4552,6 +4607,7 @@ const buildTuitionImportPreview = async (schoolYear, csvBuffer) => {
         paidStatus,
       },
       candidateRegistrations,
+      possibleMatches,
       selectedIds,
       matchStatus,
     });
@@ -4619,10 +4675,11 @@ app.post('/admin/tuition-import/apply', requireAuth, requireRole('admin'), async
       }
     }
 
+    const allowedIds = new Set([...row.candidateRegistrations, ...(row.possibleMatches || [])].map((r) => r.id));
     const submittedIds = req.body[`selected_${row.rowIndex}`];
     const chosenIds = (Array.isArray(submittedIds) ? submittedIds : (submittedIds ? [submittedIds] : []))
       .map(Number)
-      .filter((id) => row.candidateRegistrations.some((candidate) => candidate.id === id));
+      .filter((id) => allowedIds.has(id));
 
     for (const registrationId of chosenIds) {
       const reg = await db.prepare('SELECT id, student_id FROM student_registrations WHERE id = ?').get(registrationId);
