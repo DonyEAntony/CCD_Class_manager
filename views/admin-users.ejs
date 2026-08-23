@@ -36,6 +36,9 @@
       <button class="nav-link active" id="users-tab" data-bs-toggle="tab" data-bs-target="#users-pane" type="button" role="tab" aria-controls="users-pane" aria-selected="true"><%= t('tab_users') %></button>
     </li>
     <li class="nav-item" role="presentation">
+      <button class="nav-link" id="classes-tab" data-bs-toggle="tab" data-bs-target="#classes-pane" type="button" role="tab" aria-controls="classes-pane" aria-selected="false"><%= t('tab_classes') %></button>
+    </li>
+    <li class="nav-item" role="presentation">
       <button class="nav-link" id="settings-tab" data-bs-toggle="tab" data-bs-target="#settings-pane" type="button" role="tab" aria-controls="settings-pane" aria-selected="false"><%= t('tab_settings') %></button>
     </li>
     <li class="nav-item" role="presentation">
@@ -222,98 +225,10 @@
 
   </div>
 
-  <div class="tab-pane fade" id="settings-pane" role="tabpanel" aria-labelledby="settings-tab">
+  <div class="tab-pane fade" id="classes-pane" role="tabpanel" aria-labelledby="classes-tab">
 
   <div class="page-card mb-4">
-    <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
-      <div>
-        <h2 class="h5 mb-1"><%= t('scan_legacy_form') %></h2>
-        <p class="mb-0 text-muted"><%= t('scan_legacy_desc') %></p>
-      </div>
-      <a class="btn btn-outline-primary" href="/admin/scan-registration"><%= t('open_scanner') %></a>
-    </div>
-  </div>
-
-  <div class="page-card mb-4">
-    <div class="card-header"><h2 class="h5"><%= t('faith_formation_registration_header') %></h2></div>
-    <div class="card-body">
-      <form class="row g-3 align-items-end" method="post" action="/admin/settings/faith-formation">
-        <div class="col-md-6">
-          <label class="form-label"><%= t('current_registration_year') %></label>
-          <select class="form-select" name="current_registration_year" required>
-            <% selectableRegistrationYears.forEach((schoolYearOption) => { %>
-              <option value="<%= schoolYearOption %>" <%= faithFormationSettings && faithFormationSettings.currentRegistrationYear === schoolYearOption ? 'selected' : '' %>>
-                <%= schoolYearOption %>
-              </option>
-            <% }) %>
-          </select>
-        </div>
-        <div class="col-md-6">
-          <button class="btn btn-primary" type="submit"><%= t('set_current_registration_year') %></button>
-        </div>
-      </form>
-      <div class="alert alert-secondary mt-3 mb-0">
-        <%= t('current_registration_year_label') %>
-        <strong><%= faithFormationSettings && faithFormationSettings.currentRegistrationYear ? faithFormationSettings.currentRegistrationYear : '2025-2026' %></strong>.
-        <%= t('registration_year_toggle_notice') %>
-      </div>
-    </div>
-  </div>
-
-  <div class="page-card mb-4">
-    <div class="card-header"><h2 class="h5"><%= t('registration_availability_by_year') %></h2></div>
-    <div class="card-body p-0">
-      <div class="table-responsive">
-        <table class="table mb-0">
-          <thead>
-            <tr>
-              <th><%= t('school_year_col') %></th>
-              <th><%= t('faith_formation_col') %></th>
-              <th><%= t('sponsor_form_col') %></th>
-              <th><%= t('actions') %></th>
-            </tr>
-          </thead>
-          <tbody>
-            <% registrationYearStatusRows.forEach((yearRow) => { %>
-              <tr>
-                <td style="font-weight:600">
-                  <%= yearRow.schoolYear %>
-                  <% if (faithFormationSettings && faithFormationSettings.currentRegistrationYear === yearRow.schoolYear) { %>
-                    <span class="badge" style="background:var(--surface);color:var(--navy-soft);font-size:.7rem;border-radius:2rem;padding:.3em .8em;font-weight:700;border:1px solid var(--border);margin-left:.4rem"><%= t('current_badge') %></span>
-                  <% } %>
-                </td>
-                <td colspan="3">
-                  <form class="row g-2 align-items-end" method="post" action="/admin/settings/faith-formation/year">
-                    <input type="hidden" name="school_year" value="<%= yearRow.schoolYear %>">
-                    <div class="col-md-4">
-                      <label class="form-label"><%= t('faith_formation_col') %></label>
-                      <select class="form-select" name="faith_formation_registration_open">
-                        <option value="1" <%= yearRow.faithFormationOpen ? 'selected' : '' %>><%= t('open_status') %></option>
-                        <option value="0" <%= !yearRow.faithFormationOpen ? 'selected' : '' %>><%= t('closed_status') %></option>
-                      </select>
-                    </div>
-                    <div class="col-md-4">
-                      <label class="form-label"><%= t('sponsor_form_col') %></label>
-                      <select class="form-select" name="sponsor_form_registration_open">
-                        <option value="1" <%= yearRow.sponsorFormOpen ? 'selected' : '' %>><%= t('open_status') %></option>
-                        <option value="0" <%= !yearRow.sponsorFormOpen ? 'selected' : '' %>><%= t('closed_status') %></option>
-                      </select>
-                    </div>
-                    <div class="col-md-4">
-                      <button class="btn btn-primary" type="submit"><%= t('save') %> <%= yearRow.schoolYear %></button>
-                    </div>
-                  </form>
-                </td>
-              </tr>
-            <% }) %>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <div class="page-card mt-4">
-    <div class="card-header"><h2 class="h5 mb-0"><%= t('catechist_assignments_header') %></h2></div>
+    <div class="card-header"><h2 class="h5 mb-0"><%= t('classes_header') %></h2></div>
     <div class="card-body">
       <% const availableCcdGradeMeanings = (typeof ccdGradeMeanings !== 'undefined' && ccdGradeMeanings) ? ccdGradeMeanings : {}; %>
       <p class="text-muted mb-3" style="font-size:.85rem">
@@ -440,6 +355,98 @@
           </table>
         </div>
       <% } %>
+    </div>
+  </div>
+
+  </div>
+
+  <div class="tab-pane fade" id="settings-pane" role="tabpanel" aria-labelledby="settings-tab">
+
+  <div class="page-card mb-4">
+    <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
+      <div>
+        <h2 class="h5 mb-1"><%= t('scan_legacy_form') %></h2>
+        <p class="mb-0 text-muted"><%= t('scan_legacy_desc') %></p>
+      </div>
+      <a class="btn btn-outline-primary" href="/admin/scan-registration"><%= t('open_scanner') %></a>
+    </div>
+  </div>
+
+  <div class="page-card mb-4">
+    <div class="card-header"><h2 class="h5"><%= t('faith_formation_registration_header') %></h2></div>
+    <div class="card-body">
+      <form class="row g-3 align-items-end" method="post" action="/admin/settings/faith-formation">
+        <div class="col-md-6">
+          <label class="form-label"><%= t('current_registration_year') %></label>
+          <select class="form-select" name="current_registration_year" required>
+            <% selectableRegistrationYears.forEach((schoolYearOption) => { %>
+              <option value="<%= schoolYearOption %>" <%= faithFormationSettings && faithFormationSettings.currentRegistrationYear === schoolYearOption ? 'selected' : '' %>>
+                <%= schoolYearOption %>
+              </option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="col-md-6">
+          <button class="btn btn-primary" type="submit"><%= t('set_current_registration_year') %></button>
+        </div>
+      </form>
+      <div class="alert alert-secondary mt-3 mb-0">
+        <%= t('current_registration_year_label') %>
+        <strong><%= faithFormationSettings && faithFormationSettings.currentRegistrationYear ? faithFormationSettings.currentRegistrationYear : '2025-2026' %></strong>.
+        <%= t('registration_year_toggle_notice') %>
+      </div>
+    </div>
+  </div>
+
+  <div class="page-card mb-4">
+    <div class="card-header"><h2 class="h5"><%= t('registration_availability_by_year') %></h2></div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table mb-0">
+          <thead>
+            <tr>
+              <th><%= t('school_year_col') %></th>
+              <th><%= t('faith_formation_col') %></th>
+              <th><%= t('sponsor_form_col') %></th>
+              <th><%= t('actions') %></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% registrationYearStatusRows.forEach((yearRow) => { %>
+              <tr>
+                <td style="font-weight:600">
+                  <%= yearRow.schoolYear %>
+                  <% if (faithFormationSettings && faithFormationSettings.currentRegistrationYear === yearRow.schoolYear) { %>
+                    <span class="badge" style="background:var(--surface);color:var(--navy-soft);font-size:.7rem;border-radius:2rem;padding:.3em .8em;font-weight:700;border:1px solid var(--border);margin-left:.4rem"><%= t('current_badge') %></span>
+                  <% } %>
+                </td>
+                <td colspan="3">
+                  <form class="row g-2 align-items-end" method="post" action="/admin/settings/faith-formation/year">
+                    <input type="hidden" name="school_year" value="<%= yearRow.schoolYear %>">
+                    <div class="col-md-4">
+                      <label class="form-label"><%= t('faith_formation_col') %></label>
+                      <select class="form-select" name="faith_formation_registration_open">
+                        <option value="1" <%= yearRow.faithFormationOpen ? 'selected' : '' %>><%= t('open_status') %></option>
+                        <option value="0" <%= !yearRow.faithFormationOpen ? 'selected' : '' %>><%= t('closed_status') %></option>
+                      </select>
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label"><%= t('sponsor_form_col') %></label>
+                      <select class="form-select" name="sponsor_form_registration_open">
+                        <option value="1" <%= yearRow.sponsorFormOpen ? 'selected' : '' %>><%= t('open_status') %></option>
+                        <option value="0" <%= !yearRow.sponsorFormOpen ? 'selected' : '' %>><%= t('closed_status') %></option>
+                      </select>
+                    </div>
+                    <div class="col-md-4">
+                      <button class="btn btn-primary" type="submit"><%= t('save') %> <%= yearRow.schoolYear %></button>
+                    </div>
+                  </form>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 
