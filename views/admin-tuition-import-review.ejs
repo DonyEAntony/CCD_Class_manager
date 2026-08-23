@@ -69,42 +69,79 @@
             <div class="col-sm-4"><strong><%= t('tuition_import_row_transaction') %>:</strong> <%= row.raw.transactionId || '—' %></div>
           </div>
 
+          <% const availablePossibleMatches = Array.isArray(row.possibleMatches) ? row.possibleMatches : []; %>
+          <% const matchReasonLabels = { phone: t('tuition_import_reason_phone'), parent_name: t('tuition_import_reason_parent_name'), student_name: t('tuition_import_reason_student_name') }; %>
           <% if (!row.isAccepted) { %>
             <div style="font-size:.85rem;color:var(--muted)"><%= row.raw.paidStatus %> / <%= row.raw.transactionResult %></div>
           <% } else if (row.alreadyImported) { %>
             <div class="alert alert-secondary mb-0" style="font-size:.85rem"><%= t('tuition_import_already_imported_detail') %></div>
-          <% } else if (!row.candidateRegistrations.length) { %>
+          <% } else if (!row.candidateRegistrations.length && !availablePossibleMatches.length) { %>
             <div class="alert alert-secondary mb-0" style="font-size:.85rem"><%= t('tuition_import_no_candidates') %></div>
           <% } else { %>
-            <div class="table-responsive">
-              <table class="table table-sm mb-2">
-                <thead>
-                  <tr>
-                    <th style="width:2.5rem"></th>
-                    <th><%= t('student') %></th>
-                    <th><%= t('primary_contact') %></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <% row.candidateRegistrations.forEach((candidate) => { %>
+            <% if (row.candidateRegistrations.length) { %>
+              <div class="table-responsive">
+                <table class="table table-sm mb-2">
+                  <thead>
                     <tr>
-                      <td>
-                        <input
-                          type="checkbox"
-                          class="form-check-input"
-                          name="selected_<%= row.rowIndex %>"
-                          value="<%= candidate.id %>"
-                          id="candidate-<%= row.rowIndex %>-<%= candidate.id %>"
-                          <%= row.selectedIds.includes(candidate.id) ? 'checked' : '' %>
-                        >
-                      </td>
-                      <td><label class="mb-0" for="candidate-<%= row.rowIndex %>-<%= candidate.id %>"><%= candidate.student_full_name %></label></td>
-                      <td style="font-size:.85rem;color:var(--muted)"><%= candidate.parent_name || candidate.primary_contact_email || '—' %></td>
+                      <th style="width:2.5rem"></th>
+                      <th><%= t('student') %></th>
+                      <th><%= t('primary_contact') %></th>
                     </tr>
-                  <% }) %>
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    <% row.candidateRegistrations.forEach((candidate) => { %>
+                      <tr>
+                        <td>
+                          <input
+                            type="checkbox"
+                            class="form-check-input"
+                            name="selected_<%= row.rowIndex %>"
+                            value="<%= candidate.id %>"
+                            id="candidate-<%= row.rowIndex %>-<%= candidate.id %>"
+                            <%= row.selectedIds.includes(candidate.id) ? 'checked' : '' %>
+                          >
+                        </td>
+                        <td><label class="mb-0" for="candidate-<%= row.rowIndex %>-<%= candidate.id %>"><%= candidate.student_full_name %></label></td>
+                        <td style="font-size:.85rem;color:var(--muted)"><%= candidate.parent_name || candidate.primary_contact_email || '—' %></td>
+                      </tr>
+                    <% }) %>
+                  </tbody>
+                </table>
+              </div>
+            <% } %>
+            <% if (availablePossibleMatches.length) { %>
+              <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:.35rem"><%= t('tuition_import_possible_matches_label') %></div>
+              <div class="table-responsive">
+                <table class="table table-sm mb-2">
+                  <thead>
+                    <tr>
+                      <th style="width:2.5rem"></th>
+                      <th><%= t('student') %></th>
+                      <th><%= t('primary_contact') %></th>
+                      <th><%= t('tuition_import_matched_by') %></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <% availablePossibleMatches.forEach((candidate) => { %>
+                      <tr>
+                        <td>
+                          <input
+                            type="checkbox"
+                            class="form-check-input"
+                            name="selected_<%= row.rowIndex %>"
+                            value="<%= candidate.id %>"
+                            id="possible-<%= row.rowIndex %>-<%= candidate.id %>"
+                          >
+                        </td>
+                        <td><label class="mb-0" for="possible-<%= row.rowIndex %>-<%= candidate.id %>"><%= candidate.student_full_name %></label></td>
+                        <td style="font-size:.85rem;color:var(--muted)"><%= candidate.parent_name || candidate.primary_contact_email || '—' %></td>
+                        <td style="font-size:.8rem;color:var(--muted)"><%= (candidate.matchReasons || []).map((reason) => matchReasonLabels[reason] || reason).join(', ') %></td>
+                      </tr>
+                    <% }) %>
+                  </tbody>
+                </table>
+              </div>
+            <% } %>
             <div class="form-check">
               <input class="form-check-input" type="checkbox" name="skip" value="<%= row.rowIndex %>" id="skip-<%= row.rowIndex %>">
               <label class="form-check-label" style="font-size:.85rem" for="skip-<%= row.rowIndex %>"><%= t('tuition_import_skip_row') %></label>
