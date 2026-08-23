@@ -648,6 +648,11 @@ const init = async () => {
     await ensureColumn('students', 'parent_contacted_by', 'INT NULL');
     await ensureColumn('students', 'tuition_amount_paid', 'INT NULL');
     await ensureColumn('students', 'tuition_transaction_id', 'VARCHAR(255) NULL');
+    // Confirmation has no "date received" field anywhere in the registration
+    // flow (unlike Baptism/First Communion, which registrations collect
+    // directly) — an admin records it explicitly on the student record.
+    await ensureColumn('students', 'confirmation_received_date', 'DATE NULL');
+    await ensureColumn('students', 'confirmation_received_by', 'INT NULL');
     await ensureColumn('sponsor_confirmations', 'is_st_matthew_parishioner', 'TINYINT(1) NOT NULL DEFAULT 0');
     await ensureColumn('sponsor_confirmations', 'sponsor_certificate_path', 'TEXT');
     await ensureColumn('sponsor_confirmations', 'admin_verified', 'TINYINT(1) NOT NULL DEFAULT 0');
