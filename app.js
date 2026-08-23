@@ -1557,12 +1557,27 @@ const getClassSlotValue = (ccdClass) =>
 // Match on class_time alone (not the room-qualified slot value): a class's classroom can
 // be assigned/reassigned after a student already registered, so their stored
 // preferred_class_time may only have the time portion even though the class now has a room.
-const getClassRoster = (ccdClass, allStudentRegs) =>
+//
+// Once a registration is Admitted, whether it still counts as an active roster member is
+// governed by its linked `students` row's student_status (Enrolled), not the registration
+// itself — a student who later becomes Completed/Graduated/Discontinued/Transferred drops
+// off class rosters even though their registration stays "admitted" forever. Registrations
+// that aren't admitted yet (in_progress/conditionally_accepted) are unaffected and keep
+// showing as pending, exactly as before.
+const getClassRoster = (ccdClass, allStudentRegs, enrolledRegistrationIds) =>
   allStudentRegs.filter((reg) => {
     if (resolveCcdGrade(reg) !== ccdClass.grade_level) return false;
+    if (reg.status === 'admitted' && !enrolledRegistrationIds.has(reg.id)) return false;
     if (!SACRAMENTAL_GRADE_LEVELS.has(ccdClass.grade_level)) return true;
     return reg.preferred_class_time === ccdClass.class_time || reg.preferred_class_time === getClassSlotValue(ccdClass);
   });
+
+const getEnrolledRegistrationIds = async () => {
+  const rows = await db.prepare(
+    `SELECT source_registration_id FROM students WHERE student_status = 'enrolled' AND source_registration_id IS NOT NULL`
+  ).all();
+  return new Set(rows.map((row) => row.source_registration_id));
+};
 
 const getUpcomingSessionDates = (classTimeText, count = 6) => {
   const weekday = parseClassWeekday(classTimeText);
@@ -1581,9 +1596,11 @@ const getUpcomingSessionDates = (classTimeText, count = 6) => {
 const formatSessionDateValue = (date) => date.toISOString().slice(0, 10);
 
 // A student shows as a full roster member only once their registration has cleared the
-// acceptance gate (conditionally_accepted or later); anything earlier — in_progress,
+// acceptance gate (conditionally_accepted or admitted); anything earlier — in_progress,
 // incomplete, or otherwise — is still pending and shown as such in the class roster.
-const CLASS_ROSTER_ACCEPTED_STATUSES = new Set(['conditionally_accepted', 'admitted', 'completed', 'graduated']);
+// (completed/graduated/etc. can no longer occur on a registration's own status — see
+// the `students` table — so they're not part of this gate anymore.)
+const CLASS_ROSTER_ACCEPTED_STATUSES = new Set(['conditionally_accepted', 'admitted']);
 const isPendingAcceptance = (reg) => !CLASS_ROSTER_ACCEPTED_STATUSES.has(reg.status);
 const getCatechists = async () =>
   db.prepare(`
@@ -3398,9 +3415,9 @@ app.post('/registration/children/:id/status', requireAuth, requireRole('admin'),
   // of this particular registration record.
   if (requestedStatus === 'admitted' && !reg.student_id) {
     const created = await db.prepare(
-      `INSERT INTO students (student_full_name, student_dob, student_gender, grade_level, parent_user_id, parent_name, primary_contact_email, primary_contact_phone, student_status, source_registration_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'enrolled', ?)`
-    ).run(reg.student_full_name, reg.student_dob, reg.student_gender, resolveCcdGrade(reg), reg.user_id, reg.parent_name, reg.primary_contact_email, reg.primary_contact_phone, reg.id);
+      `INSERT INTO students (student_full_name, student_dob, student_gender, grade_level, preferred_class_time, parent_user_id, parent_name, primary_contact_email, primary_contact_phone, student_status, source_registration_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'enrolled', ?)`
+    ).run(reg.student_full_name, reg.student_dob, reg.student_gender, resolveCcdGrade(reg), reg.preferred_class_time, reg.user_id, reg.parent_name, reg.primary_contact_email, reg.primary_contact_phone, reg.id);
     await db.prepare('UPDATE student_registrations SET student_id = ? WHERE id = ?').run(created.lastInsertRowid, req.params.id);
   }
 
@@ -4899,9 +4916,10 @@ app.get('/admin/classes', requireAuth, requireRole('admin', 'catechist'), asyncH
     ? allCcdClasses.filter((c) => isClassCatechist(c, req.user.id))
     : allCcdClasses;
   const activeStudentRegs = await db.prepare('SELECT * FROM student_registrations WHERE archived_at IS NULL').all();
+  const enrolledRegistrationIds = await getEnrolledRegistrationIds();
 
   const classes = ccdClasses.map((ccdClass) => {
-    const roster = getClassRoster(ccdClass, activeStudentRegs);
+    const roster = getClassRoster(ccdClass, activeStudentRegs, enrolledRegistrationIds);
     const upcomingDates = getUpcomingSessionDates(ccdClass.class_time);
     return {
       ...ccdClass,
@@ -4925,7 +4943,8 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist'), as
   }
 
   const activeStudentRegs = await db.prepare('SELECT * FROM student_registrations WHERE archived_at IS NULL').all();
-  const roster = getClassRoster(ccdClass, activeStudentRegs)
+  const enrolledRegistrationIds = await getEnrolledRegistrationIds();
+  const roster = getClassRoster(ccdClass, activeStudentRegs, enrolledRegistrationIds)
     .sort((a, b) => (a.student_full_name || '').localeCompare(b.student_full_name || ''));
 
   const upcomingDates = getUpcomingSessionDates(ccdClass.class_time);
@@ -5035,7 +5054,8 @@ app.post('/admin/classes/:id/message', requireAuth, requireRole('admin', 'catech
   }
 
   const activeStudentRegs = await db.prepare('SELECT * FROM student_registrations WHERE archived_at IS NULL').all();
-  const selectedStudents = getClassRoster(ccdClass, activeStudentRegs).filter((r) => selectedIds.has(r.id));
+  const enrolledRegistrationIds = await getEnrolledRegistrationIds();
+  const selectedStudents = getClassRoster(ccdClass, activeStudentRegs, enrolledRegistrationIds).filter((r) => selectedIds.has(r.id));
 
   // Dedupe by parent email so siblings selected in the same class don't get a duplicate copy.
   const recipientsByEmail = new Map();

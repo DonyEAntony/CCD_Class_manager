@@ -75,9 +75,9 @@ const backfillStudentRecords = async () => {
   );
   for (const reg of legacyRows) {
     const [result] = await pool.execute(
-      `INSERT INTO students (student_full_name, student_dob, student_gender, grade_level, parent_user_id, parent_name, primary_contact_email, primary_contact_phone, student_status, source_registration_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [reg.student_full_name, reg.student_dob, reg.student_gender, resolveCcdGradeForBackfill(reg), reg.user_id, reg.parent_name, reg.primary_contact_email, reg.primary_contact_phone, reg.status, reg.id]
+      `INSERT INTO students (student_full_name, student_dob, student_gender, grade_level, preferred_class_time, parent_user_id, parent_name, primary_contact_email, primary_contact_phone, student_status, source_registration_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [reg.student_full_name, reg.student_dob, reg.student_gender, resolveCcdGradeForBackfill(reg), reg.preferred_class_time, reg.user_id, reg.parent_name, reg.primary_contact_email, reg.primary_contact_phone, reg.status, reg.id]
     );
     await pool.execute('UPDATE student_registrations SET status = ?, student_id = ? WHERE id = ?', ['admitted', result.insertId, reg.id]);
   }
@@ -87,9 +87,9 @@ const backfillStudentRecords = async () => {
   );
   for (const reg of admittedRows) {
     const [result] = await pool.execute(
-      `INSERT INTO students (student_full_name, student_dob, student_gender, grade_level, parent_user_id, parent_name, primary_contact_email, primary_contact_phone, student_status, source_registration_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'enrolled', ?)`,
-      [reg.student_full_name, reg.student_dob, reg.student_gender, resolveCcdGradeForBackfill(reg), reg.user_id, reg.parent_name, reg.primary_contact_email, reg.primary_contact_phone, reg.id]
+      `INSERT INTO students (student_full_name, student_dob, student_gender, grade_level, preferred_class_time, parent_user_id, parent_name, primary_contact_email, primary_contact_phone, student_status, source_registration_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'enrolled', ?)`,
+      [reg.student_full_name, reg.student_dob, reg.student_gender, resolveCcdGradeForBackfill(reg), reg.preferred_class_time, reg.user_id, reg.parent_name, reg.primary_contact_email, reg.primary_contact_phone, reg.id]
     );
     await pool.execute('UPDATE student_registrations SET student_id = ? WHERE id = ?', [result.insertId, reg.id]);
   }
@@ -283,6 +283,7 @@ const init = async () => {
         student_dob TEXT,
         student_gender VARCHAR(50),
         grade_level VARCHAR(255),
+        preferred_class_time VARCHAR(100) NULL,
         parent_user_id INT NULL,
         parent_name TEXT,
         primary_contact_email VARCHAR(255),
@@ -585,6 +586,7 @@ const init = async () => {
     await ensureColumn('student_registrations', 'parent_contacted_at', 'DATETIME NULL');
     await ensureColumn('student_registrations', 'parent_contacted_by', 'INT NULL');
     await ensureColumn('student_registrations', 'student_id', 'INT NULL');
+    await ensureColumn('students', 'preferred_class_time', 'VARCHAR(100) NULL');
     await ensureColumn('sponsor_confirmations', 'is_st_matthew_parishioner', 'TINYINT(1) NOT NULL DEFAULT 0');
     await ensureColumn('sponsor_confirmations', 'sponsor_certificate_path', 'TEXT');
     await ensureColumn('sponsor_confirmations', 'admin_verified', 'TINYINT(1) NOT NULL DEFAULT 0');
