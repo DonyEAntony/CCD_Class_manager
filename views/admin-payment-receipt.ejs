@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="<%= lang %>">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= t('receipt_title') %> &mdash; <%= t('app_title') %></title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <style>
+    @media print {
+      .no-print { display: none !important; }
+      body { background: #fff !important; }
+    }
+    .receipt-card {
+      max-width: 620px;
+      margin: 0 auto;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--white);
+      padding: 2.5rem;
+    }
+    .receipt-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: .6rem 0;
+      border-bottom: 1px dashed var(--border);
+      font-size: .95rem;
+    }
+    .receipt-row:last-child { border-bottom: none; }
+    .receipt-row .label { color: var(--muted); }
+    .receipt-amount {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--navy);
+      text-align: center;
+      margin: 1.25rem 0;
+    }
+  </style>
+</head>
+<body>
+<div class="no-print">
+  <%- include('_topbar') %>
+  <%- include('_admin_nav') %>
+</div>
+<main class="container py-4 app-shell mx-auto">
+
+  <div class="no-print d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <a href="/admin/students" class="btn btn-outline-secondary btn-sm">&larr; <%= t('back_to_students_label') %></a>
+    <button type="button" class="btn btn-primary btn-sm" onclick="window.print()"><%= t('print_receipt') %></button>
+  </div>
+
+  <div class="receipt-card">
+    <div class="text-center mb-4">
+      <div style="font-family:'Playfair Display', Georgia, serif;font-size:1.4rem;font-weight:700;color:var(--navy)"><%= t('app_title') %></div>
+      <div style="font-size:.85rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-top:.25rem"><%= t('receipt_title') %></div>
+    </div>
+
+    <div class="receipt-amount">$<%= student.tuition_amount_paid ?? '—' %></div>
+
+    <div class="receipt-row">
+      <span class="label"><%= t('receipt_received_from') %></span>
+      <span><%= student.parent_name || student.primary_contact_email || '—' %></span>
+    </div>
+    <div class="receipt-row">
+      <span class="label"><%= t('receipt_for_student') %></span>
+      <span><%= student.student_full_name %><% if (student.grade_level) { %> (<%= t('grade') %> <%= student.grade_level %>)<% } %></span>
+    </div>
+    <% if (student.school_year) { %>
+      <div class="receipt-row">
+        <span class="label"><%= t('receipt_school_year') %></span>
+        <span><%= student.school_year %></span>
+      </div>
+    <% } %>
+    <div class="receipt-row">
+      <span class="label"><%= t('receipt_payment_method') %></span>
+      <span><%= t('payment_method_' + student.tuition_payment_method) %></span>
+    </div>
+    <div class="receipt-row">
+      <span class="label"><%= t('receipt_payment_date') %></span>
+      <span><%= student.tuition_paid_at ? (typeof student.tuition_paid_at === 'string' ? student.tuition_paid_at.slice(0, 10) : student.tuition_paid_at.toISOString().slice(0, 10)) : '—' %></span>
+    </div>
+    <% if (recordedByName) { %>
+      <div class="receipt-row">
+        <span class="label"><%= t('receipt_recorded_by') %></span>
+        <span><%= recordedByName %></span>
+      </div>
+    <% } %>
+  </div>
+
+  <p class="footer-note text-center mt-4"><%= t('footer_note') %></p>
+</main>
+</body>
+</html>
