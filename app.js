@@ -3868,15 +3868,23 @@ const summarizeFamilyMembers = (membersJson) => parseFamilyMembersFromStorage(me
   })
   .join('; ');
 
+const EXPORT_REGISTRATION_TYPES = new Set(['child', 'family_faith', 'adult', 'sponsor_confirmation']);
+
 app.get('/admin/registrations/export.csv', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   const gradeFilter = Object.keys(CCD_GRADE_MEANINGS).includes(req.query.grade) ? req.query.grade : '';
   const parentFilter = typeof req.query.parent === 'string' ? req.query.parent.trim() : '';
+  const typeFilter = EXPORT_REGISTRATION_TYPES.has(req.query.type) ? req.query.type : '';
+
+  const includeChild = !typeFilter || typeFilter === 'child';
+  const includeFamily = !typeFilter || typeFilter === 'family_faith';
+  const includeAdult = !typeFilter || typeFilter === 'adult';
+  const includeSponsor = !typeFilter || typeFilter === 'sponsor_confirmation';
 
   const [studentRegsAll, familyRegs, adultRegs, sponsorRegs] = await Promise.all([
-    db.prepare('SELECT * FROM student_registrations ORDER BY created_at DESC').all(),
-    db.prepare('SELECT * FROM family_faith_registrations ORDER BY created_at DESC').all(),
-    db.prepare('SELECT * FROM adult_registrations ORDER BY created_at DESC').all(),
-    db.prepare('SELECT * FROM sponsor_confirmations ORDER BY created_at DESC').all(),
+    includeChild ? db.prepare('SELECT * FROM student_registrations ORDER BY created_at DESC').all() : [],
+    includeFamily ? db.prepare('SELECT * FROM family_faith_registrations ORDER BY created_at DESC').all() : [],
+    includeAdult ? db.prepare('SELECT * FROM adult_registrations ORDER BY created_at DESC').all() : [],
+    includeSponsor ? db.prepare('SELECT * FROM sponsor_confirmations ORDER BY created_at DESC').all() : [],
   ]);
   const studentRegs = studentRegsAll.filter((reg) => {
     if (gradeFilter && resolveCcdGrade(reg) !== gradeFilter) return false;
@@ -3931,10 +3939,11 @@ app.get('/admin/registrations/export.csv', requireAuth, requireRole('admin'), as
     });
   });
   const dateStamp = new Date().toISOString().slice(0, 10);
+  const filenamePart = typeFilter ? `-${typeFilter}` : '';
 
   res.set({
     'Content-Type': 'text/csv; charset=utf-8',
-    'Content-Disposition': `attachment; filename="registrations-${dateStamp}.csv"`,
+    'Content-Disposition': `attachment; filename="registrations${filenamePart}-${dateStamp}.csv"`,
     'Cache-Control': 'no-store',
   });
   res.write(`\uFEFF${headers.map(csvCell).join(',')}`);

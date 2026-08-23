@@ -27,10 +27,11 @@
       <p class="sub mb-0"><%= t('all_registrations_subtitle') %></p>
     </div>
     <% const exportQuery = [
+         'type=child',
          activeGradeFilter ? `grade=${encodeURIComponent(activeGradeFilter)}` : '',
          activeParentFilter ? `parent=${encodeURIComponent(activeParentFilter)}` : '',
        ].filter(Boolean).join('&'); %>
-    <a class="btn btn-outline-primary" href="/admin/registrations/export.csv<%= exportQuery ? '?' + exportQuery : '' %>" download>
+    <a class="btn btn-outline-primary" id="export-csv-link" href="/admin/registrations/export.csv?<%= exportQuery %>" download>
       <%= t('export_registrations_csv') %>
     </a>
   </div>
@@ -536,6 +537,32 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  (function () {
+    var exportLink = document.getElementById('export-csv-link');
+    if (!exportLink) return;
+    var tabTypeMap = {
+      'children-tab': 'child',
+      'archived-children-tab': 'child',
+      'family-tab': 'family_faith',
+      'adult-tab': 'adult',
+      'archived-adult-tab': 'adult',
+      'sponsor-tab': 'sponsor_confirmation',
+    };
+    function updateExportLink(tabId) {
+      var type = tabTypeMap[tabId];
+      if (!type) return;
+      var url = new URL(exportLink.href, window.location.origin);
+      url.searchParams.set('type', type);
+      exportLink.href = url.pathname + url.search;
+    }
+    document.querySelectorAll('#registrationsTabs button[data-bs-toggle="tab"]').forEach(function (btn) {
+      btn.addEventListener('shown.bs.tab', function (e) {
+        updateExportLink(e.target.id);
+      });
+    });
+  }());
+</script>
 <% if (activeGradeFilter || activeParentFilter) { %>
 <script>
   (function () {
