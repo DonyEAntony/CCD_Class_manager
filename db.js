@@ -95,11 +95,35 @@ const backfillStudentRecords = async () => {
   }
 };
 
+// Keeps every linked student's own copy of certificates/comments/verification status in
+// sync with its registration. Covers students admitted before this sync existed, and acts
+// as a safety net alongside the live sync in app.js whenever a registration is edited.
+const syncStudentCertsAndVerification = async () => {
+  await pool.query(`
+    UPDATE students s
+    JOIN student_registrations sr ON sr.id = s.source_registration_id
+    SET
+      s.baptism_certificate_path = sr.baptism_certificate_path,
+      s.first_communion_certificate_path = sr.first_communion_certificate_path,
+      s.disabilities_comments = sr.disabilities_comments,
+      s.certificates_verified = sr.certificates_verified,
+      s.certificates_verified_at = sr.certificates_verified_at,
+      s.certificates_verified_by = sr.certificates_verified_by,
+      s.tuition_paid = sr.tuition_paid,
+      s.tuition_paid_at = sr.tuition_paid_at,
+      s.tuition_paid_by = sr.tuition_paid_by,
+      s.parent_contacted = sr.parent_contacted,
+      s.parent_contacted_at = sr.parent_contacted_at,
+      s.parent_contacted_by = sr.parent_contacted_by
+  `);
+};
+
 const seedData = async () => {
   await pool.query("UPDATE users SET role = 'user' WHERE role = 'parent'");
   await pool.query("UPDATE student_registrations SET status = 'in_progress' WHERE status = 'application'");
   await pool.query("UPDATE adult_registrations SET status = 'in_progress' WHERE status = 'application'");
   await backfillStudentRecords();
+  await syncStudentCertsAndVerification();
 
   const [[userCountRow]] = await pool.query('SELECT COUNT(*) AS count FROM users');
   const [[ccdClassCountRow]] = await pool.query('SELECT COUNT(*) AS count FROM ccd_classes');
@@ -606,6 +630,18 @@ const init = async () => {
     await ensureColumn('student_registrations', 'parent_contacted_by', 'INT NULL');
     await ensureColumn('student_registrations', 'student_id', 'INT NULL');
     await ensureColumn('students', 'preferred_class_time', 'VARCHAR(100) NULL');
+    await ensureColumn('students', 'baptism_certificate_path', 'TEXT');
+    await ensureColumn('students', 'first_communion_certificate_path', 'TEXT');
+    await ensureColumn('students', 'disabilities_comments', 'TEXT');
+    await ensureColumn('students', 'certificates_verified', 'TINYINT(1) NOT NULL DEFAULT 0');
+    await ensureColumn('students', 'certificates_verified_at', 'DATETIME NULL');
+    await ensureColumn('students', 'certificates_verified_by', 'INT NULL');
+    await ensureColumn('students', 'tuition_paid', 'TINYINT(1) NOT NULL DEFAULT 0');
+    await ensureColumn('students', 'tuition_paid_at', 'DATETIME NULL');
+    await ensureColumn('students', 'tuition_paid_by', 'INT NULL');
+    await ensureColumn('students', 'parent_contacted', 'TINYINT(1) NOT NULL DEFAULT 0');
+    await ensureColumn('students', 'parent_contacted_at', 'DATETIME NULL');
+    await ensureColumn('students', 'parent_contacted_by', 'INT NULL');
     await ensureColumn('sponsor_confirmations', 'is_st_matthew_parishioner', 'TINYINT(1) NOT NULL DEFAULT 0');
     await ensureColumn('sponsor_confirmations', 'sponsor_certificate_path', 'TEXT');
     await ensureColumn('sponsor_confirmations', 'admin_verified', 'TINYINT(1) NOT NULL DEFAULT 0');
