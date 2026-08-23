@@ -4297,10 +4297,10 @@ const REGISTRATION_TYPE_STATUS_OPTIONS = {
   sponsor_confirmation: ['all', 'incomplete', 'in_progress'],
 };
 const REGISTRATION_TYPE_DEFAULT_STATUS = {
-  child: 'active',
-  family_faith: 'all',
+  child: 'in_progress',
+  family_faith: 'in_progress',
   adult: 'active',
-  sponsor_confirmation: 'all',
+  sponsor_confirmation: 'in_progress',
 };
 
 app.get('/admin/registrations/export.csv', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {

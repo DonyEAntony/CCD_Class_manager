@@ -35,7 +35,7 @@
        { value: 'adult', labelKey: 'registration_type_adult' },
        { value: 'sponsor_confirmation', labelKey: 'registration_type_sponsor_confirmation' },
      ]; %>
-  <% const defaultStatusByType = { child: 'active', family_faith: 'all', adult: 'active', sponsor_confirmation: 'all' }; %>
+  <% const defaultStatusByType = { child: 'in_progress', family_faith: 'in_progress', adult: 'active', sponsor_confirmation: 'in_progress' }; %>
   <% const filtersActive = activeStatusFilter !== defaultStatusByType[activeTypeFilter] || activeGradeFilter || activeParentFilter; %>
 
   <div class="page-heading d-flex flex-wrap justify-content-between align-items-end gap-2">
