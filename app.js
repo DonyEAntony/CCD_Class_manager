@@ -230,6 +230,9 @@ const translations = {
     registration_type_sponsor_confirmation: 'Sponsor Confirmation Forms',
     status_filter_active: 'Active',
     status_filter_archived: 'Archived',
+    registrations_filter_summary: '%s of %s registrations',
+    results_count_label: '%s results',
+    filters_panel_title: 'Filters',
     name_col: 'Name',
     program_col: 'Program',
     date_col: 'Date',
@@ -969,6 +972,9 @@ const translations = {
     registration_type_sponsor_confirmation: 'Formularios de Confirmación de Padrino',
     status_filter_active: 'Activa',
     status_filter_archived: 'Archivada',
+    registrations_filter_summary: '%s de %s inscripciones',
+    results_count_label: '%s resultados',
+    filters_panel_title: 'Filtros',
     name_col: 'Nombre',
     program_col: 'Programa',
     date_col: 'Fecha',
@@ -4397,13 +4403,26 @@ app.get('/admin/registrations', requireAuth, requireRole('admin'), asyncHandler(
   const gradeFilter = typeFilter === 'child' && Object.keys(CCD_GRADE_MEANINGS).includes(req.query.grade) ? req.query.grade : '';
   const parentFilter = typeFilter === 'child' && typeof req.query.parent === 'string' ? req.query.parent.trim() : '';
 
+  const computeStatusCounts = (rows, options) => {
+    const counts = {};
+    options.forEach((opt) => {
+      if (opt === 'all') counts[opt] = rows.length;
+      else if (opt === 'active') counts[opt] = rows.filter((r) => !r.archived_at).length;
+      else if (opt === 'archived') counts[opt] = rows.filter((r) => !!r.archived_at).length;
+      else counts[opt] = rows.filter((r) => r.status === opt).length;
+    });
+    return counts;
+  };
+
   let studentRegs = [];
   let familyRegs = [];
   let adultRegs = [];
   let sponsorRegs = [];
+  let statusCounts = {};
 
   if (typeFilter === 'child') {
     const allRegs = await db.prepare('SELECT * FROM student_registrations ORDER BY created_at DESC').all();
+    statusCounts = computeStatusCounts(allRegs, statusOptionsForType);
     studentRegs = allRegs.filter((reg) => {
       if (statusFilter === 'active' && reg.archived_at) return false;
       if (statusFilter === 'archived' && !reg.archived_at) return false;
@@ -4418,11 +4437,13 @@ app.get('/admin/registrations', requireAuth, requireRole('admin'), asyncHandler(
     });
   } else if (typeFilter === 'family_faith') {
     const familyRegsRaw = await db.prepare('SELECT * FROM family_faith_registrations ORDER BY created_at DESC').all();
+    statusCounts = computeStatusCounts(familyRegsRaw, statusOptionsForType);
     familyRegs = familyRegsRaw
       .filter((reg) => statusFilter === 'all' || reg.status === statusFilter)
       .map((reg) => ({ ...reg, members: parseFamilyMembersFromStorage(reg.members_json) }));
   } else if (typeFilter === 'adult') {
     const allRegs = await db.prepare('SELECT * FROM adult_registrations ORDER BY created_at DESC').all();
+    statusCounts = computeStatusCounts(allRegs, statusOptionsForType);
     adultRegs = allRegs.filter((reg) => {
       if (statusFilter === 'active') return !reg.archived_at;
       if (statusFilter === 'archived') return !!reg.archived_at;
@@ -4430,8 +4451,25 @@ app.get('/admin/registrations', requireAuth, requireRole('admin'), asyncHandler(
     });
   } else if (typeFilter === 'sponsor_confirmation') {
     const allRegs = await db.prepare('SELECT * FROM sponsor_confirmations ORDER BY created_at DESC').all();
+    statusCounts = computeStatusCounts(allRegs, statusOptionsForType);
     sponsorRegs = allRegs.filter((reg) => statusFilter === 'all' || reg.status === statusFilter);
   }
+
+  const filteredCount = studentRegs.length + familyRegs.length + adultRegs.length + sponsorRegs.length;
+
+  const [childCountRow, familyCountRow, adultCountRow, sponsorCountRow] = await Promise.all([
+    db.prepare('SELECT COUNT(*) AS c FROM student_registrations').get(),
+    db.prepare('SELECT COUNT(*) AS c FROM family_faith_registrations').get(),
+    db.prepare('SELECT COUNT(*) AS c FROM adult_registrations').get(),
+    db.prepare('SELECT COUNT(*) AS c FROM sponsor_confirmations').get(),
+  ]);
+  const typeCounts = {
+    child: childCountRow.c,
+    family_faith: familyCountRow.c,
+    adult: adultCountRow.c,
+    sponsor_confirmation: sponsorCountRow.c,
+  };
+  const grandTotal = typeCounts.child + typeCounts.family_faith + typeCounts.adult + typeCounts.sponsor_confirmation;
 
   const verifierUserIds = new Set();
   studentRegs.forEach((reg) => {
@@ -4450,7 +4488,7 @@ app.get('/admin/registrations', requireAuth, requireRole('admin'), asyncHandler(
 
   const ADULT_PROGRAMS = getAdultPrograms(res.locals.t);
   res.render('admin-registrations', {
-    typeFilter, statusFilter, statusOptionsForType,
+    typeFilter, statusFilter, statusOptionsForType, statusCounts, typeCounts, grandTotal, filteredCount,
     studentRegs, familyRegs, adultRegs, sponsorRegs, ADULT_PROGRAMS, faithFormationSettings,
     resolveCcdGrade, ccdGradeMeanings: CCD_GRADE_MEANINGS, gradeFilter, parentFilter, verifierLookup,
   });

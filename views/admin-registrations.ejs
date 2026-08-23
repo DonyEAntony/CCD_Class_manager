@@ -57,45 +57,115 @@
   <% const uploadFileNameForView = typeof uploadFileName === 'function' ? uploadFileName : ((filePath) => filePath ? String(filePath).replace(/\\/g, '/').split('/').pop() : ''); %>
   <% const uploadPathsForView = typeof certificateUploadPaths === 'function' ? certificateUploadPaths : ((value) => value ? [value] : []); %>
 
-  <div class="page-card mb-4">
-    <div class="card-body p-0">
-      <form method="get" action="/admin/registrations" class="d-flex flex-wrap align-items-end gap-2 p-3 border-bottom">
-        <div>
-          <label class="form-label mb-0" for="type-filter" style="font-size:.85rem"><%= t('filter_by_type') %></label>
-          <select class="form-select form-select-sm" id="type-filter" name="type" style="max-width:280px" onchange="this.form.submit()">
-            <% registrationTypes.forEach((opt) => { %>
-              <option value="<%= opt.value %>" <%= activeTypeFilter === opt.value ? 'selected' : '' %>><%= t(opt.labelKey) %></option>
-            <% }) %>
-          </select>
+  <% const activeTypeCounts = (typeof typeCounts !== 'undefined' && typeCounts) ? typeCounts : {}; %>
+  <% const activeStatusCounts = (typeof statusCounts !== 'undefined' && statusCounts) ? statusCounts : {}; %>
+  <% const activeGrandTotal = typeof grandTotal !== 'undefined' ? grandTotal : 0; %>
+  <% const activeFilteredCount = typeof filteredCount !== 'undefined' ? filteredCount : 0; %>
+  <% const chipQuery = (overrides) => {
+       const params = new URLSearchParams();
+       params.set('type', overrides.type !== undefined ? overrides.type : activeTypeFilter);
+       const status = overrides.status !== undefined ? overrides.status : activeStatusFilter;
+       if (status && status !== defaultStatusByType[params.get('type')]) params.set('status', status);
+       const grade = overrides.grade !== undefined ? overrides.grade : activeGradeFilter;
+       if (grade) params.set('grade', grade);
+       const parent = overrides.parent !== undefined ? overrides.parent : activeParentFilter;
+       if (parent) params.set('parent', parent);
+       return '/admin/registrations?' + params.toString();
+     }; %>
+  <% const activeChips = []; %>
+  <% activeChips.push({ label: t(registrationTypes.find((rt) => rt.value === activeTypeFilter).labelKey), href: '/admin/registrations' }); %>
+  <% if (activeStatusFilter !== defaultStatusByType[activeTypeFilter]) { activeChips.push({ label: statusOptionLabel(activeStatusFilter), href: chipQuery({ status: defaultStatusByType[activeTypeFilter] }) }); } %>
+  <% if (activeGradeFilter) { activeChips.push({ label: `${t('grade')} ${activeGradeFilter}`, href: chipQuery({ grade: '' }) }); } %>
+  <% if (activeParentFilter) { activeChips.push({ label: activeParentFilter, href: chipQuery({ parent: '' }) }); } %>
+
+  <style>
+    .rf-shell{display:flex;align-items:stretch;background:#fffdf8;border:1px solid rgba(32,30,29,.08);border-radius:20px;box-shadow:0 1px 3px rgba(32,30,29,.06);overflow:hidden;margin-bottom:1.5rem}
+    .rf-sidebar{width:300px;flex:none;background:#ebddc5;border-radius:0 20px 20px 0;padding:1.6rem 1.4rem;display:flex;flex-direction:column}
+    .rf-sidebar h4{margin:0 0 2px;font-size:1.1rem;color:#201e1d}
+    .rf-sidebar-sub{font-size:.78rem;color:rgba(32,30,29,.55);margin-bottom:1.2rem}
+    .rf-lbl{font:600 .68rem/1 inherit;letter-spacing:.09em;text-transform:uppercase;color:rgba(32,30,29,.6);display:block;margin-bottom:.45rem}
+    .rf-facet-list{display:flex;flex-direction:column;gap:2px;margin-bottom:1.2rem}
+    .rf-facet{display:flex;align-items:center;justify-content:space-between;gap:.6rem;padding:.45rem .75rem;border-radius:999px;font-size:.85rem;cursor:pointer;color:#201e1d}
+    .rf-facet:hover{background:rgba(32,30,29,.06)}
+    .rf-facet.on{background:#e1eecc;color:#3d472b}
+    .rf-facet .rf-n{font-size:.7rem;opacity:.55}
+    .rf-facet input{position:absolute;opacity:0;width:0;height:0;pointer-events:none}
+    .rf-input{width:100%;min-height:36px;padding:.4rem .75rem;font-size:.85rem;color:#201e1d;background:#fffdf8;border:1px solid rgba(32,30,29,.18);border-radius:999px;margin-bottom:1.2rem}
+    .rf-sidebar-actions{margin-top:auto;padding-top:1.2rem;display:flex;flex-direction:column;gap:.5rem}
+    .rf-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;text-decoration:none;font-size:.85rem;font-weight:600;border-radius:999px;border:1px solid transparent;padding:.55rem 1rem}
+    .rf-btn-primary{background:#c67139;color:#f5ead8}
+    .rf-btn-primary:hover{background:#b2622d;color:#f5ead8}
+    .rf-btn-ghost{color:#8c491a;background:transparent}
+    .rf-btn-ghost:hover{background:rgba(198,113,57,.12)}
+    .rf-main{flex:1;padding:1.6rem 1.8rem;min-width:0}
+    .rf-main-header{display:flex;align-items:baseline;gap:.7rem;margin-bottom:.5rem}
+    .rf-main-header h3{margin:0}
+    .rf-result-count{font-size:.78rem;color:rgba(32,30,29,.5)}
+    .rf-chip-row{display:flex;flex-wrap:wrap;gap:.45rem;margin-bottom:1.1rem}
+    .rf-chip{display:inline-flex;align-items:center;gap:.4rem;padding:.3rem .7rem;border-radius:999px;font-size:.78rem;background:#ffe1d0;color:#8c491a;text-decoration:none;border:none}
+    .rf-chip:hover{background:#ffc6a5;color:#8c491a}
+    .rf-chip .rf-x{font-size:.8rem;opacity:.6}
+    @media (max-width:900px){.rf-shell{flex-direction:column}.rf-sidebar{width:auto;border-radius:20px 20px 0 0}}
+  </style>
+
+  <div class="rf-shell">
+    <aside class="rf-sidebar">
+      <form method="get" action="/admin/registrations" id="registrations-filter-form">
+        <h4><%= t('filters_panel_title') %></h4>
+        <div class="rf-sidebar-sub"><%= t('registrations_filter_summary').replace('%s', activeFilteredCount).replace('%s', activeGrandTotal) %></div>
+
+        <span class="rf-lbl"><%= t('filter_by_type') %></span>
+        <div class="rf-facet-list">
+          <% registrationTypes.forEach((opt) => { %>
+            <label class="rf-facet <%= activeTypeFilter === opt.value ? 'on' : '' %>">
+              <input type="radio" name="type" value="<%= opt.value %>" <%= activeTypeFilter === opt.value ? 'checked' : '' %> onchange="this.form.submit()">
+              <span><%= t(opt.labelKey) %></span>
+              <span class="rf-n"><%= activeTypeCounts[opt.value] ?? 0 %></span>
+            </label>
+          <% }) %>
         </div>
-        <div>
-          <label class="form-label mb-0" for="status-filter" style="font-size:.85rem"><%= t('filter_by_status') %></label>
-          <select class="form-select form-select-sm" id="status-filter" name="status" style="max-width:280px" onchange="this.form.submit()">
-            <% availableStatusOptions.forEach((opt) => { %>
-              <option value="<%= opt %>" <%= activeStatusFilter === opt ? 'selected' : '' %>><%= statusOptionLabel(opt) %></option>
-            <% }) %>
-          </select>
+
+        <span class="rf-lbl"><%= t('filter_by_status') %></span>
+        <div class="rf-facet-list">
+          <% availableStatusOptions.forEach((opt) => { %>
+            <label class="rf-facet <%= activeStatusFilter === opt ? 'on' : '' %>">
+              <input type="radio" name="status" value="<%= opt %>" <%= activeStatusFilter === opt ? 'checked' : '' %> onchange="this.form.submit()">
+              <span><%= statusOptionLabel(opt) %></span>
+              <span class="rf-n"><%= activeStatusCounts[opt] ?? 0 %></span>
+            </label>
+          <% }) %>
         </div>
+
         <% if (activeTypeFilter === 'child') { %>
-          <div>
-            <label class="form-label mb-0" for="children-grade-filter" style="font-size:.85rem"><%= t('filter_by_grade') %></label>
-            <select class="form-select form-select-sm" id="children-grade-filter" name="grade" style="max-width:280px" onchange="this.form.submit()">
-              <option value="" <%= !activeGradeFilter ? 'selected' : '' %>><%= t('all_grades') %></option>
-              <% Object.keys(availableCcdGradeMeanings).forEach((g) => { %>
-                <option value="<%= g %>" <%= activeGradeFilter === g ? 'selected' : '' %>><%= g %> &mdash; <%= availableCcdGradeMeanings[g] %></option>
-              <% }) %>
-            </select>
-          </div>
-          <div>
-            <label class="form-label mb-0" for="children-parent-filter" style="font-size:.85rem"><%= t('filter_by_parent') %></label>
-            <input type="text" class="form-control form-control-sm" id="children-parent-filter" name="parent" style="max-width:280px" placeholder="<%= t('parent_filter_placeholder') %>" value="<%= activeParentFilter %>">
-          </div>
+          <span class="rf-lbl"><%= t('filter_by_grade') %></span>
+          <select class="rf-input" name="grade" onchange="this.form.submit()">
+            <option value="" <%= !activeGradeFilter ? 'selected' : '' %>><%= t('all_grades') %></option>
+            <% Object.keys(availableCcdGradeMeanings).forEach((g) => { %>
+              <option value="<%= g %>" <%= activeGradeFilter === g ? 'selected' : '' %>><%= g %> &mdash; <%= availableCcdGradeMeanings[g] %></option>
+            <% }) %>
+          </select>
+          <span class="rf-lbl"><%= t('filter_by_parent') %></span>
+          <input type="text" class="rf-input" name="parent" placeholder="<%= t('parent_filter_placeholder') %>" value="<%= activeParentFilter %>">
         <% } %>
-        <button type="submit" class="btn btn-sm btn-primary"><%= t('apply_filters') %></button>
-        <% if (filtersActive) { %>
-          <a href="/admin/registrations?type=<%= activeTypeFilter %>" class="btn btn-sm btn-outline-secondary"><%= t('clear_filters') %></a>
-        <% } %>
+
+        <div class="rf-sidebar-actions">
+          <button type="submit" class="rf-btn rf-btn-primary"><%= t('apply_filters') %></button>
+          <% if (filtersActive) { %>
+            <a href="/admin/registrations?type=<%= activeTypeFilter %>" class="rf-btn rf-btn-ghost"><%= t('clear_filters') %></a>
+          <% } %>
+        </div>
       </form>
+    </aside>
+    <div class="rf-main">
+      <div class="rf-main-header">
+        <h3><%= t('all_registrations_header') %></h3>
+        <span class="rf-result-count"><%= t('results_count_label').replace('%s', activeFilteredCount) %></span>
+      </div>
+      <div class="rf-chip-row">
+        <% activeChips.forEach((chip) => { %>
+          <a class="rf-chip" href="<%= chip.href %>"><%= chip.label %><span class="rf-x">&times;</span></a>
+        <% }) %>
+      </div>
 
       <% if (activeTypeFilter === 'child') { %>
         <% if (!studentRegs || studentRegs.length === 0) { %>
