@@ -6,7 +6,6 @@ const express = require('express');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
-const { parse: parseCsv } = require('csv-parse/sync');
 const passport = require('./auth');
 const db = require('./db');
 const MySqlSessionStore = require('./session-store');
@@ -538,27 +537,6 @@ const translations = {
     no_accepted_students: 'No students have been admitted yet.',
     edit_registration: 'View Registration',
     no_active_registration: 'No active registration',
-    tuition_import_nav: 'Tuition Import',
-    tuition_import_header: 'Tuition Payment Import',
-    tuition_import_subtitle: 'Upload a payment gateway export to mark tuition as paid on this year\'s registrations.',
-    tuition_import_year_label: 'School year',
-    tuition_import_file_label: 'Payment export CSV',
-    tuition_import_submit: 'Upload and Preview',
-    tuition_import_review_header: 'Review Tuition Import',
-    tuition_import_review_subtitle: 'Nothing has been saved yet. Review the matches below, adjust or skip any rows, then confirm.',
-    tuition_import_row_amount: 'Amount',
-    tuition_import_row_date: 'Paid on',
-    tuition_import_row_transaction: 'Transaction',
-    tuition_import_row_names_raw: 'Names on payment',
-    tuition_import_row_email: 'Payer email',
-    tuition_import_status_matched: 'Matched',
-    tuition_import_status_review: 'Needs review',
-    tuition_import_status_no_match: 'No match found',
-    tuition_import_status_declined: 'Not accepted — skipped',
-    tuition_import_skip_row: 'Skip this row',
-    tuition_import_no_candidates: 'No registration found for this year with a matching email. Apply manually from the Registrations page if this payment is valid.',
-    tuition_import_confirm: 'Apply Selected Payments',
-    tuition_import_cancel: 'Cancel',
     archive: 'Archive',
     confirm_delete_registration_prefix: 'Permanently delete the registration for',
     confirm_delete_registration_suffix: 'This cannot be undone.',
@@ -1227,27 +1205,6 @@ const translations = {
     no_accepted_students: 'Aún no se ha admitido a ningún estudiante.',
     edit_registration: 'Ver Inscripción',
     no_active_registration: 'Sin inscripción activa',
-    tuition_import_nav: 'Importar Matrícula',
-    tuition_import_header: 'Importar Pagos de Matrícula',
-    tuition_import_subtitle: 'Suba una exportación de la pasarela de pagos para marcar la matrícula como pagada en las inscripciones de este año.',
-    tuition_import_year_label: 'Año escolar',
-    tuition_import_file_label: 'CSV de exportación de pagos',
-    tuition_import_submit: 'Subir y Previsualizar',
-    tuition_import_review_header: 'Revisar Importación de Matrícula',
-    tuition_import_review_subtitle: 'Nada se ha guardado todavía. Revise las coincidencias a continuación, ajuste u omita cualquier fila, y luego confirme.',
-    tuition_import_row_amount: 'Monto',
-    tuition_import_row_date: 'Pagado el',
-    tuition_import_row_transaction: 'Transacción',
-    tuition_import_row_names_raw: 'Nombres en el pago',
-    tuition_import_row_email: 'Correo del pagador',
-    tuition_import_status_matched: 'Coincide',
-    tuition_import_status_review: 'Necesita revisión',
-    tuition_import_status_no_match: 'Sin coincidencia',
-    tuition_import_status_declined: 'No aceptado — omitido',
-    tuition_import_skip_row: 'Omitir esta fila',
-    tuition_import_no_candidates: 'No se encontró ninguna inscripción para este año con un correo coincidente. Aplique manualmente desde la página de Inscripciones si este pago es válido.',
-    tuition_import_confirm: 'Aplicar Pagos Seleccionados',
-    tuition_import_cancel: 'Cancelar',
     archive: 'Archivar',
     confirm_delete_registration_prefix: 'Eliminar permanentemente la inscripción de',
     confirm_delete_registration_suffix: 'Esto no se puede deshacer.',
@@ -2040,12 +1997,6 @@ const scanUpload = multer({
   storage: multer.memoryStorage(),
   limits: {
     fileSize: 15 * 1024 * 1024,
-  },
-});
-const tuitionImportUpload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 5 * 1024 * 1024,
   },
 });
 
@@ -4379,246 +4330,6 @@ app.post('/admin/students/:id/status', requireAuth, requireRole('admin'), asyncH
 
   await db.prepare('UPDATE students SET student_status = ? WHERE id = ?').run(requestedStatus, req.params.id);
   req.flash('success', res.locals.t('status_updated'));
-  return res.redirect('/admin/students');
-}));
-
-// ── Tuition Payment Import ───────────────────────────────────
-// Expects the parish payment-gateway export format for Faith Formation
-// registration payments (a fixed column layout with two same-named "Paid"
-// columns), so fields are read positionally rather than by header name.
-const TUITION_IMPORT_COLUMNS = {
-  childrenTier: 0,
-  sacramentalTier: 1,
-  childNames: 2,
-  contactPhone: 3,
-  parentEmail: 4,
-  additionalDonation: 5,
-  totalAmount: 6,
-  amountPaid: 7,
-  billingName: 8,
-  billingAddress1: 9,
-  billingCity: 10,
-  billingState: 11,
-  billingZip: 12,
-  billingEmail: 13,
-  billingPhone: 14,
-  paidStatus: 15,
-  paidAmountAlt: 16,
-  transactionId: 17,
-  transactionResult: 18,
-  transactionMessage: 19,
-  createdAt: 20,
-};
-
-const parseTuitionImportAmount = (value) => {
-  const num = parseFloat(String(value ?? '').replace(/[^0-9.\-]/g, ''));
-  return Number.isFinite(num) ? Math.round(num) : null;
-};
-
-const parseTuitionImportDate = (value) => {
-  const match = /^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})\s*(AM|PM)$/i.exec(String(value ?? '').trim());
-  if (!match) return null;
-  const [, monthStr, dayStr, yearStr, hourStr, minute, second, ampm] = match;
-  let hour = Number(hourStr);
-  if (/pm/i.test(ampm) && hour !== 12) hour += 12;
-  if (/am/i.test(ampm) && hour === 12) hour = 0;
-  const date = new Date(Number(yearStr), Number(monthStr) - 1, Number(dayStr), hour, Number(minute), Number(second));
-  return Number.isNaN(date.getTime()) ? null : date;
-};
-
-const toMySqlDateTime = (date) => {
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
-};
-
-// Splits the free-text "names of children" field into rough name tokens,
-// stripping list numbering ("1 - ") and parenthetical notes ("(4th grade)")
-// so what's left over can be matched against student names.
-const extractTuitionImportNameTokens = (raw) => {
-  if (!raw) return [];
-  return String(raw)
-    .split(/\r?\n|,/)
-    .map((s) => s.replace(/^\s*\d+\s*[-.)]\s*/, ''))
-    .map((s) => s.replace(/\([^)]*\)/g, ''))
-    .map((s) => s.trim())
-    .filter(Boolean);
-};
-
-const nameTokenMatchesStudent = (token, studentFullName) => {
-  const normalizedToken = token.toLowerCase().replace(/[^a-z\s]/g, ' ').replace(/\s+/g, ' ').trim();
-  const normalizedName = String(studentFullName || '').toLowerCase();
-  if (!normalizedToken) return false;
-  return normalizedToken.split(' ').some((word) => word.length > 1 && normalizedName.includes(word));
-};
-
-// Parses the uploaded CSV and, for each payment row, looks up that year's
-// registrations by parent/billing email to propose which student(s) the
-// payment covers. This never writes anything — it only builds the review
-// screen's data. POST /admin/tuition-import/apply does the actual writes,
-// and only for whatever the admin confirms there.
-const buildTuitionImportPreview = async (schoolYear, csvBuffer) => {
-  const records = parseCsv(csvBuffer, { relax_column_count: true, skip_empty_lines: true, bom: true });
-  const dataRows = records.slice(1); // drop the header row
-
-  const rows = [];
-  for (let i = 0; i < dataRows.length; i++) {
-    const cols = dataRows[i];
-    const get = (key) => String(cols[TUITION_IMPORT_COLUMNS[key]] ?? '').trim();
-
-    const paidStatus = get('paidStatus');
-    const transactionResult = get('transactionResult');
-    const isAccepted = /accepted/i.test(paidStatus) && /^ok$/i.test(transactionResult);
-
-    const amount = parseTuitionImportAmount(get('amountPaid')) ?? parseTuitionImportAmount(get('paidAmountAlt'));
-    const paidAtDate = parseTuitionImportDate(get('createdAt'));
-
-    const rawChildNames = get('childNames');
-    const parentEmail = get('parentEmail');
-    const billingEmail = get('billingEmail');
-    const candidateEmails = [...new Set([parentEmail, billingEmail]
-      .map((e) => e.trim().toLowerCase())
-      .filter(Boolean))];
-
-    let candidateRegistrations = [];
-    if (candidateEmails.length) {
-      const placeholders = candidateEmails.map(() => '?').join(',');
-      candidateRegistrations = await db.prepare(
-        `SELECT id, student_full_name, parent_name, primary_contact_email
-         FROM student_registrations
-         WHERE school_year = ? AND status <> 'cancelled' AND LOWER(primary_contact_email) IN (${placeholders})
-         ORDER BY student_full_name ASC`
-      ).all(schoolYear, ...candidateEmails);
-    }
-
-    const nameTokens = extractTuitionImportNameTokens(rawChildNames);
-    let selectedIds = candidateRegistrations.map((r) => r.id);
-    let matchStatus = 'no_match';
-
-    if (candidateRegistrations.length === 1) {
-      matchStatus = 'matched';
-    } else if (candidateRegistrations.length > 1) {
-      const nameMatched = candidateRegistrations.filter((r) =>
-        nameTokens.some((token) => nameTokenMatchesStudent(token, r.student_full_name)));
-      if (nameMatched.length && nameMatched.length < candidateRegistrations.length) {
-        selectedIds = nameMatched.map((r) => r.id);
-        matchStatus = 'matched';
-      } else {
-        // Either every candidate matched a name token, or none did — either
-        // way we can't tell which of this parent's kids the payment is for
-        // with confidence, so default to selecting all of them but flag the
-        // row for the admin to confirm rather than treating it as settled.
-        matchStatus = 'review';
-      }
-    }
-
-    rows.push({
-      rowIndex: i,
-      isAccepted,
-      amount,
-      paidAtIso: toMySqlDateTime(paidAtDate || new Date()),
-      raw: {
-        childNames: rawChildNames,
-        contactPhone: get('contactPhone'),
-        parentEmail,
-        billingEmail,
-        billingName: get('billingName'),
-        totalAmount: get('totalAmount'),
-        amountPaid: get('amountPaid'),
-        transactionId: get('transactionId'),
-        transactionResult,
-        transactionMessage: get('transactionMessage'),
-        createdAt: get('createdAt'),
-        paidStatus,
-      },
-      candidateRegistrations,
-      selectedIds,
-      matchStatus,
-    });
-  }
-
-  return rows;
-};
-
-app.get('/admin/tuition-import', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
-  const faithFormationSettings = await getFaithFormationSettings();
-  res.render('admin-tuition-import', {
-    registrationYearOptions: getRegistrationYearOptions(parseFaithFormationStartYear(faithFormationSettings.schoolYear)),
-    activeSchoolYear: faithFormationSettings.schoolYear,
-  });
-}));
-
-app.post('/admin/tuition-import/preview', requireAuth, requireRole('admin'), tuitionImportUpload.single('csv_file'), asyncHandler(async (req, res) => {
-  const schoolYear = typeof req.body.school_year === 'string' ? req.body.school_year.trim() : '';
-  if (!/^\d{4}-\d{4}$/.test(schoolYear)) {
-    req.flash('error', 'Please choose a valid school year.');
-    return res.redirect('/admin/tuition-import');
-  }
-  if (!req.file) {
-    req.flash('error', 'Please choose a CSV file to upload.');
-    return res.redirect('/admin/tuition-import');
-  }
-
-  let rows;
-  try {
-    rows = await buildTuitionImportPreview(schoolYear, req.file.buffer);
-  } catch (error) {
-    console.error('Failed to parse tuition import CSV', error);
-    req.flash('error', 'Could not read that file as CSV. Please check the export and try again.');
-    return res.redirect('/admin/tuition-import');
-  }
-
-  req.session.tuitionImportPreview = { schoolYear, rows, createdAt: Date.now() };
-
-  res.render('admin-tuition-import-review', { schoolYear, rows });
-}));
-
-app.post('/admin/tuition-import/apply', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
-  const preview = req.session.tuitionImportPreview;
-  if (!preview) {
-    req.flash('error', 'That import has expired. Please upload the file again.');
-    return res.redirect('/admin/tuition-import');
-  }
-
-  const skippedRows = new Set(
-    (Array.isArray(req.body.skip) ? req.body.skip : (req.body.skip ? [req.body.skip] : [])).map(Number)
-  );
-
-  let registrationsUpdated = 0;
-  for (const row of preview.rows) {
-    if (!row.isAccepted || skippedRows.has(row.rowIndex)) continue;
-
-    const submittedIds = req.body[`selected_${row.rowIndex}`];
-    const chosenIds = (Array.isArray(submittedIds) ? submittedIds : (submittedIds ? [submittedIds] : []))
-      .map(Number)
-      .filter((id) => row.candidateRegistrations.some((candidate) => candidate.id === id));
-
-    for (const registrationId of chosenIds) {
-      const reg = await db.prepare('SELECT id, student_id FROM student_registrations WHERE id = ?').get(registrationId);
-      if (!reg) continue;
-
-      await db.prepare(
-        `UPDATE student_registrations SET
-           tuition_paid = 1, tuition_paid_at = ?, tuition_paid_by = ?,
-           tuition_amount_paid = ?, tuition_transaction_id = ?
-         WHERE id = ?`
-      ).run(row.paidAtIso, req.user.id, row.amount, row.raw.transactionId || null, registrationId);
-
-      if (reg.student_id) {
-        await db.prepare(
-          `UPDATE students SET
-             tuition_paid = 1, tuition_paid_at = ?, tuition_paid_by = ?,
-             tuition_amount_paid = ?, tuition_transaction_id = ?
-           WHERE id = ?`
-        ).run(row.paidAtIso, req.user.id, row.amount, row.raw.transactionId || null, reg.student_id);
-      }
-
-      registrationsUpdated++;
-    }
-  }
-
-  delete req.session.tuitionImportPreview;
-
-  req.flash('success', `Tuition payments applied to ${registrationsUpdated} registration${registrationsUpdated === 1 ? '' : 's'}.`);
   return res.redirect('/admin/students');
 }));
 

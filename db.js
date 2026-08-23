@@ -112,8 +112,6 @@ const syncStudentCertsAndVerification = async () => {
       s.tuition_paid = sr.tuition_paid,
       s.tuition_paid_at = sr.tuition_paid_at,
       s.tuition_paid_by = sr.tuition_paid_by,
-      s.tuition_amount_paid = sr.tuition_amount_paid,
-      s.tuition_transaction_id = sr.tuition_transaction_id,
       s.parent_contacted = sr.parent_contacted,
       s.parent_contacted_at = sr.parent_contacted_at,
       s.parent_contacted_by = sr.parent_contacted_by
@@ -631,8 +629,6 @@ const init = async () => {
     await ensureColumn('student_registrations', 'parent_contacted_at', 'DATETIME NULL');
     await ensureColumn('student_registrations', 'parent_contacted_by', 'INT NULL');
     await ensureColumn('student_registrations', 'student_id', 'INT NULL');
-    await ensureColumn('student_registrations', 'tuition_amount_paid', 'INT NULL');
-    await ensureColumn('student_registrations', 'tuition_transaction_id', 'VARCHAR(255) NULL');
     await ensureColumn('students', 'preferred_class_time', 'VARCHAR(100) NULL');
     await ensureColumn('students', 'baptism_certificate_path', 'TEXT');
     await ensureColumn('students', 'first_communion_certificate_path', 'TEXT');
@@ -646,8 +642,6 @@ const init = async () => {
     await ensureColumn('students', 'parent_contacted', 'TINYINT(1) NOT NULL DEFAULT 0');
     await ensureColumn('students', 'parent_contacted_at', 'DATETIME NULL');
     await ensureColumn('students', 'parent_contacted_by', 'INT NULL');
-    await ensureColumn('students', 'tuition_amount_paid', 'INT NULL');
-    await ensureColumn('students', 'tuition_transaction_id', 'VARCHAR(255) NULL');
     await ensureColumn('sponsor_confirmations', 'is_st_matthew_parishioner', 'TINYINT(1) NOT NULL DEFAULT 0');
     await ensureColumn('sponsor_confirmations', 'sponsor_certificate_path', 'TEXT');
     await ensureColumn('sponsor_confirmations', 'admin_verified', 'TINYINT(1) NOT NULL DEFAULT 0');
