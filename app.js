@@ -566,6 +566,7 @@ const translations = {
     tuition_paid_label: 'Tuition paid',
     parent_contacted_label: 'Parent contacted',
     child_verification_col_header: 'Verification',
+    comments_col: 'Comments',
     verified_by_on: 'by %s on %s',
     confirm_delete_sponsor_form: 'Delete this sponsor confirmation form? This is helpful for removing test entries.',
     total_fees_due_all_active: 'Total Fees Due — all active registrations',
@@ -1233,6 +1234,7 @@ const translations = {
     tuition_paid_label: 'Matrícula pagada',
     parent_contacted_label: 'Padre contactado',
     child_verification_col_header: 'Verificación',
+    comments_col: 'Comentarios',
     verified_by_on: 'por %s el %s',
     confirm_delete_sponsor_form: '¿Eliminar este formulario de confirmación de padrino? Esto es útil para eliminar entradas de prueba.',
     total_fees_due_all_active: 'Total de Cuotas Adeudadas — todas las inscripciones activas',
@@ -3379,6 +3381,23 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
           existingRowId, req.user.id, isAdmin ? 1 : 0
         );
         thisRowId = existingRowId;
+
+        // Keep the persistent student record's own copy of certificates/comments in sync
+        // with the registration whenever it's edited, so that data survives independent
+        // of what later happens to this registration row.
+        const registrationForStudentSync = await db.prepare(
+          'SELECT student_id, baptism_certificate_path, first_communion_certificate_path, disabilities_comments FROM student_registrations WHERE id = ?'
+        ).get(existingRowId);
+        if (registrationForStudentSync?.student_id) {
+          await db.prepare(
+            'UPDATE students SET baptism_certificate_path = ?, first_communion_certificate_path = ?, disabilities_comments = ? WHERE id = ?'
+          ).run(
+            registrationForStudentSync.baptism_certificate_path,
+            registrationForStudentSync.first_communion_certificate_path,
+            registrationForStudentSync.disabilities_comments,
+            registrationForStudentSync.student_id
+          );
+        }
       } else {
         const result = await db.prepare(`
           INSERT INTO student_registrations (
@@ -3555,14 +3574,41 @@ app.post('/registration/children/:id/status', requireAuth, requireRole('admin'),
         `UPDATE students SET
            student_full_name = ?, student_dob = ?, student_gender = ?, grade_level = ?, preferred_class_time = ?,
            parent_name = ?, primary_contact_email = ?, primary_contact_phone = ?,
+           baptism_certificate_path = ?, first_communion_certificate_path = ?, disabilities_comments = ?,
+           certificates_verified = ?, certificates_verified_at = ?, certificates_verified_by = ?,
+           tuition_paid = ?, tuition_paid_at = ?, tuition_paid_by = ?,
+           parent_contacted = ?, parent_contacted_at = ?, parent_contacted_by = ?,
            student_status = 'enrolled', source_registration_id = ?
          WHERE id = ?`
-      ).run(reg.student_full_name, reg.student_dob, reg.student_gender, resolveCcdGrade(reg), reg.preferred_class_time, reg.parent_name, reg.primary_contact_email, reg.primary_contact_phone, reg.id, reg.student_id);
+      ).run(
+        reg.student_full_name, reg.student_dob, reg.student_gender, resolveCcdGrade(reg), reg.preferred_class_time,
+        reg.parent_name, reg.primary_contact_email, reg.primary_contact_phone,
+        reg.baptism_certificate_path, reg.first_communion_certificate_path, reg.disabilities_comments,
+        reg.certificates_verified, reg.certificates_verified_at, reg.certificates_verified_by,
+        reg.tuition_paid, reg.tuition_paid_at, reg.tuition_paid_by,
+        reg.parent_contacted, reg.parent_contacted_at, reg.parent_contacted_by,
+        reg.id, reg.student_id
+      );
     } else {
       const created = await db.prepare(
-        `INSERT INTO students (student_full_name, student_dob, student_gender, grade_level, preferred_class_time, parent_user_id, parent_name, primary_contact_email, primary_contact_phone, student_status, source_registration_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'enrolled', ?)`
-      ).run(reg.student_full_name, reg.student_dob, reg.student_gender, resolveCcdGrade(reg), reg.preferred_class_time, reg.user_id, reg.parent_name, reg.primary_contact_email, reg.primary_contact_phone, reg.id);
+        `INSERT INTO students (
+           student_full_name, student_dob, student_gender, grade_level, preferred_class_time,
+           parent_user_id, parent_name, primary_contact_email, primary_contact_phone,
+           baptism_certificate_path, first_communion_certificate_path, disabilities_comments,
+           certificates_verified, certificates_verified_at, certificates_verified_by,
+           tuition_paid, tuition_paid_at, tuition_paid_by,
+           parent_contacted, parent_contacted_at, parent_contacted_by,
+           student_status, source_registration_id
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'enrolled', ?)`
+      ).run(
+        reg.student_full_name, reg.student_dob, reg.student_gender, resolveCcdGrade(reg), reg.preferred_class_time,
+        reg.user_id, reg.parent_name, reg.primary_contact_email, reg.primary_contact_phone,
+        reg.baptism_certificate_path, reg.first_communion_certificate_path, reg.disabilities_comments,
+        reg.certificates_verified, reg.certificates_verified_at, reg.certificates_verified_by,
+        reg.tuition_paid, reg.tuition_paid_at, reg.tuition_paid_by,
+        reg.parent_contacted, reg.parent_contacted_at, reg.parent_contacted_by,
+        reg.id
+      );
       await db.prepare('UPDATE student_registrations SET student_id = ? WHERE id = ?').run(created.lastInsertRowid, req.params.id);
     }
   }
@@ -4032,7 +4078,7 @@ app.post('/admin/registrations/children/:id/verification', requireAuth, requireR
     return res.status(400).json({ ok: false, error: 'Invalid request.' });
   }
 
-  const registration = await db.prepare('SELECT id FROM student_registrations WHERE id = ?').get(registrationId);
+  const registration = await db.prepare('SELECT id, student_id FROM student_registrations WHERE id = ?').get(registrationId);
   if (!registration) {
     return res.status(404).json({ ok: false, error: 'Registration not found.' });
   }
@@ -4044,10 +4090,20 @@ app.post('/admin/registrations/children/:id/verification', requireAuth, requireR
     await db.prepare(
       `UPDATE student_registrations SET \`${field}\` = 1, \`${atCol}\` = CURRENT_TIMESTAMP, \`${byCol}\` = ? WHERE id = ?`
     ).run(req.user.id, registrationId);
+    if (registration.student_id) {
+      await db.prepare(
+        `UPDATE students SET \`${field}\` = 1, \`${atCol}\` = CURRENT_TIMESTAMP, \`${byCol}\` = ? WHERE id = ?`
+      ).run(req.user.id, registration.student_id);
+    }
   } else {
     await db.prepare(
       `UPDATE student_registrations SET \`${field}\` = 0, \`${atCol}\` = NULL, \`${byCol}\` = NULL WHERE id = ?`
     ).run(registrationId);
+    if (registration.student_id) {
+      await db.prepare(
+        `UPDATE students SET \`${field}\` = 0, \`${atCol}\` = NULL, \`${byCol}\` = NULL WHERE id = ?`
+      ).run(registration.student_id);
+    }
   }
 
   const updated = await db.prepare(
@@ -4223,10 +4279,18 @@ app.get('/admin/students', requireAuth, requireRole('admin'), asyncHandler(async
       sr.id AS registration_id,
       sr.status AS registration_status,
       sr.registration_fee, sr.sacramental_fee, sr.late_fee,
-      sr.baptism_certificate_path, sr.first_communion_certificate_path,
-      sr.certificates_verified, sr.certificates_verified_at, sr.certificates_verified_by,
-      sr.tuition_paid, sr.tuition_paid_at, sr.tuition_paid_by,
-      sr.parent_contacted, sr.parent_contacted_at, sr.parent_contacted_by
+      COALESCE(sr.baptism_certificate_path, s.baptism_certificate_path) AS baptism_certificate_path,
+      COALESCE(sr.first_communion_certificate_path, s.first_communion_certificate_path) AS first_communion_certificate_path,
+      COALESCE(sr.disabilities_comments, s.disabilities_comments) AS disabilities_comments,
+      COALESCE(sr.certificates_verified, s.certificates_verified) AS certificates_verified,
+      COALESCE(sr.certificates_verified_at, s.certificates_verified_at) AS certificates_verified_at,
+      COALESCE(sr.certificates_verified_by, s.certificates_verified_by) AS certificates_verified_by,
+      COALESCE(sr.tuition_paid, s.tuition_paid) AS tuition_paid,
+      COALESCE(sr.tuition_paid_at, s.tuition_paid_at) AS tuition_paid_at,
+      COALESCE(sr.tuition_paid_by, s.tuition_paid_by) AS tuition_paid_by,
+      COALESCE(sr.parent_contacted, s.parent_contacted) AS parent_contacted,
+      COALESCE(sr.parent_contacted_at, s.parent_contacted_at) AS parent_contacted_at,
+      COALESCE(sr.parent_contacted_by, s.parent_contacted_by) AS parent_contacted_by
     FROM students s
     LEFT JOIN student_registrations sr ON sr.id = s.source_registration_id
     ORDER BY s.student_full_name ASC

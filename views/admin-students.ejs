@@ -43,6 +43,7 @@
               <th><%= t('primary_contact') %></th>
               <th><%= t('student_status') %></th>
               <th><%= t('certificates') %></th>
+              <th><%= t('comments_col') %></th>
               <th><%= t('child_verification_col_header') %></th>
               <th><%= t('submitted_col') %></th>
               <th><%= t('actions') %></th>
@@ -65,29 +66,30 @@
                 </form>
               </td>
               <td style="font-size:.85rem">
-                <% if (!r.registration_id) { %>
-                  <span style="color:var(--muted)">&mdash;</span>
+                <% const baptismPaths = uploadPathsForView(r.baptism_certificate_path); %>
+                <% const communionPaths = uploadPathsForView(r.first_communion_certificate_path); %>
+                <%
+                  const certFiles = [];
+                  baptismPaths.forEach((filePath) => certFiles.push({ label: uploadFileNameForView(filePath) || t('baptism'), sub: t('baptism'), href: uploadHrefForView(filePath) }));
+                  communionPaths.forEach((filePath) => certFiles.push({ label: uploadFileNameForView(filePath) || t('communion'), sub: t('communion'), href: uploadHrefForView(filePath) }));
+                %>
+                <% if (certFiles.length) { %>
+                  <button type="button" class="btn btn-sm btn-outline-secondary cert-files-btn" data-files="<%= JSON.stringify(certFiles) %>" data-name="<%= r.student_full_name || '' %>">
+                    &#128206; <%= t('view_files_count').replace('%s', certFiles.length) %>
+                  </button>
                 <% } else { %>
-                  <% const baptismPaths = uploadPathsForView(r.baptism_certificate_path); %>
-                  <% const communionPaths = uploadPathsForView(r.first_communion_certificate_path); %>
-                  <%
-                    const certFiles = [];
-                    baptismPaths.forEach((filePath) => certFiles.push({ label: uploadFileNameForView(filePath) || t('baptism'), sub: t('baptism'), href: uploadHrefForView(filePath) }));
-                    communionPaths.forEach((filePath) => certFiles.push({ label: uploadFileNameForView(filePath) || t('communion'), sub: t('communion'), href: uploadHrefForView(filePath) }));
-                  %>
-                  <% if (certFiles.length) { %>
-                    <button type="button" class="btn btn-sm btn-outline-secondary cert-files-btn" data-files="<%= JSON.stringify(certFiles) %>" data-name="<%= r.student_full_name || '' %>">
-                      &#128206; <%= t('view_files_count').replace('%s', certFiles.length) %>
-                    </button>
-                  <% } else { %>
-                    <span style="color:var(--muted)">&mdash;</span>
-                  <% } %>
+                  <span style="color:var(--muted)">&mdash;</span>
+                <% } %>
+              </td>
+              <td style="font-size:.82rem;max-width:220px">
+                <% if (r.disabilities_comments) { %>
+                  <span title="<%= r.disabilities_comments %>"><%= r.disabilities_comments %></span>
+                <% } else { %>
+                  <span style="color:var(--muted)">&mdash;</span>
                 <% } %>
               </td>
               <td style="font-size:.78rem;min-width:180px">
-                <% if (!r.registration_id) { %>
-                  <span style="color:var(--muted)"><%= t('no_active_registration') %></span>
-                <% } else { %>
+                <% if (r.registration_id) { %>
                   <% ['certificates_verified', 'tuition_paid', 'parent_contacted'].forEach((field) => { %>
                     <div class="form-check verification-check-row" style="margin-bottom:2px">
                       <input
@@ -106,6 +108,20 @@
                       </div>
                     </div>
                   <% }) %>
+                <% } else { %>
+                  <%
+                    // No active registration left to toggle these against (e.g. it was
+                    // deleted or archived) — show the student's own last-known status
+                    // read-only rather than discarding that history.
+                    const readOnlyFlags = ['certificates_verified', 'tuition_paid', 'parent_contacted'].filter((field) => r[field]);
+                  %>
+                  <% if (readOnlyFlags.length) { %>
+                    <% readOnlyFlags.forEach((field) => { %>
+                      <div style="margin-bottom:2px">&#10003; <%= t(field + '_label') %></div>
+                    <% }) %>
+                  <% } else { %>
+                    <span style="color:var(--muted)"><%= t('no_active_registration') %></span>
+                  <% } %>
                 <% } %>
               </td>
               <td style="font-size:.8rem;color:var(--muted)"><%= r.created_at ? (typeof r.created_at === 'string' ? r.created_at.slice(0, 16).replace('T', ' ') : r.created_at.toISOString().slice(0, 16).replace('T', ' ')) : '—' %></td>
