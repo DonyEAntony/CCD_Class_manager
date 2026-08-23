@@ -257,20 +257,29 @@
                 </td>
                 <td style="font-size:.8rem;color:var(--muted)"><%= r.created_at ? (typeof r.created_at === 'string' ? r.created_at.slice(0, 16).replace('T', ' ') : r.created_at.toISOString().slice(0, 16).replace('T', ' ')) : '—' %></td>
                 <td style="font-size:.8rem;color:var(--muted)"><%= r.archived_at ? (typeof r.archived_at === 'string' ? r.archived_at.slice(0, 16).replace('T', ' ') : r.archived_at.toISOString().slice(0, 16).replace('T', ' ')) : '—' %></td>
-                <td>
-                  <a href="/registration/children/edit/<%= r.id %>" class="btn btn-sm btn-outline-primary"><%= t('edit') %></a>
-                  <% if (r.archived_at) { %>
-                    <form method="post" action="/admin/registrations/children/<%= r.id %>/unarchive" class="d-inline">
-                      <button class="btn btn-sm btn-outline-primary" type="submit"><%= t('unarchive') %></button>
-                    </form>
-                  <% } else { %>
-                    <form method="post" action="/admin/registrations/children/<%= r.id %>/archive" class="d-inline">
-                      <button class="btn btn-sm btn-outline-secondary" type="submit"><%= t('archive') %></button>
-                    </form>
-                  <% } %>
-                  <form method="post" action="/admin/registrations/children/<%= r.id %>/delete" class="d-inline" onsubmit="return confirm(<%- JSON.stringify(t('confirm_delete_registration_prefix')) %> + ' ' + <%- JSON.stringify(r.student_full_name || 'this student') %> + '? ' + <%- JSON.stringify(t('confirm_delete_registration_suffix')) %>);">
-                    <button class="btn btn-sm btn-outline-danger" type="submit"><%= t('remove') %></button>
-                  </form>
+                <td class="text-end">
+                  <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown" data-bs-strategy="fixed" aria-expanded="false" aria-label="<%= t('more_actions') %>">&#8942;</button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                      <li><a class="dropdown-item" href="/registration/children/edit/<%= r.id %>"><%= t('edit') %></a></li>
+                      <li>
+                        <% if (r.archived_at) { %>
+                          <form method="post" action="/admin/registrations/children/<%= r.id %>/unarchive">
+                            <button class="dropdown-item" type="submit"><%= t('unarchive') %></button>
+                          </form>
+                        <% } else { %>
+                          <form method="post" action="/admin/registrations/children/<%= r.id %>/archive">
+                            <button class="dropdown-item" type="submit"><%= t('archive') %></button>
+                          </form>
+                        <% } %>
+                      </li>
+                      <li>
+                        <form method="post" action="/admin/registrations/children/<%= r.id %>/delete" onsubmit="return confirm(<%- JSON.stringify(t('confirm_delete_registration_prefix')) %> + ' ' + <%- JSON.stringify(r.student_full_name || 'this student') %> + '? ' + <%- JSON.stringify(t('confirm_delete_registration_suffix')) %>);">
+                          <button class="dropdown-item text-danger" type="submit"><%= t('remove') %></button>
+                        </form>
+                      </li>
+                    </ul>
+                  </div>
                 </td>
               </tr>
             <% }) %>
@@ -390,20 +399,29 @@
                   </span>
                 </td>
                 <td style="font-size:.8rem;color:var(--muted)"><%= r.archived_at ? (typeof r.archived_at === 'string' ? r.archived_at.slice(0, 16).replace('T', ' ') : r.archived_at.toISOString().slice(0, 16).replace('T', ' ')) : '—' %></td>
-                <td>
-                  <a href="/registration/adult/edit/<%= r.program_type %>/<%= r.id %>" class="btn btn-sm btn-outline-primary"><%= t('edit') %></a>
-                  <% if (r.archived_at) { %>
-                    <form method="post" action="/admin/registrations/adult/<%= r.id %>/unarchive" class="d-inline">
-                      <button class="btn btn-sm btn-outline-primary" type="submit"><%= t('unarchive') %></button>
-                    </form>
-                  <% } else { %>
-                    <form method="post" action="/admin/registrations/adult/<%= r.id %>/archive" class="d-inline">
-                      <button class="btn btn-sm btn-outline-secondary" type="submit"><%= t('archive') %></button>
-                    </form>
-                  <% } %>
-                  <form method="post" action="/admin/registrations/adult/<%= r.id %>/delete" class="d-inline" onsubmit="return confirm(<%- JSON.stringify(t('confirm_delete_registration_prefix')) %> + ' ' + <%- JSON.stringify(r.full_name || 'this person') %> + '? ' + <%- JSON.stringify(t('confirm_delete_registration_suffix')) %>);">
-                    <button class="btn btn-sm btn-outline-danger" type="submit"><%= t('remove') %></button>
-                  </form>
+                <td class="text-end">
+                  <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown" data-bs-strategy="fixed" aria-expanded="false" aria-label="<%= t('more_actions') %>">&#8942;</button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                      <li><a class="dropdown-item" href="/registration/adult/edit/<%= r.program_type %>/<%= r.id %>"><%= t('edit') %></a></li>
+                      <li>
+                        <% if (r.archived_at) { %>
+                          <form method="post" action="/admin/registrations/adult/<%= r.id %>/unarchive">
+                            <button class="dropdown-item" type="submit"><%= t('unarchive') %></button>
+                          </form>
+                        <% } else { %>
+                          <form method="post" action="/admin/registrations/adult/<%= r.id %>/archive">
+                            <button class="dropdown-item" type="submit"><%= t('archive') %></button>
+                          </form>
+                        <% } %>
+                      </li>
+                      <li>
+                        <form method="post" action="/admin/registrations/adult/<%= r.id %>/delete" onsubmit="return confirm(<%- JSON.stringify(t('confirm_delete_registration_prefix')) %> + ' ' + <%- JSON.stringify(r.full_name || 'this person') %> + '? ' + <%- JSON.stringify(t('confirm_delete_registration_suffix')) %>);">
+                          <button class="dropdown-item text-danger" type="submit"><%= t('remove') %></button>
+                        </form>
+                      </li>
+                    </ul>
+                  </div>
                 </td>
               </tr>
             <% }) %>
@@ -463,16 +481,25 @@
                     <%= t(r.status) %>
                   </span>
                 </td>
-                <td>
-                  <% if (Number(r.is_st_matthew_parishioner) && !Number(r.admin_verified)) { %>
-                    <form method="post" action="/admin/sponsor-confirmation/<%= r.id %>/verify" class="d-inline">
-                      <button class="btn btn-sm btn-outline-success" type="submit"><%= t('verify') %></button>
-                    </form>
-                  <% } %>
-                  <a href="/registration/sponsor-confirmation/edit/<%= r.id %>" class="btn btn-sm btn-outline-primary"><%= t('edit') %></a>
-                  <form method="post" action="/admin/sponsor-confirmation/<%= r.id %>/delete" class="d-inline" onsubmit="return confirm('<%= t('confirm_delete_sponsor_form') %>');">
-                    <button class="btn btn-sm btn-outline-danger" type="submit"><%= t('remove') %></button>
-                  </form>
+                <td class="text-end">
+                  <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown" data-bs-strategy="fixed" aria-expanded="false" aria-label="<%= t('more_actions') %>">&#8942;</button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                      <% if (Number(r.is_st_matthew_parishioner) && !Number(r.admin_verified)) { %>
+                        <li>
+                          <form method="post" action="/admin/sponsor-confirmation/<%= r.id %>/verify">
+                            <button class="dropdown-item" type="submit"><%= t('verify') %></button>
+                          </form>
+                        </li>
+                      <% } %>
+                      <li><a class="dropdown-item" href="/registration/sponsor-confirmation/edit/<%= r.id %>"><%= t('edit') %></a></li>
+                      <li>
+                        <form method="post" action="/admin/sponsor-confirmation/<%= r.id %>/delete" onsubmit="return confirm('<%= t('confirm_delete_sponsor_form') %>');">
+                          <button class="dropdown-item text-danger" type="submit"><%= t('remove') %></button>
+                        </form>
+                      </li>
+                    </ul>
+                  </div>
                 </td>
               </tr>
             <% }) %>
