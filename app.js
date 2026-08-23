@@ -610,6 +610,17 @@ const translations = {
     confirmation_received_on: 'Confirmed on %s',
     set_confirmation_date_label: 'Record Confirmation date',
     clear_confirmation_date_label: 'Clear',
+    family_payments_label: 'Family Payments',
+    no_family_payments: 'No payments recorded for this family yet.',
+    payment_amount_col: 'Amount',
+    payment_method_col: 'Method',
+    payment_date_col: 'Date',
+    payment_method_cash: 'Cash',
+    payment_method_credit_card: 'Credit Card',
+    payment_method_imported: 'Imported',
+    record_payment_label: 'Record a Payment',
+    payment_amount_placeholder: 'Amount ($)',
+    select_payment_method: 'Select method',
     verified_by_on: 'by %s on %s',
     confirm_delete_sponsor_form: 'Delete this sponsor confirmation form? This is helpful for removing test entries.',
     total_fees_due_all_active: 'Total Fees Due — all active registrations',
@@ -1320,6 +1331,17 @@ const translations = {
     confirmation_received_on: 'Confirmado el %s',
     set_confirmation_date_label: 'Registrar fecha de Confirmación',
     clear_confirmation_date_label: 'Borrar',
+    family_payments_label: 'Pagos de la Familia',
+    no_family_payments: 'Aún no hay pagos registrados para esta familia.',
+    payment_amount_col: 'Monto',
+    payment_method_col: 'Método',
+    payment_date_col: 'Fecha',
+    payment_method_cash: 'Efectivo',
+    payment_method_credit_card: 'Tarjeta de Crédito',
+    payment_method_imported: 'Importado',
+    record_payment_label: 'Registrar un Pago',
+    payment_amount_placeholder: 'Monto ($)',
+    select_payment_method: 'Seleccione método',
     verified_by_on: 'por %s el %s',
     confirm_delete_sponsor_form: '¿Eliminar este formulario de confirmación de padrino? Esto es útil para eliminar entradas de prueba.',
     total_fees_due_all_active: 'Total de Cuotas Adeudadas — todas las inscripciones activas',
@@ -3667,6 +3689,7 @@ app.post('/registration/children/:id/status', requireAuth, requireRole('admin'),
            baptism_certificate_path = ?, first_communion_certificate_path = ?, disabilities_comments = ?,
            certificates_verified = ?, certificates_verified_at = ?, certificates_verified_by = ?,
            tuition_paid = ?, tuition_paid_at = ?, tuition_paid_by = ?,
+           tuition_amount_paid = ?, tuition_transaction_id = ?, tuition_payment_method = ?,
            parent_contacted = ?, parent_contacted_at = ?, parent_contacted_by = ?,
            student_status = 'enrolled', source_registration_id = ?
          WHERE id = ?`
@@ -3676,6 +3699,7 @@ app.post('/registration/children/:id/status', requireAuth, requireRole('admin'),
         reg.baptism_certificate_path, reg.first_communion_certificate_path, reg.disabilities_comments,
         reg.certificates_verified, reg.certificates_verified_at, reg.certificates_verified_by,
         reg.tuition_paid, reg.tuition_paid_at, reg.tuition_paid_by,
+        reg.tuition_amount_paid, reg.tuition_transaction_id, reg.tuition_payment_method,
         reg.parent_contacted, reg.parent_contacted_at, reg.parent_contacted_by,
         reg.id, reg.student_id
       );
@@ -3687,15 +3711,17 @@ app.post('/registration/children/:id/status', requireAuth, requireRole('admin'),
            baptism_certificate_path, first_communion_certificate_path, disabilities_comments,
            certificates_verified, certificates_verified_at, certificates_verified_by,
            tuition_paid, tuition_paid_at, tuition_paid_by,
+           tuition_amount_paid, tuition_transaction_id, tuition_payment_method,
            parent_contacted, parent_contacted_at, parent_contacted_by,
            student_status, source_registration_id
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'enrolled', ?)`
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'enrolled', ?)`
       ).run(
         reg.student_full_name, reg.student_dob, reg.student_gender, resolveCcdGrade(reg), reg.preferred_class_time,
         reg.user_id, reg.parent_name, reg.primary_contact_email, reg.primary_contact_phone,
         reg.baptism_certificate_path, reg.first_communion_certificate_path, reg.disabilities_comments,
         reg.certificates_verified, reg.certificates_verified_at, reg.certificates_verified_by,
         reg.tuition_paid, reg.tuition_paid_at, reg.tuition_paid_by,
+        reg.tuition_amount_paid, reg.tuition_transaction_id, reg.tuition_payment_method,
         reg.parent_contacted, reg.parent_contacted_at, reg.parent_contacted_by,
         reg.id
       );
@@ -4378,6 +4404,9 @@ app.get('/admin/students', requireAuth, requireRole('admin'), asyncHandler(async
       COALESCE(sr.tuition_paid, s.tuition_paid) AS tuition_paid,
       COALESCE(sr.tuition_paid_at, s.tuition_paid_at) AS tuition_paid_at,
       COALESCE(sr.tuition_paid_by, s.tuition_paid_by) AS tuition_paid_by,
+      COALESCE(sr.tuition_amount_paid, s.tuition_amount_paid) AS tuition_amount_paid,
+      COALESCE(sr.tuition_transaction_id, s.tuition_transaction_id) AS tuition_transaction_id,
+      COALESCE(sr.tuition_payment_method, s.tuition_payment_method) AS tuition_payment_method,
       COALESCE(sr.parent_contacted, s.parent_contacted) AS parent_contacted,
       COALESCE(sr.parent_contacted_at, s.parent_contacted_at) AS parent_contacted_at,
       COALESCE(sr.parent_contacted_by, s.parent_contacted_by) AS parent_contacted_by
@@ -4438,6 +4467,30 @@ app.get('/admin/students', requireAuth, requireRole('admin'), asyncHandler(async
     };
   });
 
+  // Payments are recorded per student/registration (a "Family" payment tier
+  // still gets its full amount recorded against each covered child, not
+  // split), so a family's full payment picture only shows up by grouping
+  // siblings together — same parent_user_id — rather than looking at one
+  // student in isolation.
+  const familyGroups = {};
+  students.forEach((s) => {
+    const key = s.parent_user_id || `solo-${s.id}`;
+    (familyGroups[key] ||= []).push(s);
+  });
+  students.forEach((s) => {
+    const key = s.parent_user_id || `solo-${s.id}`;
+    s.familyPayments = familyGroups[key].map((sibling) => ({
+      id: sibling.id,
+      studentFullName: sibling.student_full_name,
+      tuitionPaid: !!sibling.tuition_paid,
+      amount: sibling.tuition_amount_paid,
+      method: sibling.tuition_payment_method,
+      transactionId: sibling.tuition_transaction_id,
+      paidAt: sibling.tuition_paid_at,
+      isSelf: sibling.id === s.id,
+    }));
+  });
+
   const verifierUserIds = new Set();
   students.forEach((s) => {
     ['certificates_verified_by', 'tuition_paid_by', 'parent_contacted_by', 'confirmation_received_by'].forEach((col) => {
@@ -4479,6 +4532,45 @@ app.post('/admin/students/:id/confirmation', requireAuth, requireRole('admin'), 
   } else {
     await db.prepare('UPDATE students SET confirmation_received_date = NULL, confirmation_received_by = NULL WHERE id = ?')
       .run(req.params.id);
+  }
+
+  req.flash('success', res.locals.t('status_updated'));
+  return res.redirect('/admin/students');
+}));
+
+const TUITION_PAYMENT_METHODS = new Set(['cash', 'credit_card']);
+
+app.post('/admin/students/:id/payment', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const student = await db.prepare('SELECT id, source_registration_id FROM students WHERE id = ?').get(req.params.id);
+  if (!student) {
+    return res.status(404).send('Student not found.');
+  }
+
+  const amount = parseTuitionImportAmount(req.body.amount);
+  const method = typeof req.body.method === 'string' ? req.body.method.trim() : '';
+  if (!amount || amount <= 0 || !TUITION_PAYMENT_METHODS.has(method)) {
+    req.flash('error', 'Enter a valid payment amount and method.');
+    return res.redirect('/admin/students');
+  }
+
+  const requestedDate = typeof req.body.payment_date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.body.payment_date.trim())
+    ? req.body.payment_date.trim()
+    : new Date().toISOString().slice(0, 10);
+
+  await db.prepare(
+    `UPDATE students SET
+       tuition_paid = 1, tuition_paid_at = ?, tuition_paid_by = ?,
+       tuition_amount_paid = ?, tuition_transaction_id = NULL, tuition_payment_method = ?
+     WHERE id = ?`
+  ).run(requestedDate, req.user.id, amount, method, req.params.id);
+
+  if (student.source_registration_id) {
+    await db.prepare(
+      `UPDATE student_registrations SET
+         tuition_paid = 1, tuition_paid_at = ?, tuition_paid_by = ?,
+         tuition_amount_paid = ?, tuition_transaction_id = NULL, tuition_payment_method = ?
+       WHERE id = ?`
+    ).run(requestedDate, req.user.id, amount, method, student.source_registration_id);
   }
 
   req.flash('success', res.locals.t('status_updated'));
@@ -4792,7 +4884,7 @@ app.post('/admin/tuition-import/apply', requireAuth, requireRole('admin'), async
       await db.prepare(
         `UPDATE student_registrations SET
            tuition_paid = 1, tuition_paid_at = ?, tuition_paid_by = ?,
-           tuition_amount_paid = ?, tuition_transaction_id = ?
+           tuition_amount_paid = ?, tuition_transaction_id = ?, tuition_payment_method = 'imported'
          WHERE id = ?`
       ).run(row.paidAtIso, req.user.id, row.amount, row.raw.transactionId || null, registrationId);
 
@@ -4800,7 +4892,7 @@ app.post('/admin/tuition-import/apply', requireAuth, requireRole('admin'), async
         await db.prepare(
           `UPDATE students SET
              tuition_paid = 1, tuition_paid_at = ?, tuition_paid_by = ?,
-             tuition_amount_paid = ?, tuition_transaction_id = ?
+             tuition_amount_paid = ?, tuition_transaction_id = ?, tuition_payment_method = 'imported'
            WHERE id = ?`
         ).run(row.paidAtIso, req.user.id, row.amount, row.raw.transactionId || null, reg.student_id);
       }

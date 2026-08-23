@@ -239,6 +239,63 @@
                     </div>
                   </div>
                 </div>
+                <div class="row g-4 p-2 pt-0">
+                  <div class="col-12">
+                    <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:.5rem"><%= t('family_payments_label') %></div>
+                    <% const familyPaymentsRows = Array.isArray(r.familyPayments) ? r.familyPayments : []; %>
+                    <% if (!familyPaymentsRows.length) { %>
+                      <div style="font-size:.85rem;color:var(--muted)"><%= t('no_family_payments') %></div>
+                    <% } else { %>
+                      <div class="table-responsive">
+                        <table class="table table-sm mb-2">
+                          <thead>
+                            <tr>
+                              <th><%= t('student') %></th>
+                              <th><%= t('payment_amount_col') %></th>
+                              <th><%= t('payment_method_col') %></th>
+                              <th><%= t('payment_date_col') %></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <% familyPaymentsRows.forEach((payment) => { %>
+                              <tr<% if (payment.isSelf) { %> style="font-weight:600"<% } %>>
+                                <td><%= payment.studentFullName %></td>
+                                <td><% if (payment.tuitionPaid && payment.amount != null) { %>$<%= payment.amount %><% } else { %><span style="color:var(--muted)">&mdash;</span><% } %></td>
+                                <td>
+                                  <% if (payment.method) { %>
+                                    <%= t('payment_method_' + payment.method) %>
+                                  <% } else { %>
+                                    <span style="color:var(--muted)">&mdash;</span>
+                                  <% } %>
+                                </td>
+                                <td style="color:var(--muted)"><%= payment.paidAt ? formatDateOnly(payment.paidAt) : '—' %></td>
+                              </tr>
+                            <% }) %>
+                          </tbody>
+                        </table>
+                      </div>
+                    <% } %>
+                    <form method="post" action="/admin/students/<%= r.id %>/payment" class="d-flex flex-wrap align-items-end gap-2">
+                      <div>
+                        <label class="form-label mb-1" style="font-size:.75rem"><%= t('payment_amount_col') %></label>
+                        <input type="number" min="0" step="1" class="form-control form-control-sm" style="max-width:130px" name="amount" placeholder="<%= t('payment_amount_placeholder') %>" required>
+                      </div>
+                      <div>
+                        <label class="form-label mb-1" style="font-size:.75rem"><%= t('payment_method_col') %></label>
+                        <select class="form-select form-select-sm" style="max-width:150px" name="method" required>
+                          <option value="" disabled selected><%= t('select_payment_method') %></option>
+                          <option value="cash"><%= t('payment_method_cash') %></option>
+                          <option value="credit_card"><%= t('payment_method_credit_card') %></option>
+                        </select>
+                      </div>
+                      <div>
+                        <label class="form-label mb-1" style="font-size:.75rem"><%= t('payment_date_col') %></label>
+                        <input type="date" class="form-control form-control-sm" style="max-width:150px" name="payment_date" value="<%= new Date().toISOString().slice(0, 10) %>">
+                      </div>
+                      <button type="submit" class="btn btn-sm btn-outline-primary"><%= t('record_payment_label') %></button>
+                    </form>
+                  </div>
+                </div>
               </td>
             </tr>
           <% }) %>
