@@ -17,6 +17,7 @@
   <% if (error.length) { %><div class="alert alert-danger mb-3"><%= error[0] %></div><% } %>
 
   <% const tabBadgeStyle = "background:var(--surface);color:var(--navy-soft);font-size:.7rem;border-radius:2rem;padding:.3em .8em;font-weight:700;border:1px solid var(--border)"; %>
+  <% const availableStudentStatusOptions = Array.isArray(typeof studentStatusOptions === 'undefined' ? null : studentStatusOptions) ? studentStatusOptions : []; %>
   <% const uploadHrefForView = typeof uploadHref === 'function' ? uploadHref : ((filePath) => filePath ? `/${String(filePath).replace(/\\/g, '/')}` : ''); %>
   <% const uploadFileNameForView = typeof uploadFileName === 'function' ? uploadFileName : ((filePath) => filePath ? String(filePath).replace(/\\/g, '/').split('/').pop() : ''); %>
   <% const uploadPathsForView = typeof certificateUploadPaths === 'function' ? certificateUploadPaths : ((value) => value ? [value] : []); %>
@@ -30,7 +31,7 @@
 
   <div class="page-card mb-4">
     <div class="card-body p-0">
-      <% if (!studentRegs || studentRegs.length === 0) { %>
+      <% if (!students || students.length === 0) { %>
         <div class="p-4 text-center" style="color:var(--muted);font-size:.9rem"><em><%= t('no_accepted_students') %></em></div>
       <% } else { %>
       <div class="table-responsive">
@@ -40,65 +41,78 @@
               <th><%= t('student') %></th>
               <th><%= t('grade') %></th>
               <th><%= t('primary_contact') %></th>
-              <th><%= t('total_fees') %></th>
+              <th><%= t('student_status') %></th>
               <th><%= t('certificates') %></th>
               <th><%= t('child_verification_col_header') %></th>
-              <th><%= t('status') %></th>
               <th><%= t('submitted_col') %></th>
               <th><%= t('actions') %></th>
             </tr>
           </thead>
           <tbody>
-          <% studentRegs.forEach(r => { %>
+          <% students.forEach(r => { %>
             <tr>
               <td style="font-weight:600"><%= r.student_full_name %></td>
-              <td><%= (typeof resolveCcdGrade === 'function' ? resolveCcdGrade(r) : r.ccd_grade_level) || '—' %></td>
+              <td><%= r.grade_level || '—' %></td>
               <td style="font-size:.85rem"><%= r.parent_name || r.primary_contact_email || '—' %></td>
-              <td><strong>$<%= (r.registration_fee||0)+(r.sacramental_fee||0)+(r.late_fee||0) %></strong></td>
+              <td>
+                <form method="post" action="/admin/students/<%= r.id %>/status" class="d-flex align-items-center gap-2">
+                  <select class="form-select form-select-sm" name="status" style="max-width:180px" onchange="this.form.submit()">
+                    <% availableStudentStatusOptions.forEach((statusOption) => { %>
+                      <option value="<%= statusOption %>" <%= r.student_status === statusOption ? 'selected' : '' %>><%= t(statusOption) %></option>
+                    <% }) %>
+                  </select>
+                  <noscript><button type="submit" class="btn btn-sm btn-outline-primary"><%= t('save') %></button></noscript>
+                </form>
+              </td>
               <td style="font-size:.85rem">
-                <% const baptismPaths = uploadPathsForView(r.baptism_certificate_path); %>
-                <% const communionPaths = uploadPathsForView(r.first_communion_certificate_path); %>
-                <%
-                  const certFiles = [];
-                  baptismPaths.forEach((filePath) => certFiles.push({ label: uploadFileNameForView(filePath) || t('baptism'), sub: t('baptism'), href: uploadHrefForView(filePath) }));
-                  communionPaths.forEach((filePath) => certFiles.push({ label: uploadFileNameForView(filePath) || t('communion'), sub: t('communion'), href: uploadHrefForView(filePath) }));
-                %>
-                <% if (certFiles.length) { %>
-                  <button type="button" class="btn btn-sm btn-outline-secondary cert-files-btn" data-files="<%= JSON.stringify(certFiles) %>" data-name="<%= r.student_full_name || '' %>">
-                    &#128206; <%= t('view_files_count').replace('%s', certFiles.length) %>
-                  </button>
-                <% } else { %>
+                <% if (!r.registration_id) { %>
                   <span style="color:var(--muted)">&mdash;</span>
+                <% } else { %>
+                  <% const baptismPaths = uploadPathsForView(r.baptism_certificate_path); %>
+                  <% const communionPaths = uploadPathsForView(r.first_communion_certificate_path); %>
+                  <%
+                    const certFiles = [];
+                    baptismPaths.forEach((filePath) => certFiles.push({ label: uploadFileNameForView(filePath) || t('baptism'), sub: t('baptism'), href: uploadHrefForView(filePath) }));
+                    communionPaths.forEach((filePath) => certFiles.push({ label: uploadFileNameForView(filePath) || t('communion'), sub: t('communion'), href: uploadHrefForView(filePath) }));
+                  %>
+                  <% if (certFiles.length) { %>
+                    <button type="button" class="btn btn-sm btn-outline-secondary cert-files-btn" data-files="<%= JSON.stringify(certFiles) %>" data-name="<%= r.student_full_name || '' %>">
+                      &#128206; <%= t('view_files_count').replace('%s', certFiles.length) %>
+                    </button>
+                  <% } else { %>
+                    <span style="color:var(--muted)">&mdash;</span>
+                  <% } %>
                 <% } %>
               </td>
               <td style="font-size:.78rem;min-width:180px">
-                <% ['certificates_verified', 'tuition_paid', 'parent_contacted'].forEach((field) => { %>
-                  <div class="form-check verification-check-row" style="margin-bottom:2px">
-                    <input
-                      type="checkbox"
-                      class="form-check-input verification-checkbox"
-                      data-registration-id="<%= r.id %>"
-                      data-field="<%= field %>"
-                      id="verify-<%= field %>-<%= r.id %>"
-                      <%= r[field] ? 'checked' : '' %>
-                    >
-                    <label class="form-check-label" for="verify-<%= field %>-<%= r.id %>"><%= t(field + '_label') %></label>
-                    <div class="verification-meta" style="color:var(--muted)">
-                      <% if (r[field] && r[field + '_by'] && verifierLookup && verifierLookup[r[field + '_by']]) { %>
-                        <%= t('verified_by_on').replace('%s', verifierLookup[r[field + '_by']]).replace('%s', (typeof r[field + '_at'] === 'string' ? r[field + '_at'].slice(0, 16).replace('T', ' ') : (r[field + '_at'] ? r[field + '_at'].toISOString().slice(0, 16).replace('T', ' ') : ''))) %>
-                      <% } %>
+                <% if (!r.registration_id) { %>
+                  <span style="color:var(--muted)"><%= t('no_active_registration') %></span>
+                <% } else { %>
+                  <% ['certificates_verified', 'tuition_paid', 'parent_contacted'].forEach((field) => { %>
+                    <div class="form-check verification-check-row" style="margin-bottom:2px">
+                      <input
+                        type="checkbox"
+                        class="form-check-input verification-checkbox"
+                        data-registration-id="<%= r.registration_id %>"
+                        data-field="<%= field %>"
+                        id="verify-<%= field %>-<%= r.registration_id %>"
+                        <%= r[field] ? 'checked' : '' %>
+                      >
+                      <label class="form-check-label" for="verify-<%= field %>-<%= r.registration_id %>"><%= t(field + '_label') %></label>
+                      <div class="verification-meta" style="color:var(--muted)">
+                        <% if (r[field] && r[field + '_by'] && verifierLookup && verifierLookup[r[field + '_by']]) { %>
+                          <%= t('verified_by_on').replace('%s', verifierLookup[r[field + '_by']]).replace('%s', (typeof r[field + '_at'] === 'string' ? r[field + '_at'].slice(0, 16).replace('T', ' ') : (r[field + '_at'] ? r[field + '_at'].toISOString().slice(0, 16).replace('T', ' ') : ''))) %>
+                        <% } %>
+                      </div>
                     </div>
-                  </div>
-                <% }) %>
-              </td>
-              <td>
-                <span class="badge" style="<%= tabBadgeStyle %>">
-                  <%= t(r.status) %>
-                </span>
+                  <% }) %>
+                <% } %>
               </td>
               <td style="font-size:.8rem;color:var(--muted)"><%= r.created_at ? (typeof r.created_at === 'string' ? r.created_at.slice(0, 16).replace('T', ' ') : r.created_at.toISOString().slice(0, 16).replace('T', ' ')) : '—' %></td>
               <td>
-                <a href="/registration/children/edit/<%= r.id %>" class="btn btn-sm btn-outline-primary"><%= t('edit') %></a>
+                <% if (r.registration_id) { %>
+                  <a href="/registration/children/edit/<%= r.registration_id %>" class="btn btn-sm btn-outline-primary"><%= t('edit_registration') %></a>
+                <% } %>
               </td>
             </tr>
           <% }) %>

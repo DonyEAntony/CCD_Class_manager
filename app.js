@@ -25,7 +25,25 @@ console.info('[startup] Mail configuration', {
   from: smtpLogConfig.from,
   appBaseUrl: process.env.APP_BASE_URL || '',
 });
-const STUDENT_REGISTRATION_STATUSES = [
+// Children registrations track only the admission process itself. Once a
+// child is admitted, their ongoing standing (Enrolled/Completed/Graduated/
+// Discontinued/Transferred) is tracked separately on the `students` table
+// so it survives independent of any one year's registration record.
+const CHILD_REGISTRATION_STATUSES = [
+  'in_progress',
+  'conditionally_accepted',
+  'admitted',
+  'cancelled',
+];
+const STUDENT_STATUSES = [
+  'enrolled',
+  'completed',
+  'graduated',
+  'discontinued',
+  'transferred',
+];
+// Family Faith registrations still use the original, unsplit status list.
+const FAMILY_FAITH_REGISTRATION_STATUSES = [
   'in_progress',
   'conditionally_accepted',
   'admitted',
@@ -514,9 +532,11 @@ const translations = {
     clear_filters: 'Clear filters',
     no_registrations_match_filters: 'No registrations match these filters.',
     students_nav: 'Students',
-    all_students_header: 'Accepted Students',
-    all_students_subtitle: 'Children currently admitted or conditionally accepted into faith formation.',
-    no_accepted_students: 'No students have been accepted yet.',
+    all_students_header: 'Students',
+    all_students_subtitle: 'Every child admitted into faith formation, with their ongoing enrollment status.',
+    no_accepted_students: 'No students have been admitted yet.',
+    edit_registration: 'View Registration',
+    no_active_registration: 'No active registration',
     archive: 'Archive',
     confirm_delete_registration_prefix: 'Permanently delete the registration for',
     confirm_delete_registration_suffix: 'This cannot be undone.',
@@ -693,6 +713,10 @@ const translations = {
     cancelled: 'Cancelled',
     discontinued: 'Discontinued',
     graduated: 'Graduated',
+    enrolled: 'Enrolled',
+    transferred: 'Transferred',
+    student_status: 'Student Status',
+    registration_status: 'Registration Status',
   },
   es: {
     app_title: 'Iglesia Católica San Mateo',
@@ -1172,9 +1196,11 @@ const translations = {
     clear_filters: 'Borrar filtros',
     no_registrations_match_filters: 'No hay inscripciones que coincidan con estos filtros.',
     students_nav: 'Estudiantes',
-    all_students_header: 'Estudiantes Aceptados',
-    all_students_subtitle: 'Niños actualmente admitidos o aceptados condicionalmente en la formación en la fe.',
-    no_accepted_students: 'Aún no se ha aceptado a ningún estudiante.',
+    all_students_header: 'Estudiantes',
+    all_students_subtitle: 'Cada niño admitido en la formación en la fe, con su estado de inscripción continuo.',
+    no_accepted_students: 'Aún no se ha admitido a ningún estudiante.',
+    edit_registration: 'Ver Inscripción',
+    no_active_registration: 'Sin inscripción activa',
     archive: 'Archivar',
     confirm_delete_registration_prefix: 'Eliminar permanentemente la inscripción de',
     confirm_delete_registration_suffix: 'Esto no se puede deshacer.',
@@ -1351,6 +1377,10 @@ const translations = {
     cancelled: 'Cancelado',
     discontinued: 'Discontinuado',
     graduated: 'Graduado',
+    enrolled: 'Inscrito',
+    transferred: 'Transferido',
+    student_status: 'Estado del Estudiante',
+    registration_status: 'Estado de la Inscripción',
   }
 };
 // ── Adult program metadata (locale-aware) ───────────────────
@@ -2857,7 +2887,7 @@ app.get('/registration/children', requireAuth, asyncHandler(async (req, res) => 
     isStaff: false,
     schoolYearLabel: `${res.locals.t('school_year')} ${faithFormationSettings.schoolYear}`,
     activeSchoolYear: faithFormationSettings.schoolYear,
-    statusOptions: STUDENT_REGISTRATION_STATUSES,
+    statusOptions: CHILD_REGISTRATION_STATUSES,
     relevantEvents: await getFaithFormationEvents(['children', 'general']),
     stage,
     totalChildren,
@@ -3071,7 +3101,7 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
     const isAdmin = req.user.role === 'admin';
     const orNull = (v) => (v === undefined || v === '' ? null : v);
     const requestedStatus = typeof req.body.status === 'string' ? req.body.status.trim() : '';
-    if (requestedStatus && !STUDENT_REGISTRATION_STATUSES.includes(requestedStatus)) {
+    if (requestedStatus && !CHILD_REGISTRATION_STATUSES.includes(requestedStatus)) {
       req.flash('error', 'Invalid registration status.');
       const redirectUrl = req.body.registration_id ? `/registration/children/edit/${req.body.registration_id}` : '/registration/children';
       return res.redirect(redirectUrl);
@@ -3343,7 +3373,7 @@ app.post(
 
 app.post('/registration/children/:id/status', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   const requestedStatus = typeof req.body.status === 'string' ? req.body.status.trim() : '';
-  if (!STUDENT_REGISTRATION_STATUSES.includes(requestedStatus)) {
+  if (!CHILD_REGISTRATION_STATUSES.includes(requestedStatus)) {
     req.flash('error', 'Invalid registration status.');
     return res.redirect(`/registration/children/edit/${req.params.id}`);
   }
@@ -3353,15 +3383,27 @@ app.post('/registration/children/:id/status', requireAuth, requireRole('admin'),
     return res.status(404).send('Registration not found.');
   }
 
-  if (requestedStatus === 'completed') {
+  if (requestedStatus === 'admitted') {
     const missingFields = getIncompleteStudentRegistrationFields(reg);
     if (missingFields.length) {
-      req.flash('error', `Cannot mark this registration completed until all required fields are filled in. Missing: ${missingFields.join(', ')}.`);
+      req.flash('error', `Cannot mark this registration admitted until all required fields are filled in. Missing: ${missingFields.join(', ')}.`);
       return res.redirect(`/registration/children/edit/${req.params.id}`);
     }
   }
 
   await db.prepare('UPDATE student_registrations SET status = ? WHERE id = ?').run(requestedStatus, req.params.id);
+
+  // Admission creates the persistent student record (if this registration
+  // hasn't already produced one) so enrollment status survives independent
+  // of this particular registration record.
+  if (requestedStatus === 'admitted' && !reg.student_id) {
+    const created = await db.prepare(
+      `INSERT INTO students (student_full_name, student_dob, student_gender, grade_level, parent_user_id, parent_name, primary_contact_email, primary_contact_phone, student_status, source_registration_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'enrolled', ?)`
+    ).run(reg.student_full_name, reg.student_dob, reg.student_gender, resolveCcdGrade(reg), reg.user_id, reg.parent_name, reg.primary_contact_email, reg.primary_contact_phone, reg.id);
+    await db.prepare('UPDATE student_registrations SET student_id = ? WHERE id = ?').run(created.lastInsertRowid, req.params.id);
+  }
+
   req.flash('success', res.locals.t('status_updated'));
   return res.redirect(`/registration/children/edit/${req.params.id}`);
 }));
@@ -3397,7 +3439,7 @@ app.get('/registration/children/edit/:id', requireAuth, asyncHandler(async (req,
     isStaff,
     schoolYearLabel: `${res.locals.t('school_year')} ${reg.school_year || faithFormationSettings.schoolYear}`,
     activeSchoolYear: reg.school_year || faithFormationSettings.schoolYear,
-    statusOptions: STUDENT_REGISTRATION_STATUSES,
+    statusOptions: CHILD_REGISTRATION_STATUSES,
     relevantEvents: await getFaithFormationEvents(['children', 'general']),
     ccdClasses: await getCcdClasses(),
     ccdGradeMeanings: CCD_GRADE_MEANINGS,
@@ -3415,7 +3457,7 @@ app.get('/registration/family-faith', requireAuth, asyncHandler(async (req, res)
     reg: null,
     editing: false,
     isStaff: false,
-    statusOptions: STUDENT_REGISTRATION_STATUSES,
+    statusOptions: FAMILY_FAITH_REGISTRATION_STATUSES,
     relevantEvents: await getFaithFormationEvents(['family_faith', 'general']),
     availableVisitSlots: (await getFamilyFaithVisitSlots()).map((slot) => ({ ...slot, label: formatVisitSlotLabel(slot) })),
     familyMemberRoleOptions: FAMILY_MEMBER_ROLE_OPTIONS,
@@ -3430,7 +3472,7 @@ app.post('/registration/family-faith', requireAuth, asyncHandler(async (req, res
     ? `/registration/family-faith/edit/${req.body.registration_id}`
     : '/registration/family-faith';
 
-  if (requestedStatus && !STUDENT_REGISTRATION_STATUSES.includes(requestedStatus)) {
+  if (requestedStatus && !FAMILY_FAITH_REGISTRATION_STATUSES.includes(requestedStatus)) {
     req.flash('error', 'Invalid registration status.');
     return res.redirect(redirectUrl);
   }
@@ -3568,7 +3610,7 @@ app.post('/registration/family-faith', requireAuth, asyncHandler(async (req, res
 
 app.post('/registration/family-faith/:id/status', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   const requestedStatus = typeof req.body.status === 'string' ? req.body.status.trim() : '';
-  if (!STUDENT_REGISTRATION_STATUSES.includes(requestedStatus)) {
+  if (!FAMILY_FAITH_REGISTRATION_STATUSES.includes(requestedStatus)) {
     req.flash('error', 'Invalid registration status.');
     return res.redirect(`/registration/family-faith/edit/${req.params.id}`);
   }
@@ -3601,7 +3643,7 @@ app.get('/registration/family-faith/edit/:id', requireAuth, asyncHandler(async (
     reg,
     editing: true,
     isStaff,
-    statusOptions: STUDENT_REGISTRATION_STATUSES,
+    statusOptions: FAMILY_FAITH_REGISTRATION_STATUSES,
     relevantEvents: await getFaithFormationEvents(['family_faith', 'general']),
     availableVisitSlots,
     familyMemberRoleOptions: FAMILY_MEMBER_ROLE_OPTIONS,
@@ -4011,18 +4053,26 @@ app.get('/admin/registrations', requireAuth, requireRole('admin'), asyncHandler(
   });
 }));
 
-const ACCEPTED_STUDENT_STATUSES = ['conditionally_accepted', 'admitted'];
-
 app.get('/admin/students', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
-  const placeholders = ACCEPTED_STUDENT_STATUSES.map(() => '?').join(',');
-  const studentRegs = await db.prepare(
-    `SELECT * FROM student_registrations WHERE archived_at IS NULL AND status IN (${placeholders}) ORDER BY student_full_name ASC`
-  ).all(...ACCEPTED_STUDENT_STATUSES);
+  const students = await db.prepare(`
+    SELECT
+      s.*,
+      sr.id AS registration_id,
+      sr.status AS registration_status,
+      sr.registration_fee, sr.sacramental_fee, sr.late_fee,
+      sr.baptism_certificate_path, sr.first_communion_certificate_path,
+      sr.certificates_verified, sr.certificates_verified_at, sr.certificates_verified_by,
+      sr.tuition_paid, sr.tuition_paid_at, sr.tuition_paid_by,
+      sr.parent_contacted, sr.parent_contacted_at, sr.parent_contacted_by
+    FROM students s
+    LEFT JOIN student_registrations sr ON sr.id = s.source_registration_id
+    ORDER BY s.student_full_name ASC
+  `).all();
 
   const verifierUserIds = new Set();
-  studentRegs.forEach((reg) => {
+  students.forEach((s) => {
     ['certificates_verified_by', 'tuition_paid_by', 'parent_contacted_by'].forEach((col) => {
-      if (reg[col]) verifierUserIds.add(Number(reg[col]));
+      if (s[col]) verifierUserIds.add(Number(s[col]));
     });
   });
   let verifierLookup = {};
@@ -4035,8 +4085,25 @@ app.get('/admin/students', requireAuth, requireRole('admin'), asyncHandler(async
   }
 
   res.render('admin-students', {
-    studentRegs, resolveCcdGrade, ccdGradeMeanings: CCD_GRADE_MEANINGS, verifierLookup,
+    students, verifierLookup, studentStatusOptions: STUDENT_STATUSES,
   });
+}));
+
+app.post('/admin/students/:id/status', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const requestedStatus = typeof req.body.status === 'string' ? req.body.status.trim() : '';
+  if (!STUDENT_STATUSES.includes(requestedStatus)) {
+    req.flash('error', 'Invalid student status.');
+    return res.redirect('/admin/students');
+  }
+
+  const student = await db.prepare('SELECT id FROM students WHERE id = ?').get(req.params.id);
+  if (!student) {
+    return res.status(404).send('Student not found.');
+  }
+
+  await db.prepare('UPDATE students SET student_status = ? WHERE id = ?').run(requestedStatus, req.params.id);
+  req.flash('success', res.locals.t('status_updated'));
+  return res.redirect('/admin/students');
 }));
 
 app.get('/admin/users', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {

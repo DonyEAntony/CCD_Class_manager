@@ -46,10 +46,60 @@ const ensureColumn = async (table, column, definition) => {
   }
 };
 
+// Kept in sync with app.js's CCD_GRADE_BY_SACRAMENTAL_YEAR / resolveCcdGrade —
+// db.js has no access to app.js's helpers, so the grade-resolution logic is
+// duplicated here for the one-time backfill below.
+const CCD_GRADE_BY_SACRAMENTAL_YEAR = {
+  first_year_communion: '1',
+  second_year_communion: '2',
+  first_year_confirmation: '8',
+  second_year_confirmation: '9',
+};
+const resolveCcdGradeForBackfill = (reg) => {
+  if (reg.non_sacramental_grade) return reg.non_sacramental_grade;
+  if (reg.sacramental_year && CCD_GRADE_BY_SACRAMENTAL_YEAR[reg.sacramental_year]) {
+    return CCD_GRADE_BY_SACRAMENTAL_YEAR[reg.sacramental_year];
+  }
+  return reg.ccd_grade_level || null;
+};
+
+// One-time backfill: children registrations used to track post-admission
+// student state (Completed/Discontinued/Graduated) directly on their own
+// status. That state now lives on the separate `students` table so it
+// survives independently of any one year's registration record. This
+// creates a `students` row for every registration that needs one and never
+// touches a registration that already has student_id set.
+const backfillStudentRecords = async () => {
+  const [legacyRows] = await pool.query(
+    `SELECT * FROM student_registrations WHERE status IN ('completed', 'discontinued', 'graduated') AND student_id IS NULL`
+  );
+  for (const reg of legacyRows) {
+    const [result] = await pool.execute(
+      `INSERT INTO students (student_full_name, student_dob, student_gender, grade_level, parent_user_id, parent_name, primary_contact_email, primary_contact_phone, student_status, source_registration_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [reg.student_full_name, reg.student_dob, reg.student_gender, resolveCcdGradeForBackfill(reg), reg.user_id, reg.parent_name, reg.primary_contact_email, reg.primary_contact_phone, reg.status, reg.id]
+    );
+    await pool.execute('UPDATE student_registrations SET status = ?, student_id = ? WHERE id = ?', ['admitted', result.insertId, reg.id]);
+  }
+
+  const [admittedRows] = await pool.query(
+    `SELECT * FROM student_registrations WHERE status = 'admitted' AND student_id IS NULL`
+  );
+  for (const reg of admittedRows) {
+    const [result] = await pool.execute(
+      `INSERT INTO students (student_full_name, student_dob, student_gender, grade_level, parent_user_id, parent_name, primary_contact_email, primary_contact_phone, student_status, source_registration_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'enrolled', ?)`,
+      [reg.student_full_name, reg.student_dob, reg.student_gender, resolveCcdGradeForBackfill(reg), reg.user_id, reg.parent_name, reg.primary_contact_email, reg.primary_contact_phone, reg.id]
+    );
+    await pool.execute('UPDATE student_registrations SET student_id = ? WHERE id = ?', [result.insertId, reg.id]);
+  }
+};
+
 const seedData = async () => {
   await pool.query("UPDATE users SET role = 'user' WHERE role = 'parent'");
   await pool.query("UPDATE student_registrations SET status = 'in_progress' WHERE status = 'application'");
   await pool.query("UPDATE adult_registrations SET status = 'in_progress' WHERE status = 'application'");
+  await backfillStudentRecords();
 
   const [[userCountRow]] = await pool.query('SELECT COUNT(*) AS count FROM users');
   const [[ccdClassCountRow]] = await pool.query('SELECT COUNT(*) AS count FROM ccd_classes');
@@ -218,6 +268,29 @@ const init = async () => {
         status VARCHAR(50) DEFAULT 'in_progress',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT fk_student_registrations_user FOREIGN KEY (user_id) REFERENCES users(id)
+      )
+    `);
+
+    // A student's ongoing enrollment (Enrolled/Completed/Graduated/Discontinued/
+    // Transferred) is tracked here, separate from student_registrations.status
+    // (which only tracks the admission process for one year's registration).
+    // source_registration_id uses ON DELETE SET NULL so deleting or re-doing a
+    // registration never deletes the student record it produced.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS students (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        student_full_name TEXT NOT NULL,
+        student_dob TEXT,
+        student_gender VARCHAR(50),
+        grade_level VARCHAR(255),
+        parent_user_id INT NULL,
+        parent_name TEXT,
+        primary_contact_email VARCHAR(255),
+        primary_contact_phone VARCHAR(50),
+        student_status VARCHAR(30) NOT NULL DEFAULT 'enrolled',
+        source_registration_id INT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_students_source_registration FOREIGN KEY (source_registration_id) REFERENCES student_registrations(id) ON DELETE SET NULL
       )
     `);
 
@@ -511,6 +584,7 @@ const init = async () => {
     await ensureColumn('student_registrations', 'parent_contacted', 'TINYINT(1) NOT NULL DEFAULT 0');
     await ensureColumn('student_registrations', 'parent_contacted_at', 'DATETIME NULL');
     await ensureColumn('student_registrations', 'parent_contacted_by', 'INT NULL');
+    await ensureColumn('student_registrations', 'student_id', 'INT NULL');
     await ensureColumn('sponsor_confirmations', 'is_st_matthew_parishioner', 'TINYINT(1) NOT NULL DEFAULT 0');
     await ensureColumn('sponsor_confirmations', 'sponsor_certificate_path', 'TEXT');
     await ensureColumn('sponsor_confirmations', 'admin_verified', 'TINYINT(1) NOT NULL DEFAULT 0');
