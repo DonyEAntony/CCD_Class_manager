@@ -114,6 +114,7 @@ const syncStudentCertsAndVerification = async () => {
       s.tuition_paid_by = sr.tuition_paid_by,
       s.tuition_amount_paid = sr.tuition_amount_paid,
       s.tuition_transaction_id = sr.tuition_transaction_id,
+      s.tuition_payment_method = sr.tuition_payment_method,
       s.parent_contacted = sr.parent_contacted,
       s.parent_contacted_at = sr.parent_contacted_at,
       s.parent_contacted_by = sr.parent_contacted_by
@@ -633,6 +634,7 @@ const init = async () => {
     await ensureColumn('student_registrations', 'student_id', 'INT NULL');
     await ensureColumn('student_registrations', 'tuition_amount_paid', 'INT NULL');
     await ensureColumn('student_registrations', 'tuition_transaction_id', 'VARCHAR(255) NULL');
+    await ensureColumn('student_registrations', 'tuition_payment_method', 'VARCHAR(30) NULL');
     await ensureColumn('students', 'preferred_class_time', 'VARCHAR(100) NULL');
     await ensureColumn('students', 'baptism_certificate_path', 'TEXT');
     await ensureColumn('students', 'first_communion_certificate_path', 'TEXT');
@@ -648,6 +650,7 @@ const init = async () => {
     await ensureColumn('students', 'parent_contacted_by', 'INT NULL');
     await ensureColumn('students', 'tuition_amount_paid', 'INT NULL');
     await ensureColumn('students', 'tuition_transaction_id', 'VARCHAR(255) NULL');
+    await ensureColumn('students', 'tuition_payment_method', 'VARCHAR(30) NULL');
     // Confirmation has no "date received" field anywhere in the registration
     // flow (unlike Baptism/First Communion, which registrations collect
     // directly) — an admin records it explicitly on the student record.
