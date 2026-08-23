@@ -70,7 +70,7 @@
         </div>
         <div>
           <label class="form-label mb-0" for="status-filter" style="font-size:.85rem"><%= t('filter_by_status') %></label>
-          <select class="form-select form-select-sm" id="status-filter" name="status" style="max-width:280px">
+          <select class="form-select form-select-sm" id="status-filter" name="status" style="max-width:280px" onchange="this.form.submit()">
             <% availableStatusOptions.forEach((opt) => { %>
               <option value="<%= opt %>" <%= activeStatusFilter === opt ? 'selected' : '' %>><%= statusOptionLabel(opt) %></option>
             <% }) %>
@@ -79,7 +79,7 @@
         <% if (activeTypeFilter === 'child') { %>
           <div>
             <label class="form-label mb-0" for="children-grade-filter" style="font-size:.85rem"><%= t('filter_by_grade') %></label>
-            <select class="form-select form-select-sm" id="children-grade-filter" name="grade" style="max-width:280px">
+            <select class="form-select form-select-sm" id="children-grade-filter" name="grade" style="max-width:280px" onchange="this.form.submit()">
               <option value="" <%= !activeGradeFilter ? 'selected' : '' %>><%= t('all_grades') %></option>
               <% Object.keys(availableCcdGradeMeanings).forEach((g) => { %>
                 <option value="<%= g %>" <%= activeGradeFilter === g ? 'selected' : '' %>><%= g %> &mdash; <%= availableCcdGradeMeanings[g] %></option>
