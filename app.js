@@ -223,6 +223,13 @@ const translations = {
     faith_formation_children: 'Faith Formation — Children',
     family_faith_registrations: 'Family Faith Formation Registrations',
     adult_program_regs: 'Adult Program Registrations',
+    filter_by_type: 'Type of registration',
+    registration_type_child: 'Children\'s Faith Formation',
+    registration_type_family_faith: 'Family Faith Formation',
+    registration_type_adult: 'Adult Programs',
+    registration_type_sponsor_confirmation: 'Sponsor Confirmation Forms',
+    status_filter_active: 'Active',
+    status_filter_archived: 'Archived',
     name_col: 'Name',
     program_col: 'Program',
     date_col: 'Date',
@@ -955,6 +962,13 @@ const translations = {
     faith_formation_children: 'Formación en la Fe — Niños',
     family_faith_registrations: 'Inscripciones de Formación en la Fe Familiar',
     adult_program_regs: 'Inscripciones de Programas para Adultos',
+    filter_by_type: 'Tipo de inscripción',
+    registration_type_child: 'Formación en la Fe — Niños',
+    registration_type_family_faith: 'Formación en la Fe Familiar',
+    registration_type_adult: 'Programas para Adultos',
+    registration_type_sponsor_confirmation: 'Formularios de Confirmación de Padrino',
+    status_filter_active: 'Activa',
+    status_filter_archived: 'Archivada',
     name_col: 'Nombre',
     program_col: 'Programa',
     date_col: 'Fecha',
@@ -4276,6 +4290,18 @@ const summarizeFamilyMembers = (membersJson) => parseFamilyMembersFromStorage(me
   .join('; ');
 
 const EXPORT_REGISTRATION_TYPES = new Set(['child', 'family_faith', 'adult', 'sponsor_confirmation']);
+const REGISTRATION_TYPE_STATUS_OPTIONS = {
+  child: ['all', 'active', ...CHILD_REGISTRATION_STATUSES, 'archived'],
+  family_faith: ['all', ...FAMILY_FAITH_REGISTRATION_STATUSES],
+  adult: ['all', 'active', 'archived'],
+  sponsor_confirmation: ['all', 'incomplete', 'in_progress'],
+};
+const REGISTRATION_TYPE_DEFAULT_STATUS = {
+  child: 'active',
+  family_faith: 'all',
+  adult: 'active',
+  sponsor_confirmation: 'all',
+};
 
 app.get('/admin/registrations/export.csv', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   const gradeFilter = Object.keys(CCD_GRADE_MEANINGS).includes(req.query.grade) ? req.query.grade : '';
@@ -4363,33 +4389,52 @@ app.get('/admin/registrations/export.csv', requireAuth, requireRole('admin'), as
 app.get('/admin/registrations', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   const faithFormationSettings = await getFaithFormationSettings();
 
-  const gradeFilter = Object.keys(CCD_GRADE_MEANINGS).includes(req.query.grade) ? req.query.grade : '';
-  const parentFilter = typeof req.query.parent === 'string' ? req.query.parent.trim() : '';
+  const typeFilter = EXPORT_REGISTRATION_TYPES.has(req.query.type) ? req.query.type : 'child';
+  const statusOptionsForType = REGISTRATION_TYPE_STATUS_OPTIONS[typeFilter];
+  const requestedStatus = typeof req.query.status === 'string' ? req.query.status : '';
+  const statusFilter = statusOptionsForType.includes(requestedStatus) ? requestedStatus : REGISTRATION_TYPE_DEFAULT_STATUS[typeFilter];
 
-  const studentRegsAll = await db.prepare('SELECT * FROM student_registrations WHERE archived_at IS NULL ORDER BY created_at DESC').all();
-  const studentRegs = studentRegsAll.filter((reg) => {
-    if (gradeFilter && resolveCcdGrade(reg) !== gradeFilter) return false;
-    if (parentFilter) {
-      const needle = parentFilter.toLowerCase();
-      const haystack = `${reg.parent_name || ''} ${reg.primary_contact_email || ''}`.toLowerCase();
-      if (!haystack.includes(needle)) return false;
-    }
-    return true;
-  });
-  const archivedStudentRegs = await db.prepare('SELECT * FROM student_registrations WHERE archived_at IS NOT NULL ORDER BY archived_at DESC').all();
+  const gradeFilter = typeFilter === 'child' && Object.keys(CCD_GRADE_MEANINGS).includes(req.query.grade) ? req.query.grade : '';
+  const parentFilter = typeFilter === 'child' && typeof req.query.parent === 'string' ? req.query.parent.trim() : '';
 
-  const familyRegsRaw = await db.prepare('SELECT * FROM family_faith_registrations ORDER BY created_at DESC').all();
-  const familyRegs = familyRegsRaw.map((reg) => ({
-    ...reg,
-    members: parseFamilyMembersFromStorage(reg.members_json),
-  }));
+  let studentRegs = [];
+  let familyRegs = [];
+  let adultRegs = [];
+  let sponsorRegs = [];
 
-  const adultRegs = await db.prepare('SELECT * FROM adult_registrations WHERE archived_at IS NULL ORDER BY created_at DESC').all();
-  const archivedAdultRegs = await db.prepare('SELECT * FROM adult_registrations WHERE archived_at IS NOT NULL ORDER BY archived_at DESC').all();
-  const sponsorRegs = await db.prepare('SELECT * FROM sponsor_confirmations ORDER BY created_at DESC').all();
+  if (typeFilter === 'child') {
+    const allRegs = await db.prepare('SELECT * FROM student_registrations ORDER BY created_at DESC').all();
+    studentRegs = allRegs.filter((reg) => {
+      if (statusFilter === 'active' && reg.archived_at) return false;
+      if (statusFilter === 'archived' && !reg.archived_at) return false;
+      if (CHILD_REGISTRATION_STATUSES.includes(statusFilter) && reg.status !== statusFilter) return false;
+      if (gradeFilter && resolveCcdGrade(reg) !== gradeFilter) return false;
+      if (parentFilter) {
+        const needle = parentFilter.toLowerCase();
+        const haystack = `${reg.parent_name || ''} ${reg.primary_contact_email || ''}`.toLowerCase();
+        if (!haystack.includes(needle)) return false;
+      }
+      return true;
+    });
+  } else if (typeFilter === 'family_faith') {
+    const familyRegsRaw = await db.prepare('SELECT * FROM family_faith_registrations ORDER BY created_at DESC').all();
+    familyRegs = familyRegsRaw
+      .filter((reg) => statusFilter === 'all' || reg.status === statusFilter)
+      .map((reg) => ({ ...reg, members: parseFamilyMembersFromStorage(reg.members_json) }));
+  } else if (typeFilter === 'adult') {
+    const allRegs = await db.prepare('SELECT * FROM adult_registrations ORDER BY created_at DESC').all();
+    adultRegs = allRegs.filter((reg) => {
+      if (statusFilter === 'active') return !reg.archived_at;
+      if (statusFilter === 'archived') return !!reg.archived_at;
+      return true;
+    });
+  } else if (typeFilter === 'sponsor_confirmation') {
+    const allRegs = await db.prepare('SELECT * FROM sponsor_confirmations ORDER BY created_at DESC').all();
+    sponsorRegs = allRegs.filter((reg) => statusFilter === 'all' || reg.status === statusFilter);
+  }
 
   const verifierUserIds = new Set();
-  [...studentRegs, ...archivedStudentRegs].forEach((reg) => {
+  studentRegs.forEach((reg) => {
     ['certificates_verified_by', 'tuition_paid_by', 'parent_contacted_by'].forEach((col) => {
       if (reg[col]) verifierUserIds.add(Number(reg[col]));
     });
@@ -4405,7 +4450,8 @@ app.get('/admin/registrations', requireAuth, requireRole('admin'), asyncHandler(
 
   const ADULT_PROGRAMS = getAdultPrograms(res.locals.t);
   res.render('admin-registrations', {
-    studentRegs, archivedStudentRegs, familyRegs, adultRegs, archivedAdultRegs, sponsorRegs, ADULT_PROGRAMS, faithFormationSettings,
+    typeFilter, statusFilter, statusOptionsForType,
+    studentRegs, familyRegs, adultRegs, sponsorRegs, ADULT_PROGRAMS, faithFormationSettings,
     resolveCcdGrade, ccdGradeMeanings: CCD_GRADE_MEANINGS, gradeFilter, parentFilter, verifierLookup,
   });
 }));
