@@ -149,7 +149,14 @@
   <% const canOpenFaithFormation = user.role === 'admin' || user.role === 'catechist' || (faithFormationSettings && faithFormationSettings.faithFormationRegistrationOpen); %>
   <% const canOpenSponsorForm = user.role === 'admin' || user.role === 'catechist' || (faithFormationSettings && faithFormationSettings.sponsorFormRegistrationOpen); %>
 
+  <% const myStudentsList = Array.isArray(typeof myStudents === 'undefined' ? null : myStudents) ? myStudents : []; %>
+
   <ul class="nav nav-tabs mb-4" id="dashboardTabs" role="tablist">
+    <% if (myStudentsList.length) { %>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="my-students-tab" data-bs-toggle="tab" data-bs-target="#my-students-pane" type="button" role="tab" aria-controls="my-students-pane" aria-selected="false"><%= t('my_students_tab') %></button>
+    </li>
+    <% } %>
     <li class="nav-item" role="presentation">
       <button class="nav-link active" id="new-registration-tab" data-bs-toggle="tab" data-bs-target="#new-registration-pane" type="button" role="tab" aria-controls="new-registration-pane" aria-selected="true"><%= t('new_registration_heading') %></button>
     </li>
@@ -159,6 +166,42 @@
   </ul>
 
   <div class="tab-content" id="dashboardTabsContent">
+  <% if (myStudentsList.length) { %>
+  <div class="tab-pane fade" id="my-students-pane" role="tabpanel" aria-labelledby="my-students-tab">
+    <div class="page-card mb-4">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table mb-0">
+            <thead>
+              <tr>
+                <th><%= t('student') %></th>
+                <th><%= t('grade') %></th>
+                <th><%= t('student_status') %></th>
+                <th><%= t('actions') %></th>
+              </tr>
+            </thead>
+            <tbody>
+              <% myStudentsList.forEach((s) => { %>
+                <tr>
+                  <td style="font-weight:600"><%= s.student_full_name %></td>
+                  <td><%= s.grade_level || '—' %></td>
+                  <td>
+                    <span class="badge" style="background:var(--surface);color:var(--navy-soft);font-size:.7rem;border-radius:2rem;padding:.3em .8em;font-weight:700;border:1px solid var(--border)">
+                      <%= t(s.student_status) %>
+                    </span>
+                  </td>
+                  <td>
+                    <a class="btn btn-sm btn-outline-primary <%= canOpenFaithFormation ? '' : 'disabled' %>" href="<%= canOpenFaithFormation ? ('/registration/children?prefillStudentId=' + s.id) : '#' %>"><%= t('register_next_year') %></a>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <% } %>
   <div class="tab-pane fade show active" id="new-registration-pane" role="tabpanel" aria-labelledby="new-registration-tab">
 
   <div class="page-card mb-4">

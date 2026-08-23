@@ -580,6 +580,8 @@ const translations = {
     check_my_registrations_prefix: 'Check',
     my_registrations_tab: 'My Registrations',
     check_my_registrations_suffix: 'below before starting a new one to avoid registering the same child twice.',
+    my_students_tab: 'My Students',
+    register_next_year: 'Register for Next Year',
     view_my_registrations: 'View My Registrations',
     admin_area: 'Admin Area',
     program_registrations_tab: 'Program Registrations',
@@ -1244,6 +1246,8 @@ const translations = {
     check_my_registrations_prefix: 'Consulte',
     my_registrations_tab: 'Mis Inscripciones',
     check_my_registrations_suffix: 'a continuación antes de comenzar una nueva para evitar registrar al mismo niño dos veces.',
+    my_students_tab: 'Mis Estudiantes',
+    register_next_year: 'Inscribir para el Próximo Año',
     view_my_registrations: 'Ver Mis Inscripciones',
     admin_area: 'Área de Administración',
     program_registrations_tab: 'Inscripciones de Programas',
@@ -2729,8 +2733,13 @@ app.get('/dashboard', requireAuth, asyncHandler(async (req, res) => {
 
   const sponsorRegs = await db.prepare('SELECT * FROM sponsor_confirmations WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
 
+  // Persistent student records (created once a registration is Admitted) outlive any one
+  // year's registration, so parents see their kids here regardless of what's happened to
+  // that original registration since.
+  const myStudents = await db.prepare('SELECT * FROM students WHERE parent_user_id = ? ORDER BY student_full_name ASC').all(req.user.id);
+
   const ADULT_PROGRAMS = getAdultPrograms(res.locals.t);
-  res.render('dashboard', { studentRegs, familyRegs, adultRegs, sponsorRegs, ADULT_PROGRAMS, faithFormationSettings, resolveCcdGrade, feeBreakdown, totalFeesDue });
+  res.render('dashboard', { studentRegs, familyRegs, adultRegs, sponsorRegs, myStudents, ADULT_PROGRAMS, faithFormationSettings, resolveCcdGrade, feeBreakdown, totalFeesDue });
 }));
 
 app.get('/family-faith/visits/availability', requireAuth, asyncHandler(async (req, res) => {
@@ -2894,6 +2903,73 @@ app.get('/registration/children', requireAuth, asyncHandler(async (req, res) => 
         'SELECT * FROM student_registrations WHERE id = ? AND user_id = ?'
       ).get(groupIds[studentIndex - 1], req.user.id);
       currentRegistrationId = studentPrefill ? studentPrefill.id : null;
+    }
+  } else if (stage === 'intro' && !groupIds.length && req.query.prefillStudentId) {
+    // A parent starting a brand-new registration from one of their persistent student
+    // records (e.g. "register for next year") — carry forward last year's household and
+    // child details from that student's originating registration so they only have to
+    // review and update what's changed, not retype everything.
+    const prefillStudentId = Number.parseInt(req.query.prefillStudentId, 10);
+    const prefillStudent = Number.isInteger(prefillStudentId)
+      ? await db.prepare('SELECT * FROM students WHERE id = ? AND parent_user_id = ?').get(prefillStudentId, req.user.id)
+      : null;
+
+    if (prefillStudent) {
+      const priorReg = prefillStudent.source_registration_id
+        ? await db.prepare('SELECT * FROM student_registrations WHERE id = ?').get(prefillStudent.source_registration_id)
+        : null;
+
+      const prefill = {
+        primary_contact_first_name: priorReg?.primary_contact_first_name,
+        primary_contact_last_name: priorReg?.primary_contact_last_name,
+        primary_contact_phone: priorReg?.primary_contact_phone || prefillStudent.primary_contact_phone,
+        primary_contact_email: priorReg?.primary_contact_email || prefillStudent.primary_contact_email,
+        primary_contact_relationship: priorReg?.primary_contact_relationship,
+        primary_contact_relationship_other: priorReg?.primary_contact_relationship_other,
+        primary_contact_religion: priorReg?.primary_contact_religion,
+        address: priorReg?.address,
+        city_state_zip: priorReg?.city_state_zip,
+        father_name: priorReg?.father_name,
+        father_religion: priorReg?.father_religion,
+        father_cell: priorReg?.father_cell,
+        mother_maiden_name: priorReg?.mother_maiden_name,
+        mother_religion: priorReg?.mother_religion,
+        mother_cell: priorReg?.mother_cell,
+        child_lives_with: priorReg?.child_lives_with,
+        step_parent_name: priorReg?.step_parent_name,
+        step_parent_religion: priorReg?.step_parent_religion,
+        parent_signature: priorReg?.parent_signature,
+        email: priorReg?.email,
+        student_full_name: prefillStudent.student_full_name,
+        student_gender: prefillStudent.student_gender,
+        student_dob: prefillStudent.student_dob,
+        child_place_of_birth_city: priorReg?.child_place_of_birth_city,
+        child_place_of_birth_country: priorReg?.child_place_of_birth_country,
+        ccd_grade_level: priorReg?.ccd_grade_level,
+        school_grade_level: priorReg?.school_grade_level,
+        school_attending: priorReg?.school_attending,
+        not_baptized: priorReg?.not_baptized,
+        baptism_date: priorReg?.baptism_date,
+        baptism_church: priorReg?.baptism_church,
+        first_communion_date: priorReg?.first_communion_date,
+        first_communion_church: priorReg?.first_communion_church,
+        sacramental_year: priorReg?.sacramental_year,
+        preferred_class_time: prefillStudent.preferred_class_time,
+        non_sacramental_grade: priorReg?.non_sacramental_grade,
+        disabilities_comments: priorReg?.disabilities_comments,
+        // Certificates aren't carried over — they belong to the prior registration's own
+        // uploads, so the parent re-attaches them here rather than the new registration
+        // pointing at another row's files.
+        baptism_certificate_path: null,
+        first_communion_certificate_path: null,
+      };
+      const addressParts = prefill.city_state_zip ? prefill.city_state_zip.split(', ') : ['', '', ''];
+      prefill.city = addressParts[0] || '';
+      prefill.state = addressParts[1] ? addressParts[1].split(' ')[0] : '';
+      prefill.zip = addressParts[1] ? addressParts[1].split(' ')[1] : '';
+
+      parentInfo = prefill;
+      studentPrefill = prefill;
     }
   }
 
