@@ -459,6 +459,25 @@ const init = async () => {
       )
     `);
 
+    // Permanent record of each class/grade a student completed, written once per school
+    // year when that year's Faith Formation registration is closed. Independent of the
+    // student's own row (and of ccd_classes, which can be renamed/removed later) so this
+    // history survives regardless of what happens to either afterward.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS student_class_history (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        student_id INT NOT NULL,
+        ccd_class_id INT NULL,
+        grade_level VARCHAR(255),
+        school_year VARCHAR(32) NOT NULL,
+        class_time VARCHAR(100) NULL,
+        classroom VARCHAR(255) NULL,
+        completed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_student_class_history_student FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+        CONSTRAINT fk_student_class_history_class FOREIGN KEY (ccd_class_id) REFERENCES ccd_classes(id) ON DELETE SET NULL
+      )
+    `);
+
     await pool.query(`
       CREATE TABLE IF NOT EXISTS faith_formation_events (
         id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,

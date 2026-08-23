@@ -1583,6 +1583,46 @@ const getEnrolledRegistrationIds = async () => {
   return new Set(rows.map((row) => row.source_registration_id));
 };
 
+// When a school year's Faith Formation registration is closed, every currently-Enrolled
+// student whose admission was for that year gets a permanent class-history entry (grade,
+// class, and school year they completed), and that registration is archived — dropping
+// them out of active views/class rosters. Their student record itself stays Enrolled
+// (unchanged), ready for whenever they're registered again for the next year.
+const rolloverEnrolledStudentsForSchoolYear = async (schoolYear) => {
+  const rows = await db.prepare(`
+    SELECT sr.id AS registration_id, s.id AS student_id, s.grade_level, s.preferred_class_time
+    FROM student_registrations sr
+    JOIN students s ON s.id = sr.student_id
+    WHERE sr.school_year = ? AND sr.status = 'admitted' AND sr.archived_at IS NULL AND s.student_status = 'enrolled'
+  `).all(schoolYear);
+
+  if (!rows.length) return;
+
+  const ccdClasses = await getCcdClasses();
+
+  for (const row of rows) {
+    const matchedClass = ccdClasses.find((c) => {
+      if (c.grade_level !== row.grade_level) return false;
+      if (!SACRAMENTAL_GRADE_LEVELS.has(c.grade_level)) return true;
+      return row.preferred_class_time === c.class_time || row.preferred_class_time === getClassSlotValue(c);
+    });
+
+    await db.prepare(
+      `INSERT INTO student_class_history (student_id, ccd_class_id, grade_level, school_year, class_time, classroom)
+       VALUES (?, ?, ?, ?, ?, ?)`
+    ).run(
+      row.student_id,
+      matchedClass ? matchedClass.id : null,
+      row.grade_level,
+      schoolYear,
+      matchedClass ? matchedClass.class_time : null,
+      matchedClass ? matchedClass.classroom : null
+    );
+
+    await db.prepare('UPDATE student_registrations SET archived_at = NOW() WHERE id = ?').run(row.registration_id);
+  }
+};
+
 const getUpcomingSessionDates = (classTimeText, count = 6) => {
   const weekday = parseClassWeekday(classTimeText);
   if (weekday === null) return [];
@@ -2885,6 +2925,7 @@ app.get('/registration/children', requireAuth, asyncHandler(async (req, res) => 
   let parentInfo = null;
   let studentPrefill = null;
   let currentRegistrationId = null;
+  let prefillStudentId = null;
 
   if (stage === 'student' && groupIds.length) {
     parentInfo = await db.prepare(
@@ -2970,6 +3011,7 @@ app.get('/registration/children', requireAuth, asyncHandler(async (req, res) => 
 
       parentInfo = prefill;
       studentPrefill = prefill;
+      prefillStudentId = prefillStudent.id;
     }
   }
 
@@ -2989,6 +3031,7 @@ app.get('/registration/children', requireAuth, asyncHandler(async (req, res) => 
     parentInfo,
     studentPrefill,
     currentRegistrationId,
+    prefillStudentId,
     ccdClasses: await getCcdClasses(),
     ccdGradeMeanings: CCD_GRADE_MEANINGS,
   });
@@ -3260,6 +3303,20 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
       } else {
         registrationOwnerUserId = await resolveRegistrationOwnerUserId(req, req.body.primary_contact_email);
       }
+      // "Register for Next Year" pre-fills a brand-new registration from an existing
+      // persistent student — carry that link forward on the row it creates so admission
+      // updates the same student record instead of minting a second one. Re-validated
+      // here (not just trusted from the hidden field) since it's client-controllable.
+      let linkedStudentId = null;
+      if (!existingRowId) {
+        const rawPrefillStudentId = Number.parseInt(req.body.prefill_student_id, 10);
+        if (Number.isInteger(rawPrefillStudentId)) {
+          const linkedStudent = await db.prepare(
+            'SELECT id FROM students WHERE id = ? AND (parent_user_id = ? OR ? = 1)'
+          ).get(rawPrefillStudentId, registrationOwnerUserId, isAdmin ? 1 : 0);
+          linkedStudentId = linkedStudent ? linkedStudent.id : null;
+        }
+      }
       const existingRowForUploads = existingRowId
         ? await db.prepare(`
             SELECT baptism_certificate_path, first_communion_certificate_path
@@ -3333,8 +3390,8 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
             baptism_date, baptism_church, first_communion_date, first_communion_church, not_baptized,
             sacramental_year, preferred_class_time, non_sacramental_grade,
             disabilities_comments, parent_signature, email, registration_fee, sacramental_fee, late_fee,
-            baptism_certificate_path, first_communion_certificate_path, status
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            baptism_certificate_path, first_communion_certificate_path, status, student_id
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
           registrationOwnerUserId, faithFormationSettings.schoolYear,
           `${req.body.primary_contact_first_name || ''} ${req.body.primary_contact_last_name || ''}`,
@@ -3356,6 +3413,7 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
           rowRegistrationFee, fees.sacramentalFee, fees.lateFee,
           baptismCert, communionCert,
           isLastStage ? 'in_progress' : 'incomplete',
+          linkedStudentId,
         );
         thisRowId = result.lastInsertRowid;
       }
@@ -3486,15 +3544,25 @@ app.post('/registration/children/:id/status', requireAuth, requireRole('admin'),
 
   await db.prepare('UPDATE student_registrations SET status = ? WHERE id = ?').run(requestedStatus, req.params.id);
 
-  // Admission creates the persistent student record (if this registration
-  // hasn't already produced one) so enrollment status survives independent
-  // of this particular registration record.
-  if (requestedStatus === 'admitted' && !reg.student_id) {
-    const created = await db.prepare(
-      `INSERT INTO students (student_full_name, student_dob, student_gender, grade_level, preferred_class_time, parent_user_id, parent_name, primary_contact_email, primary_contact_phone, student_status, source_registration_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'enrolled', ?)`
-    ).run(reg.student_full_name, reg.student_dob, reg.student_gender, resolveCcdGrade(reg), reg.preferred_class_time, reg.user_id, reg.parent_name, reg.primary_contact_email, reg.primary_contact_phone, reg.id);
-    await db.prepare('UPDATE student_registrations SET student_id = ? WHERE id = ?').run(created.lastInsertRowid, req.params.id);
+  // Admission creates (or, for a returning student registered via "Register for Next
+  // Year", updates) the persistent student record, so a student's identity and history
+  // survive across years instead of getting a new row every time they re-register.
+  if (requestedStatus === 'admitted') {
+    if (reg.student_id) {
+      await db.prepare(
+        `UPDATE students SET
+           student_full_name = ?, student_dob = ?, student_gender = ?, grade_level = ?, preferred_class_time = ?,
+           parent_name = ?, primary_contact_email = ?, primary_contact_phone = ?,
+           student_status = 'enrolled', source_registration_id = ?
+         WHERE id = ?`
+      ).run(reg.student_full_name, reg.student_dob, reg.student_gender, resolveCcdGrade(reg), reg.preferred_class_time, reg.parent_name, reg.primary_contact_email, reg.primary_contact_phone, reg.id, reg.student_id);
+    } else {
+      const created = await db.prepare(
+        `INSERT INTO students (student_full_name, student_dob, student_gender, grade_level, preferred_class_time, parent_user_id, parent_name, primary_contact_email, primary_contact_phone, student_status, source_registration_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'enrolled', ?)`
+      ).run(reg.student_full_name, reg.student_dob, reg.student_gender, resolveCcdGrade(reg), reg.preferred_class_time, reg.user_id, reg.parent_name, reg.primary_contact_email, reg.primary_contact_phone, reg.id);
+      await db.prepare('UPDATE student_registrations SET student_id = ? WHERE id = ?').run(created.lastInsertRowid, req.params.id);
+    }
   }
 
   req.flash('success', res.locals.t('status_updated'));
@@ -4458,6 +4526,11 @@ app.post('/admin/settings/faith-formation/year', requireAuth, requireRole('admin
     return res.redirect('/admin/users');
   }
 
+  const priorYearRow = await db.prepare(
+    'SELECT faith_formation_open FROM registration_year_settings WHERE school_year = ?'
+  ).get(schoolYear);
+  const wasOpen = !!priorYearRow?.faith_formation_open;
+
   await db.prepare(
     `INSERT INTO registration_year_settings (school_year, faith_formation_open, sponsor_form_open)
      VALUES (?, ?, ?)
@@ -4465,6 +4538,13 @@ app.post('/admin/settings/faith-formation/year', requireAuth, requireRole('admin
        faith_formation_open = VALUES(faith_formation_open),
        sponsor_form_open = VALUES(sponsor_form_open)`
   ).run(schoolYear, faithFormationRegistrationOpen, sponsorFormRegistrationOpen);
+
+  // Closing a year's Faith Formation registration rolls its currently-Enrolled students
+  // forward: a class-history entry is recorded and their registration for that year is
+  // archived, out of active views/rosters, while the student itself stays Enrolled.
+  if (wasOpen && !faithFormationRegistrationOpen) {
+    await rolloverEnrolledStudentsForSchoolYear(schoolYear);
+  }
 
   req.flash('success', `${schoolYear} updated. Faith Formation is ${faithFormationRegistrationOpen ? 'open' : 'closed'}, Sponsor Form is ${sponsorFormRegistrationOpen ? 'open' : 'closed'}.`);
   return res.redirect('/admin/users');
