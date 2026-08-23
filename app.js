@@ -508,6 +508,11 @@ const translations = {
     filter_by_grade: 'Filter by grade',
     all_grades: 'All Grades',
     no_grade_match: 'No registrations match this grade.',
+    filter_by_parent: 'Filter by parent',
+    parent_filter_placeholder: 'Parent name or email',
+    apply_filters: 'Apply filters',
+    clear_filters: 'Clear filters',
+    no_registrations_match_filters: 'No registrations match these filters.',
     archive: 'Archive',
     confirm_delete_registration_prefix: 'Permanently delete the registration for',
     confirm_delete_registration_suffix: 'This cannot be undone.',
@@ -1157,6 +1162,11 @@ const translations = {
     filter_by_grade: 'Filtrar por grado',
     all_grades: 'Todos los Grados',
     no_grade_match: 'No hay inscripciones que coincidan con este grado.',
+    filter_by_parent: 'Filtrar por padre/madre',
+    parent_filter_placeholder: 'Nombre o correo del padre/madre',
+    apply_filters: 'Aplicar filtros',
+    clear_filters: 'Borrar filtros',
+    no_registrations_match_filters: 'No hay inscripciones que coincidan con estos filtros.',
     archive: 'Archivar',
     confirm_delete_registration_prefix: 'Eliminar permanentemente la inscripción de',
     confirm_delete_registration_suffix: 'Esto no se puede deshacer.',
@@ -3859,12 +3869,24 @@ const summarizeFamilyMembers = (membersJson) => parseFamilyMembersFromStorage(me
   .join('; ');
 
 app.get('/admin/registrations/export.csv', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
-  const [studentRegs, familyRegs, adultRegs, sponsorRegs] = await Promise.all([
+  const gradeFilter = Object.keys(CCD_GRADE_MEANINGS).includes(req.query.grade) ? req.query.grade : '';
+  const parentFilter = typeof req.query.parent === 'string' ? req.query.parent.trim() : '';
+
+  const [studentRegsAll, familyRegs, adultRegs, sponsorRegs] = await Promise.all([
     db.prepare('SELECT * FROM student_registrations ORDER BY created_at DESC').all(),
     db.prepare('SELECT * FROM family_faith_registrations ORDER BY created_at DESC').all(),
     db.prepare('SELECT * FROM adult_registrations ORDER BY created_at DESC').all(),
     db.prepare('SELECT * FROM sponsor_confirmations ORDER BY created_at DESC').all(),
   ]);
+  const studentRegs = studentRegsAll.filter((reg) => {
+    if (gradeFilter && resolveCcdGrade(reg) !== gradeFilter) return false;
+    if (parentFilter) {
+      const needle = parentFilter.toLowerCase();
+      const haystack = `${reg.parent_name || ''} ${reg.primary_contact_email || ''}`.toLowerCase();
+      if (!haystack.includes(needle)) return false;
+    }
+    return true;
+  });
 
   const verifierUserIds = new Set();
   studentRegs.forEach((reg) => {
@@ -3926,11 +3948,18 @@ app.get('/admin/registrations', requireAuth, requireRole('admin'), asyncHandler(
   const faithFormationSettings = await getFaithFormationSettings();
 
   const gradeFilter = Object.keys(CCD_GRADE_MEANINGS).includes(req.query.grade) ? req.query.grade : '';
+  const parentFilter = typeof req.query.parent === 'string' ? req.query.parent.trim() : '';
 
   const studentRegsAll = await db.prepare('SELECT * FROM student_registrations WHERE archived_at IS NULL ORDER BY created_at DESC').all();
-  const studentRegs = gradeFilter
-    ? studentRegsAll.filter((reg) => resolveCcdGrade(reg) === gradeFilter)
-    : studentRegsAll;
+  const studentRegs = studentRegsAll.filter((reg) => {
+    if (gradeFilter && resolveCcdGrade(reg) !== gradeFilter) return false;
+    if (parentFilter) {
+      const needle = parentFilter.toLowerCase();
+      const haystack = `${reg.parent_name || ''} ${reg.primary_contact_email || ''}`.toLowerCase();
+      if (!haystack.includes(needle)) return false;
+    }
+    return true;
+  });
   const archivedStudentRegs = await db.prepare('SELECT * FROM student_registrations WHERE archived_at IS NOT NULL ORDER BY archived_at DESC').all();
 
   const familyRegsRaw = await db.prepare('SELECT * FROM family_faith_registrations ORDER BY created_at DESC').all();
@@ -3961,7 +3990,7 @@ app.get('/admin/registrations', requireAuth, requireRole('admin'), asyncHandler(
   const ADULT_PROGRAMS = getAdultPrograms(res.locals.t);
   res.render('admin-registrations', {
     studentRegs, archivedStudentRegs, familyRegs, adultRegs, archivedAdultRegs, sponsorRegs, ADULT_PROGRAMS, faithFormationSettings,
-    resolveCcdGrade, ccdGradeMeanings: CCD_GRADE_MEANINGS, gradeFilter, verifierLookup,
+    resolveCcdGrade, ccdGradeMeanings: CCD_GRADE_MEANINGS, gradeFilter, parentFilter, verifierLookup,
   });
 }));
 
