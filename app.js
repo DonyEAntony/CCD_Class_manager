@@ -555,6 +555,9 @@ const translations = {
     tuition_import_status_review: 'Needs review',
     tuition_import_status_no_match: 'No match found',
     tuition_import_status_declined: 'Not accepted — skipped',
+    tuition_import_status_already_imported: 'Already imported',
+    tuition_import_already_imported_detail: 'A registration already has this transaction ID on file — this payment was imported previously, so it will be skipped.',
+    tuition_import_already_imported_summary: '%s of these rows were already imported previously and will be skipped automatically.',
     tuition_import_skip_row: 'Skip this row',
     tuition_import_no_candidates: 'No registration found for this year with a matching email. Apply manually from the Registrations page if this payment is valid.',
     tuition_import_confirm: 'Apply Selected Payments',
@@ -1244,6 +1247,9 @@ const translations = {
     tuition_import_status_review: 'Necesita revisión',
     tuition_import_status_no_match: 'Sin coincidencia',
     tuition_import_status_declined: 'No aceptado — omitido',
+    tuition_import_status_already_imported: 'Ya importado',
+    tuition_import_already_imported_detail: 'Una inscripción ya tiene este ID de transacción registrado — este pago se importó anteriormente, así que se omitirá.',
+    tuition_import_already_imported_summary: '%s de estas filas ya se importaron anteriormente y se omitirán automáticamente.',
     tuition_import_skip_row: 'Omitir esta fila',
     tuition_import_no_candidates: 'No se encontró ninguna inscripción para este año con un correo coincidente. Aplique manualmente desde la página de Inscripciones si este pago es válido.',
     tuition_import_confirm: 'Aplicar Pagos Seleccionados',
@@ -4471,6 +4477,17 @@ const buildTuitionImportPreview = async (schoolYear, csvBuffer) => {
 
     const amount = parseTuitionImportAmount(get('amountPaid')) ?? parseTuitionImportAmount(get('paidAmountAlt'));
     const paidAtDate = parseTuitionImportDate(get('createdAt'));
+    const transactionId = get('transactionId');
+
+    // Re-importing the same export (e.g. a parish admin re-downloading the
+    // full-history export next month) would otherwise re-process every row
+    // it already applied. The transaction ID is the payment gateway's own
+    // unique identifier for the payment, so a registration already carrying
+    // it means this exact payment was already imported — skip re-matching
+    // it entirely rather than prompting the admin to review it again.
+    const alreadyImported = transactionId
+      ? !!(await db.prepare('SELECT id FROM student_registrations WHERE tuition_transaction_id = ? LIMIT 1').get(transactionId))
+      : false;
 
     const rawChildNames = get('childNames');
     const parentEmail = get('parentEmail');
@@ -4480,7 +4497,7 @@ const buildTuitionImportPreview = async (schoolYear, csvBuffer) => {
       .filter(Boolean))];
 
     let candidateRegistrations = [];
-    if (candidateEmails.length) {
+    if (!alreadyImported && candidateEmails.length) {
       const placeholders = candidateEmails.map(() => '?').join(',');
       candidateRegistrations = await db.prepare(
         `SELECT id, student_full_name, parent_name, primary_contact_email
@@ -4494,7 +4511,10 @@ const buildTuitionImportPreview = async (schoolYear, csvBuffer) => {
     let selectedIds = candidateRegistrations.map((r) => r.id);
     let matchStatus = 'no_match';
 
-    if (candidateRegistrations.length === 1) {
+    if (alreadyImported) {
+      selectedIds = [];
+      matchStatus = 'already_imported';
+    } else if (candidateRegistrations.length === 1) {
       matchStatus = 'matched';
     } else if (candidateRegistrations.length > 1) {
       const nameMatched = candidateRegistrations.filter((r) =>
@@ -4514,6 +4534,7 @@ const buildTuitionImportPreview = async (schoolYear, csvBuffer) => {
     rows.push({
       rowIndex: i,
       isAccepted,
+      alreadyImported,
       amount,
       paidAtIso: toMySqlDateTime(paidAtDate || new Date()),
       raw: {
@@ -4524,7 +4545,7 @@ const buildTuitionImportPreview = async (schoolYear, csvBuffer) => {
         billingName: get('billingName'),
         totalAmount: get('totalAmount'),
         amountPaid: get('amountPaid'),
-        transactionId: get('transactionId'),
+        transactionId,
         transactionResult,
         transactionMessage: get('transactionMessage'),
         createdAt: get('createdAt'),
@@ -4584,8 +4605,19 @@ app.post('/admin/tuition-import/apply', requireAuth, requireRole('admin'), async
   );
 
   let registrationsUpdated = 0;
+  let duplicatesSkipped = 0;
   for (const row of preview.rows) {
-    if (!row.isAccepted || skippedRows.has(row.rowIndex)) continue;
+    if (!row.isAccepted || row.alreadyImported || skippedRows.has(row.rowIndex)) continue;
+
+    // Re-check at apply time (not just what the preview saw) in case another
+    // import already claimed this transaction ID in the meantime.
+    if (row.raw.transactionId) {
+      const dupe = await db.prepare('SELECT id FROM student_registrations WHERE tuition_transaction_id = ? LIMIT 1').get(row.raw.transactionId);
+      if (dupe) {
+        duplicatesSkipped++;
+        continue;
+      }
+    }
 
     const submittedIds = req.body[`selected_${row.rowIndex}`];
     const chosenIds = (Array.isArray(submittedIds) ? submittedIds : (submittedIds ? [submittedIds] : []))
@@ -4618,7 +4650,11 @@ app.post('/admin/tuition-import/apply', requireAuth, requireRole('admin'), async
 
   delete req.session.tuitionImportPreview;
 
-  req.flash('success', `Tuition payments applied to ${registrationsUpdated} registration${registrationsUpdated === 1 ? '' : 's'}.`);
+  const summaryParts = [`Tuition payments applied to ${registrationsUpdated} registration${registrationsUpdated === 1 ? '' : 's'}.`];
+  if (duplicatesSkipped) {
+    summaryParts.push(`Skipped ${duplicatesSkipped} row${duplicatesSkipped === 1 ? '' : 's'} already imported.`);
+  }
+  req.flash('success', summaryParts.join(' '));
   return res.redirect('/admin/students');
 }));
 

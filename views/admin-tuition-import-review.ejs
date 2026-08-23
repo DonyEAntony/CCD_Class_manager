@@ -22,12 +22,18 @@
        matched: statusBadgeStyle + 'background:#e6f4ea;color:#1e7e34;',
        review: statusBadgeStyle + 'background:#fff3cd;color:#7a5a1a;',
        no_match: statusBadgeStyle + 'background:#fde2e1;color:#a12622;',
+       already_imported: statusBadgeStyle + 'background:var(--surface);color:var(--muted);border:1px solid var(--border);',
      }; %>
+
+  <% const alreadyImportedCount = availableRows.filter((row) => row.alreadyImported).length; %>
 
   <div class="page-heading d-flex flex-wrap justify-content-between align-items-end gap-2">
     <div>
       <h1><%= t('tuition_import_review_header') %> &mdash; <%= schoolYear %></h1>
       <p class="sub mb-0"><%= t('tuition_import_review_subtitle') %></p>
+      <% if (alreadyImportedCount) { %>
+        <p class="sub mb-0" style="color:var(--muted)"><%= t('tuition_import_already_imported_summary').replace('%s', alreadyImportedCount) %></p>
+      <% } %>
     </div>
   </div>
 
@@ -45,6 +51,8 @@
             <div class="text-end">
               <% if (!row.isAccepted) { %>
                 <span class="badge" style="<%= statusBadgeStyle %>background:var(--surface);color:var(--muted);border:1px solid var(--border)"><%= t('tuition_import_status_declined') %></span>
+              <% } else if (row.alreadyImported) { %>
+                <span class="badge" style="<%= statusStyles.already_imported %>"><%= t('tuition_import_status_already_imported') %></span>
               <% } else if (row.matchStatus === 'matched') { %>
                 <span class="badge" style="<%= statusStyles.matched %>"><%= t('tuition_import_status_matched') %></span>
               <% } else if (row.matchStatus === 'review') { %>
@@ -63,6 +71,8 @@
 
           <% if (!row.isAccepted) { %>
             <div style="font-size:.85rem;color:var(--muted)"><%= row.raw.paidStatus %> / <%= row.raw.transactionResult %></div>
+          <% } else if (row.alreadyImported) { %>
+            <div class="alert alert-secondary mb-0" style="font-size:.85rem"><%= t('tuition_import_already_imported_detail') %></div>
           <% } else if (!row.candidateRegistrations.length) { %>
             <div class="alert alert-secondary mb-0" style="font-size:.85rem"><%= t('tuition_import_no_candidates') %></div>
           <% } else { %>
