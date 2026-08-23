@@ -513,6 +513,10 @@ const translations = {
     apply_filters: 'Apply filters',
     clear_filters: 'Clear filters',
     no_registrations_match_filters: 'No registrations match these filters.',
+    students_nav: 'Students',
+    all_students_header: 'Accepted Students',
+    all_students_subtitle: 'Children currently admitted or conditionally accepted into faith formation.',
+    no_accepted_students: 'No students have been accepted yet.',
     archive: 'Archive',
     confirm_delete_registration_prefix: 'Permanently delete the registration for',
     confirm_delete_registration_suffix: 'This cannot be undone.',
@@ -1167,6 +1171,10 @@ const translations = {
     apply_filters: 'Aplicar filtros',
     clear_filters: 'Borrar filtros',
     no_registrations_match_filters: 'No hay inscripciones que coincidan con estos filtros.',
+    students_nav: 'Estudiantes',
+    all_students_header: 'Estudiantes Aceptados',
+    all_students_subtitle: 'Niños actualmente admitidos o aceptados condicionalmente en la formación en la fe.',
+    no_accepted_students: 'Aún no se ha aceptado a ningún estudiante.',
     archive: 'Archivar',
     confirm_delete_registration_prefix: 'Eliminar permanentemente la inscripción de',
     confirm_delete_registration_suffix: 'Esto no se puede deshacer.',
@@ -4000,6 +4008,34 @@ app.get('/admin/registrations', requireAuth, requireRole('admin'), asyncHandler(
   res.render('admin-registrations', {
     studentRegs, archivedStudentRegs, familyRegs, adultRegs, archivedAdultRegs, sponsorRegs, ADULT_PROGRAMS, faithFormationSettings,
     resolveCcdGrade, ccdGradeMeanings: CCD_GRADE_MEANINGS, gradeFilter, parentFilter, verifierLookup,
+  });
+}));
+
+const ACCEPTED_STUDENT_STATUSES = ['conditionally_accepted', 'admitted'];
+
+app.get('/admin/students', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const placeholders = ACCEPTED_STUDENT_STATUSES.map(() => '?').join(',');
+  const studentRegs = await db.prepare(
+    `SELECT * FROM student_registrations WHERE archived_at IS NULL AND status IN (${placeholders}) ORDER BY student_full_name ASC`
+  ).all(...ACCEPTED_STUDENT_STATUSES);
+
+  const verifierUserIds = new Set();
+  studentRegs.forEach((reg) => {
+    ['certificates_verified_by', 'tuition_paid_by', 'parent_contacted_by'].forEach((col) => {
+      if (reg[col]) verifierUserIds.add(Number(reg[col]));
+    });
+  });
+  let verifierLookup = {};
+  if (verifierUserIds.size > 0) {
+    const ids = [...verifierUserIds];
+    const verifierRows = await db.prepare(
+      `SELECT id, full_name, email FROM users WHERE id IN (${ids.map(() => '?').join(',')})`
+    ).all(...ids);
+    verifierLookup = Object.fromEntries(verifierRows.map((row) => [row.id, row.full_name || row.email]));
+  }
+
+  res.render('admin-students', {
+    studentRegs, resolveCcdGrade, ccdGradeMeanings: CCD_GRADE_MEANINGS, verifierLookup,
   });
 }));
 
