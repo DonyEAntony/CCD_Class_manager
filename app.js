@@ -621,6 +621,17 @@ const translations = {
     record_payment_label: 'Record a Payment',
     payment_amount_placeholder: 'Amount ($)',
     select_payment_method: 'Select method',
+    view_receipt_label: 'Receipt',
+    receipt_title: 'Payment Receipt',
+    receipt_received_from: 'Received From',
+    receipt_for_student: 'For Student',
+    receipt_school_year: 'School Year',
+    receipt_amount: 'Amount',
+    receipt_payment_method: 'Payment Method',
+    receipt_payment_date: 'Payment Date',
+    receipt_recorded_by: 'Recorded By',
+    print_receipt: 'Print Receipt',
+    back_to_students_label: 'Back to Students',
     verified_by_on: 'by %s on %s',
     confirm_delete_sponsor_form: 'Delete this sponsor confirmation form? This is helpful for removing test entries.',
     total_fees_due_all_active: 'Total Fees Due — all active registrations',
@@ -1342,6 +1353,17 @@ const translations = {
     record_payment_label: 'Registrar un Pago',
     payment_amount_placeholder: 'Monto ($)',
     select_payment_method: 'Seleccione método',
+    view_receipt_label: 'Recibo',
+    receipt_title: 'Recibo de Pago',
+    receipt_received_from: 'Recibido De',
+    receipt_for_student: 'Para el Estudiante',
+    receipt_school_year: 'Año Escolar',
+    receipt_amount: 'Monto',
+    receipt_payment_method: 'Método de Pago',
+    receipt_payment_date: 'Fecha de Pago',
+    receipt_recorded_by: 'Registrado Por',
+    print_receipt: 'Imprimir Recibo',
+    back_to_students_label: 'Volver a Estudiantes',
     verified_by_on: 'por %s el %s',
     confirm_delete_sponsor_form: '¿Eliminar este formulario de confirmación de padrino? Esto es útil para eliminar entradas de prueba.',
     total_fees_due_all_active: 'Total de Cuotas Adeudadas — todas las inscripciones activas',
@@ -4574,7 +4596,36 @@ app.post('/admin/students/:id/payment', requireAuth, requireRole('admin'), async
   }
 
   req.flash('success', res.locals.t('status_updated'));
-  return res.redirect('/admin/students');
+  return res.redirect(`/admin/students/${req.params.id}/receipt`);
+}));
+
+app.get('/admin/students/:id/receipt', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const student = await db.prepare(`
+    SELECT
+      s.id, s.student_full_name, s.grade_level, s.parent_name, s.primary_contact_email, s.primary_contact_phone,
+      COALESCE(sr.tuition_paid, s.tuition_paid) AS tuition_paid,
+      COALESCE(sr.tuition_amount_paid, s.tuition_amount_paid) AS tuition_amount_paid,
+      COALESCE(sr.tuition_payment_method, s.tuition_payment_method) AS tuition_payment_method,
+      COALESCE(sr.tuition_paid_at, s.tuition_paid_at) AS tuition_paid_at,
+      COALESCE(sr.tuition_paid_by, s.tuition_paid_by) AS tuition_paid_by,
+      sr.school_year
+    FROM students s
+    LEFT JOIN student_registrations sr ON sr.id = s.source_registration_id
+    WHERE s.id = ?
+  `).get(req.params.id);
+
+  if (!student || !student.tuition_paid || !TUITION_PAYMENT_METHODS.has(student.tuition_payment_method)) {
+    req.flash('error', 'No manually-recorded payment found to generate a receipt for.');
+    return res.redirect('/admin/students');
+  }
+
+  let recordedByName = null;
+  if (student.tuition_paid_by) {
+    const recordedByUser = await db.prepare('SELECT full_name, email FROM users WHERE id = ?').get(student.tuition_paid_by);
+    recordedByName = recordedByUser ? (recordedByUser.full_name || recordedByUser.email) : null;
+  }
+
+  res.render('admin-payment-receipt', { student, recordedByName });
 }));
 
 app.post('/admin/students/:id/status', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {

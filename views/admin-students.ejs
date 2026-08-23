@@ -254,6 +254,7 @@
                               <th><%= t('payment_amount_col') %></th>
                               <th><%= t('payment_method_col') %></th>
                               <th><%= t('payment_date_col') %></th>
+                              <th></th>
                             </tr>
                           </thead>
                           <tbody>
@@ -269,6 +270,11 @@
                                   <% } %>
                                 </td>
                                 <td style="color:var(--muted)"><%= payment.paidAt ? formatDateOnly(payment.paidAt) : '—' %></td>
+                                <td>
+                                  <% if (payment.tuitionPaid && (payment.method === 'cash' || payment.method === 'credit_card')) { %>
+                                    <a href="/admin/students/<%= payment.id %>/receipt" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary"><%= t('view_receipt_label') %></a>
+                                  <% } %>
+                                </td>
                               </tr>
                             <% }) %>
                           </tbody>
