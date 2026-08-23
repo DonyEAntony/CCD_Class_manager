@@ -597,6 +597,19 @@ const translations = {
     parent_contacted_label: 'Parent contacted',
     child_verification_col_header: 'Verification',
     comments_col: 'Comments',
+    student_details_toggle: 'Details',
+    registered_years_label: 'Registered Years',
+    no_registered_years: 'No registration history on file.',
+    classes_attended_label: 'Classes Attended',
+    no_classes_attended: 'No completed classes on file yet.',
+    in_progress_label: 'In Progress',
+    sacraments_label: 'Sacraments',
+    baptism_not_recorded: 'Baptism not recorded.',
+    first_communion_not_recorded: 'First Communion not recorded.',
+    confirmation_not_recorded: 'Confirmation not recorded.',
+    confirmation_received_on: 'Confirmed on %s',
+    set_confirmation_date_label: 'Record Confirmation date',
+    clear_confirmation_date_label: 'Clear',
     verified_by_on: 'by %s on %s',
     confirm_delete_sponsor_form: 'Delete this sponsor confirmation form? This is helpful for removing test entries.',
     total_fees_due_all_active: 'Total Fees Due — all active registrations',
@@ -1294,6 +1307,19 @@ const translations = {
     parent_contacted_label: 'Padre contactado',
     child_verification_col_header: 'Verificación',
     comments_col: 'Comentarios',
+    student_details_toggle: 'Detalles',
+    registered_years_label: 'Años Inscritos',
+    no_registered_years: 'No hay historial de inscripción registrado.',
+    classes_attended_label: 'Clases a las que Asistió',
+    no_classes_attended: 'Aún no hay clases completadas registradas.',
+    in_progress_label: 'En Progreso',
+    sacraments_label: 'Sacramentos',
+    baptism_not_recorded: 'Bautismo no registrado.',
+    first_communion_not_recorded: 'Primera Comunión no registrada.',
+    confirmation_not_recorded: 'Confirmación no registrada.',
+    confirmation_received_on: 'Confirmado el %s',
+    set_confirmation_date_label: 'Registrar fecha de Confirmación',
+    clear_confirmation_date_label: 'Borrar',
     verified_by_on: 'por %s el %s',
     confirm_delete_sponsor_form: '¿Eliminar este formulario de confirmación de padrino? Esto es útil para eliminar entradas de prueba.',
     total_fees_due_all_active: 'Total de Cuotas Adeudadas — todas las inscripciones activas',
@@ -4360,9 +4386,61 @@ app.get('/admin/students', requireAuth, requireRole('admin'), asyncHandler(async
     ORDER BY s.student_full_name ASC
   `).all();
 
+  const studentIds = students.map((s) => s.id);
+  let registrationHistoryByStudent = {};
+  let classHistoryByStudent = {};
+  if (studentIds.length) {
+    const placeholders = studentIds.map(() => '?').join(',');
+    const registrationHistoryRows = await db.prepare(
+      `SELECT id, student_id, school_year, status, ccd_grade_level, non_sacramental_grade, sacramental_year,
+              not_baptized, baptism_date, baptism_church, first_communion_date, first_communion_church, created_at
+       FROM student_registrations
+       WHERE student_id IN (${placeholders})
+       ORDER BY school_year DESC, created_at DESC`
+    ).all(...studentIds);
+    const classHistoryRows = await db.prepare(
+      `SELECT student_id, school_year, grade_level, class_time, classroom, completed_at
+       FROM student_class_history
+       WHERE student_id IN (${placeholders})
+       ORDER BY school_year DESC`
+    ).all(...studentIds);
+
+    registrationHistoryRows.forEach((row) => {
+      (registrationHistoryByStudent[row.student_id] ||= []).push({ ...row, resolvedGrade: resolveCcdGrade(row) });
+    });
+    classHistoryRows.forEach((row) => {
+      (classHistoryByStudent[row.student_id] ||= []).push(row);
+    });
+  }
+
+  const faithFormationSettings = await getFaithFormationSettings();
+
+  students.forEach((s) => {
+    const registrationHistory = registrationHistoryByStudent[s.id] || [];
+    const classHistory = classHistoryByStudent[s.id] || [];
+    const closedYears = new Set(classHistory.map((c) => c.school_year));
+
+    s.registrationHistory = registrationHistory;
+    s.classHistory = classHistory.map((c) => ({ ...c, inProgress: false }))
+      .concat(
+        registrationHistory
+          .filter((r) => r.school_year === faithFormationSettings.schoolYear && r.status !== 'cancelled' && !closedYears.has(r.school_year))
+          .map((r) => ({ school_year: r.school_year, grade_level: r.resolvedGrade, class_time: null, classroom: null, completed_at: null, inProgress: true }))
+      )
+      .sort((a, b) => (a.school_year < b.school_year ? 1 : -1));
+
+    const baptismRecord = registrationHistory.find((r) => !r.not_baptized && r.baptism_date);
+    const communionRecord = registrationHistory.find((r) => r.first_communion_date);
+    s.sacraments = {
+      baptism: baptismRecord ? { date: baptismRecord.baptism_date, church: baptismRecord.baptism_church } : null,
+      firstCommunion: communionRecord ? { date: communionRecord.first_communion_date, church: communionRecord.first_communion_church } : null,
+      confirmationDate: s.confirmation_received_date,
+    };
+  });
+
   const verifierUserIds = new Set();
   students.forEach((s) => {
-    ['certificates_verified_by', 'tuition_paid_by', 'parent_contacted_by'].forEach((col) => {
+    ['certificates_verified_by', 'tuition_paid_by', 'parent_contacted_by', 'confirmation_received_by'].forEach((col) => {
       if (s[col]) verifierUserIds.add(Number(s[col]));
     });
   });
@@ -4378,6 +4456,33 @@ app.get('/admin/students', requireAuth, requireRole('admin'), asyncHandler(async
   res.render('admin-students', {
     students, verifierLookup, studentStatusOptions: STUDENT_STATUSES,
   });
+}));
+
+app.post('/admin/students/:id/confirmation', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const student = await db.prepare('SELECT id FROM students WHERE id = ?').get(req.params.id);
+  if (!student) {
+    return res.status(404).send('Student not found.');
+  }
+
+  const clearRequested = req.body.clear_confirmation === '1';
+  const requestedDate = clearRequested
+    ? ''
+    : (typeof req.body.confirmation_received_date === 'string' ? req.body.confirmation_received_date.trim() : '');
+  if (requestedDate && !/^\d{4}-\d{2}-\d{2}$/.test(requestedDate)) {
+    req.flash('error', 'Invalid confirmation date.');
+    return res.redirect('/admin/students');
+  }
+
+  if (requestedDate) {
+    await db.prepare('UPDATE students SET confirmation_received_date = ?, confirmation_received_by = ? WHERE id = ?')
+      .run(requestedDate, req.user.id, req.params.id);
+  } else {
+    await db.prepare('UPDATE students SET confirmation_received_date = NULL, confirmation_received_by = NULL WHERE id = ?')
+      .run(req.params.id);
+  }
+
+  req.flash('success', res.locals.t('status_updated'));
+  return res.redirect('/admin/students');
 }));
 
 app.post('/admin/students/:id/status', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
