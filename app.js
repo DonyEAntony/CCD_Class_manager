@@ -25,7 +25,25 @@ console.info('[startup] Mail configuration', {
   from: smtpLogConfig.from,
   appBaseUrl: process.env.APP_BASE_URL || '',
 });
-const STUDENT_REGISTRATION_STATUSES = [
+// Children registrations track only the admission process itself. Once a
+// child is admitted, their ongoing standing (Enrolled/Completed/Graduated/
+// Discontinued/Transferred) is tracked separately on the `students` table
+// so it survives independent of any one year's registration record.
+const CHILD_REGISTRATION_STATUSES = [
+  'in_progress',
+  'conditionally_accepted',
+  'admitted',
+  'cancelled',
+];
+const STUDENT_STATUSES = [
+  'enrolled',
+  'completed',
+  'graduated',
+  'discontinued',
+  'transferred',
+];
+// Family Faith registrations still use the original, unsplit status list.
+const FAMILY_FAITH_REGISTRATION_STATUSES = [
   'in_progress',
   'conditionally_accepted',
   'admitted',
@@ -513,6 +531,12 @@ const translations = {
     apply_filters: 'Apply filters',
     clear_filters: 'Clear filters',
     no_registrations_match_filters: 'No registrations match these filters.',
+    students_nav: 'Students',
+    all_students_header: 'Students',
+    all_students_subtitle: 'Every child admitted into faith formation, with their ongoing enrollment status.',
+    no_accepted_students: 'No students have been admitted yet.',
+    edit_registration: 'View Registration',
+    no_active_registration: 'No active registration',
     archive: 'Archive',
     confirm_delete_registration_prefix: 'Permanently delete the registration for',
     confirm_delete_registration_suffix: 'This cannot be undone.',
@@ -556,6 +580,8 @@ const translations = {
     check_my_registrations_prefix: 'Check',
     my_registrations_tab: 'My Registrations',
     check_my_registrations_suffix: 'below before starting a new one to avoid registering the same child twice.',
+    my_students_tab: 'My Students',
+    register_next_year: 'Register for Next Year',
     view_my_registrations: 'View My Registrations',
     admin_area: 'Admin Area',
     program_registrations_tab: 'Program Registrations',
@@ -689,6 +715,11 @@ const translations = {
     cancelled: 'Cancelled',
     discontinued: 'Discontinued',
     graduated: 'Graduated',
+    enrolled: 'Enrolled',
+    transferred: 'Transferred',
+    student_status: 'Student Status',
+    registration_status: 'Registration Status',
+    confirm_close_year_warning: 'Closing Faith Formation registration for %s will archive every currently-Enrolled student\'s registration for this year and record their class as completed. This can\'t be easily undone. Continue?',
   },
   es: {
     app_title: 'Iglesia Católica San Mateo',
@@ -1167,6 +1198,12 @@ const translations = {
     apply_filters: 'Aplicar filtros',
     clear_filters: 'Borrar filtros',
     no_registrations_match_filters: 'No hay inscripciones que coincidan con estos filtros.',
+    students_nav: 'Estudiantes',
+    all_students_header: 'Estudiantes',
+    all_students_subtitle: 'Cada niño admitido en la formación en la fe, con su estado de inscripción continuo.',
+    no_accepted_students: 'Aún no se ha admitido a ningún estudiante.',
+    edit_registration: 'Ver Inscripción',
+    no_active_registration: 'Sin inscripción activa',
     archive: 'Archivar',
     confirm_delete_registration_prefix: 'Eliminar permanentemente la inscripción de',
     confirm_delete_registration_suffix: 'Esto no se puede deshacer.',
@@ -1210,6 +1247,8 @@ const translations = {
     check_my_registrations_prefix: 'Consulte',
     my_registrations_tab: 'Mis Inscripciones',
     check_my_registrations_suffix: 'a continuación antes de comenzar una nueva para evitar registrar al mismo niño dos veces.',
+    my_students_tab: 'Mis Estudiantes',
+    register_next_year: 'Inscribir para el Próximo Año',
     view_my_registrations: 'Ver Mis Inscripciones',
     admin_area: 'Área de Administración',
     program_registrations_tab: 'Inscripciones de Programas',
@@ -1343,6 +1382,11 @@ const translations = {
     cancelled: 'Cancelado',
     discontinued: 'Discontinuado',
     graduated: 'Graduado',
+    enrolled: 'Inscrito',
+    transferred: 'Transferido',
+    student_status: 'Estado del Estudiante',
+    registration_status: 'Estado de la Inscripción',
+    confirm_close_year_warning: 'Cerrar la inscripción de Formación en la Fe para %s archivará la inscripción de este año de cada estudiante actualmente Inscrito y registrará su clase como completada. Esto no se puede deshacer fácilmente. ¿Continuar?',
   }
 };
 // ── Adult program metadata (locale-aware) ───────────────────
@@ -1519,12 +1563,67 @@ const getClassSlotValue = (ccdClass) =>
 // Match on class_time alone (not the room-qualified slot value): a class's classroom can
 // be assigned/reassigned after a student already registered, so their stored
 // preferred_class_time may only have the time portion even though the class now has a room.
-const getClassRoster = (ccdClass, allStudentRegs) =>
+//
+// Once a registration is Admitted, whether it still counts as an active roster member is
+// governed by its linked `students` row's student_status (Enrolled), not the registration
+// itself — a student who later becomes Completed/Graduated/Discontinued/Transferred drops
+// off class rosters even though their registration stays "admitted" forever. Registrations
+// that aren't admitted yet (in_progress/conditionally_accepted) are unaffected and keep
+// showing as pending, exactly as before.
+const getClassRoster = (ccdClass, allStudentRegs, enrolledRegistrationIds) =>
   allStudentRegs.filter((reg) => {
     if (resolveCcdGrade(reg) !== ccdClass.grade_level) return false;
+    if (reg.status === 'admitted' && !enrolledRegistrationIds.has(reg.id)) return false;
     if (!SACRAMENTAL_GRADE_LEVELS.has(ccdClass.grade_level)) return true;
     return reg.preferred_class_time === ccdClass.class_time || reg.preferred_class_time === getClassSlotValue(ccdClass);
   });
+
+const getEnrolledRegistrationIds = async () => {
+  const rows = await db.prepare(
+    `SELECT source_registration_id FROM students WHERE student_status = 'enrolled' AND source_registration_id IS NOT NULL`
+  ).all();
+  return new Set(rows.map((row) => row.source_registration_id));
+};
+
+// When a school year's Faith Formation registration is closed, every currently-Enrolled
+// student whose admission was for that year gets a permanent class-history entry (grade,
+// class, and school year they completed), and that registration is archived — dropping
+// them out of active views/class rosters. Their student record itself stays Enrolled
+// (unchanged), ready for whenever they're registered again for the next year.
+const rolloverEnrolledStudentsForSchoolYear = async (schoolYear) => {
+  const rows = await db.prepare(`
+    SELECT sr.id AS registration_id, s.id AS student_id, s.grade_level, s.preferred_class_time
+    FROM student_registrations sr
+    JOIN students s ON s.id = sr.student_id
+    WHERE sr.school_year = ? AND sr.status = 'admitted' AND sr.archived_at IS NULL AND s.student_status = 'enrolled'
+  `).all(schoolYear);
+
+  if (!rows.length) return;
+
+  const ccdClasses = await getCcdClasses();
+
+  for (const row of rows) {
+    const matchedClass = ccdClasses.find((c) => {
+      if (c.grade_level !== row.grade_level) return false;
+      if (!SACRAMENTAL_GRADE_LEVELS.has(c.grade_level)) return true;
+      return row.preferred_class_time === c.class_time || row.preferred_class_time === getClassSlotValue(c);
+    });
+
+    await db.prepare(
+      `INSERT INTO student_class_history (student_id, ccd_class_id, grade_level, school_year, class_time, classroom)
+       VALUES (?, ?, ?, ?, ?, ?)`
+    ).run(
+      row.student_id,
+      matchedClass ? matchedClass.id : null,
+      row.grade_level,
+      schoolYear,
+      matchedClass ? matchedClass.class_time : null,
+      matchedClass ? matchedClass.classroom : null
+    );
+
+    await db.prepare('UPDATE student_registrations SET archived_at = NOW() WHERE id = ?').run(row.registration_id);
+  }
+};
 
 const getUpcomingSessionDates = (classTimeText, count = 6) => {
   const weekday = parseClassWeekday(classTimeText);
@@ -1543,9 +1642,11 @@ const getUpcomingSessionDates = (classTimeText, count = 6) => {
 const formatSessionDateValue = (date) => date.toISOString().slice(0, 10);
 
 // A student shows as a full roster member only once their registration has cleared the
-// acceptance gate (conditionally_accepted or later); anything earlier — in_progress,
+// acceptance gate (conditionally_accepted or admitted); anything earlier — in_progress,
 // incomplete, or otherwise — is still pending and shown as such in the class roster.
-const CLASS_ROSTER_ACCEPTED_STATUSES = new Set(['conditionally_accepted', 'admitted', 'completed', 'graduated']);
+// (completed/graduated/etc. can no longer occur on a registration's own status — see
+// the `students` table — so they're not part of this gate anymore.)
+const CLASS_ROSTER_ACCEPTED_STATUSES = new Set(['conditionally_accepted', 'admitted']);
 const isPendingAcceptance = (reg) => !CLASS_ROSTER_ACCEPTED_STATUSES.has(reg.status);
 const getCatechists = async () =>
   db.prepare(`
@@ -2674,8 +2775,13 @@ app.get('/dashboard', requireAuth, asyncHandler(async (req, res) => {
 
   const sponsorRegs = await db.prepare('SELECT * FROM sponsor_confirmations WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
 
+  // Persistent student records (created once a registration is Admitted) outlive any one
+  // year's registration, so parents see their kids here regardless of what's happened to
+  // that original registration since.
+  const myStudents = await db.prepare('SELECT * FROM students WHERE parent_user_id = ? ORDER BY student_full_name ASC').all(req.user.id);
+
   const ADULT_PROGRAMS = getAdultPrograms(res.locals.t);
-  res.render('dashboard', { studentRegs, familyRegs, adultRegs, sponsorRegs, ADULT_PROGRAMS, faithFormationSettings, resolveCcdGrade, feeBreakdown, totalFeesDue });
+  res.render('dashboard', { studentRegs, familyRegs, adultRegs, sponsorRegs, myStudents, ADULT_PROGRAMS, faithFormationSettings, resolveCcdGrade, feeBreakdown, totalFeesDue });
 }));
 
 app.get('/family-faith/visits/availability', requireAuth, asyncHandler(async (req, res) => {
@@ -2821,6 +2927,7 @@ app.get('/registration/children', requireAuth, asyncHandler(async (req, res) => 
   let parentInfo = null;
   let studentPrefill = null;
   let currentRegistrationId = null;
+  let prefillStudentId = null;
 
   if (stage === 'student' && groupIds.length) {
     parentInfo = await db.prepare(
@@ -2840,6 +2947,74 @@ app.get('/registration/children', requireAuth, asyncHandler(async (req, res) => 
       ).get(groupIds[studentIndex - 1], req.user.id);
       currentRegistrationId = studentPrefill ? studentPrefill.id : null;
     }
+  } else if (stage === 'intro' && !groupIds.length && req.query.prefillStudentId) {
+    // A parent starting a brand-new registration from one of their persistent student
+    // records (e.g. "register for next year") — carry forward last year's household and
+    // child details from that student's originating registration so they only have to
+    // review and update what's changed, not retype everything.
+    const prefillStudentId = Number.parseInt(req.query.prefillStudentId, 10);
+    const prefillStudent = Number.isInteger(prefillStudentId)
+      ? await db.prepare('SELECT * FROM students WHERE id = ? AND parent_user_id = ?').get(prefillStudentId, req.user.id)
+      : null;
+
+    if (prefillStudent) {
+      const priorReg = prefillStudent.source_registration_id
+        ? await db.prepare('SELECT * FROM student_registrations WHERE id = ?').get(prefillStudent.source_registration_id)
+        : null;
+
+      const prefill = {
+        primary_contact_first_name: priorReg?.primary_contact_first_name,
+        primary_contact_last_name: priorReg?.primary_contact_last_name,
+        primary_contact_phone: priorReg?.primary_contact_phone || prefillStudent.primary_contact_phone,
+        primary_contact_email: priorReg?.primary_contact_email || prefillStudent.primary_contact_email,
+        primary_contact_relationship: priorReg?.primary_contact_relationship,
+        primary_contact_relationship_other: priorReg?.primary_contact_relationship_other,
+        primary_contact_religion: priorReg?.primary_contact_religion,
+        address: priorReg?.address,
+        city_state_zip: priorReg?.city_state_zip,
+        father_name: priorReg?.father_name,
+        father_religion: priorReg?.father_religion,
+        father_cell: priorReg?.father_cell,
+        mother_maiden_name: priorReg?.mother_maiden_name,
+        mother_religion: priorReg?.mother_religion,
+        mother_cell: priorReg?.mother_cell,
+        child_lives_with: priorReg?.child_lives_with,
+        step_parent_name: priorReg?.step_parent_name,
+        step_parent_religion: priorReg?.step_parent_religion,
+        parent_signature: priorReg?.parent_signature,
+        email: priorReg?.email,
+        student_full_name: prefillStudent.student_full_name,
+        student_gender: prefillStudent.student_gender,
+        student_dob: prefillStudent.student_dob,
+        child_place_of_birth_city: priorReg?.child_place_of_birth_city,
+        child_place_of_birth_country: priorReg?.child_place_of_birth_country,
+        ccd_grade_level: priorReg?.ccd_grade_level,
+        school_grade_level: priorReg?.school_grade_level,
+        school_attending: priorReg?.school_attending,
+        not_baptized: priorReg?.not_baptized,
+        baptism_date: priorReg?.baptism_date,
+        baptism_church: priorReg?.baptism_church,
+        first_communion_date: priorReg?.first_communion_date,
+        first_communion_church: priorReg?.first_communion_church,
+        sacramental_year: priorReg?.sacramental_year,
+        preferred_class_time: prefillStudent.preferred_class_time,
+        non_sacramental_grade: priorReg?.non_sacramental_grade,
+        disabilities_comments: priorReg?.disabilities_comments,
+        // Certificates aren't carried over — they belong to the prior registration's own
+        // uploads, so the parent re-attaches them here rather than the new registration
+        // pointing at another row's files.
+        baptism_certificate_path: null,
+        first_communion_certificate_path: null,
+      };
+      const addressParts = prefill.city_state_zip ? prefill.city_state_zip.split(', ') : ['', '', ''];
+      prefill.city = addressParts[0] || '';
+      prefill.state = addressParts[1] ? addressParts[1].split(' ')[0] : '';
+      prefill.zip = addressParts[1] ? addressParts[1].split(' ')[1] : '';
+
+      parentInfo = prefill;
+      studentPrefill = prefill;
+      prefillStudentId = prefillStudent.id;
+    }
   }
 
   res.render('registration-form', {
@@ -2849,7 +3024,7 @@ app.get('/registration/children', requireAuth, asyncHandler(async (req, res) => 
     isStaff: false,
     schoolYearLabel: `${res.locals.t('school_year')} ${faithFormationSettings.schoolYear}`,
     activeSchoolYear: faithFormationSettings.schoolYear,
-    statusOptions: STUDENT_REGISTRATION_STATUSES,
+    statusOptions: CHILD_REGISTRATION_STATUSES,
     relevantEvents: await getFaithFormationEvents(['children', 'general']),
     stage,
     totalChildren,
@@ -2858,6 +3033,7 @@ app.get('/registration/children', requireAuth, asyncHandler(async (req, res) => 
     parentInfo,
     studentPrefill,
     currentRegistrationId,
+    prefillStudentId,
     ccdClasses: await getCcdClasses(),
     ccdGradeMeanings: CCD_GRADE_MEANINGS,
   });
@@ -3063,7 +3239,7 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
     const isAdmin = req.user.role === 'admin';
     const orNull = (v) => (v === undefined || v === '' ? null : v);
     const requestedStatus = typeof req.body.status === 'string' ? req.body.status.trim() : '';
-    if (requestedStatus && !STUDENT_REGISTRATION_STATUSES.includes(requestedStatus)) {
+    if (requestedStatus && !CHILD_REGISTRATION_STATUSES.includes(requestedStatus)) {
       req.flash('error', 'Invalid registration status.');
       const redirectUrl = req.body.registration_id ? `/registration/children/edit/${req.body.registration_id}` : '/registration/children';
       return res.redirect(redirectUrl);
@@ -3128,6 +3304,20 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
         registrationOwnerUserId = groupOwnerRow?.user_id || req.user.id;
       } else {
         registrationOwnerUserId = await resolveRegistrationOwnerUserId(req, req.body.primary_contact_email);
+      }
+      // "Register for Next Year" pre-fills a brand-new registration from an existing
+      // persistent student — carry that link forward on the row it creates so admission
+      // updates the same student record instead of minting a second one. Re-validated
+      // here (not just trusted from the hidden field) since it's client-controllable.
+      let linkedStudentId = null;
+      if (!existingRowId) {
+        const rawPrefillStudentId = Number.parseInt(req.body.prefill_student_id, 10);
+        if (Number.isInteger(rawPrefillStudentId)) {
+          const linkedStudent = await db.prepare(
+            'SELECT id FROM students WHERE id = ? AND (parent_user_id = ? OR ? = 1)'
+          ).get(rawPrefillStudentId, registrationOwnerUserId, isAdmin ? 1 : 0);
+          linkedStudentId = linkedStudent ? linkedStudent.id : null;
+        }
       }
       const existingRowForUploads = existingRowId
         ? await db.prepare(`
@@ -3202,8 +3392,8 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
             baptism_date, baptism_church, first_communion_date, first_communion_church, not_baptized,
             sacramental_year, preferred_class_time, non_sacramental_grade,
             disabilities_comments, parent_signature, email, registration_fee, sacramental_fee, late_fee,
-            baptism_certificate_path, first_communion_certificate_path, status
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            baptism_certificate_path, first_communion_certificate_path, status, student_id
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
           registrationOwnerUserId, faithFormationSettings.schoolYear,
           `${req.body.primary_contact_first_name || ''} ${req.body.primary_contact_last_name || ''}`,
@@ -3225,6 +3415,7 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
           rowRegistrationFee, fees.sacramentalFee, fees.lateFee,
           baptismCert, communionCert,
           isLastStage ? 'in_progress' : 'incomplete',
+          linkedStudentId,
         );
         thisRowId = result.lastInsertRowid;
       }
@@ -3335,7 +3526,7 @@ app.post(
 
 app.post('/registration/children/:id/status', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   const requestedStatus = typeof req.body.status === 'string' ? req.body.status.trim() : '';
-  if (!STUDENT_REGISTRATION_STATUSES.includes(requestedStatus)) {
+  if (!CHILD_REGISTRATION_STATUSES.includes(requestedStatus)) {
     req.flash('error', 'Invalid registration status.');
     return res.redirect(`/registration/children/edit/${req.params.id}`);
   }
@@ -3345,15 +3536,37 @@ app.post('/registration/children/:id/status', requireAuth, requireRole('admin'),
     return res.status(404).send('Registration not found.');
   }
 
-  if (requestedStatus === 'completed') {
+  if (requestedStatus === 'admitted') {
     const missingFields = getIncompleteStudentRegistrationFields(reg);
     if (missingFields.length) {
-      req.flash('error', `Cannot mark this registration completed until all required fields are filled in. Missing: ${missingFields.join(', ')}.`);
+      req.flash('error', `Cannot mark this registration admitted until all required fields are filled in. Missing: ${missingFields.join(', ')}.`);
       return res.redirect(`/registration/children/edit/${req.params.id}`);
     }
   }
 
   await db.prepare('UPDATE student_registrations SET status = ? WHERE id = ?').run(requestedStatus, req.params.id);
+
+  // Admission creates (or, for a returning student registered via "Register for Next
+  // Year", updates) the persistent student record, so a student's identity and history
+  // survive across years instead of getting a new row every time they re-register.
+  if (requestedStatus === 'admitted') {
+    if (reg.student_id) {
+      await db.prepare(
+        `UPDATE students SET
+           student_full_name = ?, student_dob = ?, student_gender = ?, grade_level = ?, preferred_class_time = ?,
+           parent_name = ?, primary_contact_email = ?, primary_contact_phone = ?,
+           student_status = 'enrolled', source_registration_id = ?
+         WHERE id = ?`
+      ).run(reg.student_full_name, reg.student_dob, reg.student_gender, resolveCcdGrade(reg), reg.preferred_class_time, reg.parent_name, reg.primary_contact_email, reg.primary_contact_phone, reg.id, reg.student_id);
+    } else {
+      const created = await db.prepare(
+        `INSERT INTO students (student_full_name, student_dob, student_gender, grade_level, preferred_class_time, parent_user_id, parent_name, primary_contact_email, primary_contact_phone, student_status, source_registration_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'enrolled', ?)`
+      ).run(reg.student_full_name, reg.student_dob, reg.student_gender, resolveCcdGrade(reg), reg.preferred_class_time, reg.user_id, reg.parent_name, reg.primary_contact_email, reg.primary_contact_phone, reg.id);
+      await db.prepare('UPDATE student_registrations SET student_id = ? WHERE id = ?').run(created.lastInsertRowid, req.params.id);
+    }
+  }
+
   req.flash('success', res.locals.t('status_updated'));
   return res.redirect(`/registration/children/edit/${req.params.id}`);
 }));
@@ -3389,7 +3602,7 @@ app.get('/registration/children/edit/:id', requireAuth, asyncHandler(async (req,
     isStaff,
     schoolYearLabel: `${res.locals.t('school_year')} ${reg.school_year || faithFormationSettings.schoolYear}`,
     activeSchoolYear: reg.school_year || faithFormationSettings.schoolYear,
-    statusOptions: STUDENT_REGISTRATION_STATUSES,
+    statusOptions: CHILD_REGISTRATION_STATUSES,
     relevantEvents: await getFaithFormationEvents(['children', 'general']),
     ccdClasses: await getCcdClasses(),
     ccdGradeMeanings: CCD_GRADE_MEANINGS,
@@ -3407,7 +3620,7 @@ app.get('/registration/family-faith', requireAuth, asyncHandler(async (req, res)
     reg: null,
     editing: false,
     isStaff: false,
-    statusOptions: STUDENT_REGISTRATION_STATUSES,
+    statusOptions: FAMILY_FAITH_REGISTRATION_STATUSES,
     relevantEvents: await getFaithFormationEvents(['family_faith', 'general']),
     availableVisitSlots: (await getFamilyFaithVisitSlots()).map((slot) => ({ ...slot, label: formatVisitSlotLabel(slot) })),
     familyMemberRoleOptions: FAMILY_MEMBER_ROLE_OPTIONS,
@@ -3422,7 +3635,7 @@ app.post('/registration/family-faith', requireAuth, asyncHandler(async (req, res
     ? `/registration/family-faith/edit/${req.body.registration_id}`
     : '/registration/family-faith';
 
-  if (requestedStatus && !STUDENT_REGISTRATION_STATUSES.includes(requestedStatus)) {
+  if (requestedStatus && !FAMILY_FAITH_REGISTRATION_STATUSES.includes(requestedStatus)) {
     req.flash('error', 'Invalid registration status.');
     return res.redirect(redirectUrl);
   }
@@ -3560,7 +3773,7 @@ app.post('/registration/family-faith', requireAuth, asyncHandler(async (req, res
 
 app.post('/registration/family-faith/:id/status', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   const requestedStatus = typeof req.body.status === 'string' ? req.body.status.trim() : '';
-  if (!STUDENT_REGISTRATION_STATUSES.includes(requestedStatus)) {
+  if (!FAMILY_FAITH_REGISTRATION_STATUSES.includes(requestedStatus)) {
     req.flash('error', 'Invalid registration status.');
     return res.redirect(`/registration/family-faith/edit/${req.params.id}`);
   }
@@ -3593,7 +3806,7 @@ app.get('/registration/family-faith/edit/:id', requireAuth, asyncHandler(async (
     reg,
     editing: true,
     isStaff,
-    statusOptions: STUDENT_REGISTRATION_STATUSES,
+    statusOptions: FAMILY_FAITH_REGISTRATION_STATUSES,
     relevantEvents: await getFaithFormationEvents(['family_faith', 'general']),
     availableVisitSlots,
     familyMemberRoleOptions: FAMILY_MEMBER_ROLE_OPTIONS,
@@ -4003,6 +4216,59 @@ app.get('/admin/registrations', requireAuth, requireRole('admin'), asyncHandler(
   });
 }));
 
+app.get('/admin/students', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const students = await db.prepare(`
+    SELECT
+      s.*,
+      sr.id AS registration_id,
+      sr.status AS registration_status,
+      sr.registration_fee, sr.sacramental_fee, sr.late_fee,
+      sr.baptism_certificate_path, sr.first_communion_certificate_path,
+      sr.certificates_verified, sr.certificates_verified_at, sr.certificates_verified_by,
+      sr.tuition_paid, sr.tuition_paid_at, sr.tuition_paid_by,
+      sr.parent_contacted, sr.parent_contacted_at, sr.parent_contacted_by
+    FROM students s
+    LEFT JOIN student_registrations sr ON sr.id = s.source_registration_id
+    ORDER BY s.student_full_name ASC
+  `).all();
+
+  const verifierUserIds = new Set();
+  students.forEach((s) => {
+    ['certificates_verified_by', 'tuition_paid_by', 'parent_contacted_by'].forEach((col) => {
+      if (s[col]) verifierUserIds.add(Number(s[col]));
+    });
+  });
+  let verifierLookup = {};
+  if (verifierUserIds.size > 0) {
+    const ids = [...verifierUserIds];
+    const verifierRows = await db.prepare(
+      `SELECT id, full_name, email FROM users WHERE id IN (${ids.map(() => '?').join(',')})`
+    ).all(...ids);
+    verifierLookup = Object.fromEntries(verifierRows.map((row) => [row.id, row.full_name || row.email]));
+  }
+
+  res.render('admin-students', {
+    students, verifierLookup, studentStatusOptions: STUDENT_STATUSES,
+  });
+}));
+
+app.post('/admin/students/:id/status', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const requestedStatus = typeof req.body.status === 'string' ? req.body.status.trim() : '';
+  if (!STUDENT_STATUSES.includes(requestedStatus)) {
+    req.flash('error', 'Invalid student status.');
+    return res.redirect('/admin/students');
+  }
+
+  const student = await db.prepare('SELECT id FROM students WHERE id = ?').get(req.params.id);
+  if (!student) {
+    return res.status(404).send('Student not found.');
+  }
+
+  await db.prepare('UPDATE students SET student_status = ? WHERE id = ?').run(requestedStatus, req.params.id);
+  req.flash('success', res.locals.t('status_updated'));
+  return res.redirect('/admin/students');
+}));
+
 app.get('/admin/users', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   const validRoles = ['user', 'catechist', 'family_faith_leader', 'admin'];
   const roleFilter = validRoles.includes(req.query.role) ? req.query.role : '';
@@ -4262,6 +4528,11 @@ app.post('/admin/settings/faith-formation/year', requireAuth, requireRole('admin
     return res.redirect('/admin/users');
   }
 
+  const priorYearRow = await db.prepare(
+    'SELECT faith_formation_open FROM registration_year_settings WHERE school_year = ?'
+  ).get(schoolYear);
+  const wasOpen = !!priorYearRow?.faith_formation_open;
+
   await db.prepare(
     `INSERT INTO registration_year_settings (school_year, faith_formation_open, sponsor_form_open)
      VALUES (?, ?, ?)
@@ -4269,6 +4540,13 @@ app.post('/admin/settings/faith-formation/year', requireAuth, requireRole('admin
        faith_formation_open = VALUES(faith_formation_open),
        sponsor_form_open = VALUES(sponsor_form_open)`
   ).run(schoolYear, faithFormationRegistrationOpen, sponsorFormRegistrationOpen);
+
+  // Closing a year's Faith Formation registration rolls its currently-Enrolled students
+  // forward: a class-history entry is recorded and their registration for that year is
+  // archived, out of active views/rosters, while the student itself stays Enrolled.
+  if (wasOpen && !faithFormationRegistrationOpen) {
+    await rolloverEnrolledStudentsForSchoolYear(schoolYear);
+  }
 
   req.flash('success', `${schoolYear} updated. Faith Formation is ${faithFormationRegistrationOpen ? 'open' : 'closed'}, Sponsor Form is ${sponsorFormRegistrationOpen ? 'open' : 'closed'}.`);
   return res.redirect('/admin/users');
@@ -4796,9 +5074,10 @@ app.get('/admin/classes', requireAuth, requireRole('admin', 'catechist'), asyncH
     ? allCcdClasses.filter((c) => isClassCatechist(c, req.user.id))
     : allCcdClasses;
   const activeStudentRegs = await db.prepare('SELECT * FROM student_registrations WHERE archived_at IS NULL').all();
+  const enrolledRegistrationIds = await getEnrolledRegistrationIds();
 
   const classes = ccdClasses.map((ccdClass) => {
-    const roster = getClassRoster(ccdClass, activeStudentRegs);
+    const roster = getClassRoster(ccdClass, activeStudentRegs, enrolledRegistrationIds);
     const upcomingDates = getUpcomingSessionDates(ccdClass.class_time);
     return {
       ...ccdClass,
@@ -4822,7 +5101,8 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist'), as
   }
 
   const activeStudentRegs = await db.prepare('SELECT * FROM student_registrations WHERE archived_at IS NULL').all();
-  const roster = getClassRoster(ccdClass, activeStudentRegs)
+  const enrolledRegistrationIds = await getEnrolledRegistrationIds();
+  const roster = getClassRoster(ccdClass, activeStudentRegs, enrolledRegistrationIds)
     .sort((a, b) => (a.student_full_name || '').localeCompare(b.student_full_name || ''));
 
   const upcomingDates = getUpcomingSessionDates(ccdClass.class_time);
@@ -4932,7 +5212,8 @@ app.post('/admin/classes/:id/message', requireAuth, requireRole('admin', 'catech
   }
 
   const activeStudentRegs = await db.prepare('SELECT * FROM student_registrations WHERE archived_at IS NULL').all();
-  const selectedStudents = getClassRoster(ccdClass, activeStudentRegs).filter((r) => selectedIds.has(r.id));
+  const enrolledRegistrationIds = await getEnrolledRegistrationIds();
+  const selectedStudents = getClassRoster(ccdClass, activeStudentRegs, enrolledRegistrationIds).filter((r) => selectedIds.has(r.id));
 
   // Dedupe by parent email so siblings selected in the same class don't get a duplicate copy.
   const recipientsByEmail = new Map();

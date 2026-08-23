@@ -283,7 +283,7 @@
                   <% } %>
                 </td>
                 <td colspan="3">
-                  <form class="row g-2 align-items-end" method="post" action="/admin/settings/faith-formation/year">
+                  <form class="row g-2 align-items-end year-toggle-form" method="post" action="/admin/settings/faith-formation/year" data-was-open="<%= yearRow.faithFormationOpen ? '1' : '0' %>" data-school-year="<%= yearRow.schoolYear %>">
                     <input type="hidden" name="school_year" value="<%= yearRow.schoolYear %>">
                     <div class="col-md-4">
                       <label class="form-label"><%= t('faith_formation_col') %></label>
@@ -873,6 +873,21 @@
 
     scheduleType.addEventListener('change', updateScheduleFields);
     updateScheduleFields();
+  }());
+
+  (function () {
+    const closeYearWarningTemplate = <%- JSON.stringify(t('confirm_close_year_warning')) %>;
+    document.querySelectorAll('.year-toggle-form').forEach((form) => {
+      form.addEventListener('submit', (event) => {
+        const wasOpen = form.dataset.wasOpen === '1';
+        const select = form.querySelector('select[name="faith_formation_registration_open"]');
+        const closingNow = select && select.value === '0';
+        if (wasOpen && closingNow) {
+          const message = closeYearWarningTemplate.replace('%s', form.dataset.schoolYear || '');
+          if (!confirm(message)) event.preventDefault();
+        }
+      });
+    });
   }());
 
   (function () {

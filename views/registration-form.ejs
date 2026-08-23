@@ -149,6 +149,7 @@
         <input type="hidden" name="total_children" id="total-children-input" value="<%= editing ? '' : (wizardTotal || '') %>">
         <input type="hidden" name="student_index" value="<%= editing ? '' : wizardIndex %>">
         <input type="hidden" name="group_ids" value="<%= editing ? '' : wizardGroupIds.join(',') %>">
+        <input type="hidden" name="prefill_student_id" value="<%= (!editing && typeof prefillStudentId !== 'undefined' && prefillStudentId) ? prefillStudentId : '' %>">
 
         <!-- Registration date -->
         <div class="col-12">
