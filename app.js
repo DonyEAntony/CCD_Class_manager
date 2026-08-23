@@ -719,6 +719,7 @@ const translations = {
     transferred: 'Transferred',
     student_status: 'Student Status',
     registration_status: 'Registration Status',
+    confirm_close_year_warning: 'Closing Faith Formation registration for %s will archive every currently-Enrolled student\'s registration for this year and record their class as completed. This can\'t be easily undone. Continue?',
   },
   es: {
     app_title: 'Iglesia Católica San Mateo',
@@ -1385,6 +1386,7 @@ const translations = {
     transferred: 'Transferido',
     student_status: 'Estado del Estudiante',
     registration_status: 'Estado de la Inscripción',
+    confirm_close_year_warning: 'Cerrar la inscripción de Formación en la Fe para %s archivará la inscripción de este año de cada estudiante actualmente Inscrito y registrará su clase como completada. Esto no se puede deshacer fácilmente. ¿Continuar?',
   }
 };
 // ── Adult program metadata (locale-aware) ───────────────────
