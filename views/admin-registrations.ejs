@@ -301,7 +301,7 @@
                         <% } %>
                       </li>
                       <li>
-                        <form method="post" action="/admin/registrations/children/<%= r.id %>/delete" onsubmit="return confirm(<%- JSON.stringify(t('confirm_delete_registration_prefix')) %> + ' ' + <%- JSON.stringify(r.student_full_name || 'this student') %> + '? ' + <%- JSON.stringify(t('confirm_delete_registration_suffix')) %>);">
+                        <form method="post" action="/admin/registrations/children/<%= r.id %>/delete" onsubmit="return confirm(<%= JSON.stringify(t('confirm_delete_registration_prefix')) %> + ' ' + <%= JSON.stringify(r.student_full_name || 'this student') %> + '? ' + <%= JSON.stringify(t('confirm_delete_registration_suffix')) %>);">
                           <button class="dropdown-item text-danger" type="submit"><%= t('remove') %></button>
                         </form>
                       </li>
@@ -462,7 +462,7 @@
                         <% } %>
                       </li>
                       <li>
-                        <form method="post" action="/admin/registrations/adult/<%= r.id %>/delete" onsubmit="return confirm(<%- JSON.stringify(t('confirm_delete_registration_prefix')) %> + ' ' + <%- JSON.stringify(r.full_name || 'this person') %> + '? ' + <%- JSON.stringify(t('confirm_delete_registration_suffix')) %>);">
+                        <form method="post" action="/admin/registrations/adult/<%= r.id %>/delete" onsubmit="return confirm(<%= JSON.stringify(t('confirm_delete_registration_prefix')) %> + ' ' + <%= JSON.stringify(r.full_name || 'this person') %> + '? ' + <%= JSON.stringify(t('confirm_delete_registration_suffix')) %>);">
                           <button class="dropdown-item text-danger" type="submit"><%= t('remove') %></button>
                         </form>
                       </li>

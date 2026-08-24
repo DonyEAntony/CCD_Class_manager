@@ -550,6 +550,9 @@ const translations = {
     no_accepted_students: 'No students have been admitted yet.',
     no_students_match_filters: 'No students match these filters.',
     students_filter_summary: '%s of %s students',
+    student_deleted: 'Student record deleted.',
+    confirm_delete_student_prefix: 'Permanently delete the student record for',
+    confirm_delete_student_suffix: 'This removes their enrollment, class, and sacrament history and cannot be undone. The linked registration itself will not be deleted.',
     edit_registration: 'View Registration',
     no_active_registration: 'No active registration',
     tuition_import_nav: 'Tuition Import',
@@ -1296,6 +1299,9 @@ const translations = {
     no_accepted_students: 'Aún no se ha admitido a ningún estudiante.',
     no_students_match_filters: 'Ningún estudiante coincide con estos filtros.',
     students_filter_summary: '%s de %s estudiantes',
+    student_deleted: 'Registro de estudiante eliminado.',
+    confirm_delete_student_prefix: 'Eliminar permanentemente el registro del estudiante',
+    confirm_delete_student_suffix: 'Esto elimina su historial de inscripción, clases y sacramentos, y no se puede deshacer. La inscripción vinculada no será eliminada.',
     edit_registration: 'Ver Inscripción',
     no_active_registration: 'Sin inscripción activa',
     tuition_import_nav: 'Importar Matrícula',
@@ -4825,6 +4831,22 @@ app.post('/admin/students/:id/status', requireAuth, requireRole('admin'), asyncH
 
   await db.prepare('UPDATE students SET student_status = ? WHERE id = ?').run(requestedStatus, req.params.id);
   req.flash('success', res.locals.t('status_updated'));
+  return res.redirect('/admin/students');
+}));
+
+app.post('/admin/students/:id/delete', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const student = await db.prepare('SELECT id FROM students WHERE id = ?').get(req.params.id);
+  if (!student) {
+    return res.status(404).send('Student not found.');
+  }
+
+  // student_registrations.student_id has no FK/cascade back to students, so it must be
+  // cleared manually or it's left pointing at a row that no longer exists. The
+  // registration itself is untouched — only its link to this persistent student goes away.
+  await db.prepare('UPDATE student_registrations SET student_id = NULL WHERE student_id = ?').run(student.id);
+  await db.prepare('DELETE FROM students WHERE id = ?').run(student.id);
+
+  req.flash('success', res.locals.t('student_deleted'));
   return res.redirect('/admin/students');
 }));
 

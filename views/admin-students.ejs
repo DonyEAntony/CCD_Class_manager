@@ -254,10 +254,20 @@
                 <% } %>
               </td>
               <td style="font-size:.8rem;color:var(--muted)"><%= r.created_at ? (typeof r.created_at === 'string' ? r.created_at.slice(0, 16).replace('T', ' ') : r.created_at.toISOString().slice(0, 16).replace('T', ' ')) : '—' %></td>
-              <td>
-                <% if (r.registration_id) { %>
-                  <a href="/registration/children/edit/<%= r.registration_id %>" class="btn btn-sm btn-outline-primary"><%= t('edit_registration') %></a>
-                <% } %>
+              <td class="text-end">
+                <div class="dropdown">
+                  <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown" data-bs-strategy="fixed" aria-expanded="false" aria-label="<%= t('more_actions') %>">&#8942;</button>
+                  <ul class="dropdown-menu dropdown-menu-end">
+                    <% if (r.registration_id) { %>
+                      <li><a class="dropdown-item" href="/registration/children/edit/<%= r.registration_id %>"><%= t('edit_registration') %></a></li>
+                    <% } %>
+                    <li>
+                      <form method="post" action="/admin/students/<%= r.id %>/delete" onsubmit="return confirm(<%= JSON.stringify(t('confirm_delete_student_prefix')) %> + ' ' + <%= JSON.stringify(r.student_full_name || 'this student') %> + '. ' + <%= JSON.stringify(t('confirm_delete_student_suffix')) %>);">
+                        <button class="dropdown-item text-danger" type="submit"><%= t('remove') %></button>
+                      </form>
+                    </li>
+                  </ul>
+                </div>
               </td>
             </tr>
             <tr class="d-none" id="student-detail-<%= r.id %>">
