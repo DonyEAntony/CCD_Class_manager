@@ -125,7 +125,7 @@ const buildClassMessageEmailContent = ({ subject, message, senderName }) => ({
   `,
 });
 
-const sendClassMessageEmail = async ({ to, subject, message, senderName }) => {
+const sendClassMessageEmail = async ({ to, subject, message, senderName, cc }) => {
   const transporter = createTransporter();
   if (!transporter) {
     console.warn('[mail] Class message email skipped: SMTP config incomplete', {
@@ -141,6 +141,7 @@ const sendClassMessageEmail = async ({ to, subject, message, senderName }) => {
 
   console.info('[mail] Sending class message email', {
     to,
+    cc: cc || undefined,
     host: smtpLogConfig.host,
     port: smtpLogConfig.port,
     secure: smtpLogConfig.secure,
@@ -151,6 +152,7 @@ const sendClassMessageEmail = async ({ to, subject, message, senderName }) => {
   const info = await transporter.sendMail({
     from: resolvedFrom,
     to,
+    cc: cc || undefined,
     subject: content.subject,
     text: content.text,
     html: content.html,

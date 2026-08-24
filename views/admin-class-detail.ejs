@@ -157,9 +157,11 @@
       <div class="d-flex justify-content-between align-items-center mb-2">
         <h2 class="h6 mb-0" style="text-transform:uppercase;letter-spacing:.06em;font-size:.75rem;color:var(--muted)"><%= t('roster_label') %> &mdash; <%= roster.length %> <%= roster.length === 1 ? t('student_count_singular') : t('student_count_plural') %></h2>
         <% if (roster.length) { %>
-          <div class="d-flex gap-2">
+          <div class="d-flex gap-2 align-items-center">
             <button type="button" class="btn btn-link btn-sm p-0" id="select-all-recipients"><%= t('select_all_label') %></button>
             <button type="button" class="btn btn-link btn-sm p-0" id="select-none-recipients"><%= t('select_none_label') %></button>
+            <button type="button" class="btn btn-link btn-sm p-0" id="copy-all-emails"><%= t('copy_all_emails_label') %></button>
+            <span id="copy-all-emails-feedback" style="font-size:.78rem;color:var(--muted)"></span>
           </div>
         <% } %>
       </div>
@@ -174,7 +176,7 @@
           <% const currentStatus = attendanceByStudent[r.id] || ''; %>
           <div class="roster-card" data-student-row="<%= r.id %>">
             <div class="form-check pt-1">
-              <input class="form-check-input message-recipient-checkbox" type="checkbox" name="student_registration_ids" value="<%= r.id %>" id="msg-check-<%= r.id %>" checked>
+              <input class="form-check-input message-recipient-checkbox" type="checkbox" name="student_registration_ids" value="<%= r.id %>" id="msg-check-<%= r.id %>" data-email="<%= r.primary_contact_email || '' %>" checked>
             </div>
             <div class="roster-avatar"><%= initials %></div>
             <div class="roster-info">
@@ -205,6 +207,10 @@
             <div class="mb-2">
               <label class="form-label mb-1" style="font-size:.75rem"><%= t('subject_label') %></label>
               <input class="form-control form-control-sm" type="text" name="subject" placeholder="<%= t('subject_placeholder') %>">
+            </div>
+            <div class="mb-2">
+              <label class="form-label mb-1" style="font-size:.75rem"><%= t('cc_email_label') %></label>
+              <input class="form-control form-control-sm" type="text" name="cc_email" placeholder="<%= t('cc_email_placeholder') %>">
             </div>
             <div class="mb-2">
               <label class="form-label mb-1" style="font-size:.75rem"><%= t('message_label') %></label>
@@ -307,10 +313,50 @@
     const countLabel = document.getElementById('recipient-count-label');
     const selectAllBtn = document.getElementById('select-all-recipients');
     const selectNoneBtn = document.getElementById('select-none-recipients');
+    const copyAllEmailsBtn = document.getElementById('copy-all-emails');
+    const copyFeedback = document.getElementById('copy-all-emails-feedback');
     const studentSingularLabel = <%- JSON.stringify(t('student_count_singular')) %>;
     const studentPluralLabel = <%- JSON.stringify(t('student_count_plural')) %>;
     const selectedSuffixLabel = <%- JSON.stringify(t('selected_suffix_label')) %>;
+    const emailsCopiedLabel = <%- JSON.stringify(t('emails_copied_label')) %>;
+    const noEmailsToCopyLabel = <%- JSON.stringify(t('no_emails_to_copy_label')) %>;
+    const copyEmailsFailedLabel = <%- JSON.stringify(t('copy_emails_failed_label')) %>;
     if (!checkboxes.length || !countLabel) return;
+
+    if (copyAllEmailsBtn) {
+      copyAllEmailsBtn.addEventListener('click', () => {
+        const emailsByLower = new Map();
+        checkboxes.forEach((cb) => {
+          if (!cb.checked) return;
+          const email = (cb.dataset.email || '').trim();
+          if (email) emailsByLower.set(email.toLowerCase(), email);
+        });
+        const emailList = Array.from(emailsByLower.values()).join(', ');
+        if (!emailList) {
+          if (copyFeedback) copyFeedback.textContent = noEmailsToCopyLabel;
+          return;
+        }
+        const showCopied = () => { if (copyFeedback) copyFeedback.textContent = emailsCopiedLabel; };
+        const showFailed = () => { if (copyFeedback) copyFeedback.textContent = copyEmailsFailedLabel; };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(emailList).then(showCopied).catch(showFailed);
+        } else {
+          const textarea = document.createElement('textarea');
+          textarea.value = emailList;
+          textarea.style.position = 'fixed';
+          textarea.style.opacity = '0';
+          document.body.appendChild(textarea);
+          textarea.select();
+          try {
+            document.execCommand('copy');
+            showCopied();
+          } catch (e) {
+            showFailed();
+          }
+          document.body.removeChild(textarea);
+        }
+      });
+    }
 
     const updateCount = () => {
       const checkedCount = checkboxes.filter((cb) => cb.checked).length;

@@ -705,9 +705,15 @@ const translations = {
     send_message_label: 'Send a Message',
     select_all_label: 'Select all',
     select_none_label: 'Select none',
+    copy_all_emails_label: 'Copy all emails',
+    emails_copied_label: 'Copied!',
+    no_emails_to_copy_label: 'No contact emails to copy.',
+    copy_emails_failed_label: 'Could not copy — copy manually instead.',
     selected_suffix_label: 'selected',
     subject_label: 'Subject (optional)',
     subject_placeholder: 'e.g. Reminder for this Sunday',
+    cc_email_label: 'Cc (optional)',
+    cc_email_placeholder: 'you@example.com',
     message_label: 'Message',
     message_placeholder: 'Type your message to parents here...',
     send_message_button: 'Send Message',
@@ -1454,9 +1460,15 @@ const translations = {
     send_message_label: 'Enviar un Mensaje',
     select_all_label: 'Seleccionar todos',
     select_none_label: 'Deseleccionar todos',
+    copy_all_emails_label: 'Copiar todos los correos',
+    emails_copied_label: '¡Copiado!',
+    no_emails_to_copy_label: 'No hay correos de contacto para copiar.',
+    copy_emails_failed_label: 'No se pudo copiar — cópielo manualmente.',
     selected_suffix_label: 'seleccionados',
     subject_label: 'Asunto (opcional)',
     subject_placeholder: 'ej. Recordatorio para este domingo',
+    cc_email_label: 'Cc (opcional)',
+    cc_email_placeholder: 'tu@ejemplo.com',
     message_label: 'Mensaje',
     message_placeholder: 'Escriba su mensaje para los padres aquí...',
     send_message_button: 'Enviar Mensaje',
@@ -6097,6 +6109,15 @@ app.post('/admin/classes/:id/message', requireAuth, requireRole('admin', 'catech
     return res.redirect(`/admin/classes/${classId}`);
   }
 
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const rawCcInput = (typeof req.body.cc_email === 'string' ? req.body.cc_email : '').trim();
+  const ccEmails = rawCcInput
+    .split(',')
+    .map((address) => address.trim())
+    .filter((address) => emailRegex.test(address));
+  const ccList = ccEmails.length ? ccEmails.join(', ') : undefined;
+  const ccAllInvalid = rawCcInput.length > 0 && ccEmails.length === 0;
+
   const rawIds = req.body.student_registration_ids;
   const selectedIds = new Set(
     (Array.isArray(rawIds) ? rawIds : (rawIds ? [rawIds] : []))
@@ -6128,7 +6149,7 @@ app.post('/admin/classes/:id/message', requireAuth, requireRole('admin', 'catech
   const senderName = req.user.full_name || req.user.email;
   let sentCount = 0;
   for (const email of recipientsByEmail.values()) {
-    const result = await sendClassMessageEmail({ to: email, subject, message, senderName });
+    const result = await sendClassMessageEmail({ to: email, subject, message, senderName, cc: ccList });
     if (result.delivered) sentCount += 1;
   }
 
@@ -6136,6 +6157,7 @@ app.post('/admin/classes/:id/message', requireAuth, requireRole('admin', 'catech
   if (sentCount === 0) {
     req.flash('error', 'Message could not be sent — check the mail server configuration.');
   } else {
+    if (ccAllInvalid) req.flash('error', 'The Cc address was not a valid email and was not included.');
     req.flash(
       'success',
       `Message sent to ${sentCount} famil${sentCount === 1 ? 'y' : 'ies'}` +
