@@ -3702,10 +3702,15 @@ app.post(
 );
 
 app.post('/registration/children/:id/status', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const defaultRedirect = `/registration/children/edit/${req.params.id}`;
+  const redirectTo = typeof req.body.redirect_to === 'string' && req.body.redirect_to.startsWith('/admin/registrations')
+    ? req.body.redirect_to
+    : defaultRedirect;
+
   const requestedStatus = typeof req.body.status === 'string' ? req.body.status.trim() : '';
   if (!CHILD_REGISTRATION_STATUSES.includes(requestedStatus)) {
     req.flash('error', 'Invalid registration status.');
-    return res.redirect(`/registration/children/edit/${req.params.id}`);
+    return res.redirect(redirectTo);
   }
 
   const reg = await db.prepare('SELECT * FROM student_registrations WHERE id = ?').get(req.params.id);
@@ -3717,7 +3722,7 @@ app.post('/registration/children/:id/status', requireAuth, requireRole('admin'),
     const missingFields = getIncompleteStudentRegistrationFields(reg);
     if (missingFields.length) {
       req.flash('error', `Cannot mark this registration admitted until all required fields are filled in. Missing: ${missingFields.join(', ')}.`);
-      return res.redirect(`/registration/children/edit/${req.params.id}`);
+      return res.redirect(redirectTo);
     }
   }
 
@@ -3776,7 +3781,7 @@ app.post('/registration/children/:id/status', requireAuth, requireRole('admin'),
   }
 
   req.flash('success', res.locals.t('status_updated'));
-  return res.redirect(`/registration/children/edit/${req.params.id}`);
+  return res.redirect(redirectTo);
 }));
 
 // GET /registration/children/edit/:id
@@ -3980,10 +3985,15 @@ app.post('/registration/family-faith', requireAuth, asyncHandler(async (req, res
 }));
 
 app.post('/registration/family-faith/:id/status', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const defaultRedirect = `/registration/family-faith/edit/${req.params.id}`;
+  const redirectTo = typeof req.body.redirect_to === 'string' && req.body.redirect_to.startsWith('/admin/registrations')
+    ? req.body.redirect_to
+    : defaultRedirect;
+
   const requestedStatus = typeof req.body.status === 'string' ? req.body.status.trim() : '';
   if (!FAMILY_FAITH_REGISTRATION_STATUSES.includes(requestedStatus)) {
     req.flash('error', 'Invalid registration status.');
-    return res.redirect(`/registration/family-faith/edit/${req.params.id}`);
+    return res.redirect(redirectTo);
   }
 
   const reg = await db.prepare('SELECT id FROM family_faith_registrations WHERE id = ?').get(req.params.id);
@@ -3991,7 +4001,7 @@ app.post('/registration/family-faith/:id/status', requireAuth, requireRole('admi
 
   await db.prepare('UPDATE family_faith_registrations SET status = ? WHERE id = ?').run(requestedStatus, req.params.id);
   req.flash('success', res.locals.t('status_updated'));
-  return res.redirect(`/registration/family-faith/edit/${req.params.id}`);
+  return res.redirect(redirectTo);
 }));
 
 app.get('/registration/family-faith/edit/:id', requireAuth, asyncHandler(async (req, res) => {
@@ -4495,6 +4505,7 @@ app.get('/admin/registrations', requireAuth, requireRole('admin'), asyncHandler(
     typeFilter, statusFilter, statusOptionsForType, statusCounts, typeCounts, grandTotal, filteredCount,
     studentRegs, familyRegs, adultRegs, sponsorRegs, ADULT_PROGRAMS, faithFormationSettings,
     resolveCcdGrade, ccdGradeMeanings: CCD_GRADE_MEANINGS, gradeFilter, parentFilter, verifierLookup,
+    childRegistrationStatuses: CHILD_REGISTRATION_STATUSES, familyFaithRegistrationStatuses: FAMILY_FAITH_REGISTRATION_STATUSES,
   });
 }));
 

@@ -263,6 +263,18 @@
                     <ul class="dropdown-menu dropdown-menu-end">
                       <li><a class="dropdown-item" href="/registration/children/edit/<%= r.id %>"><%= t('edit') %></a></li>
                       <li>
+                        <form method="post" action="/registration/children/<%= r.id %>/status" class="px-3 py-1">
+                          <label class="form-label mb-1" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)"><%= t('status') %></label>
+                          <select class="form-select form-select-sm" name="status" onchange="this.form.submit()" onclick="event.stopPropagation()">
+                            <% childRegistrationStatuses.forEach((statusOption) => { %>
+                              <option value="<%= statusOption %>" <%= r.status === statusOption ? 'selected' : '' %>><%= t(statusOption) %></option>
+                            <% }) %>
+                          </select>
+                          <input type="hidden" name="redirect_to" value="<%= chipQuery({}) %>">
+                        </form>
+                      </li>
+                      <li><hr class="dropdown-divider"></li>
+                      <li>
                         <% if (r.archived_at) { %>
                           <form method="post" action="/admin/registrations/children/<%= r.id %>/unarchive">
                             <button class="dropdown-item" type="submit"><%= t('unarchive') %></button>
@@ -353,8 +365,24 @@
                   </span>
                 </td>
                 <td style="font-size:.8rem;color:var(--muted)"><%= r.created_at ? (typeof r.created_at === 'string' ? r.created_at.slice(0, 16).replace('T', ' ') : r.created_at.toISOString().slice(0, 16).replace('T', ' ')) : '—' %></td>
-                <td>
-                  <a href="/registration/family-faith/edit/<%= r.id %>" class="btn btn-sm btn-outline-primary"><%= t('edit') %></a>
+                <td class="text-end">
+                  <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown" data-bs-strategy="fixed" aria-expanded="false" aria-label="<%= t('more_actions') %>">&#8942;</button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                      <li><a class="dropdown-item" href="/registration/family-faith/edit/<%= r.id %>"><%= t('edit') %></a></li>
+                      <li>
+                        <form method="post" action="/registration/family-faith/<%= r.id %>/status" class="px-3 py-1">
+                          <label class="form-label mb-1" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)"><%= t('status') %></label>
+                          <select class="form-select form-select-sm" name="status" onchange="this.form.submit()" onclick="event.stopPropagation()">
+                            <% familyFaithRegistrationStatuses.forEach((statusOption) => { %>
+                              <option value="<%= statusOption %>" <%= r.status === statusOption ? 'selected' : '' %>><%= t(statusOption) %></option>
+                            <% }) %>
+                          </select>
+                          <input type="hidden" name="redirect_to" value="<%= chipQuery({}) %>">
+                        </form>
+                      </li>
+                    </ul>
+                  </div>
                 </td>
               </tr>
             <% }) %>
