@@ -548,6 +548,11 @@ const translations = {
     all_students_header: 'Students',
     all_students_subtitle: 'Every child admitted into faith formation, with their ongoing enrollment status.',
     no_accepted_students: 'No students have been admitted yet.',
+    no_students_match_filters: 'No students match these filters.',
+    students_filter_summary: '%s of %s students',
+    student_deleted: 'Student record deleted.',
+    confirm_delete_student_prefix: 'Permanently delete the student record for',
+    confirm_delete_student_suffix: 'This removes their enrollment, class, and sacrament history and cannot be undone. The linked registration itself will not be deleted.',
     edit_registration: 'View Registration',
     no_active_registration: 'No active registration',
     tuition_import_nav: 'Tuition Import',
@@ -1292,6 +1297,11 @@ const translations = {
     all_students_header: 'Estudiantes',
     all_students_subtitle: 'Cada niño admitido en la formación en la fe, con su estado de inscripción continuo.',
     no_accepted_students: 'Aún no se ha admitido a ningún estudiante.',
+    no_students_match_filters: 'Ningún estudiante coincide con estos filtros.',
+    students_filter_summary: '%s de %s estudiantes',
+    student_deleted: 'Registro de estudiante eliminado.',
+    confirm_delete_student_prefix: 'Eliminar permanentemente el registro del estudiante',
+    confirm_delete_student_suffix: 'Esto elimina su historial de inscripción, clases y sacramentos, y no se puede deshacer. La inscripción vinculada no será eliminada.',
     edit_registration: 'Ver Inscripción',
     no_active_registration: 'Sin inscripción activa',
     tuition_import_nav: 'Importar Matrícula',
@@ -4645,8 +4655,53 @@ app.get('/admin/students', requireAuth, requireRole('admin'), asyncHandler(async
     }));
   });
 
+  const totalCount = students.length;
+
+  const statusOptionsForStudents = ['all', ...STUDENT_STATUSES];
+  const requestedStatus = typeof req.query.status === 'string' ? req.query.status : '';
+  const statusFilter = statusOptionsForStudents.includes(requestedStatus) ? requestedStatus : 'all';
+  const gradeFilter = Object.keys(CCD_GRADE_MEANINGS).includes(req.query.grade) ? req.query.grade : '';
+  const parentFilter = typeof req.query.parent === 'string' ? req.query.parent.trim() : '';
+
+  const statusCounts = {};
+  statusOptionsForStudents.forEach((opt) => {
+    statusCounts[opt] = opt === 'all' ? students.length : students.filter((s) => s.student_status === opt).length;
+  });
+
+  let visibleStudents = students.filter((s) => {
+    if (statusFilter !== 'all' && s.student_status !== statusFilter) return false;
+    if (gradeFilter && s.grade_level !== gradeFilter) return false;
+    if (parentFilter) {
+      const needle = parentFilter.toLowerCase();
+      const haystack = `${s.parent_name || ''} ${s.primary_contact_email || ''}`.toLowerCase();
+      if (!haystack.includes(needle)) return false;
+    }
+    return true;
+  });
+
+  const sortableColumns = new Set(['grade', 'submitted']);
+  const requestedSort = typeof req.query.sort === 'string' ? req.query.sort : '';
+  const sortBy = sortableColumns.has(requestedSort) ? requestedSort : '';
+  const sortDir = req.query.dir === 'asc' ? 'asc' : 'desc';
+  if (sortBy === 'grade') {
+    visibleStudents = [...visibleStudents].sort((a, b) => {
+      const aGrade = Number(a.grade_level) || null;
+      const bGrade = Number(b.grade_level) || null;
+      if (!aGrade && !bGrade) return 0;
+      if (!aGrade) return 1;
+      if (!bGrade) return -1;
+      return sortDir === 'asc' ? aGrade - bGrade : bGrade - aGrade;
+    });
+  } else if (sortBy === 'submitted') {
+    visibleStudents = [...visibleStudents].sort((a, b) => {
+      const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return sortDir === 'asc' ? aTime - bTime : bTime - aTime;
+    });
+  }
+
   const verifierUserIds = new Set();
-  students.forEach((s) => {
+  visibleStudents.forEach((s) => {
     ['certificates_verified_by', 'tuition_paid_by', 'parent_contacted_by', 'confirmation_received_by'].forEach((col) => {
       if (s[col]) verifierUserIds.add(Number(s[col]));
     });
@@ -4661,7 +4716,9 @@ app.get('/admin/students', requireAuth, requireRole('admin'), asyncHandler(async
   }
 
   res.render('admin-students', {
-    students, verifierLookup, studentStatusOptions: STUDENT_STATUSES,
+    students: visibleStudents, verifierLookup, studentStatusOptions: STUDENT_STATUSES,
+    statusOptionsForStudents, statusFilter, statusCounts, gradeFilter, parentFilter,
+    ccdGradeMeanings: CCD_GRADE_MEANINGS, sortBy, sortDir, totalCount, filteredCount: visibleStudents.length,
   });
 }));
 
@@ -4774,6 +4831,22 @@ app.post('/admin/students/:id/status', requireAuth, requireRole('admin'), asyncH
 
   await db.prepare('UPDATE students SET student_status = ? WHERE id = ?').run(requestedStatus, req.params.id);
   req.flash('success', res.locals.t('status_updated'));
+  return res.redirect('/admin/students');
+}));
+
+app.post('/admin/students/:id/delete', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const student = await db.prepare('SELECT id FROM students WHERE id = ?').get(req.params.id);
+  if (!student) {
+    return res.status(404).send('Student not found.');
+  }
+
+  // student_registrations.student_id has no FK/cascade back to students, so it must be
+  // cleared manually or it's left pointing at a row that no longer exists. The
+  // registration itself is untouched — only its link to this persistent student goes away.
+  await db.prepare('UPDATE student_registrations SET student_id = NULL WHERE student_id = ?').run(student.id);
+  await db.prepare('DELETE FROM students WHERE id = ?').run(student.id);
+
+  req.flash('success', res.locals.t('student_deleted'));
   return res.redirect('/admin/students');
 }));
 
