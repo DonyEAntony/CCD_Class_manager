@@ -191,6 +191,7 @@
         <% if (!studentRegs || studentRegs.length === 0) { %>
           <div class="p-4 text-center" style="color:var(--muted);font-size:.9rem"><em><%= filtersActive ? t('no_registrations_match_filters') : t('no_children_regs') %></em></div>
         <% } else { %>
+        <% const childHasArchivedRows = studentRegs.some((r) => r.archived_at); %>
         <div class="table-responsive">
           <table class="table mb-0">
             <thead>
@@ -203,7 +204,7 @@
                 <th><%= t('child_verification_col_header') %></th>
                 <th><%= t('status') %></th>
                 <th><%= t('submitted_col') %></th>
-                <th><%= t('archived_col') %></th>
+                <% if (childHasArchivedRows) { %><th><%= t('archived_col') %></th><% } %>
                 <th><%= t('actions') %></th>
               </tr>
             </thead>
@@ -256,7 +257,9 @@
                   </span>
                 </td>
                 <td style="font-size:.8rem;color:var(--muted)"><%= r.created_at ? (typeof r.created_at === 'string' ? r.created_at.slice(0, 16).replace('T', ' ') : r.created_at.toISOString().slice(0, 16).replace('T', ' ')) : '—' %></td>
-                <td style="font-size:.8rem;color:var(--muted)"><%= r.archived_at ? (typeof r.archived_at === 'string' ? r.archived_at.slice(0, 16).replace('T', ' ') : r.archived_at.toISOString().slice(0, 16).replace('T', ' ')) : '—' %></td>
+                <% if (childHasArchivedRows) { %>
+                  <td style="font-size:.8rem;color:var(--muted)"><%= r.archived_at ? (typeof r.archived_at === 'string' ? r.archived_at.slice(0, 16).replace('T', ' ') : r.archived_at.toISOString().slice(0, 16).replace('T', ' ')) : '—' %></td>
+                <% } %>
                 <td class="text-end">
                   <div class="dropdown">
                     <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown" data-bs-strategy="fixed" aria-expanded="false" aria-label="<%= t('more_actions') %>">&#8942;</button>
@@ -394,6 +397,7 @@
         <% if (!adultRegs || adultRegs.length === 0) { %>
           <div class="p-4 text-center" style="color:var(--muted);font-size:.9rem"><em><%= filtersActive ? t('no_registrations_match_filters') : t('no_adult_regs') %></em></div>
         <% } else { %>
+        <% const adultHasArchivedRows = adultRegs.some((r) => r.archived_at); %>
         <div class="table-responsive">
           <table class="table mb-0">
             <thead>
@@ -404,7 +408,7 @@
                 <th><%= t('phone') %></th>
                 <th><%= t('date_col') %></th>
                 <th><%= t('status') %></th>
-                <th><%= t('archived_col') %></th>
+                <% if (adultHasArchivedRows) { %><th><%= t('archived_col') %></th><% } %>
                 <th><%= t('actions') %></th>
               </tr>
             </thead>
@@ -426,7 +430,9 @@
                     <%= t(r.status) %>
                   </span>
                 </td>
-                <td style="font-size:.8rem;color:var(--muted)"><%= r.archived_at ? (typeof r.archived_at === 'string' ? r.archived_at.slice(0, 16).replace('T', ' ') : r.archived_at.toISOString().slice(0, 16).replace('T', ' ')) : '—' %></td>
+                <% if (adultHasArchivedRows) { %>
+                  <td style="font-size:.8rem;color:var(--muted)"><%= r.archived_at ? (typeof r.archived_at === 'string' ? r.archived_at.slice(0, 16).replace('T', ' ') : r.archived_at.toISOString().slice(0, 16).replace('T', ' ')) : '—' %></td>
+                <% } %>
                 <td class="text-end">
                   <div class="dropdown">
                     <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown" data-bs-strategy="fixed" aria-expanded="false" aria-label="<%= t('more_actions') %>">&#8942;</button>
