@@ -22,6 +22,8 @@
   <% const activeTypeFilter = typeof typeFilter !== 'undefined' ? typeFilter : 'child'; %>
   <% const activeStatusFilter = typeof statusFilter !== 'undefined' ? statusFilter : 'all'; %>
   <% const availableStatusOptions = (typeof statusOptionsForType !== 'undefined' && statusOptionsForType) ? statusOptionsForType : ['all']; %>
+  <% const activeSortBy = typeof sortBy !== 'undefined' ? sortBy : ''; %>
+  <% const activeSortDir = typeof sortDir !== 'undefined' ? sortDir : 'desc'; %>
   <% const tabBadgeStyle = "background:var(--surface);color:var(--navy-soft);font-size:.7rem;border-radius:2rem;padding:.3em .8em;font-weight:700;border:1px solid var(--border)"; %>
   <% const statusOptionLabel = (opt) => {
        if (opt === 'all') return t('all_statuses');
@@ -72,6 +74,14 @@
        if (parent) params.set('parent', parent);
        return '/admin/registrations?' + params.toString();
      }; %>
+  <% const sortLink = (column) => {
+       const params = new URLSearchParams(chipQuery({}).split('?')[1] || '');
+       const nextDir = (activeSortBy === column && activeSortDir === 'asc') ? 'desc' : 'asc';
+       params.set('sort', column);
+       params.set('dir', nextDir);
+       return '/admin/registrations?' + params.toString();
+     }; %>
+  <% const sortIndicator = (column) => activeSortBy === column ? (activeSortDir === 'asc' ? ' ▲' : ' ▼') : ''; %>
   <% const activeChips = []; %>
   <% activeChips.push({ label: t(registrationTypes.find((rt) => rt.value === activeTypeFilter).labelKey), href: '/admin/registrations' }); %>
   <% if (activeStatusFilter !== defaultStatusByType[activeTypeFilter]) { activeChips.push({ label: statusOptionLabel(activeStatusFilter), href: chipQuery({ status: defaultStatusByType[activeTypeFilter] }) }); } %>
@@ -116,6 +126,8 @@
     .rf-chip{display:inline-flex;align-items:center;gap:.4rem;padding:.3rem .7rem;border-radius:999px;font-size:.78rem;background:#ffe1d0;color:#8c491a;text-decoration:none;border:none}
     .rf-chip:hover{background:#ffc6a5;color:#8c491a}
     .rf-chip .rf-x{font-size:.8rem;opacity:.6}
+    .rf-sort-link{color:inherit;text-decoration:none;white-space:nowrap}
+    .rf-sort-link:hover{text-decoration:underline}
     @media (max-width:900px){.rf-shell{flex-direction:column}.rf-sidebar{width:auto;border-radius:20px 20px 0 0}.rf-sidebar.rf-collapsed{width:auto}}
   </style>
 
@@ -197,13 +209,13 @@
             <thead>
               <tr>
                 <th><%= t('student') %></th>
-                <th><%= t('grade') %></th>
+                <th><a class="rf-sort-link" href="<%= sortLink('grade') %>"><%= t('grade') %><%= sortIndicator('grade') %></a></th>
                 <th><%= t('primary_contact') %></th>
                 <th><%= t('total_fees') %></th>
                 <th><%= t('certificates') %></th>
                 <th><%= t('child_verification_col_header') %></th>
                 <th><%= t('status') %></th>
-                <th><%= t('submitted_col') %></th>
+                <th><a class="rf-sort-link" href="<%= sortLink('submitted') %>"><%= t('submitted_col') %><%= sortIndicator('submitted') %></a></th>
                 <% if (childHasArchivedRows) { %><th><%= t('archived_col') %></th><% } %>
                 <th><%= t('actions') %></th>
               </tr>
@@ -316,7 +328,7 @@
                 <th><%= t('family_badges') %></th>
                 <th><%= t('visit_window') %></th>
                 <th><%= t('status') %></th>
-                <th><%= t('submitted_col') %></th>
+                <th><a class="rf-sort-link" href="<%= sortLink('submitted') %>"><%= t('submitted_col') %><%= sortIndicator('submitted') %></a></th>
                 <th><%= t('actions') %></th>
               </tr>
             </thead>
@@ -406,7 +418,7 @@
                 <th><%= t('program_col') %></th>
                 <th><%= t('email') %></th>
                 <th><%= t('phone') %></th>
-                <th><%= t('date_col') %></th>
+                <th><a class="rf-sort-link" href="<%= sortLink('submitted') %>"><%= t('date_col') %><%= sortIndicator('submitted') %></a></th>
                 <th><%= t('status') %></th>
                 <% if (adultHasArchivedRows) { %><th><%= t('archived_col') %></th><% } %>
                 <th><%= t('actions') %></th>
@@ -476,7 +488,7 @@
                 <th><%= t('sponsor_col') %></th>
                 <th><%= t('certificate_col') %></th>
                 <th><%= t('verification_col') %></th>
-                <th><%= t('submitted_col') %></th>
+                <th><a class="rf-sort-link" href="<%= sortLink('submitted') %>"><%= t('submitted_col') %><%= sortIndicator('submitted') %></a></th>
                 <th><%= t('status') %></th>
                 <th><%= t('actions') %></th>
               </tr>

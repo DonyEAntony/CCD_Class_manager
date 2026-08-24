@@ -4417,6 +4417,11 @@ app.get('/admin/registrations', requireAuth, requireRole('admin'), asyncHandler(
   const gradeFilter = typeFilter === 'child' && Object.keys(CCD_GRADE_MEANINGS).includes(req.query.grade) ? req.query.grade : '';
   const parentFilter = typeFilter === 'child' && typeof req.query.parent === 'string' ? req.query.parent.trim() : '';
 
+  const sortableColumnsForType = typeFilter === 'child' ? new Set(['grade', 'submitted']) : new Set(['submitted']);
+  const requestedSort = typeof req.query.sort === 'string' ? req.query.sort : '';
+  const sortBy = sortableColumnsForType.has(requestedSort) ? requestedSort : '';
+  const sortDir = req.query.dir === 'asc' ? 'asc' : 'desc';
+
   const computeStatusCounts = (rows, options) => {
     const counts = {};
     options.forEach((opt) => {
@@ -4469,6 +4474,33 @@ app.get('/admin/registrations', requireAuth, requireRole('admin'), asyncHandler(
     sponsorRegs = allRegs.filter((reg) => statusFilter === 'all' || reg.status === statusFilter);
   }
 
+  if (sortBy) {
+    const applySort = (rows) => {
+      const sorted = [...rows];
+      if (sortBy === 'submitted') {
+        sorted.sort((a, b) => {
+          const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+          const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+          return sortDir === 'asc' ? aTime - bTime : bTime - aTime;
+        });
+      } else if (sortBy === 'grade') {
+        sorted.sort((a, b) => {
+          const aGrade = Number(resolveCcdGrade(a)) || null;
+          const bGrade = Number(resolveCcdGrade(b)) || null;
+          if (!aGrade && !bGrade) return 0;
+          if (!aGrade) return 1;
+          if (!bGrade) return -1;
+          return sortDir === 'asc' ? aGrade - bGrade : bGrade - aGrade;
+        });
+      }
+      return sorted;
+    };
+    studentRegs = applySort(studentRegs);
+    familyRegs = applySort(familyRegs);
+    adultRegs = applySort(adultRegs);
+    sponsorRegs = applySort(sponsorRegs);
+  }
+
   const filteredCount = studentRegs.length + familyRegs.length + adultRegs.length + sponsorRegs.length;
 
   const [childCountRow, familyCountRow, adultCountRow, sponsorCountRow] = await Promise.all([
@@ -4505,6 +4537,7 @@ app.get('/admin/registrations', requireAuth, requireRole('admin'), asyncHandler(
     typeFilter, statusFilter, statusOptionsForType, statusCounts, typeCounts, grandTotal, filteredCount,
     studentRegs, familyRegs, adultRegs, sponsorRegs, ADULT_PROGRAMS, faithFormationSettings,
     resolveCcdGrade, ccdGradeMeanings: CCD_GRADE_MEANINGS, gradeFilter, parentFilter, verifierLookup,
+    sortBy, sortDir,
     childRegistrationStatuses: CHILD_REGISTRATION_STATUSES, familyFaithRegistrationStatuses: FAMILY_FAITH_REGISTRATION_STATUSES,
   });
 }));
