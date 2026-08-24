@@ -689,6 +689,16 @@ const translations = {
     roster_label: 'Roster',
     class_teacher_label: 'Teacher',
     schedule_label: 'Schedule',
+    no_schedule_dates: 'No class days scheduled yet.',
+    generate_schedule_label: 'Generate Sept–May schedule',
+    generate_schedule_hint: 'Adds a weekly class day (based on the class time above) for every week from September through May. Remove individual dates afterward for holidays or breaks, or add extra ones for makeup days.',
+    generate_schedule_needs_weekday: 'Set a class time starting with a weekday (e.g. "Sunday 9:00 AM") before generating a schedule.',
+    add_class_day_label: 'Add a class day',
+    add_class_day_button: 'Add',
+    invalid_class_day: 'Please choose a valid date.',
+    class_day_added: 'Class day added.',
+    class_day_removed: 'Class day removed.',
+    remove_class_day: 'Remove this class day',
     attendance_label: 'Attendance',
     present_label: 'Present',
     absent_label: 'Absent',
@@ -1444,6 +1454,16 @@ const translations = {
     roster_label: 'Lista de Estudiantes',
     class_teacher_label: 'Catequista',
     schedule_label: 'Horario',
+    no_schedule_dates: 'Aún no hay días de clase programados.',
+    generate_schedule_label: 'Generar horario de Septiembre a Mayo',
+    generate_schedule_hint: 'Agrega un día de clase semanal (según el horario de clase indicado arriba) para cada semana de Septiembre a Mayo. Luego puede eliminar fechas individuales por días festivos o descansos, o agregar fechas adicionales para clases de reposición.',
+    generate_schedule_needs_weekday: 'Configure un horario de clase que comience con un día de la semana (ej. "Sunday 9:00 AM") antes de generar un horario.',
+    add_class_day_label: 'Agregar un día de clase',
+    add_class_day_button: 'Agregar',
+    invalid_class_day: 'Por favor elija una fecha válida.',
+    class_day_added: 'Día de clase agregado.',
+    class_day_removed: 'Día de clase eliminado.',
+    remove_class_day: 'Eliminar este día de clase',
     attendance_label: 'Asistencia',
     present_label: 'Presente',
     absent_label: 'Ausente',
@@ -1817,6 +1837,28 @@ const getUpcomingSessionDates = (classTimeText, count = 6) => {
 };
 
 const formatSessionDateValue = (date) => date.toISOString().slice(0, 10);
+
+// Explicit per-class schedule an admin/catechist manages by hand (see the
+// ccd_class_session_dates table) — used instead of getUpcomingSessionDates' rolling
+// 6-week guess once a class has any dates configured, since the real faith formation
+// calendar has holiday/break exceptions a fixed weekly pattern can't represent.
+const getClassSessionDates = async (classId) => {
+  const rows = await db.prepare(
+    'SELECT session_date FROM ccd_class_session_dates WHERE ccd_class_id = ? ORDER BY session_date ASC'
+  ).all(classId);
+  return rows.map((row) => new Date(row.session_date));
+};
+
+const generateWeeklyDatesInRange = (weekdayIndex, startDate, endDate) => {
+  const cursor = new Date(startDate);
+  cursor.setDate(cursor.getDate() + ((weekdayIndex - cursor.getDay() + 7) % 7));
+  const dates = [];
+  while (cursor <= endDate) {
+    dates.push(new Date(cursor));
+    cursor.setDate(cursor.getDate() + 7);
+  }
+  return dates;
+};
 
 // A student shows as a full roster member only once their registration has cleared the
 // acceptance gate (conditionally_accepted or admitted); anything earlier — in_progress,
@@ -5978,6 +6020,14 @@ app.post('/admin/ccd-classes/:id/update', requireAuth, requireRole('admin'), asy
 const isClassCatechist = (ccdClass, userId) =>
   (ccdClass.catechists || []).some((catechist) => Number(catechist.id) === Number(userId));
 
+const getOwnedCcdClass = async (req, classId) => {
+  const ccdClasses = await getCcdClasses();
+  const ccdClass = ccdClasses.find((c) => c.id === classId);
+  if (!ccdClass) return null;
+  if (req.user.role !== 'admin' && !isClassCatechist(ccdClass, req.user.id)) return null;
+  return ccdClass;
+};
+
 app.get('/admin/classes', requireAuth, requireRole('admin', 'catechist'), asyncHandler(async (req, res) => {
   const allCcdClasses = await getCcdClasses();
   const ccdClasses = req.user.role === 'catechist'
@@ -6002,10 +6052,8 @@ app.get('/admin/classes', requireAuth, requireRole('admin', 'catechist'), asyncH
 
 app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist'), asyncHandler(async (req, res) => {
   const classId = Number.parseInt(req.params.id, 10);
-  const ccdClasses = await getCcdClasses();
-  const ccdClass = ccdClasses.find((c) => c.id === classId);
-  const ownsClass = ccdClass && (req.user.role === 'admin' || isClassCatechist(ccdClass, req.user.id));
-  if (!ownsClass) {
+  const ccdClass = await getOwnedCcdClass(req, classId);
+  if (!ccdClass) {
     req.flash('error', 'Class not found.');
     return res.redirect('/admin/classes');
   }
@@ -6015,8 +6063,12 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist'), as
   const roster = getClassRoster(ccdClass, activeStudentRegs, enrolledRegistrationIds)
     .sort((a, b) => (a.student_full_name || '').localeCompare(b.student_full_name || ''));
 
-  const upcomingDates = getUpcomingSessionDates(ccdClass.class_time);
-  const nextSessionValue = upcomingDates[0] ? formatSessionDateValue(upcomingDates[0]) : null;
+  const scheduleDates = await getClassSessionDates(classId);
+  const hasStoredSchedule = scheduleDates.length > 0;
+  const upcomingDates = hasStoredSchedule ? scheduleDates : getUpcomingSessionDates(ccdClass.class_time);
+  const today = formatSessionDateValue(new Date());
+  const nextSessionDate = upcomingDates.find((d) => formatSessionDateValue(d) >= today) || upcomingDates[0];
+  const nextSessionValue = nextSessionDate ? formatSessionDateValue(nextSessionDate) : null;
   const requestedDate = typeof req.query.date === 'string' ? req.query.date : '';
   const selectedDate = upcomingDates.some((d) => formatSessionDateValue(d) === requestedDate)
     ? requestedDate
@@ -6032,6 +6084,7 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist'), as
 
   const presentCount = attendanceRows.filter((row) => row.status === 'present').length;
   const absentCount = attendanceRows.filter((row) => row.status === 'absent').length;
+  const faithFormationSettings = await getFaithFormationSettings();
 
   res.render('admin-class-detail', {
     ccdClass,
@@ -6039,6 +6092,8 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist'), as
     isPendingAcceptance,
     ccdGradeMeanings: CCD_GRADE_MEANINGS,
     upcomingDates: upcomingDates.map((d) => ({ value: formatSessionDateValue(d), isNext: formatSessionDateValue(d) === nextSessionValue })),
+    hasStoredSchedule,
+    defaultSchoolYear: faithFormationSettings.schoolYear,
     selectedDate,
     attendanceByStudent,
     presentCount,
@@ -6085,6 +6140,80 @@ app.post('/admin/classes/:id/attendance', requireAuth, requireRole('admin', 'cat
   const absentCount = attendanceRows.filter((row) => row.status === 'absent').length;
 
   res.json({ ok: true, status: status === 'present' || status === 'absent' ? status : 'unmarked', presentCount, absentCount });
+}));
+
+app.post('/admin/classes/:id/schedule/generate', requireAuth, requireRole('admin', 'catechist'), asyncHandler(async (req, res) => {
+  const classId = Number.parseInt(req.params.id, 10);
+  const ccdClass = await getOwnedCcdClass(req, classId);
+  if (!ccdClass) {
+    req.flash('error', 'Class not found.');
+    return res.redirect('/admin/classes');
+  }
+
+  const weekdayIndex = parseClassWeekday(ccdClass.class_time);
+  if (weekdayIndex === null) {
+    req.flash('error', res.locals.t('generate_schedule_needs_weekday'));
+    return res.redirect(`/admin/classes/${classId}`);
+  }
+
+  const requestedSchoolYear = typeof req.body.school_year === 'string' ? req.body.school_year.trim() : '';
+  const startYear = parseFaithFormationStartYear(requestedSchoolYear || getDefaultFaithFormationYear());
+  const rangeStart = new Date(startYear, 8, 1);
+  const rangeEnd = new Date(startYear + 1, 4, 31);
+  const dates = generateWeeklyDatesInRange(weekdayIndex, rangeStart, rangeEnd);
+
+  if (dates.length) {
+    const placeholders = dates.map(() => '(?, ?)').join(', ');
+    const params = dates.flatMap((date) => [classId, formatSessionDateValue(date)]);
+    await db.prepare(
+      `INSERT IGNORE INTO ccd_class_session_dates (ccd_class_id, session_date) VALUES ${placeholders}`
+    ).run(...params);
+  }
+
+  req.flash('success', `Added ${dates.length} class day(s).`);
+  return res.redirect(`/admin/classes/${classId}`);
+}));
+
+app.post('/admin/classes/:id/schedule/add', requireAuth, requireRole('admin', 'catechist'), asyncHandler(async (req, res) => {
+  const classId = Number.parseInt(req.params.id, 10);
+  const ccdClass = await getOwnedCcdClass(req, classId);
+  if (!ccdClass) {
+    req.flash('error', 'Class not found.');
+    return res.redirect('/admin/classes');
+  }
+
+  const sessionDate = typeof req.body.session_date === 'string' ? req.body.session_date.trim() : '';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(sessionDate)) {
+    req.flash('error', res.locals.t('invalid_class_day'));
+    return res.redirect(`/admin/classes/${classId}`);
+  }
+
+  await db.prepare(
+    'INSERT IGNORE INTO ccd_class_session_dates (ccd_class_id, session_date) VALUES (?, ?)'
+  ).run(classId, sessionDate);
+  req.flash('success', res.locals.t('class_day_added'));
+  return res.redirect(`/admin/classes/${classId}?date=${sessionDate}`);
+}));
+
+app.post('/admin/classes/:id/schedule/remove', requireAuth, requireRole('admin', 'catechist'), asyncHandler(async (req, res) => {
+  const classId = Number.parseInt(req.params.id, 10);
+  const ccdClass = await getOwnedCcdClass(req, classId);
+  if (!ccdClass) {
+    req.flash('error', 'Class not found.');
+    return res.redirect('/admin/classes');
+  }
+
+  const sessionDate = typeof req.body.session_date === 'string' ? req.body.session_date.trim() : '';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(sessionDate)) {
+    req.flash('error', res.locals.t('invalid_class_day'));
+    return res.redirect(`/admin/classes/${classId}`);
+  }
+
+  await db.prepare(
+    'DELETE FROM ccd_class_session_dates WHERE ccd_class_id = ? AND session_date = ?'
+  ).run(classId, sessionDate);
+  req.flash('success', res.locals.t('class_day_removed'));
+  return res.redirect(`/admin/classes/${classId}`);
 }));
 
 app.post('/admin/classes/:id/message', requireAuth, requireRole('admin', 'catechist'), asyncHandler(async (req, res) => {

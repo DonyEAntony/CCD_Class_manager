@@ -475,6 +475,17 @@ const init = async () => {
     `);
 
     await pool.query(`
+      CREATE TABLE IF NOT EXISTS ccd_class_session_dates (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        ccd_class_id INT NOT NULL,
+        session_date DATE NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_class_session_date (ccd_class_id, session_date),
+        CONSTRAINT fk_class_session_dates_class FOREIGN KEY (ccd_class_id) REFERENCES ccd_classes(id)
+      )
+    `);
+
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS ccd_class_catechists (
         id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
         ccd_class_id INT NOT NULL,
