@@ -1992,6 +1992,15 @@ const getCatechists = async () =>
     WHERE role = 'catechist' AND COALESCE(account_status, 'active') <> 'deleted'
     ORDER BY COALESCE(NULLIF(full_name, ''), email) ASC
   `).all();
+// Admins sometimes also teach a class, so the class panel's teacher-assignment
+// dropdown (unlike the catechist-only list above) offers both roles.
+const getAssignableTeachers = async () =>
+  db.prepare(`
+    SELECT id, full_name, email
+    FROM users
+    WHERE role IN ('admin', 'catechist') AND COALESCE(account_status, 'active') <> 'deleted'
+    ORDER BY COALESCE(NULLIF(full_name, ''), email) ASC
+  `).all();
 const getFamilyFaithLeaders = async () =>
   db.prepare(`
     SELECT id, full_name, email
@@ -6337,7 +6346,7 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist'), as
 
   const assignedCatechistIds = new Set((ccdClass.catechists || []).map((c) => c.id));
   const assignableCatechists = req.user.role === 'admin'
-    ? (await getCatechists()).filter((c) => !assignedCatechistIds.has(c.id))
+    ? (await getAssignableTeachers()).filter((c) => !assignedCatechistIds.has(c.id))
     : [];
 
   // Whole-class attendance history — powers the per-student absence badge/history dots
@@ -6419,11 +6428,11 @@ app.post('/admin/classes/:id/catechists/add', requireAuth, requireRole('admin'),
     return res.redirect(`/admin/classes/${classId}`);
   }
 
-  const validCatechist = await db.prepare(
-    `SELECT id FROM users WHERE id = ? AND role = 'catechist' AND COALESCE(account_status, 'active') <> 'deleted'`
+  const validTeacher = await db.prepare(
+    `SELECT id FROM users WHERE id = ? AND role IN ('admin', 'catechist') AND COALESCE(account_status, 'active') <> 'deleted'`
   ).get(catechistId);
-  if (!validCatechist) {
-    req.flash('error', 'That user is not an active catechist.');
+  if (!validTeacher) {
+    req.flash('error', 'That user is not an active admin or catechist.');
     return res.redirect(`/admin/classes/${classId}`);
   }
 
