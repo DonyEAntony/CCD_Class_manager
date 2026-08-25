@@ -315,6 +315,11 @@ const translations = {
     previous_month: 'Previous Month',
     next_month: 'Next Month',
     calendar_class_day_title: 'Faith Formation Classes',
+    year_view_label: 'Full Year (Printable)',
+    year_calendar_title: 'Faith Formation Year',
+    year_calendar_legend: 'Confirmed class day',
+    print_button: 'Print',
+    back_to_calendar: 'Back to Calendar',
     remove: 'Remove',
     spouse_coparent_name: 'Spouse / Co-parent name',
     if_attending_together: '(if attending together)',
@@ -1084,6 +1089,11 @@ const translations = {
     previous_month: 'Mes Anterior',
     next_month: 'Mes Siguiente',
     calendar_class_day_title: 'Clases de Formación en la Fe',
+    year_view_label: 'Año Completo (Imprimible)',
+    year_calendar_title: 'Año de Formación en la Fe',
+    year_calendar_legend: 'Día de clase confirmado',
+    print_button: 'Imprimir',
+    back_to_calendar: 'Volver al Calendario',
     remove: 'Eliminar',
     spouse_coparent_name: 'Nombre del cónyuge / co-padre',
     if_attending_together: '(si asisten juntos)',
@@ -2099,6 +2109,27 @@ const buildCalendarWeeks = (occurrences, year, monthIndex) => {
   while (cells.length % 7 !== 0) {
     cells.push({ dayNumber: null, dateKey: null, events: [] });
   }
+
+  const weeks = [];
+  for (let idx = 0; idx < cells.length; idx += 7) {
+    weeks.push(cells.slice(idx, idx + 7));
+  }
+  return weeks;
+};
+
+// Compact per-day grid (day number + hasClass flag only, no event details) for the
+// printable year-at-a-glance view — same week-grid shape as buildCalendarWeeks but
+// stripped down since a full 9-month page has no room for event text per cell.
+const buildMiniMonthWeeks = (year, monthIndex, classDayDates) => {
+  const startOffset = new Date(year, monthIndex, 1).getDay();
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+  const cells = [];
+  for (let i = 0; i < startOffset; i += 1) cells.push(null);
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const dateKey = `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    cells.push({ day, hasClass: classDayDates.has(dateKey) });
+  }
+  while (cells.length % 7 !== 0) cells.push(null);
 
   const weeks = [];
   for (let idx = 0; idx < cells.length; idx += 7) {
@@ -3179,6 +3210,33 @@ app.get('/calendar', requireAuth, asyncHandler(async (req, res) => {
     weeks,
     weekdayLabels: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
     monthEvents: occurrences,
+  });
+}));
+
+app.get('/calendar/year', requireAuth, asyncHandler(async (req, res) => {
+  const faithFormationSettings = await getFaithFormationSettings();
+  const requestedSchoolYear = typeof req.query.school_year === 'string' ? req.query.school_year.trim() : '';
+  const schoolYear = /^\d{4}-\d{4}$/.test(requestedSchoolYear) ? requestedSchoolYear : faithFormationSettings.schoolYear;
+  const startYear = parseFaithFormationStartYear(schoolYear);
+
+  const classDaysByDate = await getClassSessionDatesInRange(`${startYear}-09-01`, `${startYear + 1}-05-31`);
+  const classDayDates = new Set(classDaysByDate.keys());
+  const localeTag = res.locals.lang === 'es' ? 'es-ES' : 'en-US';
+
+  const months = Array.from({ length: 9 }, (_, offset) => {
+    const monthOffset = 8 + offset; // September is month index 8
+    const year = startYear + Math.floor(monthOffset / 12);
+    const monthIndex = monthOffset % 12;
+    return {
+      label: new Date(year, monthIndex, 1).toLocaleDateString(localeTag, { month: 'long', year: 'numeric' }),
+      weeks: buildMiniMonthWeeks(year, monthIndex, classDayDates),
+    };
+  });
+
+  res.render('calendar-year', {
+    schoolYear,
+    months,
+    weekdayLabels: ['S', 'M', 'T', 'W', 'T', 'F', 'S'],
   });
 }));
 
