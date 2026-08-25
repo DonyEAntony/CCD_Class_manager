@@ -475,6 +475,18 @@ const init = async () => {
     `);
 
     await pool.query(`
+      CREATE TABLE IF NOT EXISTS ccd_class_session_dates (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        ccd_class_id INT NOT NULL,
+        session_date DATE NOT NULL,
+        description VARCHAR(255) NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_class_session_date (ccd_class_id, session_date),
+        CONSTRAINT fk_class_session_dates_class FOREIGN KEY (ccd_class_id) REFERENCES ccd_classes(id)
+      )
+    `);
+
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS ccd_class_catechists (
         id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
         ccd_class_id INT NOT NULL,
@@ -553,6 +565,7 @@ const init = async () => {
     await ensureColumn('users', 'account_status', "VARCHAR(50) NOT NULL DEFAULT 'active'");
     await ensureColumn('users', 'must_change_password', 'TINYINT(1) NOT NULL DEFAULT 0');
     await ensureColumn('ccd_classes', 'section_label', 'VARCHAR(10) NULL');
+    await ensureColumn('ccd_class_session_dates', 'description', 'VARCHAR(255) NULL');
     // A class can now have more than one catechist, so the single catechist_user_id
     // column moved to the ccd_class_catechists join table. Migrate any existing
     // assignment across, then drop the old column now that nothing reads it.

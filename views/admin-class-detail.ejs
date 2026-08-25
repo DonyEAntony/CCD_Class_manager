@@ -100,15 +100,26 @@
       color: var(--muted);
       margin-bottom: 0.6rem;
     }
+    .schedule-list {
+      max-height: 260px;
+      overflow-y: auto;
+    }
+    .schedule-list .schedule-row {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      margin-bottom: 0.25rem;
+    }
     .schedule-list a {
       display: flex;
+      flex: 1 1 auto;
       justify-content: space-between;
       align-items: center;
       padding: 0.5rem 0.6rem;
       border-radius: 6px;
       color: var(--ink-soft);
       font-size: 0.88rem;
-      margin-bottom: 0.25rem;
+      min-width: 0;
     }
     .schedule-list a:hover { background: var(--white); text-decoration: none; }
     .schedule-list a.selected { background: var(--white); border: 1px solid var(--gold); font-weight: 600; color: var(--navy); }
@@ -120,6 +131,26 @@
       border-radius: 2rem;
       padding: 0.15em 0.6em;
     }
+    .schedule-remove-btn {
+      flex: 0 0 auto;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--white);
+      color: var(--muted);
+      font-size: 0.75rem;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .schedule-remove-btn:hover { border-color: #b3261e; color: #b3261e; }
+    .schedule-desc-row { display: flex; gap: 0.35rem; margin: -0.1rem 0 0.5rem; padding-left: 0.6rem; }
+    .schedule-desc-row input[type="text"] { flex: 1 1 auto; font-size: 0.8rem; }
+    .schedule-add-row { display: flex; gap: 0.4rem; margin-top: 0.6rem; }
+    .schedule-add-row input[type="date"] { flex: 1 1 auto; }
+    .schedule-add-row input[type="text"] { flex: 1 1 auto; }
+    .schedule-generate-form { margin-top: 0.6rem; padding-top: 0.6rem; border-top: 1px solid var(--border); }
+    .schedule-generate-hint { font-size: 0.75rem; color: var(--muted); margin-bottom: 0.4rem; }
     .teacher-contact { display: flex; gap: 0.6rem; margin-top: 0.5rem; }
     .teacher-contact a {
       width: 32px; height: 32px; border-radius: 50%;
@@ -243,19 +274,51 @@
 
       <div class="sidebar-card">
         <h3><%= t('schedule_label') %></h3>
-        <div style="font-size:.85rem;color:var(--muted);margin-bottom:.5rem"><%= ccdClass.class_time || '—' %><% if (ccdClass.classroom) { %>, <%= ccdClass.classroom %><% } %></div>
+        <div style="font-weight:600;color:var(--navy);margin-bottom:.2rem"><%= ccdGradeMeanings[ccdClass.grade_level] || ccdClass.grade_level %><%= ccdClass.sectionLabel || '' %></div>
+        <div style="font-size:.85rem;color:var(--muted);margin-bottom:.3rem"><%= ccdClass.class_time || '—' %><% if (ccdClass.classroom) { %>, <%= ccdClass.classroom %><% } %></div>
+        <a href="/calendar/class/<%= ccdClass.id %>" style="font-size:.8rem" class="d-inline-block mb-2"><%= t('view_class_calendar_label') %></a>
         <div class="schedule-list">
+          <% if (!upcomingDates.length) { %>
+            <div style="color:var(--muted);font-size:.85rem"><%= t('no_schedule_dates') %></div>
+          <% } %>
           <% upcomingDates.forEach((d) => { %>
-            <a href="/admin/classes/<%= ccdClass.id %>?date=<%= d.value %>" class="<%= d.value === selectedDate ? 'selected' : '' %>">
-              <span><%= new Date(d.value + 'T00:00:00').toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric' }) %></span>
-              <% if (d.isNext) { %><span class="next-tag"><%= t('next_label') %></span><% } %>
-            </a>
+            <div class="schedule-row">
+              <a href="/admin/classes/<%= ccdClass.id %>?date=<%= d.value %>" class="<%= d.value === selectedDate ? 'selected' : '' %>">
+                <span><%= new Date(d.value + 'T00:00:00').toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric' }) %></span>
+                <% if (d.isNext) { %><span class="next-tag"><%= t('next_label') %></span><% } %>
+              </a>
+              <% if (hasStoredSchedule) { %>
+                <form method="post" action="/admin/classes/<%= ccdClass.id %>/schedule/remove" onsubmit="return confirm('<%= t('remove_class_day') %>?');">
+                  <input type="hidden" name="session_date" value="<%= d.value %>">
+                  <button type="submit" class="schedule-remove-btn" aria-label="<%= t('remove_class_day') %>" title="<%= t('remove_class_day') %>">&times;</button>
+                </form>
+              <% } %>
+            </div>
+            <% if (hasStoredSchedule) { %>
+              <form method="post" action="/admin/classes/<%= ccdClass.id %>/schedule/description" class="schedule-desc-row">
+                <input type="hidden" name="session_date" value="<%= d.value %>">
+                <input type="text" class="form-control form-control-sm" name="description" value="<%= d.description %>" placeholder="<%= t('class_day_description_placeholder') %>" maxlength="255">
+                <button type="submit" class="btn btn-outline-secondary btn-sm"><%= t('save_description_button') %></button>
+              </form>
+            <% } %>
           <% }) %>
         </div>
+
+        <form method="post" action="/admin/classes/<%= ccdClass.id %>/schedule/add" class="schedule-add-row">
+          <input type="date" class="form-control form-control-sm" name="session_date" aria-label="<%= t('add_class_day_label') %>" required>
+          <input type="text" class="form-control form-control-sm" name="description" placeholder="<%= t('class_day_description_placeholder') %>" maxlength="255">
+          <button type="submit" class="btn btn-outline-secondary btn-sm"><%= t('add_class_day_button') %></button>
+        </form>
+
+        <form method="post" action="/admin/classes/<%= ccdClass.id %>/schedule/generate" class="schedule-generate-form">
+          <div class="schedule-generate-hint"><%= t('generate_schedule_hint') %></div>
+          <input type="hidden" name="school_year" value="<%= defaultSchoolYear %>">
+          <button type="submit" class="btn btn-link btn-sm p-0"><%= t('generate_schedule_label') %></button>
+        </form>
       </div>
 
       <div class="sidebar-card">
-        <h3><%= t('attendance_label') %> &mdash; <%= selectedDate ? new Date(selectedDate + 'T00:00:00').toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '—' %></h3>
+        <h3><%= t('attendance_label') %> &mdash; <%= selectedDate ? new Date(selectedDate + 'T00:00:00').toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '—' %><% if (selectedDescription) { %> &middot; <%= selectedDescription %><% } %></h3>
         <div id="attendance-summary" style="font-size:.85rem;color:var(--ink-soft)">
           <%= presentCount %> <%= t('present_label').toLowerCase() %> &middot; <%= absentCount %> <%= t('absent_label').toLowerCase() %> &middot; <%= unmarkedCount %> <%= t('unmarked_label') %>
         </div>

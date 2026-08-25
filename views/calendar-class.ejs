@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="<%= lang %>">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= className %> &mdash; <%= t('year_calendar_title') %> &mdash; <%= t('app_title') %></title>
+  <link href="https://fonts.googleapis.com/css2?family=Caprasimo&family=Figtree:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <style>
+    /* Tokens below are namespaced (--sl-*) and scoped to .session-ledger so they
+       never collide with the app's own --navy/--gold theme used by the topbar. */
+    .session-ledger {
+      --sl-bg: #f5ead8;
+      --sl-surface: #f9f4ed;
+      --sl-text: #201e1d;
+      --sl-accent: #c67139;
+      --sl-accent-100: #fff2eb;
+      --sl-accent-200: #ffe1d0;
+      --sl-accent-700: #8c491a;
+      --sl-accent-800: #643312;
+      --sl-accent2-200: #e1eecc;
+      --sl-accent2-300: #ccdbb2;
+      --sl-accent2-800: #3d472b;
+      --sl-neutral-600: #82796a;
+      --sl-neutral-700: #645c50;
+      --sl-divider: rgba(32, 30, 29, 0.16);
+      --sl-font-heading: "Caprasimo", Georgia, serif;
+      --sl-font-body: "Figtree", system-ui, sans-serif;
+      --sl-radius-lg: 28px;
+      --sl-shadow-md: 0 3px 10px rgba(46, 43, 37, 0.16);
+
+      background: var(--sl-surface);
+      border-radius: var(--sl-radius-lg);
+      box-shadow: var(--sl-shadow-md);
+      padding: 44px 46px 38px;
+      font-family: var(--sl-font-body);
+      color: var(--sl-text);
+      max-width: 860px;
+      margin: 0 auto;
+    }
+    .session-ledger h1 {
+      font-family: var(--sl-font-heading);
+      font-weight: 400;
+      font-size: 38px;
+      margin: 8px 0 0;
+      color: var(--sl-text);
+    }
+    .sl-eyebrow {
+      font: 600 11px/1 var(--sl-font-body);
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--sl-accent-700);
+    }
+    .sl-subtitle {
+      font: 400 15px/1.4 var(--sl-font-body);
+      color: var(--sl-neutral-700);
+      margin-top: 4px;
+    }
+    .sl-badge {
+      flex: none;
+      width: 96px;
+      height: 96px;
+      border-radius: 999px;
+      background: var(--sl-accent-200);
+      display: grid;
+      place-items: center;
+      text-align: center;
+    }
+    .sl-badge-count {
+      font-family: var(--sl-font-heading);
+      font-size: 30px;
+      color: var(--sl-accent-800);
+      line-height: 1;
+    }
+    .sl-badge-label {
+      font: 600 9px/1.2 var(--sl-font-body);
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--sl-accent-700);
+    }
+    .sl-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      margin: 28px 0 8px;
+      padding: 14px 18px;
+      background: var(--sl-bg);
+      border-radius: 16px;
+    }
+    .sl-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font: 400 12.5px var(--sl-font-body);
+    }
+    .sl-legend-dot {
+      width: 16px;
+      height: 16px;
+      border-radius: 999px;
+    }
+    .sl-month-row {
+      display: grid;
+      grid-template-columns: 118px 1fr;
+      gap: 20px;
+      align-items: start;
+      padding: 15px 0;
+      border-top: 1px solid var(--sl-divider);
+    }
+    .sl-month-row:last-child { border-bottom: 1px solid var(--sl-divider); }
+    .sl-month-name {
+      font-family: var(--sl-font-heading);
+      font-size: 20px;
+      line-height: 1.1;
+    }
+    .sl-month-year {
+      font: 600 10px var(--sl-font-body);
+      letter-spacing: .1em;
+      color: var(--sl-neutral-600);
+    }
+    .sl-sessions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .sl-session-pill {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--sl-accent);
+      color: var(--sl-accent-100);
+      border-radius: 999px;
+      padding: 6px 18px 6px 6px;
+    }
+    .sl-session-num {
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      background: rgba(249, 244, 237, .24);
+      display: grid;
+      place-items: center;
+      font-family: var(--sl-font-heading);
+      font-size: 12.5px;
+    }
+    .sl-session-date {
+      font: 600 14px var(--sl-font-body);
+    }
+    .sl-special-pill {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--sl-accent2-200);
+      border: 1px solid var(--sl-accent2-300);
+      color: var(--sl-accent2-800);
+      border-radius: 999px;
+      padding: 8px 18px;
+    }
+    .sl-special-date { font: 700 13px var(--sl-font-body); }
+    .sl-special-desc { font: 400 13px var(--sl-font-body); }
+    .sl-footer {
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 24px;
+      margin-top: 22px;
+      font: 400 11.5px/1.5 var(--sl-font-body);
+      color: var(--sl-neutral-600);
+    }
+    .sl-empty {
+      color: var(--sl-neutral-600);
+      font-size: 14px;
+      padding: 20px 0;
+    }
+
+    @media print {
+      @page { size: A4 portrait; margin: 12mm; }
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .no-print { display: none !important; }
+      .session-ledger { box-shadow: none; max-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+<%- include('_topbar') %>
+<main class="container py-4 app-shell-wide mx-auto">
+
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 no-print">
+    <div class="d-flex gap-2">
+      <button type="button" class="btn btn-primary" onclick="window.print()"><%= t('print_button') %></button>
+      <a class="btn btn-outline-secondary" href="/calendar/year?class_id=<%= ccdClass.id %>"><%= t('year_view_label') %></a>
+      <a class="btn btn-outline-secondary" href="/admin/classes/<%= ccdClass.id %>"><%= t('back_to_calendar') %></a>
+    </div>
+  </div>
+
+  <div class="session-ledger">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap">
+      <div>
+        <div class="sl-eyebrow"><%= className %></div>
+        <h1><%= t('year_calendar_title') %></h1>
+        <div class="sl-subtitle">
+          <%= rangeLabel %><% if (sessionCount) { %> &middot; <%= sessionCount %> <%= t('session_count_label') %><% } %><% if (ccdClass.class_time) { %> &middot; <%= ccdClass.class_time %><% } %>
+        </div>
+      </div>
+      <div class="sl-badge">
+        <div>
+          <div class="sl-badge-count"><%= sessionCount %></div>
+          <div class="sl-badge-label"><%= t('session_count_label') %></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sl-legend">
+      <div class="sl-legend-item"><span class="sl-legend-dot" style="background:var(--sl-accent)"></span><%= t('legend_class_session') %></div>
+      <div class="sl-legend-item"><span class="sl-legend-dot" style="background:var(--sl-accent2-300);border:1px solid var(--sl-accent2-300)"></span><%= t('legend_special_day') %></div>
+    </div>
+
+    <% if (!monthGroups.length) { %>
+      <div class="sl-empty"><%= t('no_sessions_scheduled') %></div>
+    <% } else { %>
+      <div>
+        <% monthGroups.forEach((month) => { %>
+          <div class="sl-month-row">
+            <div>
+              <div class="sl-month-name"><%= month.label %></div>
+              <div class="sl-month-year"><%= month.year %></div>
+            </div>
+            <div class="sl-sessions">
+              <% month.sessions.forEach((session) => { %>
+                <% if (session.description) { %>
+                  <div class="sl-special-pill">
+                    <span class="sl-special-date"><%= session.label %></span>
+                    <span class="sl-special-desc"><%= session.description %></span>
+                  </div>
+                <% } else { %>
+                  <div class="sl-session-pill">
+                    <span class="sl-session-num"><%= String(session.number).padStart(2, '0') %></span>
+                    <span class="sl-session-date"><%= session.label %></span>
+                  </div>
+                <% } %>
+              <% }) %>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+
+    <div class="sl-footer">
+      <span><%= t('parish_faith_formation_office') %></span>
+      <span><%= t('verify_sacramental_records_note') %></span>
+    </div>
+  </div>
+
+  <p class="footer-note no-print"><%= t('footer_note') %></p>
+</main>
+</body>
+</html>
