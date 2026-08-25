@@ -276,7 +276,7 @@
         <h3><%= t('schedule_label') %></h3>
         <div style="font-weight:600;color:var(--navy);margin-bottom:.2rem"><%= ccdGradeMeanings[ccdClass.grade_level] || ccdClass.grade_level %><%= ccdClass.sectionLabel || '' %></div>
         <div style="font-size:.85rem;color:var(--muted);margin-bottom:.3rem"><%= ccdClass.class_time || '—' %><% if (ccdClass.classroom) { %>, <%= ccdClass.classroom %><% } %></div>
-        <a href="/calendar/year?class_id=<%= ccdClass.id %>" style="font-size:.8rem" class="d-inline-block mb-2"><%= t('view_class_calendar_label') %></a>
+        <a href="/calendar/class/<%= ccdClass.id %>" style="font-size:.8rem" class="d-inline-block mb-2"><%= t('view_class_calendar_label') %></a>
         <div class="schedule-list">
           <% if (!upcomingDates.length) { %>
             <div style="color:var(--muted);font-size:.85rem"><%= t('no_schedule_dates') %></div>

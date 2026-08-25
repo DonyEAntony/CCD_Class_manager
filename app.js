@@ -320,6 +320,12 @@ const translations = {
     year_calendar_legend: 'Confirmed class day',
     print_button: 'Print',
     back_to_calendar: 'Back to Calendar',
+    session_count_label: 'sessions',
+    legend_class_session: 'Class session',
+    legend_special_day: 'Special day',
+    no_sessions_scheduled: 'No class days scheduled yet for this year.',
+    parish_faith_formation_office: 'St. Matthew Parish · Faith Formation Office',
+    verify_sacramental_records_note: 'Please verify all sacramental records before submission.',
     remove: 'Remove',
     spouse_coparent_name: 'Spouse / Co-parent name',
     if_attending_together: '(if attending together)',
@@ -1095,6 +1101,12 @@ const translations = {
     year_calendar_legend: 'Día de clase confirmado',
     print_button: 'Imprimir',
     back_to_calendar: 'Volver al Calendario',
+    session_count_label: 'sesiones',
+    legend_class_session: 'Día de clase',
+    legend_special_day: 'Día especial',
+    no_sessions_scheduled: 'Aún no hay días de clase programados para este año.',
+    parish_faith_formation_office: 'Parroquia St. Matthew · Oficina de Formación en la Fe',
+    verify_sacramental_records_note: 'Por favor verifique todos los registros sacramentales antes de enviar.',
     remove: 'Eliminar',
     spouse_coparent_name: 'Nombre del cónyuge / co-padre',
     if_attending_together: '(si asisten juntos)',
@@ -1862,10 +1874,12 @@ const formatSessionDateValue = (date) => date.toISOString().slice(0, 10);
 // ccd_class_session_dates table) — used instead of getUpcomingSessionDates' rolling
 // 6-week guess once a class has any dates configured, since the real faith formation
 // calendar has holiday/break exceptions a fixed weekly pattern can't represent.
-const getClassSessionDates = async (classId) => {
+const getClassSessionDates = async (classId, startDateValue = null, endDateValue = null) => {
+  const rangeFilter = startDateValue && endDateValue ? ' AND session_date BETWEEN ? AND ?' : '';
+  const params = startDateValue && endDateValue ? [classId, startDateValue, endDateValue] : [classId];
   const rows = await db.prepare(
-    'SELECT session_date, description FROM ccd_class_session_dates WHERE ccd_class_id = ? ORDER BY session_date ASC'
-  ).all(classId);
+    `SELECT session_date, description FROM ccd_class_session_dates WHERE ccd_class_id = ?${rangeFilter} ORDER BY session_date ASC`
+  ).all(...params);
   return rows.map((row) => ({ date: new Date(row.session_date), description: row.description || '' }));
 };
 
@@ -3250,6 +3264,54 @@ app.get('/calendar/year', requireAuth, asyncHandler(async (req, res) => {
     months,
     weekdayLabels: ['S', 'M', 'T', 'W', 'T', 'F', 'S'],
     className,
+  });
+}));
+
+app.get('/calendar/class/:id', requireAuth, asyncHandler(async (req, res) => {
+  const classId = Number.parseInt(req.params.id, 10);
+  const ccdClasses = await getCcdClasses();
+  const ccdClass = ccdClasses.find((c) => c.id === classId);
+  if (!ccdClass) {
+    req.flash('error', 'Class not found.');
+    return res.redirect('/calendar');
+  }
+
+  const faithFormationSettings = await getFaithFormationSettings();
+  const requestedSchoolYear = typeof req.query.school_year === 'string' ? req.query.school_year.trim() : '';
+  const schoolYear = /^\d{4}-\d{4}$/.test(requestedSchoolYear) ? requestedSchoolYear : faithFormationSettings.schoolYear;
+  const startYear = parseFaithFormationStartYear(schoolYear);
+
+  const sessions = await getClassSessionDates(classId, `${startYear}-09-01`, `${startYear + 1}-05-31`);
+  const localeTag = res.locals.lang === 'es' ? 'es-ES' : 'en-US';
+
+  const monthGroups = [];
+  let currentKey = null;
+  sessions.forEach((session, index) => {
+    const key = `${session.date.getFullYear()}-${session.date.getMonth()}`;
+    if (key !== currentKey) {
+      monthGroups.push({
+        label: session.date.toLocaleDateString(localeTag, { month: 'long' }),
+        year: session.date.getFullYear(),
+        sessions: [],
+      });
+      currentKey = key;
+    }
+    monthGroups[monthGroups.length - 1].sessions.push({
+      number: index + 1,
+      label: session.date.toLocaleDateString(localeTag, { weekday: 'short', day: 'numeric' }),
+      description: session.description,
+    });
+  });
+
+  res.render('calendar-class', {
+    ccdClass,
+    className: `${CCD_GRADE_MEANINGS[ccdClass.grade_level] || ccdClass.grade_level}${ccdClass.sectionLabel || ''}`,
+    schoolYear,
+    monthGroups,
+    sessionCount: sessions.length,
+    rangeLabel: sessions.length
+      ? `${sessions[0].date.toLocaleDateString(localeTag, { month: 'long', year: 'numeric' })} – ${sessions[sessions.length - 1].date.toLocaleDateString(localeTag, { month: 'long', year: 'numeric' })}`
+      : '',
   });
 }));
 
