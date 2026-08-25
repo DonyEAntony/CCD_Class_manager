@@ -741,8 +741,12 @@ const translations = {
     subject_placeholder: 'e.g. Reminder for this Sunday',
     cc_email_label: 'Cc (optional)',
     cc_email_placeholder: 'you@example.com',
+    send_as_bcc_label: 'Send as one email (Bcc all recipients)',
+    send_as_bcc_hint: 'Sends a single email addressed to you with every family Bcc\'d, so recipients can\'t see each other\'s addresses. Leave unchecked to send each family its own copy.',
     message_label: 'Message',
     message_placeholder: 'Type your message to parents here...',
+    attachments_label: 'Attachments (optional)',
+    attachments_hint: 'Up to 5 files, 10 MB each.',
     send_message_button: 'Send Message',
     register_family: 'Register Family for Faith Formation',
     // Index accordion
@@ -1523,8 +1527,12 @@ const translations = {
     subject_placeholder: 'ej. Recordatorio para este domingo',
     cc_email_label: 'Cc (opcional)',
     cc_email_placeholder: 'tu@ejemplo.com',
+    send_as_bcc_label: 'Enviar como un solo correo (Cco a todos los destinatarios)',
+    send_as_bcc_hint: 'Envía un único correo dirigido a usted con cada familia en Cco, para que los destinatarios no vean las direcciones de los demás. Déjelo sin marcar para enviar a cada familia su propia copia.',
     message_label: 'Mensaje',
     message_placeholder: 'Escriba su mensaje para los padres aquí...',
+    attachments_label: 'Archivos adjuntos (opcional)',
+    attachments_hint: 'Hasta 5 archivos, 10 MB cada uno.',
     send_message_button: 'Enviar Mensaje',
     register_family: 'Inscribir Familia para Formación en la Fe',
     // Index accordion
@@ -2284,6 +2292,13 @@ const storage = multer.diskStorage({
   },
 });
 const upload = multer({ storage });
+const messageAttachmentUpload = multer({
+  storage,
+  limits: {
+    files: 5,
+    fileSize: 10 * 1024 * 1024,
+  },
+});
 const certificateUpload = multer({
   storage,
   fileFilter: (_req, file, cb) => {
@@ -6427,84 +6442,112 @@ app.post('/admin/classes/:id/schedule/remove', requireAuth, requireRole('admin',
   return res.redirect(`/admin/classes/${classId}`);
 }));
 
-app.post('/admin/classes/:id/message', requireAuth, requireRole('admin', 'catechist'), asyncHandler(async (req, res) => {
-  const classId = Number.parseInt(req.params.id, 10);
-  if (!Number.isInteger(classId)) {
-    req.flash('error', 'Invalid class.');
-    return res.redirect('/admin/classes');
-  }
+app.post('/admin/classes/:id/message', requireAuth, requireRole('admin', 'catechist'), messageAttachmentUpload.array('attachments', 5), asyncHandler(async (req, res) => {
+  // Attachments land on disk (uploadDir) as soon as multer parses the request, so every
+  // exit path — validation failures included — must clean them up or they'd pile up.
+  const uploadedFiles = req.files || [];
+  const cleanupAttachments = () => {
+    uploadedFiles.forEach((file) => fs.unlink(file.path, () => {}));
+  };
 
-  const ccdClasses = await getCcdClasses();
-  const ccdClass = ccdClasses.find((c) => c.id === classId);
-  const ownsClass = ccdClass && (req.user.role === 'admin' || isClassCatechist(ccdClass, req.user.id));
-  if (!ownsClass) {
-    req.flash('error', 'Class not found.');
-    return res.redirect('/admin/classes');
-  }
+  try {
+    const classId = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(classId)) {
+      req.flash('error', 'Invalid class.');
+      return res.redirect('/admin/classes');
+    }
 
-  const message = typeof req.body.message === 'string' ? req.body.message.trim() : '';
-  const subject = typeof req.body.subject === 'string' ? req.body.subject.trim() : '';
-  if (!message) {
-    req.flash('error', 'Please enter a message to send.');
-    return res.redirect(`/admin/classes/${classId}`);
-  }
+    const ccdClasses = await getCcdClasses();
+    const ccdClass = ccdClasses.find((c) => c.id === classId);
+    const ownsClass = ccdClass && (req.user.role === 'admin' || isClassCatechist(ccdClass, req.user.id));
+    if (!ownsClass) {
+      req.flash('error', 'Class not found.');
+      return res.redirect('/admin/classes');
+    }
 
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  const rawCcInput = (typeof req.body.cc_email === 'string' ? req.body.cc_email : '').trim();
-  const ccEmails = rawCcInput
-    .split(',')
-    .map((address) => address.trim())
-    .filter((address) => emailRegex.test(address));
-  const ccList = ccEmails.length ? ccEmails.join(', ') : undefined;
-  const ccAllInvalid = rawCcInput.length > 0 && ccEmails.length === 0;
+    const message = typeof req.body.message === 'string' ? req.body.message.trim() : '';
+    const subject = typeof req.body.subject === 'string' ? req.body.subject.trim() : '';
+    if (!message) {
+      req.flash('error', 'Please enter a message to send.');
+      return res.redirect(`/admin/classes/${classId}`);
+    }
 
-  const rawIds = req.body.student_registration_ids;
-  const selectedIds = new Set(
-    (Array.isArray(rawIds) ? rawIds : (rawIds ? [rawIds] : []))
-      .map((id) => Number.parseInt(id, 10))
-      .filter((id) => Number.isInteger(id))
-  );
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const rawCcInput = (typeof req.body.cc_email === 'string' ? req.body.cc_email : '').trim();
+    const ccEmails = rawCcInput
+      .split(',')
+      .map((address) => address.trim())
+      .filter((address) => emailRegex.test(address));
+    const ccList = ccEmails.length ? ccEmails.join(', ') : undefined;
+    const ccAllInvalid = rawCcInput.length > 0 && ccEmails.length === 0;
 
-  if (!selectedIds.size) {
-    req.flash('error', 'Select at least one student to message.');
-    return res.redirect(`/admin/classes/${classId}`);
-  }
-
-  const activeStudentRegs = await db.prepare('SELECT * FROM student_registrations WHERE archived_at IS NULL').all();
-  const enrolledRegistrationIds = await getEnrolledRegistrationIds();
-  const selectedStudents = getClassRoster(ccdClass, activeStudentRegs, enrolledRegistrationIds).filter((r) => selectedIds.has(r.id));
-
-  // Dedupe by parent email so siblings selected in the same class don't get a duplicate copy.
-  const recipientsByEmail = new Map();
-  selectedStudents.forEach((r) => {
-    const email = (r.primary_contact_email || '').trim();
-    if (email) recipientsByEmail.set(email.toLowerCase(), email);
-  });
-
-  if (!recipientsByEmail.size) {
-    req.flash('error', 'None of the selected students have a contact email on file.');
-    return res.redirect(`/admin/classes/${classId}`);
-  }
-
-  const senderName = req.user.full_name || req.user.email;
-  let sentCount = 0;
-  for (const email of recipientsByEmail.values()) {
-    const result = await sendClassMessageEmail({ to: email, subject, message, senderName, cc: ccList });
-    if (result.delivered) sentCount += 1;
-  }
-
-  const skippedCount = selectedStudents.length - recipientsByEmail.size;
-  if (sentCount === 0) {
-    req.flash('error', 'Message could not be sent — check the mail server configuration.');
-  } else {
-    if (ccAllInvalid) req.flash('error', 'The Cc address was not a valid email and was not included.');
-    req.flash(
-      'success',
-      `Message sent to ${sentCount} famil${sentCount === 1 ? 'y' : 'ies'}` +
-        (skippedCount ? ` (${skippedCount} selected student${skippedCount === 1 ? '' : 's'} had no contact email on file).` : '.')
+    const rawIds = req.body.student_registration_ids;
+    const selectedIds = new Set(
+      (Array.isArray(rawIds) ? rawIds : (rawIds ? [rawIds] : []))
+        .map((id) => Number.parseInt(id, 10))
+        .filter((id) => Number.isInteger(id))
     );
+
+    if (!selectedIds.size) {
+      req.flash('error', 'Select at least one student to message.');
+      return res.redirect(`/admin/classes/${classId}`);
+    }
+
+    const activeStudentRegs = await db.prepare('SELECT * FROM student_registrations WHERE archived_at IS NULL').all();
+    const enrolledRegistrationIds = await getEnrolledRegistrationIds();
+    const selectedStudents = getClassRoster(ccdClass, activeStudentRegs, enrolledRegistrationIds).filter((r) => selectedIds.has(r.id));
+
+    // Dedupe by parent email so siblings selected in the same class don't get a duplicate copy.
+    const recipientsByEmail = new Map();
+    selectedStudents.forEach((r) => {
+      const email = (r.primary_contact_email || '').trim();
+      if (email) recipientsByEmail.set(email.toLowerCase(), email);
+    });
+
+    if (!recipientsByEmail.size) {
+      req.flash('error', 'None of the selected students have a contact email on file.');
+      return res.redirect(`/admin/classes/${classId}`);
+    }
+
+    const attachments = uploadedFiles.map((file) => ({ filename: file.originalname, path: file.path }));
+    const senderName = req.user.full_name || req.user.email;
+    const replyTo = req.user.email || undefined;
+    const useBcc = req.body.send_mode === 'bcc';
+    let sentCount = 0;
+    if (useBcc) {
+      const result = await sendClassMessageEmail({
+        to: req.user.email,
+        bcc: Array.from(recipientsByEmail.values()).join(', '),
+        subject,
+        message,
+        senderName,
+        cc: ccList,
+        replyTo,
+        attachments,
+      });
+      if (result.delivered) sentCount = recipientsByEmail.size;
+    } else {
+      for (const email of recipientsByEmail.values()) {
+        const result = await sendClassMessageEmail({ to: email, subject, message, senderName, cc: ccList, replyTo, attachments });
+        if (result.delivered) sentCount += 1;
+      }
+    }
+
+    const skippedCount = selectedStudents.length - recipientsByEmail.size;
+    if (sentCount === 0) {
+      req.flash('error', 'Message could not be sent — check the mail server configuration.');
+    } else {
+      if (ccAllInvalid) req.flash('error', 'The Cc address was not a valid email and was not included.');
+      req.flash(
+        'success',
+        `Message sent to ${sentCount} famil${sentCount === 1 ? 'y' : 'ies'}` +
+          (skippedCount ? ` (${skippedCount} selected student${skippedCount === 1 ? '' : 's'} had no contact email on file).` : '.')
+      );
+    }
+    return res.redirect(`/admin/classes/${classId}`);
+  } finally {
+    cleanupAttachments();
   }
-  return res.redirect(`/admin/classes/${classId}`);
 }));
 
 app.post('/admin/events', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {

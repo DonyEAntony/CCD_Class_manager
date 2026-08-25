@@ -200,7 +200,7 @@
       <% if (!roster.length) { %>
         <div class="page-card"><div class="p-4 text-center" style="color:var(--muted);font-size:.9rem"><em><%= t('no_students_in_class') %></em></div></div>
       <% } else { %>
-        <form id="class-message-form" method="post" action="/admin/classes/<%= ccdClass.id %>/message">
+        <form id="class-message-form" method="post" action="/admin/classes/<%= ccdClass.id %>/message" enctype="multipart/form-data">
         <% roster.forEach((r) => { %>
           <% const nameParts = (r.student_full_name || '').trim().split(/\s+/).filter(Boolean); %>
           <% const initials = ((nameParts[0] ? nameParts[0][0] : '') + (nameParts.length > 1 ? nameParts[nameParts.length - 1][0] : '')).toUpperCase(); %>
@@ -246,6 +246,16 @@
             <div class="mb-2">
               <label class="form-label mb-1" style="font-size:.75rem"><%= t('message_label') %></label>
               <textarea class="form-control" name="message" rows="5" required placeholder="<%= t('message_placeholder') %>"></textarea>
+            </div>
+            <div class="mb-2">
+              <label class="form-label mb-1" style="font-size:.75rem"><%= t('attachments_label') %></label>
+              <input class="form-control form-control-sm" type="file" name="attachments" multiple>
+              <div style="font-size:.72rem;color:var(--muted)"><%= t('attachments_hint') %></div>
+            </div>
+            <div class="form-check mb-2">
+              <input class="form-check-input" type="checkbox" name="send_mode" value="bcc" id="send-mode-bcc">
+              <label class="form-check-label" for="send-mode-bcc" style="font-size:.8rem"><%= t('send_as_bcc_label') %></label>
+              <div style="font-size:.72rem;color:var(--muted)"><%= t('send_as_bcc_hint') %></div>
             </div>
             <button class="btn btn-primary" type="submit"><%= t('send_message_button') %></button>
           </div>
@@ -421,10 +431,13 @@
       });
     }
 
+    const bccCheckbox = document.getElementById('send-mode-bcc');
+
     const updateCount = () => {
       const checkedCount = checkboxes.filter((cb) => cb.checked).length;
       const noun = checkedCount === 1 ? studentSingularLabel : studentPluralLabel;
       countLabel.textContent = checkedCount + ' ' + noun + ' ' + selectedSuffixLabel;
+      if (bccCheckbox) bccCheckbox.checked = checkedCount > 1;
     };
 
     checkboxes.forEach((cb) => cb.addEventListener('change', updateCount));
