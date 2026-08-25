@@ -695,6 +695,7 @@ const translations = {
     roster_label: 'Roster',
     class_teacher_label: 'Teacher',
     schedule_label: 'Schedule',
+    view_class_calendar_label: 'View Class Calendar',
     no_schedule_dates: 'No class days scheduled yet.',
     generate_schedule_label: 'Generate Sept–May schedule',
     generate_schedule_hint: 'Adds a weekly class day (based on the class time above) for every week from September through May. Remove individual dates afterward for holidays or breaks, or add extra ones for makeup days.',
@@ -1469,6 +1470,7 @@ const translations = {
     roster_label: 'Lista de Estudiantes',
     class_teacher_label: 'Catequista',
     schedule_label: 'Horario',
+    view_class_calendar_label: 'Ver Calendario de la Clase',
     no_schedule_dates: 'Aún no hay días de clase programados.',
     generate_schedule_label: 'Generar horario de Septiembre a Mayo',
     generate_schedule_hint: 'Agrega un día de clase semanal (según el horario de clase indicado arriba) para cada semana de Septiembre a Mayo. Luego puede eliminar fechas individuales por días festivos o descansos, o agregar fechas adicionales para clases de reposición.',
@@ -1869,13 +1871,15 @@ const getClassSessionDates = async (classId) => {
 
 // Used to surface confirmed class days (across every class, not just one) on the
 // shared /calendar page, so parents/staff can see them alongside other parish events.
-const getClassSessionDatesInRange = async (startDateValue, endDateValue) => {
+const getClassSessionDatesInRange = async (startDateValue, endDateValue, classId = null) => {
+  const classFilter = classId ? ' AND scd.ccd_class_id = ?' : '';
+  const params = classId ? [startDateValue, endDateValue, classId] : [startDateValue, endDateValue];
   const rows = await db.prepare(`
     SELECT scd.session_date, scd.description, cc.class_time
     FROM ccd_class_session_dates scd
     INNER JOIN ccd_classes cc ON cc.id = scd.ccd_class_id
-    WHERE scd.session_date BETWEEN ? AND ?
-  `).all(startDateValue, endDateValue);
+    WHERE scd.session_date BETWEEN ? AND ?${classFilter}
+  `).all(...params);
 
   const byDate = new Map();
   rows.forEach((row) => {
@@ -3219,7 +3223,15 @@ app.get('/calendar/year', requireAuth, asyncHandler(async (req, res) => {
   const schoolYear = /^\d{4}-\d{4}$/.test(requestedSchoolYear) ? requestedSchoolYear : faithFormationSettings.schoolYear;
   const startYear = parseFaithFormationStartYear(schoolYear);
 
-  const classDaysByDate = await getClassSessionDatesInRange(`${startYear}-09-01`, `${startYear + 1}-05-31`);
+  const classId = Number.parseInt(req.query.class_id, 10) || null;
+  let className = '';
+  if (classId) {
+    const ccdClasses = await getCcdClasses();
+    const ccdClass = ccdClasses.find((c) => c.id === classId);
+    if (ccdClass) className = `${CCD_GRADE_MEANINGS[ccdClass.grade_level] || ccdClass.grade_level}${ccdClass.sectionLabel || ''}`;
+  }
+
+  const classDaysByDate = await getClassSessionDatesInRange(`${startYear}-09-01`, `${startYear + 1}-05-31`, classId);
   const classDayDates = new Set(classDaysByDate.keys());
   const localeTag = res.locals.lang === 'es' ? 'es-ES' : 'en-US';
 
@@ -3237,6 +3249,7 @@ app.get('/calendar/year', requireAuth, asyncHandler(async (req, res) => {
     schoolYear,
     months,
     weekdayLabels: ['S', 'M', 'T', 'W', 'T', 'F', 'S'],
+    className,
   });
 }));
 

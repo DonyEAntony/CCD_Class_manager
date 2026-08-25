@@ -8,6 +8,23 @@
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
   <style>
+    .year-title-bar {
+      background: #dce3fb;
+      border-radius: 4px;
+      padding: 0.9rem 1.3rem;
+      margin-bottom: 1rem;
+    }
+    .year-title-bar h1 {
+      margin: 0;
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: #22228c;
+    }
+    .year-title-bar p {
+      margin: 0;
+      font-weight: 700;
+      color: #22228c;
+    }
     .year-legend {
       display: flex;
       align-items: center;
@@ -19,50 +36,48 @@
     .year-legend-swatch {
       width: 14px;
       height: 14px;
-      border-radius: 3px;
-      background: var(--gold-pale);
-      border: 1px solid #f0d090;
+      border-radius: 2px;
+      background: #d9d9d9;
+      border: 1px solid #9a9a9a;
     }
     .year-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 1rem;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 1.1rem;
     }
-    .year-month {
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 0.6rem;
-    }
-    .year-month-label {
+    .year-month-title {
+      background: #dce3fb;
+      color: #22228c;
       font-weight: 700;
       font-size: 0.85rem;
-      color: var(--navy);
-      text-align: center;
-      margin-bottom: 0.4rem;
+      padding: 0.2rem 0.4rem;
+      border: 1px solid #22228c;
+      border-bottom: none;
     }
-    .year-day-grid {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      gap: 2px;
+    .year-month-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
     }
-    .year-weekday {
-      font-size: 0.6rem;
+    .year-month-table th {
+      background: #4a5fd9;
+      color: #fff;
+      font-size: 0.62rem;
       font-weight: 700;
       text-align: center;
-      color: var(--muted);
+      padding: 0.2rem 0;
+      border: 1px solid #22228c;
     }
-    .year-day {
-      aspect-ratio: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.65rem;
-      border-radius: 2px;
-      color: var(--ink-soft);
+    .year-month-table td {
+      border: 1px solid #22228c;
+      text-align: center;
+      font-size: 0.66rem;
+      color: #111;
+      padding: 0.28rem 0;
+      height: 1.4em;
     }
-    .year-day.has-class {
-      background: var(--gold-pale);
-      color: #7a5a1a;
+    .year-month-table td.has-class {
+      background: #d9d9d9;
       font-weight: 700;
     }
 
@@ -70,21 +85,19 @@
       @page { size: A4 portrait; margin: 10mm; }
       body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       .no-print { display: none !important; }
+      .year-title-bar { padding: 3mm 4mm; margin-bottom: 3mm; }
+      .year-title-bar h1 { font-size: 5mm; }
+      .year-title-bar p { font-size: 3mm; }
+      .year-legend { font-size: 2.6mm; margin-bottom: 3mm; }
+      .year-legend-swatch { width: 3mm; height: 3mm; }
       .year-grid {
         grid-template-columns: repeat(3, 1fr);
         gap: 4mm;
         page-break-inside: avoid;
       }
-      .year-month {
-        padding: 2mm;
-        page-break-inside: avoid;
-      }
-      .year-month-label { font-size: 3mm; margin-bottom: 1mm; }
-      .year-day-grid { gap: 0.5mm; }
-      .year-weekday { font-size: 2mm; }
-      .year-day { font-size: 2.2mm; border-radius: 0.5mm; }
-      .year-legend { font-size: 2.6mm; margin-bottom: 3mm; }
-      .year-legend-swatch { width: 3mm; height: 3mm; }
+      .year-month-title { font-size: 2.6mm; padding: 0.8mm 1mm; }
+      .year-month-table th { font-size: 2mm; padding: 0.5mm 0; }
+      .year-month-table td { font-size: 2.2mm; padding: 0.8mm 0; height: auto; }
     }
   </style>
 </head>
@@ -92,18 +105,17 @@
 <%- include('_topbar') %>
 <main class="container py-4 app-shell-wide mx-auto">
 
-  <div class="page-heading d-flex flex-wrap justify-content-between align-items-end gap-2 no-print">
-    <div>
-      <h1><%= t('year_calendar_title') %></h1>
-      <p class="sub mb-0"><%= schoolYear %></p>
-    </div>
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 no-print">
     <div class="d-flex gap-2">
       <button type="button" class="btn btn-primary" onclick="window.print()"><%= t('print_button') %></button>
       <a class="btn btn-outline-secondary" href="/calendar"><%= t('back_to_calendar') %></a>
     </div>
   </div>
 
-  <h1 class="d-none d-print-block mb-1"><%= t('year_calendar_title') %> &mdash; <%= schoolYear %></h1>
+  <div class="year-title-bar">
+    <h1><%= t('year_calendar_title') %><% if (className) { %> &mdash; <%= className %><% } %></h1>
+    <p><%= schoolYear %></p>
+  </div>
 
   <div class="year-legend">
     <span class="year-legend-swatch"></span>
@@ -113,15 +125,23 @@
   <div class="year-grid">
     <% months.forEach((month) => { %>
       <div class="year-month">
-        <div class="year-month-label"><%= month.label %></div>
-        <div class="year-day-grid">
-          <% weekdayLabels.forEach((wd) => { %><div class="year-weekday"><%= wd %></div><% }) %>
-          <% month.weeks.forEach((week) => { %>
-            <% week.forEach((day) => { %>
-              <div class="year-day <%= day && day.hasClass ? 'has-class' : '' %>"><%= day ? day.day : '' %></div>
+        <div class="year-month-title"><%= month.label %></div>
+        <table class="year-month-table">
+          <thead>
+            <tr>
+              <% weekdayLabels.forEach((wd) => { %><th><%= wd %></th><% }) %>
+            </tr>
+          </thead>
+          <tbody>
+            <% month.weeks.forEach((week) => { %>
+              <tr>
+                <% week.forEach((day) => { %>
+                  <td class="<%= day && day.hasClass ? 'has-class' : '' %>"><%= day ? day.day : '' %></td>
+                <% }) %>
+              </tr>
             <% }) %>
-          <% }) %>
-        </div>
+          </tbody>
+        </table>
       </div>
     <% }) %>
   </div>
