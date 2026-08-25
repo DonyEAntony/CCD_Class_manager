@@ -720,6 +720,27 @@ const translations = {
     present_label: 'Present',
     absent_label: 'Absent',
     unmarked_label: 'unmarked',
+    mark_all_present_button: 'Mark all present',
+    clear_button: 'Clear',
+    autosave_note: 'Attendance saves automatically as you mark it.',
+    baptism_cert_pending_badge: 'Baptism cert. pending',
+    absence_singular: 'absence',
+    absence_plural: 'absences',
+    last_seven_label: 'Last 7',
+    of_label: 'of',
+    attended_label: 'attended',
+    year_to_date_label: 'Year to date',
+    average_attendance_label: 'average attendance',
+    below_75_label: 'Below 75% attendance this year:',
+    quick_template_absence_label: 'Absence follow-up',
+    quick_template_documents_label: 'Missing documents',
+    quick_template_reminder_label: 'Next class reminder',
+    quick_template_absence_subject: 'We missed you in class',
+    quick_template_absence_body: 'Hi! We noticed your child was not in class recently. Please let us know if there is anything we can help with, and we look forward to seeing them next time.',
+    quick_template_documents_subject: 'Missing documents on file',
+    quick_template_documents_body: 'Hi! We are missing a document (such as a baptism certificate) for your child\'s registration. Please send a copy when you have a chance so we can complete their file.',
+    quick_template_reminder_subject: 'Reminder for our next class',
+    quick_template_reminder_body: 'Hi! Just a reminder about our next class session. We look forward to seeing your child there!',
     no_students_in_class: 'No students match this class yet.',
     pending_acceptance_label: 'Pending',
     pending_count_label: 'pending',
@@ -734,6 +755,9 @@ const translations = {
     select_none_label: 'Select none',
     copy_all_emails_label: 'Copy all emails',
     copy_teacher_emails_label: 'Copy teacher emails',
+    assign_teacher_button: 'Assign',
+    no_catechists_available: 'No other catechists available to assign.',
+    remove_teacher_confirm: 'Remove this teacher from the class?',
     emails_copied_label: 'Copied!',
     no_emails_to_copy_label: 'No contact emails to copy.',
     copy_emails_failed_label: 'Could not copy — copy manually instead.',
@@ -1507,6 +1531,27 @@ const translations = {
     present_label: 'Presente',
     absent_label: 'Ausente',
     unmarked_label: 'sin marcar',
+    mark_all_present_button: 'Marcar todos presentes',
+    clear_button: 'Borrar',
+    autosave_note: 'La asistencia se guarda automáticamente al marcarla.',
+    baptism_cert_pending_badge: 'Certificado de bautismo pendiente',
+    absence_singular: 'ausencia',
+    absence_plural: 'ausencias',
+    last_seven_label: 'Últimas 7',
+    of_label: 'de',
+    attended_label: 'asistió',
+    year_to_date_label: 'Año hasta la fecha',
+    average_attendance_label: 'asistencia promedio',
+    below_75_label: 'Por debajo del 75% de asistencia este año:',
+    quick_template_absence_label: 'Seguimiento de ausencia',
+    quick_template_documents_label: 'Documentos faltantes',
+    quick_template_reminder_label: 'Recordatorio de próxima clase',
+    quick_template_absence_subject: 'Le extrañamos en clase',
+    quick_template_absence_body: '¡Hola! Notamos que su hijo/a no asistió recientemente a clase. Por favor avísenos si hay algo en lo que podamos ayudar, y esperamos verlo/a la próxima vez.',
+    quick_template_documents_subject: 'Documentos faltantes en el expediente',
+    quick_template_documents_body: '¡Hola! Nos falta un documento (como el certificado de bautismo) para la inscripción de su hijo/a. Por favor envíe una copia cuando pueda para completar su expediente.',
+    quick_template_reminder_subject: 'Recordatorio de nuestra próxima clase',
+    quick_template_reminder_body: '¡Hola! Solo un recordatorio sobre nuestra próxima sesión de clase. ¡Esperamos ver a su hijo/a allí!',
     no_students_in_class: 'Aún no hay estudiantes en esta clase.',
     pending_acceptance_label: 'Pendiente',
     pending_count_label: 'pendiente(s)',
@@ -1521,6 +1566,9 @@ const translations = {
     select_none_label: 'Deseleccionar todos',
     copy_all_emails_label: 'Copiar todos los correos',
     copy_teacher_emails_label: 'Copiar correos de catequistas',
+    assign_teacher_button: 'Asignar',
+    no_catechists_available: 'No hay más catequistas disponibles para asignar.',
+    remove_teacher_confirm: '¿Eliminar este catequista de la clase?',
     emails_copied_label: '¡Copiado!',
     no_emails_to_copy_label: 'No hay correos de contacto para copiar.',
     copy_emails_failed_label: 'No se pudo copiar — cópielo manualmente.',
@@ -6287,14 +6335,67 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist'), as
   const absentCount = attendanceRows.filter((row) => row.status === 'absent').length;
   const faithFormationSettings = await getFaithFormationSettings();
 
+  const assignedCatechistIds = new Set((ccdClass.catechists || []).map((c) => c.id));
+  const assignableCatechists = req.user.role === 'admin'
+    ? (await getCatechists()).filter((c) => !assignedCatechistIds.has(c.id))
+    : [];
+
+  // Whole-class attendance history — powers the per-student absence badge/history dots
+  // and the year-to-date rate below, all derived from real ccd_class_attendance rows
+  // rather than invented compliance fields.
+  const allAttendanceRows = await db.prepare(
+    'SELECT student_registration_id, session_date, status FROM ccd_class_attendance WHERE ccd_class_id = ?'
+  ).all(classId);
+  const attendanceByStudentDate = new Map();
+  const countsByDate = new Map();
+  allAttendanceRows.forEach((row) => {
+    const dateValue = formatSessionDateValue(new Date(row.session_date));
+    attendanceByStudentDate.set(`${row.student_registration_id}|${dateValue}`, row.status);
+    if (!countsByDate.has(dateValue)) countsByDate.set(dateValue, { present: 0, absent: 0 });
+    if (row.status === 'present') countsByDate.get(dateValue).present += 1;
+    if (row.status === 'absent') countsByDate.get(dateValue).absent += 1;
+  });
+
+  const pastSessionDates = hasStoredSchedule
+    ? upcomingDates.map((d) => formatSessionDateValue(d)).filter((v) => v <= today)
+    : [];
+  const historyDates = pastSessionDates.slice(-7);
+
+  const rosterWithHistory = roster.map((r) => {
+    const presentTotal = pastSessionDates.filter((d) => attendanceByStudentDate.get(`${r.id}|${d}`) === 'present').length;
+    const absentTotal = pastSessionDates.filter((d) => attendanceByStudentDate.get(`${r.id}|${d}`) === 'absent').length;
+    const historyPresentCount = historyDates.filter((d) => attendanceByStudentDate.get(`${r.id}|${d}`) === 'present').length;
+    return {
+      ...r,
+      absenceCount: absentTotal,
+      baptismCertPending: SACRAMENTAL_GRADE_LEVELS.has(ccdClass.grade_level) && !r.baptism_certificate_path,
+      attendanceRatePercent: pastSessionDates.length ? Math.round((presentTotal / pastSessionDates.length) * 100) : null,
+      history: historyDates.map((d) => ({ date: d, status: attendanceByStudentDate.get(`${r.id}|${d}`) || null })),
+      historyPresentCount,
+    };
+  });
+
+  const classPresentTotal = allAttendanceRows.filter((row) => row.status === 'present').length;
+  const classPossibleTotal = pastSessionDates.length * roster.length;
+  const classAttendanceRatePercent = classPossibleTotal > 0 ? Math.round((classPresentTotal / classPossibleTotal) * 100) : null;
+  const lowAttendanceStudents = pastSessionDates.length >= 3
+    ? rosterWithHistory.filter((r) => r.attendanceRatePercent !== null && r.attendanceRatePercent < 75)
+    : [];
+
   res.render('admin-class-detail', {
     ccdClass,
-    roster,
+    roster: rosterWithHistory,
     isPendingAcceptance,
     ccdGradeMeanings: CCD_GRADE_MEANINGS,
     upcomingDates: upcomingDates.map((d) => {
       const value = formatSessionDateValue(d);
-      return { value, isNext: value === nextSessionValue, description: descriptionByDate.get(value) || '' };
+      const counts = countsByDate.get(value);
+      return {
+        value,
+        isNext: value === nextSessionValue,
+        description: descriptionByDate.get(value) || '',
+        presentCount: counts ? counts.present : null,
+      };
     }),
     hasStoredSchedule,
     defaultSchoolYear: faithFormationSettings.schoolYear,
@@ -6304,7 +6405,48 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist'), as
     presentCount,
     absentCount,
     unmarkedCount: roster.length - presentCount - absentCount,
+    assignableCatechists,
+    classAttendanceRatePercent,
+    lowAttendanceStudents,
   });
+}));
+
+app.post('/admin/classes/:id/catechists/add', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const classId = Number.parseInt(req.params.id, 10);
+  const catechistId = Number.parseInt(req.body.catechist_user_id, 10);
+  if (!Number.isInteger(classId) || !Number.isInteger(catechistId)) {
+    req.flash('error', 'Invalid request.');
+    return res.redirect(`/admin/classes/${classId}`);
+  }
+
+  const validCatechist = await db.prepare(
+    `SELECT id FROM users WHERE id = ? AND role = 'catechist' AND COALESCE(account_status, 'active') <> 'deleted'`
+  ).get(catechistId);
+  if (!validCatechist) {
+    req.flash('error', 'That user is not an active catechist.');
+    return res.redirect(`/admin/classes/${classId}`);
+  }
+
+  await db.prepare(
+    'INSERT IGNORE INTO ccd_class_catechists (ccd_class_id, catechist_user_id) VALUES (?, ?)'
+  ).run(classId, catechistId);
+  req.flash('success', 'Teacher assigned to class.');
+  return res.redirect(`/admin/classes/${classId}`);
+}));
+
+app.post('/admin/classes/:id/catechists/remove', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const classId = Number.parseInt(req.params.id, 10);
+  const catechistId = Number.parseInt(req.body.catechist_user_id, 10);
+  if (!Number.isInteger(classId) || !Number.isInteger(catechistId)) {
+    req.flash('error', 'Invalid request.');
+    return res.redirect(`/admin/classes/${classId}`);
+  }
+
+  await db.prepare(
+    'DELETE FROM ccd_class_catechists WHERE ccd_class_id = ? AND catechist_user_id = ?'
+  ).run(classId, catechistId);
+  req.flash('success', 'Teacher removed from class.');
+  return res.redirect(`/admin/classes/${classId}`);
 }));
 
 app.post('/admin/classes/:id/attendance', requireAuth, requireRole('admin', 'catechist'), asyncHandler(async (req, res) => {
