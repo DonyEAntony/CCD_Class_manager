@@ -318,6 +318,7 @@ const translations = {
     year_view_label: 'Full Year (Printable)',
     year_calendar_title: 'Faith Formation Year',
     year_calendar_legend: 'Confirmed class day',
+    year_calendar_off_weekday_legend: 'Day of the week with no class',
     print_button: 'Print',
     back_to_calendar: 'Back to Calendar',
     session_count_label: 'sessions',
@@ -1099,6 +1100,7 @@ const translations = {
     year_view_label: 'Año Completo (Imprimible)',
     year_calendar_title: 'Año de Formación en la Fe',
     year_calendar_legend: 'Día de clase confirmado',
+    year_calendar_off_weekday_legend: 'Día de la semana sin clase',
     print_button: 'Imprimir',
     back_to_calendar: 'Volver al Calendario',
     session_count_label: 'sesiones',
@@ -2138,14 +2140,16 @@ const buildCalendarWeeks = (occurrences, year, monthIndex) => {
 // Compact per-day grid (day number + hasClass flag only, no event details) for the
 // printable year-at-a-glance view — same week-grid shape as buildCalendarWeeks but
 // stripped down since a full 9-month page has no room for event text per cell.
-const buildMiniMonthWeeks = (year, monthIndex, classDayDates) => {
+const buildMiniMonthWeeks = (year, monthIndex, classDayDates, classWeekdays) => {
   const startOffset = new Date(year, monthIndex, 1).getDay();
   const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
   const cells = [];
   for (let i = 0; i < startOffset; i += 1) cells.push(null);
   for (let day = 1; day <= daysInMonth; day += 1) {
     const dateKey = `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    cells.push({ day, hasClass: classDayDates.has(dateKey) });
+    const hasClass = classDayDates.has(dateKey);
+    const weekday = new Date(year, monthIndex, day).getDay();
+    cells.push({ day, hasClass, isOffWeekday: !hasClass && classWeekdays && !classWeekdays.has(weekday) });
   }
   while (cells.length % 7 !== 0) cells.push(null);
 
@@ -3247,6 +3251,7 @@ app.get('/calendar/year', requireAuth, asyncHandler(async (req, res) => {
 
   const classDaysByDate = await getClassSessionDatesInRange(`${startYear}-09-01`, `${startYear + 1}-05-31`, classId);
   const classDayDates = new Set(classDaysByDate.keys());
+  const classWeekdays = new Set(Array.from(classDayDates, (dateKey) => new Date(`${dateKey}T00:00:00`).getDay()));
   const localeTag = res.locals.lang === 'es' ? 'es-ES' : 'en-US';
 
   const months = Array.from({ length: 9 }, (_, offset) => {
@@ -3255,7 +3260,7 @@ app.get('/calendar/year', requireAuth, asyncHandler(async (req, res) => {
     const monthIndex = monthOffset % 12;
     return {
       label: new Date(year, monthIndex, 1).toLocaleDateString(localeTag, { month: 'long', year: 'numeric' }),
-      weeks: buildMiniMonthWeeks(year, monthIndex, classDayDates),
+      weeks: buildMiniMonthWeeks(year, monthIndex, classDayDates, classWeekdays),
     };
   });
 

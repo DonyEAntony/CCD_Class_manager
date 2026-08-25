@@ -27,18 +27,28 @@
     }
     .year-legend {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
-      gap: 0.4rem;
+      gap: 1.2rem;
       font-size: 0.85rem;
       color: var(--muted);
       margin-bottom: 1rem;
+    }
+    .year-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
     }
     .year-legend-swatch {
       width: 14px;
       height: 14px;
       border-radius: 2px;
-      background: #d9d9d9;
-      border: 1px solid #9a9a9a;
+      background: #8fca8f;
+      border: 1px solid #4e934e;
+    }
+    .year-legend-swatch.off-weekday {
+      background: #f3dcdc;
+      border: 1px solid #d9a8a8;
     }
     .year-grid {
       display: grid;
@@ -77,8 +87,12 @@
       height: 1.4em;
     }
     .year-month-table td.has-class {
-      background: #d9d9d9;
+      background: #8fca8f;
       font-weight: 700;
+    }
+    .year-month-table td.off-weekday {
+      background: #f3dcdc;
+      color: #8a6a6a;
     }
 
     @media print {
@@ -118,8 +132,8 @@
   </div>
 
   <div class="year-legend">
-    <span class="year-legend-swatch"></span>
-    <span><%= t('year_calendar_legend') %></span>
+    <div class="year-legend-item"><span class="year-legend-swatch"></span><span><%= t('year_calendar_legend') %></span></div>
+    <div class="year-legend-item"><span class="year-legend-swatch off-weekday"></span><span><%= t('year_calendar_off_weekday_legend') %></span></div>
   </div>
 
   <div class="year-grid">
@@ -136,7 +150,7 @@
             <% month.weeks.forEach((week) => { %>
               <tr>
                 <% week.forEach((day) => { %>
-                  <td class="<%= day && day.hasClass ? 'has-class' : '' %>"><%= day ? day.day : '' %></td>
+                  <td class="<%= day && day.hasClass ? 'has-class' : (day && day.isOffWeekday ? 'off-weekday' : '') %>"><%= day ? day.day : '' %></td>
                 <% }) %>
               </tr>
             <% }) %>
