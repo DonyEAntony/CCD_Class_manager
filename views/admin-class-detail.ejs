@@ -266,7 +266,13 @@
 
     <div class="col-lg-4">
       <div class="sidebar-card">
-        <h3><%= t('class_teacher_label') %></h3>
+        <div class="d-flex justify-content-between align-items-center" style="margin-bottom:.6rem">
+          <h3 style="margin-bottom:0"><%= t('class_teacher_label') %></h3>
+          <% if (ccdClass.catechists && ccdClass.catechists.length) { %>
+            <button type="button" class="btn btn-link btn-sm p-0" id="copy-teacher-emails" style="font-size:.72rem;text-transform:none;letter-spacing:normal;font-weight:400"><%= t('copy_teacher_emails_label') %></button>
+          <% } %>
+        </div>
+        <div id="copy-teacher-emails-feedback" style="font-size:.72rem;color:var(--muted);margin-bottom:.4rem"></div>
         <% if (ccdClass.catechists && ccdClass.catechists.length) { %>
           <% ccdClass.catechists.forEach((catechist, index) => { %>
             <div style="<%= index > 0 ? 'margin-top:.6rem' : '' %>">
@@ -340,6 +346,53 @@
 </main>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+  const copyTextToClipboard = (text, onSuccess, onFail) => {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(onSuccess).catch(onFail);
+      return;
+    }
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+      document.execCommand('copy');
+      onSuccess();
+    } catch (e) {
+      onFail();
+    }
+    document.body.removeChild(textarea);
+  };
+
+  (function () {
+    const copyTeacherEmailsBtn = document.getElementById('copy-teacher-emails');
+    const copyTeacherFeedback = document.getElementById('copy-teacher-emails-feedback');
+    if (!copyTeacherEmailsBtn) return;
+
+    const teacherEmailsByLower = new Map();
+    <%- JSON.stringify((ccdClass.catechists || []).map((c) => c.email).filter(Boolean)) %>.forEach((email) => {
+      teacherEmailsByLower.set(email.toLowerCase(), email);
+    });
+    const emailsCopiedLabel = <%- JSON.stringify(t('emails_copied_label')) %>;
+    const noEmailsToCopyLabel = <%- JSON.stringify(t('no_emails_to_copy_label')) %>;
+    const copyEmailsFailedLabel = <%- JSON.stringify(t('copy_emails_failed_label')) %>;
+
+    copyTeacherEmailsBtn.addEventListener('click', () => {
+      const emailList = Array.from(teacherEmailsByLower.values()).join(', ');
+      if (!emailList) {
+        if (copyTeacherFeedback) copyTeacherFeedback.textContent = noEmailsToCopyLabel;
+        return;
+      }
+      copyTextToClipboard(
+        emailList,
+        () => { if (copyTeacherFeedback) copyTeacherFeedback.textContent = emailsCopiedLabel; },
+        () => { if (copyTeacherFeedback) copyTeacherFeedback.textContent = copyEmailsFailedLabel; }
+      );
+    });
+  }());
+
   (function () {
     const classId = <%- JSON.stringify(ccdClass.id) %>;
     const sessionDate = <%- JSON.stringify(selectedDate) %>;
@@ -409,25 +462,11 @@
           if (copyFeedback) copyFeedback.textContent = noEmailsToCopyLabel;
           return;
         }
-        const showCopied = () => { if (copyFeedback) copyFeedback.textContent = emailsCopiedLabel; };
-        const showFailed = () => { if (copyFeedback) copyFeedback.textContent = copyEmailsFailedLabel; };
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(emailList).then(showCopied).catch(showFailed);
-        } else {
-          const textarea = document.createElement('textarea');
-          textarea.value = emailList;
-          textarea.style.position = 'fixed';
-          textarea.style.opacity = '0';
-          document.body.appendChild(textarea);
-          textarea.select();
-          try {
-            document.execCommand('copy');
-            showCopied();
-          } catch (e) {
-            showFailed();
-          }
-          document.body.removeChild(textarea);
-        }
+        copyTextToClipboard(
+          emailList,
+          () => { if (copyFeedback) copyFeedback.textContent = emailsCopiedLabel; },
+          () => { if (copyFeedback) copyFeedback.textContent = copyEmailsFailedLabel; }
+        );
       });
     }
 
