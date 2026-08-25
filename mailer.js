@@ -125,7 +125,17 @@ const buildClassMessageEmailContent = ({ subject, message, senderName }) => ({
   `,
 });
 
-const sendClassMessageEmail = async ({ to, subject, message, senderName, cc }) => {
+// The system EMAIL_FROM is a bare mailbox address shared by every automated email
+// (verification, password reset, etc). Class messages are personal correspondence
+// from a specific catechist/admin, so they get that sender's name in the From
+// display name and their own address as Reply-To — replies go straight to the
+// person who actually sent the message, not a noreply inbox.
+const extractEmailAddress = (fromValue) => {
+  const match = /<([^>]+)>/.exec(fromValue || '');
+  return match ? match[1] : (fromValue || '');
+};
+
+const sendClassMessageEmail = async ({ to, subject, message, senderName, cc, bcc, replyTo, attachments }) => {
   const transporter = createTransporter();
   if (!transporter) {
     console.warn('[mail] Class message email skipped: SMTP config incomplete', {
@@ -142,6 +152,9 @@ const sendClassMessageEmail = async ({ to, subject, message, senderName, cc }) =
   console.info('[mail] Sending class message email', {
     to,
     cc: cc || undefined,
+    bcc: bcc || undefined,
+    replyTo: replyTo || undefined,
+    attachmentCount: attachments ? attachments.length : 0,
     host: smtpLogConfig.host,
     port: smtpLogConfig.port,
     secure: smtpLogConfig.secure,
@@ -149,13 +162,17 @@ const sendClassMessageEmail = async ({ to, subject, message, senderName, cc }) =
   });
 
   const content = buildClassMessageEmailContent({ subject, message, senderName });
+  const from = senderName ? { name: senderName, address: extractEmailAddress(resolvedFrom) } : resolvedFrom;
   const info = await transporter.sendMail({
-    from: resolvedFrom,
+    from,
     to,
     cc: cc || undefined,
+    bcc: bcc || undefined,
+    replyTo: replyTo || undefined,
     subject: content.subject,
     text: content.text,
     html: content.html,
+    attachments: attachments && attachments.length ? attachments : undefined,
   });
 
   console.info('[mail] Class message email accepted by SMTP server', {

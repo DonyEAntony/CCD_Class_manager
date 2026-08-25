@@ -5,158 +5,148 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title><%= ccdGradeMeanings[ccdClass.grade_level] || ccdClass.grade_level %> &mdash; <%= t('app_title') %></title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Caprasimo&family=Figtree:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
   <style>
-    .roster-card {
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      background: var(--surface);
-      padding: 1rem 1.1rem;
-      margin-bottom: 0.75rem;
-      display: flex;
-      align-items: flex-start;
-      gap: 0.85rem;
-    }
-    .roster-avatar {
-      flex: 0 0 auto;
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      background: var(--gold-pale);
-      color: #7a5a1a;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 700;
-      font-size: 0.85rem;
-    }
-    .roster-info { flex: 1 1 auto; min-width: 0; }
-    .roster-info .roster-name { font-weight: 600; color: var(--navy); }
-    .pending-badge {
-      display: inline-block;
-      font-size: 0.65rem;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      background: var(--gold-pale);
-      color: #7a5a1a;
-      border: 1px solid #f0d090;
-      border-radius: 2rem;
-      padding: 0.15em 0.6em;
-      margin-left: 0.4rem;
-      vertical-align: middle;
-    }
-    .roster-info .roster-parent { font-size: 0.85rem; color: var(--muted); }
-    .roster-info .roster-contact {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.9rem;
-      margin-top: 0.35rem;
-      font-size: 0.82rem;
-    }
-    .roster-info .roster-contact a { color: var(--navy-soft); }
-    .roster-info .roster-note {
-      font-size: 0.8rem;
-      color: var(--muted);
-      font-style: italic;
-      margin-top: 0.3rem;
-    }
-    .attendance-toggle {
-      flex: 0 0 auto;
-      display: flex;
-      gap: 0.4rem;
-    }
-    .attendance-btn {
-      width: 34px;
-      height: 34px;
-      border-radius: 50%;
-      border: 1px solid var(--border);
-      background: var(--white);
-      color: var(--muted);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      font-weight: 700;
-      transition: all 0.15s;
-    }
-    .attendance-btn:hover { border-color: var(--navy); }
-    .attendance-btn.present-btn.active { background: #2a7a5a; border-color: #2a7a5a; color: #fff; }
-    .attendance-btn.absent-btn.active { background: #b3261e; border-color: #b3261e; color: #fff; }
+    /* Tokens are namespaced (--ca-*) and scoped to .ca-page so they never collide
+       with the app's own --navy/--gold theme used by the topbar/nav above it. */
+    .ca-page {
+      --ca-bg: #f5ead8;
+      --ca-surface: #f9f4ed;
+      --ca-surface-2: #eee7db;
+      --ca-text: #201e1d;
+      --ca-accent: #c67139;
+      --ca-accent-100: #fff2eb;
+      --ca-accent-200: #ffe1d0;
+      --ca-accent-400: #f6a06b;
+      --ca-accent-600: #b2622d;
+      --ca-accent-700: #8c491a;
+      --ca-accent-800: #643312;
+      --ca-accent2: #7a8a5e;
+      --ca-accent2-200: #e1eecc;
+      --ca-accent2-300: #ccdbb2;
+      --ca-accent2-500: #8fa073;
+      --ca-accent2-800: #3d472b;
+      --ca-neutral-300: #dcd3c4;
+      --ca-neutral-400: #c0b6a5;
+      --ca-neutral-600: #82796a;
+      --ca-neutral-700: #645c50;
+      --ca-divider: rgba(32, 30, 29, .16);
+      --ca-font-heading: "Caprasimo", Georgia, serif;
+      --ca-font-body: "Figtree", system-ui, sans-serif;
+      --ca-radius-lg: 28px;
+      --ca-radius-md: 16px;
+      --ca-shadow-sm: 0 1px 2px rgba(46, 43, 37, .14);
 
-    .sidebar-card {
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      background: var(--surface);
-      padding: 1rem 1.1rem;
-      margin-bottom: 1rem;
+      background: var(--ca-bg);
+      color: var(--ca-text);
+      font-family: var(--ca-font-body);
+      border-radius: 12px;
+      padding: 1.25rem;
     }
-    .sidebar-card h3 {
-      font-size: 0.7rem;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 0.6rem;
-    }
-    .schedule-list {
-      max-height: 260px;
-      overflow-y: auto;
-    }
-    .schedule-list .schedule-row {
-      display: flex;
-      align-items: center;
-      gap: 0.35rem;
-      margin-bottom: 0.25rem;
-    }
-    .schedule-list a {
-      display: flex;
-      flex: 1 1 auto;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0.5rem 0.6rem;
-      border-radius: 6px;
-      color: var(--ink-soft);
-      font-size: 0.88rem;
-      min-width: 0;
-    }
-    .schedule-list a:hover { background: var(--white); text-decoration: none; }
-    .schedule-list a.selected { background: var(--white); border: 1px solid var(--gold); font-weight: 600; color: var(--navy); }
-    .schedule-list a .next-tag {
-      font-size: 0.68rem;
-      font-weight: 700;
-      color: #7a5a1a;
-      background: var(--gold-pale);
-      border-radius: 2rem;
-      padding: 0.15em 0.6em;
-    }
-    .schedule-remove-btn {
-      flex: 0 0 auto;
-      width: 26px;
-      height: 26px;
-      border-radius: 50%;
-      border: 1px solid var(--border);
-      background: var(--white);
-      color: var(--muted);
-      font-size: 0.75rem;
-      line-height: 1;
-      cursor: pointer;
-    }
-    .schedule-remove-btn:hover { border-color: #b3261e; color: #b3261e; }
-    .schedule-desc-row { display: flex; gap: 0.35rem; margin: -0.1rem 0 0.5rem; padding-left: 0.6rem; }
-    .schedule-desc-row input[type="text"] { flex: 1 1 auto; font-size: 0.8rem; }
-    .schedule-add-row { display: flex; gap: 0.4rem; margin-top: 0.6rem; }
-    .schedule-add-row input[type="date"] { flex: 1 1 auto; }
-    .schedule-add-row input[type="text"] { flex: 1 1 auto; }
-    .schedule-generate-form { margin-top: 0.6rem; padding-top: 0.6rem; border-top: 1px solid var(--border); }
-    .schedule-generate-hint { font-size: 0.75rem; color: var(--muted); margin-bottom: 0.4rem; }
-    .teacher-contact { display: flex; gap: 0.6rem; margin-top: 0.5rem; }
-    .teacher-contact a {
-      width: 32px; height: 32px; border-radius: 50%;
-      border: 1px solid var(--border); background: var(--white);
-      display: flex; align-items: center; justify-content: center;
-      color: var(--navy-soft);
+    .ca-page h1, .ca-page h2, .ca-page h3 { font-family: var(--ca-font-heading); font-weight: 400; margin: 0; }
+    .ca-page a { color: var(--ca-accent-700); text-decoration: none; }
+    .ca-page a:hover { color: var(--ca-accent); text-decoration: underline; }
+
+    .ca-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; padding: 14px 20px; background: var(--ca-surface); border-radius: var(--ca-radius-lg); margin-bottom: 1.1rem; }
+    .ca-header-left { display: flex; align-items: center; gap: 14px; }
+    .ca-back-btn { width: 38px; height: 38px; border-radius: 999px; border: 1px solid var(--ca-divider); background: transparent; display: grid; place-items: center; color: var(--ca-text); flex: none; }
+    .ca-back-btn:hover { background: var(--ca-surface-2); }
+    .ca-eyebrow { font: 600 10.5px var(--ca-font-body); letter-spacing: .12em; text-transform: uppercase; color: var(--ca-accent-700); }
+    .ca-title { font-size: 24px; margin-top: 2px; line-height: 1.15; }
+    .ca-header-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .ca-btn { display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; border: 1px solid var(--ca-divider); background: transparent; padding: 9px 18px; font: 400 14px var(--ca-font-heading); color: var(--ca-text); cursor: pointer; }
+    .ca-btn:hover { background: var(--ca-surface-2); text-decoration: none; color: var(--ca-text); }
+    .ca-autosave-note { font-size: 11.5px; color: var(--ca-neutral-600); }
+
+    .ca-stats-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 14px 20px; background: var(--ca-surface); border-radius: var(--ca-radius-lg); margin-bottom: 1rem; }
+    .ca-stat { display: flex; align-items: baseline; gap: 8px; }
+    .ca-stat-num { font-family: var(--ca-font-heading); font-size: 21px; }
+    .ca-stat-label { font-size: 13px; color: var(--ca-neutral-700); }
+    .ca-stat-divider { width: 1px; height: 22px; background: var(--ca-divider); }
+    .ca-mark-all-btn { display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; border: 1px solid var(--ca-accent2-300); background: var(--ca-accent2-200); color: var(--ca-accent2-800); padding: 8px 16px; font: 600 12.5px var(--ca-font-body); cursor: pointer; }
+    .ca-mark-all-btn:hover { background: var(--ca-accent2-300); }
+    .ca-clear-btn { border-radius: 999px; border: 1px solid var(--ca-divider); background: transparent; color: var(--ca-neutral-700); padding: 8px 16px; font: 600 12.5px var(--ca-font-body); cursor: pointer; }
+    .ca-clear-btn:hover { background: var(--ca-surface-2); }
+
+    .ca-roster-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 4px; margin-bottom: .75rem; flex-wrap: wrap; }
+    .ca-roster-toggle { display: flex; align-items: center; gap: 9px; font: 600 11px var(--ca-font-body); letter-spacing: .1em; text-transform: uppercase; color: var(--ca-neutral-600); cursor: pointer; }
+    .ca-roster-toggle input { width: 17px; height: 17px; accent-color: var(--ca-accent); border-radius: 6px; }
+    .ca-roster-actions { display: flex; align-items: center; gap: 16px; font-size: 12.5px; flex-wrap: wrap; }
+    .ca-roster-actions .muted { color: var(--ca-neutral-600); }
+
+    .ca-roster-card { display: grid; grid-template-columns: 26px 44px 1fr auto; gap: 16px; align-items: center; padding: 14px 20px; background: var(--ca-surface); border-radius: var(--ca-radius-lg); box-shadow: var(--ca-shadow-sm); margin-bottom: 10px; }
+    .ca-roster-card input[type="checkbox"] { width: 17px; height: 17px; accent-color: var(--ca-accent); }
+    .ca-avatar { width: 44px; height: 44px; border-radius: 999px; display: grid; place-items: center; font-family: var(--ca-font-heading); font-size: 14px; flex: none; }
+    .ca-avatar.tone-a { background: var(--ca-accent-200); color: var(--ca-accent-800); }
+    .ca-avatar.tone-b { background: var(--ca-accent2-200); color: var(--ca-accent2-800); }
+    .ca-roster-name-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .ca-roster-name { font: 700 16px var(--ca-font-body); }
+    .ca-badge { border-radius: 999px; padding: 2px 10px; font: 600 10px var(--ca-font-body); letter-spacing: .08em; text-transform: uppercase; }
+    .ca-badge-warn { background: var(--ca-accent-200); color: var(--ca-accent-800); }
+    .ca-roster-contact { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 3px; font: 400 12.5px var(--ca-font-body); color: var(--ca-neutral-700); }
+    .ca-roster-contact a { color: inherit; }
+    .ca-roster-note { font-size: 12px; color: var(--ca-neutral-600); font-style: italic; margin-top: 4px; }
+    .ca-history { display: flex; align-items: center; gap: 7px; margin-top: 9px; flex-wrap: wrap; }
+    .ca-history-label { font: 600 9.5px var(--ca-font-body); letter-spacing: .1em; text-transform: uppercase; color: var(--ca-neutral-600); margin-right: 2px; }
+    .ca-history-dot { width: 13px; height: 13px; border-radius: 999px; flex: none; box-sizing: border-box; }
+    .ca-history-dot.present { background: var(--ca-accent2-500); }
+    .ca-history-dot.absent { border: 2px solid var(--ca-accent-600); }
+    .ca-history-dot.none { border: 1.5px dashed var(--ca-neutral-400); }
+    .ca-history-caption { font: 400 11.5px var(--ca-font-body); color: var(--ca-neutral-600); margin-left: 4px; }
+    .ca-attendance-toggle { display: flex; gap: 6px; padding: 4px; background: var(--ca-bg); border-radius: 999px; }
+    .ca-attendance-btn { border-radius: 999px; border: none; background: transparent; color: var(--ca-neutral-700); padding: 8px 14px; font: 600 12.5px var(--ca-font-body); cursor: pointer; }
+    .ca-attendance-btn:hover { background: var(--ca-surface-2); }
+    .ca-attendance-btn.present-btn.active { background: var(--ca-accent2-500); color: #fff; }
+    .ca-attendance-btn.absent-btn.active { background: var(--ca-accent-600); color: #fff; }
+
+    .ca-composer { background: var(--ca-surface); border-radius: var(--ca-radius-lg); padding: 24px 26px; box-shadow: var(--ca-shadow-sm); margin-top: .35rem; }
+    .ca-composer-title { font-size: 19px; }
+    .ca-quick-templates { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    .ca-quick-btn { border-radius: 999px; border: 1px solid var(--ca-divider); background: transparent; color: var(--ca-neutral-700); padding: 7px 14px; font: 600 12px var(--ca-font-body); cursor: pointer; }
+    .ca-quick-btn:hover { background: var(--ca-surface-2); }
+    .ca-field-label { font: 600 10.5px var(--ca-font-body); letter-spacing: .1em; text-transform: uppercase; color: var(--ca-neutral-600); display: block; margin-bottom: 5px; }
+    .ca-composer .form-control { border: 1px solid var(--ca-neutral-300); background: var(--ca-surface); border-radius: 999px; padding: 10px 16px; font: 400 14px var(--ca-font-body); color: var(--ca-text); }
+    .ca-composer textarea.form-control { border-radius: var(--ca-radius-md); resize: vertical; }
+    .ca-composer input[type="file"].form-control { border-radius: var(--ca-radius-md); padding: 8px 14px; }
+    .ca-checkbox-row { display: flex; align-items: center; gap: 9px; font: 400 12.5px var(--ca-font-body); color: var(--ca-neutral-700); margin-top: 10px; }
+    .ca-checkbox-row input { width: 16px; height: 16px; accent-color: var(--ca-accent); }
+    .ca-hint { font-size: 11.5px; color: var(--ca-neutral-600); margin-top: 4px; }
+    .ca-send-btn { border-radius: 999px; border: none; background: var(--ca-accent); color: var(--ca-accent-100); padding: 10px 24px; font: 400 15px var(--ca-font-heading); cursor: pointer; }
+    .ca-send-btn:hover { background: var(--ca-accent-600); color: var(--ca-accent-100); }
+
+    .ca-sidebar-card { background: var(--ca-surface); border-radius: var(--ca-radius-lg); padding: 20px 22px; margin-bottom: 16px; }
+    .ca-sidebar-label-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: .6rem; }
+    .ca-sidebar-label { font: 600 10.5px var(--ca-font-body); letter-spacing: .12em; text-transform: uppercase; color: var(--ca-neutral-600); }
+    .ca-schedule-list { max-height: 280px; overflow-y: auto; }
+    .ca-schedule-row-wrap { margin-bottom: 4px; }
+    .ca-schedule-row { display: flex; align-items: center; gap: 8px; }
+    .ca-schedule-row a { flex: 1 1 auto; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 999px; color: var(--ca-text); font-size: 13.5px; font-weight: 600; min-width: 0; }
+    .ca-schedule-row a:hover { background: var(--ca-surface-2); text-decoration: none; }
+    .ca-schedule-row a.selected { background: var(--ca-accent); color: var(--ca-accent-100); }
+    .ca-schedule-row a.selected:hover { background: var(--ca-accent); }
+    .ca-schedule-row a .ca-present-count { font: 400 11.5px var(--ca-font-body); opacity: .85; }
+    .ca-schedule-remove-btn { flex: none; width: 26px; height: 26px; border-radius: 999px; border: 1px solid var(--ca-divider); background: transparent; color: var(--ca-neutral-600); font-size: .75rem; line-height: 1; cursor: pointer; }
+    .ca-schedule-remove-btn:hover { border-color: var(--ca-accent-600); color: var(--ca-accent-600); }
+    .ca-schedule-desc-row { display: flex; gap: 6px; margin: 2px 0 6px 2px; }
+    .ca-schedule-desc-row input { flex: 1 1 auto; font-size: 12px; padding: 6px 12px; }
+    .ca-add-row { display: flex; gap: 6px; margin-top: .6rem; padding-top: .6rem; border-top: 1px solid var(--ca-divider); }
+    .ca-add-row input { flex: 1 1 auto; }
+    .ca-generate-form { margin-top: .5rem; }
+    .ca-teacher-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+    .ca-teacher-row + .ca-teacher-row { margin-top: .6rem; }
+    .ca-teacher-contact { display: flex; gap: 8px; margin-top: 4px; }
+    .ca-teacher-contact a { width: 30px; height: 30px; border-radius: 999px; border: 1px solid var(--ca-divider); display: flex; align-items: center; justify-content: center; }
+    .ca-assign-row { display: flex; gap: 6px; margin-top: .7rem; padding-top: .6rem; border-top: 1px solid var(--ca-divider); }
+    .ca-ytd-card { background: var(--ca-accent-200); border-radius: var(--ca-radius-lg); padding: 20px 22px; }
+    .ca-ytd-num { font-family: var(--ca-font-heading); font-size: 32px; color: var(--ca-accent-800); line-height: 1; }
+    .ca-ytd-bar { display: flex; gap: 4px; margin-top: 14px; }
+    .ca-ytd-bar span { flex: 1; height: 8px; border-radius: 999px; }
+    .ca-ytd-note { font: 400 12.5px/1.6 var(--ca-font-body); color: var(--ca-accent-800); margin-top: 12px; }
+
+    @media (max-width: 900px) {
+      .ca-roster-card { grid-template-columns: 22px 40px 1fr; }
+      .ca-attendance-toggle { grid-column: 1 / -1; justify-self: start; }
     }
   </style>
 </head>
@@ -170,203 +160,404 @@
     <a class="admin-nav-back" href="/dashboard"><%= t('back_to_dashboard') %></a>
   </div>
 <% } %>
-<main class="container py-4 app-shell-wide mx-auto">
+<main class="container-fluid py-4" style="max-width:1400px">
 
   <% if (success.length) { %><div class="alert alert-success mb-3"><%= success[0] %></div><% } %>
   <% if (error.length) { %><div class="alert alert-danger mb-3"><%= error[0] %></div><% } %>
 
-  <div class="page-heading d-flex align-items-center gap-3">
-    <a href="/admin/classes" class="btn btn-outline-secondary btn-sm" aria-label="<%= t('back_to_classes') %>">&larr;</a>
-    <div>
-      <div class="class-grade-eyebrow" style="font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gold)"><%= t('grade') %> <%= ccdClass.grade_level %><%= ccdClass.sectionLabel || '' %></div>
-      <h1 class="mb-0"><%= ccdGradeMeanings[ccdClass.grade_level] || ccdClass.grade_level %></h1>
-    </div>
-  </div>
+  <div class="ca-page">
 
-  <div class="row g-4 mt-1">
-    <div class="col-lg-8">
-      <div class="d-flex justify-content-between align-items-center mb-2">
-        <h2 class="h6 mb-0" style="text-transform:uppercase;letter-spacing:.06em;font-size:.75rem;color:var(--muted)"><%= t('roster_label') %> &mdash; <%= roster.length %> <%= roster.length === 1 ? t('student_count_singular') : t('student_count_plural') %></h2>
+    <div class="ca-header">
+      <div class="ca-header-left">
+        <a href="/admin/classes" class="ca-back-btn" aria-label="<%= t('back_to_classes') %>">&larr;</a>
+        <div>
+          <div class="ca-eyebrow"><%= t('grade') %> <%= ccdClass.grade_level %><%= ccdClass.sectionLabel || '' %> &middot; <%= ccdGradeMeanings[ccdClass.grade_level] || ccdClass.grade_level %></div>
+          <h1 class="ca-title"><%= selectedDate ? new Date(selectedDate + 'T00:00:00').toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : '—' %></h1>
+        </div>
+      </div>
+      <div class="ca-header-actions">
+        <span class="ca-autosave-note"><%= t('autosave_note') %></span>
+        <a href="/calendar/class/<%= ccdClass.id %>" class="ca-btn"><%= t('view_class_calendar_label') %></a>
+      </div>
+    </div>
+
+    <div class="row g-4">
+      <div class="col-lg-8">
+
         <% if (roster.length) { %>
-          <div class="d-flex gap-2 align-items-center">
-            <button type="button" class="btn btn-link btn-sm p-0" id="select-all-recipients"><%= t('select_all_label') %></button>
-            <button type="button" class="btn btn-link btn-sm p-0" id="select-none-recipients"><%= t('select_none_label') %></button>
-            <button type="button" class="btn btn-link btn-sm p-0" id="copy-all-emails"><%= t('copy_all_emails_label') %></button>
-            <span id="copy-all-emails-feedback" style="font-size:.78rem;color:var(--muted)"></span>
+          <div class="ca-stats-bar">
+            <div class="ca-stat"><span class="ca-stat-num" style="color:var(--ca-accent2-800)"><%= presentCount %></span><span class="ca-stat-label"><%= t('present_label').toLowerCase() %></span></div>
+            <span class="ca-stat-divider"></span>
+            <div class="ca-stat"><span class="ca-stat-num" style="color:var(--ca-accent-700)"><%= absentCount %></span><span class="ca-stat-label"><%= t('absent_label').toLowerCase() %></span></div>
+            <span class="ca-stat-divider"></span>
+            <div class="ca-stat"><span class="ca-stat-num" style="color:var(--ca-neutral-600)"><%= unmarkedCount %></span><span class="ca-stat-label"><%= t('unmarked_label') %></span></div>
+            <div style="flex:1"></div>
+            <% if (selectedDate) { %>
+              <button type="button" class="ca-mark-all-btn" id="mark-all-present-btn"><%= t('mark_all_present_button') %></button>
+              <button type="button" class="ca-clear-btn" id="clear-attendance-btn"><%= t('clear_button') %></button>
+            <% } %>
           </div>
         <% } %>
-      </div>
 
-      <% if (!roster.length) { %>
-        <div class="page-card"><div class="p-4 text-center" style="color:var(--muted);font-size:.9rem"><em><%= t('no_students_in_class') %></em></div></div>
-      <% } else { %>
-        <form id="class-message-form" method="post" action="/admin/classes/<%= ccdClass.id %>/message">
-        <% roster.forEach((r) => { %>
-          <% const nameParts = (r.student_full_name || '').trim().split(/\s+/).filter(Boolean); %>
-          <% const initials = ((nameParts[0] ? nameParts[0][0] : '') + (nameParts.length > 1 ? nameParts[nameParts.length - 1][0] : '')).toUpperCase(); %>
-          <% const currentStatus = attendanceByStudent[r.id] || ''; %>
-          <div class="roster-card" data-student-row="<%= r.id %>">
-            <div class="form-check pt-1">
-              <input class="form-check-input message-recipient-checkbox" type="checkbox" name="student_registration_ids" value="<%= r.id %>" id="msg-check-<%= r.id %>" data-email="<%= r.primary_contact_email || '' %>" checked>
-            </div>
-            <div class="roster-avatar"><%= initials %></div>
-            <div class="roster-info">
-              <div class="roster-name">
-                <%= r.student_full_name %>
-                <% if (isPendingAcceptance(r)) { %><span class="pending-badge"><%= t('pending_acceptance_label') %></span><% } %>
-              </div>
-              <div class="roster-parent">
-                <%= r.parent_name || '—' %><% if (r.primary_contact_relationship) { %> &middot; <%= t(r.primary_contact_relationship.toLowerCase()) %><% } %>
-              </div>
-              <div class="roster-contact">
-                <% if (r.primary_contact_phone) { %><a href="tel:<%= r.primary_contact_phone %>">&#128222; <%= r.primary_contact_phone %></a><% } %>
-                <% if (r.primary_contact_email) { %><a href="mailto:<%= r.primary_contact_email %>">&#9993; <%= r.primary_contact_email %></a><% } %>
-              </div>
-              <% if (r.disabilities_comments) { %><div class="roster-note"><%= r.disabilities_comments %></div><% } %>
-            </div>
-            <div class="attendance-toggle">
-              <button type="button" class="attendance-btn present-btn <%= currentStatus === 'present' ? 'active' : '' %>" data-student-id="<%= r.id %>" data-status="present" aria-label="<%= t('present_label') %>">&#10003;</button>
-              <button type="button" class="attendance-btn absent-btn <%= currentStatus === 'absent' ? 'active' : '' %>" data-student-id="<%= r.id %>" data-status="absent" aria-label="<%= t('absent_label') %>">&#10005;</button>
+        <% if (roster.length) { %>
+          <div class="ca-roster-header">
+            <label class="ca-roster-toggle">
+              <input type="checkbox" id="roster-select-all-toggle" checked>
+              <%= t('roster_label') %> &mdash; <%= roster.length %> <%= roster.length === 1 ? t('student_count_singular') : t('student_count_plural') %>
+            </label>
+            <div class="ca-roster-actions">
+              <span class="muted" id="recipient-count-label"></span>
+              <a href="#" id="copy-all-emails"><%= t('copy_all_emails_label') %></a>
+              <span id="copy-all-emails-feedback" class="muted"></span>
             </div>
           </div>
-        <% }) %>
+        <% } %>
 
-        <div class="page-card mt-3">
-          <div class="card-body">
-            <h2 class="h6" style="text-transform:uppercase;letter-spacing:.06em;font-size:.75rem;color:var(--muted)"><%= t('send_message_label') %></h2>
-            <div class="mb-2" id="recipient-count-label" style="font-size:.85rem;color:var(--muted)"></div>
-            <div class="mb-2">
-              <label class="form-label mb-1" style="font-size:.75rem"><%= t('subject_label') %></label>
-              <input class="form-control form-control-sm" type="text" name="subject" placeholder="<%= t('subject_placeholder') %>">
-            </div>
-            <div class="mb-2">
-              <label class="form-label mb-1" style="font-size:.75rem"><%= t('cc_email_label') %></label>
-              <input class="form-control form-control-sm" type="text" name="cc_email" placeholder="<%= t('cc_email_placeholder') %>">
-            </div>
-            <div class="mb-2">
-              <label class="form-label mb-1" style="font-size:.75rem"><%= t('message_label') %></label>
-              <textarea class="form-control" name="message" rows="5" required placeholder="<%= t('message_placeholder') %>"></textarea>
-            </div>
-            <button class="btn btn-primary" type="submit"><%= t('send_message_button') %></button>
-          </div>
-        </div>
-        </form>
-      <% } %>
-    </div>
-
-    <div class="col-lg-4">
-      <div class="sidebar-card">
-        <h3><%= t('class_teacher_label') %></h3>
-        <% if (ccdClass.catechists && ccdClass.catechists.length) { %>
-          <% ccdClass.catechists.forEach((catechist, index) => { %>
-            <div style="<%= index > 0 ? 'margin-top:.6rem' : '' %>">
-              <div style="font-weight:600;color:var(--navy)"><%= catechist.name || catechist.email %></div>
-              <div class="teacher-contact">
-                <% if (catechist.phone) { %><a href="tel:<%= catechist.phone %>"><%- '&#128222;' %></a><% } %>
-                <% if (catechist.email) { %><a href="mailto:<%= catechist.email %>">&#9993;</a><% } %>
+        <% if (!roster.length) { %>
+          <div class="ca-sidebar-card text-center" style="color:var(--ca-neutral-600)"><em><%= t('no_students_in_class') %></em></div>
+        <% } else { %>
+          <form id="class-message-form" method="post" action="/admin/classes/<%= ccdClass.id %>/message" enctype="multipart/form-data">
+          <% roster.forEach((r, index) => { %>
+            <% const nameParts = (r.student_full_name || '').trim().split(/\s+/).filter(Boolean); %>
+            <% const initials = ((nameParts[0] ? nameParts[0][0] : '') + (nameParts.length > 1 ? nameParts[nameParts.length - 1][0] : '')).toUpperCase(); %>
+            <% const currentStatus = attendanceByStudent[r.id] || ''; %>
+            <div class="ca-roster-card" data-student-row="<%= r.id %>">
+              <div>
+                <input type="checkbox" class="message-recipient-checkbox" name="student_registration_ids" value="<%= r.id %>" id="msg-check-<%= r.id %>" data-email="<%= r.primary_contact_email || '' %>" checked>
+              </div>
+              <div class="ca-avatar <%= index % 2 === 0 ? 'tone-a' : 'tone-b' %>"><%= initials %></div>
+              <div style="min-width:0">
+                <div class="ca-roster-name-row">
+                  <span class="ca-roster-name"><%= r.student_full_name %></span>
+                  <% if (isPendingAcceptance(r)) { %><span class="ca-badge ca-badge-warn"><%= t('pending_acceptance_label') %></span><% } %>
+                  <% if (r.baptismCertPending) { %><span class="ca-badge ca-badge-warn"><%= t('baptism_cert_pending_badge') %></span><% } %>
+                  <% if (r.absenceCount > 0) { %><span class="ca-badge ca-badge-warn"><%= r.absenceCount %> <%= r.absenceCount === 1 ? t('absence_singular') : t('absence_plural') %></span><% } %>
+                </div>
+                <div class="ca-roster-contact">
+                  <span><%= r.parent_name || '—' %><% if (r.primary_contact_relationship) { %> &middot; <%= t(r.primary_contact_relationship.toLowerCase()) %><% } %></span>
+                  <% if (r.primary_contact_email) { %><a href="mailto:<%= r.primary_contact_email %>"><%= r.primary_contact_email %></a><% } %>
+                  <% if (r.primary_contact_phone) { %><a href="tel:<%= r.primary_contact_phone %>"><%= r.primary_contact_phone %></a><% } %>
+                </div>
+                <% if (r.disabilities_comments) { %><div class="ca-roster-note"><%= r.disabilities_comments %></div><% } %>
+                <% if (r.history && r.history.length) { %>
+                  <div class="ca-history">
+                    <span class="ca-history-label"><%= t('last_seven_label') %></span>
+                    <% r.history.forEach((h) => { %>
+                      <span class="ca-history-dot <%= h.status === 'present' ? 'present' : (h.status === 'absent' ? 'absent' : 'none') %>"></span>
+                    <% }) %>
+                    <span class="ca-history-caption"><%= r.historyPresentCount %> <%= t('of_label') %> <%= r.history.length %> <%= t('attended_label') %></span>
+                  </div>
+                <% } %>
+              </div>
+              <div class="ca-attendance-toggle">
+                <button type="button" class="ca-attendance-btn present-btn <%= currentStatus === 'present' ? 'active' : '' %>" data-student-id="<%= r.id %>" data-status="present" aria-label="<%= t('present_label') %>"><%= t('present_label') %></button>
+                <button type="button" class="ca-attendance-btn absent-btn <%= currentStatus === 'absent' ? 'active' : '' %>" data-student-id="<%= r.id %>" data-status="absent" aria-label="<%= t('absent_label') %>"><%= t('absent_label') %></button>
               </div>
             </div>
           <% }) %>
-        <% } else { %>
-          <div style="color:var(--muted)"><%= t('unassigned') %></div>
+
+          <div class="ca-composer">
+            <div class="ca-composer-title"><%= t('send_message_label') %></div>
+            <div class="ca-quick-templates">
+              <button type="button" class="ca-quick-btn" data-tpl-subject="<%= t('quick_template_absence_subject') %>" data-tpl-body="<%= t('quick_template_absence_body') %>"><%= t('quick_template_absence_label') %></button>
+              <button type="button" class="ca-quick-btn" data-tpl-subject="<%= t('quick_template_documents_subject') %>" data-tpl-body="<%= t('quick_template_documents_body') %>"><%= t('quick_template_documents_label') %></button>
+              <button type="button" class="ca-quick-btn" data-tpl-subject="<%= t('quick_template_reminder_subject') %>" data-tpl-body="<%= t('quick_template_reminder_body') %>"><%= t('quick_template_reminder_label') %></button>
+            </div>
+            <div class="row g-3 mt-1">
+              <div class="col-md-6">
+                <label class="ca-field-label"><%= t('subject_label') %></label>
+                <input class="form-control" type="text" name="subject" id="composer-subject" placeholder="<%= t('subject_placeholder') %>">
+              </div>
+              <div class="col-md-6">
+                <% const teacherCcEmailsByLower = new Map(); %>
+                <% (ccdClass.catechists || []).forEach((c) => { if (c.email) teacherCcEmailsByLower.set(c.email.toLowerCase(), c.email); }); %>
+                <label class="ca-field-label"><%= t('cc_email_label') %></label>
+                <input class="form-control" type="text" name="cc_email" value="<%= Array.from(teacherCcEmailsByLower.values()).join(', ') %>" placeholder="<%= t('cc_email_placeholder') %>">
+              </div>
+            </div>
+            <div class="mt-3">
+              <label class="ca-field-label"><%= t('message_label') %></label>
+              <textarea class="form-control" name="message" id="composer-message" rows="4" required placeholder="<%= t('message_placeholder') %>"></textarea>
+            </div>
+            <div class="mt-3">
+              <label class="ca-field-label"><%= t('attachments_label') %></label>
+              <input class="form-control" type="file" name="attachments" multiple>
+              <div class="ca-hint"><%= t('attachments_hint') %></div>
+            </div>
+            <label class="ca-checkbox-row">
+              <input type="checkbox" name="send_mode" value="bcc" id="send-mode-bcc">
+              <%= t('send_as_bcc_label') %>
+            </label>
+            <div class="ca-hint" style="margin-left:25px"><%= t('send_as_bcc_hint') %></div>
+            <div class="d-flex justify-content-end mt-3">
+              <button class="ca-send-btn" type="submit"><%= t('send_message_button') %></button>
+            </div>
+          </div>
+          </form>
         <% } %>
       </div>
 
-      <div class="sidebar-card">
-        <h3><%= t('schedule_label') %></h3>
-        <div style="font-weight:600;color:var(--navy);margin-bottom:.2rem"><%= ccdGradeMeanings[ccdClass.grade_level] || ccdClass.grade_level %><%= ccdClass.sectionLabel || '' %></div>
-        <div style="font-size:.85rem;color:var(--muted);margin-bottom:.3rem"><%= ccdClass.class_time || '—' %><% if (ccdClass.classroom) { %>, <%= ccdClass.classroom %><% } %></div>
-        <a href="/calendar/class/<%= ccdClass.id %>" style="font-size:.8rem" class="d-inline-block mb-2"><%= t('view_class_calendar_label') %></a>
-        <div class="schedule-list">
-          <% if (!upcomingDates.length) { %>
-            <div style="color:var(--muted);font-size:.85rem"><%= t('no_schedule_dates') %></div>
+      <div class="col-lg-4">
+
+        <div class="ca-sidebar-card">
+          <div class="ca-sidebar-label-row">
+            <span class="ca-sidebar-label"><%= t('class_teacher_label') %></span>
+            <% if (ccdClass.catechists && ccdClass.catechists.length) { %>
+              <a href="#" id="copy-teacher-emails" style="font-size:11.5px;font-weight:600"><%= t('copy_teacher_emails_label') %></a>
+            <% } %>
+          </div>
+          <div id="copy-teacher-emails-feedback" class="ca-hint" style="margin-bottom:.3rem"></div>
+          <% if (ccdClass.catechists && ccdClass.catechists.length) { %>
+            <% ccdClass.catechists.forEach((catechist) => { %>
+              <div class="ca-teacher-row">
+                <div>
+                  <div style="font-weight:700"><%= catechist.name || catechist.email %></div>
+                  <div class="ca-teacher-contact">
+                    <% if (catechist.phone) { %><a href="tel:<%= catechist.phone %>">&#128222;</a><% } %>
+                    <% if (catechist.email) { %><a href="mailto:<%= catechist.email %>">&#9993;</a><% } %>
+                  </div>
+                </div>
+                <% if (user.role === 'admin') { %>
+                  <form method="post" action="/admin/classes/<%= ccdClass.id %>/catechists/remove" onsubmit="return confirm('<%= t('remove_teacher_confirm') %>');">
+                    <input type="hidden" name="catechist_user_id" value="<%= catechist.id %>">
+                    <button type="submit" class="ca-schedule-remove-btn" aria-label="<%= t('remove') %>" title="<%= t('remove') %>">&times;</button>
+                  </form>
+                <% } %>
+              </div>
+            <% }) %>
+          <% } else { %>
+            <div style="color:var(--ca-neutral-600)"><%= t('unassigned') %></div>
           <% } %>
-          <% upcomingDates.forEach((d) => { %>
-            <div class="schedule-row">
-              <a href="/admin/classes/<%= ccdClass.id %>?date=<%= d.value %>" class="<%= d.value === selectedDate ? 'selected' : '' %>">
-                <span><%= new Date(d.value + 'T00:00:00').toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric' }) %></span>
-                <% if (d.isNext) { %><span class="next-tag"><%= t('next_label') %></span><% } %>
-              </a>
-              <% if (hasStoredSchedule) { %>
-                <form method="post" action="/admin/classes/<%= ccdClass.id %>/schedule/remove" onsubmit="return confirm('<%= t('remove_class_day') %>?');">
-                  <input type="hidden" name="session_date" value="<%= d.value %>">
-                  <button type="submit" class="schedule-remove-btn" aria-label="<%= t('remove_class_day') %>" title="<%= t('remove_class_day') %>">&times;</button>
+          <% if (user.role === 'admin') { %>
+            <div class="ca-assign-row">
+              <% if (assignableCatechists && assignableCatechists.length) { %>
+                <form method="post" action="/admin/classes/<%= ccdClass.id %>/catechists/add" class="d-flex gap-2 w-100">
+                  <select class="form-select form-select-sm" name="catechist_user_id" required>
+                    <option value=""><%= t('select_placeholder') %></option>
+                    <% assignableCatechists.forEach((c) => { %>
+                      <option value="<%= c.id %>"><%= c.full_name || c.email %></option>
+                    <% }) %>
+                  </select>
+                  <button type="submit" class="ca-btn text-nowrap"><%= t('assign_teacher_button') %></button>
                 </form>
+              <% } else { %>
+                <div class="ca-hint"><%= t('no_catechists_available') %></div>
               <% } %>
             </div>
-            <% if (hasStoredSchedule) { %>
-              <form method="post" action="/admin/classes/<%= ccdClass.id %>/schedule/description" class="schedule-desc-row">
-                <input type="hidden" name="session_date" value="<%= d.value %>">
-                <input type="text" class="form-control form-control-sm" name="description" value="<%= d.description %>" placeholder="<%= t('class_day_description_placeholder') %>" maxlength="255">
-                <button type="submit" class="btn btn-outline-secondary btn-sm"><%= t('save_description_button') %></button>
-              </form>
+          <% } %>
+        </div>
+
+        <div class="ca-sidebar-card">
+          <div class="ca-sidebar-label-row">
+            <span class="ca-sidebar-label"><%= t('schedule_label') %></span>
+            <a href="/calendar/class/<%= ccdClass.id %>" style="font-size:11.5px;font-weight:600"><%= t('view_class_calendar_label') %></a>
+          </div>
+          <div style="font-size:13px;color:var(--ca-neutral-700);margin-bottom:.6rem"><%= ccdClass.class_time || '—' %><% if (ccdClass.classroom) { %>, <%= ccdClass.classroom %><% } %></div>
+          <div class="ca-schedule-list">
+            <% if (!upcomingDates.length) { %>
+              <div style="color:var(--ca-neutral-600);font-size:13px"><%= t('no_schedule_dates') %></div>
             <% } %>
-          <% }) %>
+            <% upcomingDates.forEach((d) => { %>
+              <div class="ca-schedule-row-wrap">
+                <div class="ca-schedule-row">
+                  <a href="/admin/classes/<%= ccdClass.id %>?date=<%= d.value %>" class="<%= d.value === selectedDate ? 'selected' : '' %>">
+                    <span><%= new Date(d.value + 'T00:00:00').toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric' }) %></span>
+                    <span class="ca-present-count">
+                      <% if (d.isNext) { %><%= t('next_label') %><% } else if (d.presentCount !== null) { %><%= d.presentCount %> <%= t('of_label') %> <%= roster.length %><% } %>
+                    </span>
+                  </a>
+                  <% if (hasStoredSchedule) { %>
+                    <form method="post" action="/admin/classes/<%= ccdClass.id %>/schedule/remove" onsubmit="return confirm('<%= t('remove_class_day') %>?');">
+                      <input type="hidden" name="session_date" value="<%= d.value %>">
+                      <button type="submit" class="ca-schedule-remove-btn" aria-label="<%= t('remove_class_day') %>" title="<%= t('remove_class_day') %>">&times;</button>
+                    </form>
+                  <% } %>
+                </div>
+                <% if (hasStoredSchedule) { %>
+                  <form method="post" action="/admin/classes/<%= ccdClass.id %>/schedule/description" class="ca-schedule-desc-row">
+                    <input type="hidden" name="session_date" value="<%= d.value %>">
+                    <input type="text" class="form-control form-control-sm" name="description" value="<%= d.description %>" placeholder="<%= t('class_day_description_placeholder') %>" maxlength="255">
+                    <button type="submit" class="ca-btn" style="padding:4px 12px;font-size:12px"><%= t('save_description_button') %></button>
+                  </form>
+                <% } %>
+              </div>
+            <% }) %>
+          </div>
+
+          <form method="post" action="/admin/classes/<%= ccdClass.id %>/schedule/add" class="ca-add-row">
+            <input type="date" class="form-control form-control-sm" name="session_date" aria-label="<%= t('add_class_day_label') %>" required>
+            <input type="text" class="form-control form-control-sm" name="description" placeholder="<%= t('class_day_description_placeholder') %>" maxlength="255">
+            <button type="submit" class="ca-btn" style="padding:6px 14px;font-size:13px"><%= t('add_class_day_button') %></button>
+          </form>
+
+          <form method="post" action="/admin/classes/<%= ccdClass.id %>/schedule/generate" class="ca-generate-form">
+            <div class="ca-hint"><%= t('generate_schedule_hint') %></div>
+            <input type="hidden" name="school_year" value="<%= defaultSchoolYear %>">
+            <button type="submit" class="ca-btn" style="padding:6px 14px;font-size:13px;margin-top:.4rem"><%= t('generate_schedule_label') %></button>
+          </form>
         </div>
 
-        <form method="post" action="/admin/classes/<%= ccdClass.id %>/schedule/add" class="schedule-add-row">
-          <input type="date" class="form-control form-control-sm" name="session_date" aria-label="<%= t('add_class_day_label') %>" required>
-          <input type="text" class="form-control form-control-sm" name="description" placeholder="<%= t('class_day_description_placeholder') %>" maxlength="255">
-          <button type="submit" class="btn btn-outline-secondary btn-sm"><%= t('add_class_day_button') %></button>
-        </form>
+        <% if (classAttendanceRatePercent !== null) { %>
+          <div class="ca-ytd-card">
+            <div class="ca-sidebar-label" style="color:var(--ca-accent-800)"><%= t('year_to_date_label') %></div>
+            <div class="d-flex align-items-baseline gap-2 mt-2">
+              <span class="ca-ytd-num"><%= classAttendanceRatePercent %>%</span>
+              <span style="font-size:13px;color:var(--ca-accent-800)"><%= t('average_attendance_label') %></span>
+            </div>
+            <div class="ca-ytd-bar">
+              <% for (let i = 0; i < 10; i++) { %>
+                <span class="<%= (i + 1) * 10 <= classAttendanceRatePercent ? '' : 'low' %>" style="background:<%= (i + 1) * 10 <= classAttendanceRatePercent ? 'var(--ca-accent2-500)' : 'var(--ca-accent-400)' %>"></span>
+              <% } %>
+            </div>
+            <% if (lowAttendanceStudents.length) { %>
+              <div class="ca-ytd-note">
+                <%= t('below_75_label') %> <%= lowAttendanceStudents.map((s) => s.student_full_name).join(', ') %>
+              </div>
+            <% } %>
+          </div>
+        <% } %>
 
-        <form method="post" action="/admin/classes/<%= ccdClass.id %>/schedule/generate" class="schedule-generate-form">
-          <div class="schedule-generate-hint"><%= t('generate_schedule_hint') %></div>
-          <input type="hidden" name="school_year" value="<%= defaultSchoolYear %>">
-          <button type="submit" class="btn btn-link btn-sm p-0"><%= t('generate_schedule_label') %></button>
-        </form>
-      </div>
-
-      <div class="sidebar-card">
-        <h3><%= t('attendance_label') %> &mdash; <%= selectedDate ? new Date(selectedDate + 'T00:00:00').toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '—' %><% if (selectedDescription) { %> &middot; <%= selectedDescription %><% } %></h3>
-        <div id="attendance-summary" style="font-size:.85rem;color:var(--ink-soft)">
-          <%= presentCount %> <%= t('present_label').toLowerCase() %> &middot; <%= absentCount %> <%= t('absent_label').toLowerCase() %> &middot; <%= unmarkedCount %> <%= t('unmarked_label') %>
-        </div>
       </div>
     </div>
+
   </div>
 
   <p class="footer-note"><%= t('footer_note') %></p>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+  const copyTextToClipboard = (text, onSuccess, onFail) => {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(onSuccess).catch(onFail);
+      return;
+    }
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+      document.execCommand('copy');
+      onSuccess();
+    } catch (e) {
+      onFail();
+    }
+    document.body.removeChild(textarea);
+  };
+
+  (function () {
+    const copyTeacherEmailsBtn = document.getElementById('copy-teacher-emails');
+    const copyTeacherFeedback = document.getElementById('copy-teacher-emails-feedback');
+    if (!copyTeacherEmailsBtn) return;
+
+    const teacherEmailsByLower = new Map();
+    <%- JSON.stringify((ccdClass.catechists || []).map((c) => c.email).filter(Boolean)) %>.forEach((email) => {
+      teacherEmailsByLower.set(email.toLowerCase(), email);
+    });
+    const emailsCopiedLabel = <%- JSON.stringify(t('emails_copied_label')) %>;
+    const noEmailsToCopyLabel = <%- JSON.stringify(t('no_emails_to_copy_label')) %>;
+    const copyEmailsFailedLabel = <%- JSON.stringify(t('copy_emails_failed_label')) %>;
+
+    copyTeacherEmailsBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const emailList = Array.from(teacherEmailsByLower.values()).join(', ');
+      if (!emailList) {
+        if (copyTeacherFeedback) copyTeacherFeedback.textContent = noEmailsToCopyLabel;
+        return;
+      }
+      copyTextToClipboard(
+        emailList,
+        () => { if (copyTeacherFeedback) copyTeacherFeedback.textContent = emailsCopiedLabel; },
+        () => { if (copyTeacherFeedback) copyTeacherFeedback.textContent = copyEmailsFailedLabel; }
+      );
+    });
+  }());
+
   (function () {
     const classId = <%- JSON.stringify(ccdClass.id) %>;
     const sessionDate = <%- JSON.stringify(selectedDate) %>;
+    const rosterIds = <%- JSON.stringify(roster.map((r) => r.id)) %>;
     const presentLabel = <%- JSON.stringify(t('present_label').toLowerCase()) %>;
     const absentLabel = <%- JSON.stringify(t('absent_label').toLowerCase()) %>;
     const unmarkedLabel = <%- JSON.stringify(t('unmarked_label')) %>;
-    const summaryEl = document.getElementById('attendance-summary');
+    const summaryEls = Array.from(document.querySelectorAll('.ca-stats-bar'));
+    const markAllBtn = document.getElementById('mark-all-present-btn');
+    const clearBtn = document.getElementById('clear-attendance-btn');
 
     if (!sessionDate) return;
 
-    document.querySelectorAll('.attendance-btn').forEach((btn) => {
+    const updateSummary = (presentCount, absentCount) => {
+      const unmarked = rosterIds.length - presentCount - absentCount;
+      summaryEls.forEach((bar) => {
+        const nums = bar.querySelectorAll('.ca-stat-num');
+        if (nums[0]) nums[0].textContent = presentCount;
+        if (nums[1]) nums[1].textContent = absentCount;
+        if (nums[2]) nums[2].textContent = unmarked;
+      });
+    };
+
+    const applyStatus = (studentId, status) => {
+      const row = document.querySelector('.ca-roster-card[data-student-row="' + studentId + '"]');
+      if (!row) return;
+      const presentBtn = row.querySelector('.present-btn');
+      const absentBtn = row.querySelector('.absent-btn');
+      if (presentBtn) presentBtn.classList.toggle('active', status === 'present');
+      if (absentBtn) absentBtn.classList.toggle('active', status === 'absent');
+    };
+
+    const setAttendance = (studentId, status) =>
+      fetch('/admin/classes/' + classId + '/attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          student_registration_id: studentId,
+          session_date: sessionDate,
+          status: status,
+        }),
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          if (!data.ok) return null;
+          applyStatus(studentId, data.status);
+          return data;
+        });
+
+    document.querySelectorAll('.ca-attendance-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
         const studentId = btn.getAttribute('data-student-id');
         const clickedStatus = btn.getAttribute('data-status');
-        const row = btn.closest('.roster-card');
-        const presentBtn = row.querySelector('.present-btn');
-        const absentBtn = row.querySelector('.absent-btn');
         const alreadyActive = btn.classList.contains('active');
         const nextStatus = alreadyActive ? 'unmarked' : clickedStatus;
+        setAttendance(studentId, nextStatus).then((data) => {
+          if (data) updateSummary(data.presentCount, data.absentCount);
+        });
+      });
+    });
 
-        fetch('/admin/classes/' + classId + '/attendance', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams({
-            student_registration_id: studentId,
-            session_date: sessionDate,
-            status: nextStatus,
-          }),
-        })
-          .then((r) => r.json())
-          .then((data) => {
-            if (!data.ok) return;
-            presentBtn.classList.toggle('active', data.status === 'present');
-            absentBtn.classList.toggle('active', data.status === 'absent');
-            const unmarked = <%- JSON.stringify(roster.length) %> - data.presentCount - data.absentCount;
-            summaryEl.textContent = data.presentCount + ' ' + presentLabel + ' · ' + data.absentCount + ' ' + absentLabel + ' · ' + unmarked + ' ' + unmarkedLabel;
-          });
+    if (markAllBtn) {
+      markAllBtn.addEventListener('click', () => {
+        Promise.all(rosterIds.map((id) => setAttendance(id, 'present'))).then(() => {
+          updateSummary(rosterIds.length, 0);
+        });
+      });
+    }
+    if (clearBtn) {
+      clearBtn.addEventListener('click', () => {
+        Promise.all(rosterIds.map((id) => setAttendance(id, 'unmarked'))).then(() => {
+          updateSummary(0, 0);
+        });
+      });
+    }
+  }());
+
+  (function () {
+    const subjectInput = document.getElementById('composer-subject');
+    const messageInput = document.getElementById('composer-message');
+    document.querySelectorAll('.ca-quick-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (subjectInput) subjectInput.value = btn.getAttribute('data-tpl-subject') || '';
+        if (messageInput) messageInput.value = btn.getAttribute('data-tpl-body') || '';
       });
     });
   }());
@@ -374,8 +565,7 @@
   (function () {
     const checkboxes = Array.from(document.querySelectorAll('.message-recipient-checkbox'));
     const countLabel = document.getElementById('recipient-count-label');
-    const selectAllBtn = document.getElementById('select-all-recipients');
-    const selectNoneBtn = document.getElementById('select-none-recipients');
+    const masterToggle = document.getElementById('roster-select-all-toggle');
     const copyAllEmailsBtn = document.getElementById('copy-all-emails');
     const copyFeedback = document.getElementById('copy-all-emails-feedback');
     const studentSingularLabel = <%- JSON.stringify(t('student_count_singular')) %>;
@@ -387,7 +577,8 @@
     if (!checkboxes.length || !countLabel) return;
 
     if (copyAllEmailsBtn) {
-      copyAllEmailsBtn.addEventListener('click', () => {
+      copyAllEmailsBtn.addEventListener('click', (e) => {
+        e.preventDefault();
         const emailsByLower = new Map();
         checkboxes.forEach((cb) => {
           if (!cb.checked) return;
@@ -399,44 +590,28 @@
           if (copyFeedback) copyFeedback.textContent = noEmailsToCopyLabel;
           return;
         }
-        const showCopied = () => { if (copyFeedback) copyFeedback.textContent = emailsCopiedLabel; };
-        const showFailed = () => { if (copyFeedback) copyFeedback.textContent = copyEmailsFailedLabel; };
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(emailList).then(showCopied).catch(showFailed);
-        } else {
-          const textarea = document.createElement('textarea');
-          textarea.value = emailList;
-          textarea.style.position = 'fixed';
-          textarea.style.opacity = '0';
-          document.body.appendChild(textarea);
-          textarea.select();
-          try {
-            document.execCommand('copy');
-            showCopied();
-          } catch (e) {
-            showFailed();
-          }
-          document.body.removeChild(textarea);
-        }
+        copyTextToClipboard(
+          emailList,
+          () => { if (copyFeedback) copyFeedback.textContent = emailsCopiedLabel; },
+          () => { if (copyFeedback) copyFeedback.textContent = copyEmailsFailedLabel; }
+        );
       });
     }
+
+    const bccCheckbox = document.getElementById('send-mode-bcc');
 
     const updateCount = () => {
       const checkedCount = checkboxes.filter((cb) => cb.checked).length;
       const noun = checkedCount === 1 ? studentSingularLabel : studentPluralLabel;
       countLabel.textContent = checkedCount + ' ' + noun + ' ' + selectedSuffixLabel;
+      if (bccCheckbox) bccCheckbox.checked = checkedCount > 1;
+      if (masterToggle) masterToggle.checked = checkedCount === checkboxes.length;
     };
 
     checkboxes.forEach((cb) => cb.addEventListener('change', updateCount));
-    if (selectAllBtn) {
-      selectAllBtn.addEventListener('click', () => {
-        checkboxes.forEach((cb) => { cb.checked = true; });
-        updateCount();
-      });
-    }
-    if (selectNoneBtn) {
-      selectNoneBtn.addEventListener('click', () => {
-        checkboxes.forEach((cb) => { cb.checked = false; });
+    if (masterToggle) {
+      masterToggle.addEventListener('change', () => {
+        checkboxes.forEach((cb) => { cb.checked = masterToggle.checked; });
         updateCount();
       });
     }
