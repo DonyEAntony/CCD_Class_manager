@@ -41,13 +41,18 @@
                   <div class="calendar-day-number"><%= day.dayNumber %></div>
                   <div class="calendar-events">
                     <% day.events.forEach((eventItem) => { %>
-                      <div class="calendar-event-pill">
+                      <div class="calendar-event-pill <%= eventItem.isClassDay ? 'calendar-class-day' : '' %>">
                         <strong><%= eventItem.title %></strong>
                         <span>
-                          <% if (eventItem.schedule_type === 'recurring' && eventItem.recurrence_pattern) { %><%= eventItem.recurrence_pattern %><% } %>
-                          <% if (eventItem.event_time) { %><%= eventItem.schedule_type === 'recurring' && eventItem.recurrence_pattern ? ' · ' : '' %><%= eventItem.event_time %><% } %>
-                          <% if (eventItem.event_end_time) { %> - <%= eventItem.event_end_time %><% } %>
-                          <% if (eventItem.location) { %> · <%= eventItem.location %><% } %>
+                          <% if (eventItem.isClassDay) { %>
+                            <% if (eventItem.event_time) { %><%= eventItem.event_time %><% } %>
+                            <% if (eventItem.description) { %><%= eventItem.event_time ? ' · ' : '' %><%= eventItem.description %><% } %>
+                          <% } else { %>
+                            <% if (eventItem.schedule_type === 'recurring' && eventItem.recurrence_pattern) { %><%= eventItem.recurrence_pattern %><% } %>
+                            <% if (eventItem.event_time) { %><%= eventItem.schedule_type === 'recurring' && eventItem.recurrence_pattern ? ' · ' : '' %><%= eventItem.event_time %><% } %>
+                            <% if (eventItem.event_end_time) { %> - <%= eventItem.event_end_time %><% } %>
+                            <% if (eventItem.location) { %> · <%= eventItem.location %><% } %>
+                          <% } %>
                         </span>
                       </div>
                     <% }) %>

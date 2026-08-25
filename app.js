@@ -314,6 +314,7 @@ const translations = {
     no_events_this_month: 'No scheduled events for this month.',
     previous_month: 'Previous Month',
     next_month: 'Next Month',
+    calendar_class_day_title: 'Faith Formation Classes',
     remove: 'Remove',
     spouse_coparent_name: 'Spouse / Co-parent name',
     if_attending_together: '(if attending together)',
@@ -1082,6 +1083,7 @@ const translations = {
     no_events_this_month: 'No hay eventos programados para este mes.',
     previous_month: 'Mes Anterior',
     next_month: 'Mes Siguiente',
+    calendar_class_day_title: 'Clases de Formación en la Fe',
     remove: 'Eliminar',
     spouse_coparent_name: 'Nombre del cónyuge / co-padre',
     if_attending_together: '(si asisten juntos)',
@@ -1853,6 +1855,28 @@ const getClassSessionDates = async (classId) => {
     'SELECT session_date, description FROM ccd_class_session_dates WHERE ccd_class_id = ? ORDER BY session_date ASC'
   ).all(classId);
   return rows.map((row) => ({ date: new Date(row.session_date), description: row.description || '' }));
+};
+
+// Used to surface confirmed class days (across every class, not just one) on the
+// shared /calendar page, so parents/staff can see them alongside other parish events.
+const getClassSessionDatesInRange = async (startDateValue, endDateValue) => {
+  const rows = await db.prepare(`
+    SELECT scd.session_date, scd.description, cc.class_time
+    FROM ccd_class_session_dates scd
+    INNER JOIN ccd_classes cc ON cc.id = scd.ccd_class_id
+    WHERE scd.session_date BETWEEN ? AND ?
+  `).all(startDateValue, endDateValue);
+
+  const byDate = new Map();
+  rows.forEach((row) => {
+    const dateKey = formatSessionDateValue(new Date(row.session_date));
+    if (!byDate.has(dateKey)) byDate.set(dateKey, { classTimes: new Set(), descriptions: new Set() });
+    const entry = byDate.get(dateKey);
+    if (row.class_time) entry.classTimes.add(row.class_time);
+    if (row.description) entry.descriptions.add(row.description);
+  });
+
+  return byDate;
 };
 
 const generateWeeklyDatesInRange = (weekdayIndex, startDate, endDate) => {
@@ -3130,7 +3154,22 @@ app.get('/calendar', requireAuth, asyncHandler(async (req, res) => {
   const previousMonth = new Date(year, monthIndex - 1, 1);
   const nextMonth = new Date(year, monthIndex + 1, 1);
   const scheduledEvents = await getAllScheduledFaithFormationEvents();
-  const occurrences = expandScheduledEventsForMonth(scheduledEvents, year, monthIndex);
+  const eventOccurrences = expandScheduledEventsForMonth(scheduledEvents, year, monthIndex);
+
+  const monthEndDate = new Date(year, monthIndex + 1, 0);
+  const classDaysByDate = await getClassSessionDatesInRange(
+    formatSessionDateValue(monthStart),
+    formatSessionDateValue(monthEndDate)
+  );
+  const classDayOccurrences = Array.from(classDaysByDate.entries()).map(([dateKey, info]) => ({
+    title: res.locals.t('calendar_class_day_title'),
+    occurrence_date: dateKey,
+    event_time: Array.from(info.classTimes).join(' / '),
+    description: Array.from(info.descriptions).join(' · '),
+    isClassDay: true,
+  }));
+
+  const occurrences = [...classDayOccurrences, ...eventOccurrences];
   const weeks = buildCalendarWeeks(occurrences, year, monthIndex);
 
   res.render('calendar', {

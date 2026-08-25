@@ -652,6 +652,13 @@ legend {
   font-size: 0.72rem;
   color: var(--muted);
 }
+.calendar-event-pill.calendar-class-day {
+  background: var(--gold-pale);
+  border-color: #f0d090;
+}
+.calendar-event-pill.calendar-class-day strong {
+  color: #7a5a1a;
+}
 
 /* ── Responsive ────────────────────────────────────────────── */
 @media (max-width: 640px) {
