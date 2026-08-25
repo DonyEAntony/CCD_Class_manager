@@ -479,6 +479,7 @@ const init = async () => {
         id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
         ccd_class_id INT NOT NULL,
         session_date DATE NOT NULL,
+        description VARCHAR(255) NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         UNIQUE KEY uniq_class_session_date (ccd_class_id, session_date),
         CONSTRAINT fk_class_session_dates_class FOREIGN KEY (ccd_class_id) REFERENCES ccd_classes(id)

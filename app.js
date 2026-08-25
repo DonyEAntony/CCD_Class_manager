@@ -695,9 +695,12 @@ const translations = {
     generate_schedule_needs_weekday: 'Set a class time starting with a weekday (e.g. "Sunday 9:00 AM") before generating a schedule.',
     add_class_day_label: 'Add a class day',
     add_class_day_button: 'Add',
+    class_day_description_placeholder: 'Note (optional)',
+    save_description_button: 'Save',
     invalid_class_day: 'Please choose a valid date.',
     class_day_added: 'Class day added.',
     class_day_removed: 'Class day removed.',
+    class_day_description_saved: 'Note saved.',
     remove_class_day: 'Remove this class day',
     attendance_label: 'Attendance',
     present_label: 'Present',
@@ -1460,9 +1463,12 @@ const translations = {
     generate_schedule_needs_weekday: 'Configure un horario de clase que comience con un día de la semana (ej. "Sunday 9:00 AM") antes de generar un horario.',
     add_class_day_label: 'Agregar un día de clase',
     add_class_day_button: 'Agregar',
+    class_day_description_placeholder: 'Nota (opcional)',
+    save_description_button: 'Guardar',
     invalid_class_day: 'Por favor elija una fecha válida.',
     class_day_added: 'Día de clase agregado.',
     class_day_removed: 'Día de clase eliminado.',
+    class_day_description_saved: 'Nota guardada.',
     remove_class_day: 'Eliminar este día de clase',
     attendance_label: 'Asistencia',
     present_label: 'Presente',
@@ -1844,9 +1850,9 @@ const formatSessionDateValue = (date) => date.toISOString().slice(0, 10);
 // calendar has holiday/break exceptions a fixed weekly pattern can't represent.
 const getClassSessionDates = async (classId) => {
   const rows = await db.prepare(
-    'SELECT session_date FROM ccd_class_session_dates WHERE ccd_class_id = ? ORDER BY session_date ASC'
+    'SELECT session_date, description FROM ccd_class_session_dates WHERE ccd_class_id = ? ORDER BY session_date ASC'
   ).all(classId);
-  return rows.map((row) => new Date(row.session_date));
+  return rows.map((row) => ({ date: new Date(row.session_date), description: row.description || '' }));
 };
 
 const generateWeeklyDatesInRange = (weekdayIndex, startDate, endDate) => {
@@ -6063,9 +6069,10 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist'), as
   const roster = getClassRoster(ccdClass, activeStudentRegs, enrolledRegistrationIds)
     .sort((a, b) => (a.student_full_name || '').localeCompare(b.student_full_name || ''));
 
-  const scheduleDates = await getClassSessionDates(classId);
-  const hasStoredSchedule = scheduleDates.length > 0;
-  const upcomingDates = hasStoredSchedule ? scheduleDates : getUpcomingSessionDates(ccdClass.class_time);
+  const storedSchedule = await getClassSessionDates(classId);
+  const hasStoredSchedule = storedSchedule.length > 0;
+  const upcomingDates = hasStoredSchedule ? storedSchedule.map((s) => s.date) : getUpcomingSessionDates(ccdClass.class_time);
+  const descriptionByDate = new Map(storedSchedule.map((s) => [formatSessionDateValue(s.date), s.description]));
   const today = formatSessionDateValue(new Date());
   const nextSessionDate = upcomingDates.find((d) => formatSessionDateValue(d) >= today) || upcomingDates[0];
   const nextSessionValue = nextSessionDate ? formatSessionDateValue(nextSessionDate) : null;
@@ -6091,10 +6098,14 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist'), as
     roster,
     isPendingAcceptance,
     ccdGradeMeanings: CCD_GRADE_MEANINGS,
-    upcomingDates: upcomingDates.map((d) => ({ value: formatSessionDateValue(d), isNext: formatSessionDateValue(d) === nextSessionValue })),
+    upcomingDates: upcomingDates.map((d) => {
+      const value = formatSessionDateValue(d);
+      return { value, isNext: value === nextSessionValue, description: descriptionByDate.get(value) || '' };
+    }),
     hasStoredSchedule,
     defaultSchoolYear: faithFormationSettings.schoolYear,
     selectedDate,
+    selectedDescription: descriptionByDate.get(selectedDate) || '',
     attendanceByStudent,
     presentCount,
     absentCount,
@@ -6187,11 +6198,34 @@ app.post('/admin/classes/:id/schedule/add', requireAuth, requireRole('admin', 'c
     req.flash('error', res.locals.t('invalid_class_day'));
     return res.redirect(`/admin/classes/${classId}`);
   }
+  const description = typeof req.body.description === 'string' ? req.body.description.trim().slice(0, 255) : '';
 
   await db.prepare(
-    'INSERT IGNORE INTO ccd_class_session_dates (ccd_class_id, session_date) VALUES (?, ?)'
-  ).run(classId, sessionDate);
+    'INSERT IGNORE INTO ccd_class_session_dates (ccd_class_id, session_date, description) VALUES (?, ?, ?)'
+  ).run(classId, sessionDate, description || null);
   req.flash('success', res.locals.t('class_day_added'));
+  return res.redirect(`/admin/classes/${classId}?date=${sessionDate}`);
+}));
+
+app.post('/admin/classes/:id/schedule/description', requireAuth, requireRole('admin', 'catechist'), asyncHandler(async (req, res) => {
+  const classId = Number.parseInt(req.params.id, 10);
+  const ccdClass = await getOwnedCcdClass(req, classId);
+  if (!ccdClass) {
+    req.flash('error', 'Class not found.');
+    return res.redirect('/admin/classes');
+  }
+
+  const sessionDate = typeof req.body.session_date === 'string' ? req.body.session_date.trim() : '';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(sessionDate)) {
+    req.flash('error', res.locals.t('invalid_class_day'));
+    return res.redirect(`/admin/classes/${classId}`);
+  }
+  const description = typeof req.body.description === 'string' ? req.body.description.trim().slice(0, 255) : '';
+
+  await db.prepare(
+    'UPDATE ccd_class_session_dates SET description = ? WHERE ccd_class_id = ? AND session_date = ?'
+  ).run(description || null, classId, sessionDate);
+  req.flash('success', res.locals.t('class_day_description_saved'));
   return res.redirect(`/admin/classes/${classId}?date=${sessionDate}`);
 }));
 
