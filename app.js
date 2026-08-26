@@ -1812,6 +1812,25 @@ const CCD_GRADE_MEANINGS = {
   '9': 'Second Year Confirmation',
 };
 
+// Short codes for the sacramental-year classes, used anywhere space is tight (calendar
+// pills, etc). Grades without a code (3-7) already display fine as "Grade N".
+const CCD_GRADE_SHORT_CODES = {
+  '1': 'HC-1',
+  '2': 'HC-2',
+  '8': 'C-1',
+  '9': 'C-2',
+};
+
+const getCcdClassShortLabel = (ccdClass) =>
+  `${CCD_GRADE_SHORT_CODES[ccdClass.grade_level] || CCD_GRADE_MEANINGS[ccdClass.grade_level] || ccdClass.grade_level}${ccdClass.sectionLabel || ''}`;
+
+// Fixed display order (Communion years before Confirmation years) for anywhere the short
+// codes need explaining, e.g. the shared calendar's legend.
+const CCD_GRADE_SHORT_CODE_LEGEND = ['1', '2', '8', '9'].map((gradeLevel) => ({
+  code: CCD_GRADE_SHORT_CODES[gradeLevel],
+  label: CCD_GRADE_MEANINGS[gradeLevel],
+}));
+
 const CCD_GRADE_BY_SACRAMENTAL_YEAR = {
   first_year_communion: '1',
   second_year_communion: '2',
@@ -1837,6 +1856,18 @@ const parseClassWeekday = (classTimeText) => {
   if (!match) return null;
   const index = CLASS_WEEKDAY_NAMES.findIndex((day) => day.toLowerCase() === match[1].toLowerCase());
   return index === -1 ? null : index;
+};
+
+// class_time is free text an admin typed (e.g. "Tuesday 4:00-5:15 PM") with the weekday
+// and time range run together. Splits them apart for display contexts — like a calendar
+// grid — where the weekday is already implied (a column header, a specific date) and
+// repeating it in every pill/label would just be noise.
+const splitClassTimeText = (classTimeText) => {
+  const match = /^(Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)\b(.*)$/i.exec((classTimeText || '').trim());
+  return {
+    weekday: match ? match[1] : '',
+    timeRange: match ? match[2].trim() : (classTimeText || ''),
+  };
 };
 
 // When a grade has more than one time-slot section (e.g. three Second Year Communion
@@ -2044,6 +2075,7 @@ const getClassSessionDatesInRange = async (startDateValue, endDateValue, classId
     entry.classes.push({
       classId: row.classId,
       className: `${CCD_GRADE_MEANINGS[row.grade_level] || row.grade_level}${row.sectionLabel || ''}`,
+      classShortLabel: getCcdClassShortLabel({ grade_level: row.grade_level, sectionLabel: row.sectionLabel }),
       classTime: row.class_time || '',
       description: row.description || '',
     });
@@ -3377,10 +3409,13 @@ app.get('/calendar', requireAuth, asyncHandler(async (req, res) => {
   // catechist can see which specific class(es) have a session rather than a generic
   // "Faith Formation Classes" entry with every class's time/note run together.
   const classDayOccurrences = Array.from(classDaysByDate.entries()).flatMap(([dateKey, info]) =>
+    // The grid's own weekday column already says "Tuesday" etc., so only the time range
+    // is shown here — repeating the weekday on every pill would just be noise.
     info.classes.map((classInfo) => ({
-      title: classInfo.className,
+      title: classInfo.classShortLabel,
+      fullTitle: classInfo.className,
       occurrence_date: dateKey,
-      event_time: classInfo.classTime,
+      event_time: splitClassTimeText(classInfo.classTime).timeRange,
       description: classInfo.description,
       isClassDay: true,
     }))
@@ -3396,6 +3431,7 @@ app.get('/calendar', requireAuth, asyncHandler(async (req, res) => {
     weeks,
     weekdayLabels: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
     monthEvents: occurrences,
+    ccdClassCodeLegend: CCD_GRADE_SHORT_CODE_LEGEND,
   });
 }));
 
@@ -3476,10 +3512,7 @@ app.get('/calendar/class/:id', requireAuth, asyncHandler(async (req, res) => {
 
   const canEdit = req.user.role === 'admin' || (req.user.role === 'catechist' && isClassCatechist(ccdClass, req.user.id));
 
-  // class_time is free text an admin typed (e.g. "Monday 5:15- 7:00 PM"), so the weekday
-  // is only split out for display as a separate chip when it actually leads the string —
-  // there's no attempt to translate or otherwise parse the remainder.
-  const classTimeMatch = /^(Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)\b(.*)$/i.exec((ccdClass.class_time || '').trim());
+  const { weekday: classWeekdayText, timeRange: classTimeRangeText } = splitClassTimeText(ccdClass.class_time);
 
   res.render('calendar-class', {
     ccdClass,
@@ -3490,8 +3523,8 @@ app.get('/calendar/class/:id', requireAuth, asyncHandler(async (req, res) => {
     rangeLabel: sessions.length
       ? `${sessions[0].date.toLocaleDateString(localeTag, { month: 'long', year: 'numeric' })} – ${sessions[sessions.length - 1].date.toLocaleDateString(localeTag, { month: 'long', year: 'numeric' })}`
       : '',
-    classWeekdayText: classTimeMatch ? classTimeMatch[1] : '',
-    classTimeRangeText: classTimeMatch ? classTimeMatch[2].trim() : (ccdClass.class_time || ''),
+    classWeekdayText,
+    classTimeRangeText,
     canEdit,
     currentUrl: `/calendar/class/${classId}?school_year=${schoolYear}`,
   });

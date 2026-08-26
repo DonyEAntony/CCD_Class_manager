@@ -644,6 +644,11 @@ legend {
   background: var(--white);
   border: 1px solid var(--blue-light);
 }
+.calendar-legend-codes {
+  margin-top: -0.6rem;
+  font-size: 0.76rem;
+}
+.calendar-legend-codes strong { color: var(--navy); }
 .calendar-legend-swatch-class {
   background: var(--gold-pale);
   border-color: #f0d090;
