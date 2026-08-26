@@ -129,7 +129,6 @@
     .ca-schedule-row a .ca-present-count { font: 400 11.5px var(--ca-font-body); opacity: .85; }
     .ca-schedule-remove-btn { flex: none; width: 26px; height: 26px; border-radius: 999px; border: 1px solid var(--ca-divider); background: transparent; color: var(--ca-neutral-600); font-size: .75rem; line-height: 1; cursor: pointer; }
     .ca-schedule-remove-btn:hover { border-color: var(--ca-accent-600); color: var(--ca-accent-600); }
-    .ca-generate-form { margin-top: .5rem; }
     .ca-teacher-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
     .ca-teacher-row + .ca-teacher-row { margin-top: .6rem; }
     .ca-celebration-list { display: flex; flex-direction: column; gap: 10px; margin-top: .6rem; }
@@ -373,12 +372,6 @@
               </div>
             <% }) %>
           </div>
-
-          <form method="post" action="/admin/classes/<%= ccdClass.id %>/schedule/generate" class="ca-generate-form">
-            <div class="ca-hint"><%= t('generate_schedule_hint') %></div>
-            <input type="hidden" name="school_year" value="<%= defaultSchoolYear %>">
-            <button type="submit" class="ca-btn" style="padding:6px 14px;font-size:13px;margin-top:.4rem"><%= t('generate_schedule_label') %></button>
-          </form>
         </div>
 
         <div class="ca-sidebar-card">

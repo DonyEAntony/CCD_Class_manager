@@ -6620,7 +6620,7 @@ app.post('/admin/classes/:id/schedule/generate', requireAuth, requireRole('admin
   const weekdayIndex = parseClassWeekday(ccdClass.class_time);
   if (weekdayIndex === null) {
     req.flash('error', res.locals.t('generate_schedule_needs_weekday'));
-    return res.redirect(`/admin/classes/${classId}`);
+    return res.redirect(resolveScheduleRedirect(req.body.return_to, classId, `/admin/classes/${classId}`));
   }
 
   const requestedSchoolYear = typeof req.body.school_year === 'string' ? req.body.school_year.trim() : '';
@@ -6638,7 +6638,7 @@ app.post('/admin/classes/:id/schedule/generate', requireAuth, requireRole('admin
   }
 
   req.flash('success', `Added ${dates.length} class day(s).`);
-  return res.redirect(`/admin/classes/${classId}`);
+  return res.redirect(resolveScheduleRedirect(req.body.return_to, classId, `/admin/classes/${classId}`));
 }));
 
 app.post('/admin/classes/:id/schedule/add', requireAuth, requireRole('admin', 'catechist'), asyncHandler(async (req, res) => {
