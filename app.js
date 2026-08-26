@@ -317,6 +317,8 @@ const translations = {
     calendar_class_day_title: 'Faith Formation Classes',
     year_view_label: 'Full Year (Printable)',
     year_calendar_title: 'Faith Formation Year',
+    session_calendar_label: 'Session Calendar',
+    class_session_fallback_label: 'Class session',
     year_calendar_legend: 'Confirmed class day',
     year_calendar_off_weekday_legend: 'Day of the week with no class',
     print_button: 'Print',
@@ -1139,6 +1141,8 @@ const translations = {
     calendar_class_day_title: 'Clases de Formación en la Fe',
     year_view_label: 'Año Completo (Imprimible)',
     year_calendar_title: 'Año de Formación en la Fe',
+    session_calendar_label: 'Calendario de Sesiones',
+    class_session_fallback_label: 'Día de clase',
     year_calendar_legend: 'Día de clase confirmado',
     year_calendar_off_weekday_legend: 'Día de la semana sin clase',
     print_button: 'Imprimir',
@@ -3438,12 +3442,18 @@ app.get('/calendar/class/:id', requireAuth, asyncHandler(async (req, res) => {
     monthGroups[monthGroups.length - 1].sessions.push({
       number: index + 1,
       value: formatSessionDateValue(session.date),
+      day: session.date.getDate(),
       label: session.date.toLocaleDateString(localeTag, { weekday: 'short', day: 'numeric' }),
       description: session.description,
     });
   });
 
   const canEdit = req.user.role === 'admin' || (req.user.role === 'catechist' && isClassCatechist(ccdClass, req.user.id));
+
+  // class_time is free text an admin typed (e.g. "Monday 5:15- 7:00 PM"), so the weekday
+  // is only split out for display as a separate chip when it actually leads the string —
+  // there's no attempt to translate or otherwise parse the remainder.
+  const classTimeMatch = /^(Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday)\b(.*)$/i.exec((ccdClass.class_time || '').trim());
 
   res.render('calendar-class', {
     ccdClass,
@@ -3454,6 +3464,8 @@ app.get('/calendar/class/:id', requireAuth, asyncHandler(async (req, res) => {
     rangeLabel: sessions.length
       ? `${sessions[0].date.toLocaleDateString(localeTag, { month: 'long', year: 'numeric' })} – ${sessions[sessions.length - 1].date.toLocaleDateString(localeTag, { month: 'long', year: 'numeric' })}`
       : '',
+    classWeekdayText: classTimeMatch ? classTimeMatch[1] : '',
+    classTimeRangeText: classTimeMatch ? classTimeMatch[2].trim() : (ccdClass.class_time || ''),
     canEdit,
     currentUrl: `/calendar/class/${classId}?school_year=${schoolYear}`,
   });

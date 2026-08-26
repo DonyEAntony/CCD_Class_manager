@@ -129,10 +129,6 @@
     .ca-schedule-row a .ca-present-count { font: 400 11.5px var(--ca-font-body); opacity: .85; }
     .ca-schedule-remove-btn { flex: none; width: 26px; height: 26px; border-radius: 999px; border: 1px solid var(--ca-divider); background: transparent; color: var(--ca-neutral-600); font-size: .75rem; line-height: 1; cursor: pointer; }
     .ca-schedule-remove-btn:hover { border-color: var(--ca-accent-600); color: var(--ca-accent-600); }
-    .ca-schedule-desc-row { display: flex; gap: 6px; margin: 2px 0 6px 2px; }
-    .ca-schedule-desc-row input { flex: 1 1 auto; font-size: 12px; padding: 6px 12px; }
-    .ca-add-row { display: flex; gap: 6px; margin-top: .6rem; padding-top: .6rem; border-top: 1px solid var(--ca-divider); }
-    .ca-add-row input { flex: 1 1 auto; }
     .ca-generate-form { margin-top: .5rem; }
     .ca-teacher-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
     .ca-teacher-row + .ca-teacher-row { margin-top: .6rem; }
@@ -368,34 +364,15 @@
               <div class="ca-schedule-row-wrap">
                 <div class="ca-schedule-row">
                   <a href="/admin/classes/<%= ccdClass.id %>?date=<%= d.value %>" class="<%= d.value === selectedDate ? 'selected' : '' %>">
-                    <span><%= new Date(d.value + 'T00:00:00').toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric' }) %></span>
+                    <span><%= new Date(d.value + 'T00:00:00').toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric' }) %><% if (d.description) { %> &middot; <%= d.description %><% } %></span>
                     <span class="ca-present-count">
                       <% if (d.isNext) { %><%= t('next_label') %><% } else if (d.presentCount !== null) { %><%= d.presentCount %> <%= t('of_label') %> <%= roster.length %><% } %>
                     </span>
                   </a>
-                  <% if (hasStoredSchedule) { %>
-                    <form method="post" action="/admin/classes/<%= ccdClass.id %>/schedule/remove" onsubmit="return confirm('<%= t('remove_class_day') %>?');">
-                      <input type="hidden" name="session_date" value="<%= d.value %>">
-                      <button type="submit" class="ca-schedule-remove-btn" aria-label="<%= t('remove_class_day') %>" title="<%= t('remove_class_day') %>">&times;</button>
-                    </form>
-                  <% } %>
                 </div>
-                <% if (hasStoredSchedule) { %>
-                  <form method="post" action="/admin/classes/<%= ccdClass.id %>/schedule/description" class="ca-schedule-desc-row">
-                    <input type="hidden" name="session_date" value="<%= d.value %>">
-                    <input type="text" class="form-control form-control-sm" name="description" value="<%= d.description %>" placeholder="<%= t('class_day_description_placeholder') %>" maxlength="255">
-                    <button type="submit" class="ca-btn" style="padding:4px 12px;font-size:12px"><%= t('save_description_button') %></button>
-                  </form>
-                <% } %>
               </div>
             <% }) %>
           </div>
-
-          <form method="post" action="/admin/classes/<%= ccdClass.id %>/schedule/add" class="ca-add-row">
-            <input type="date" class="form-control form-control-sm" name="session_date" aria-label="<%= t('add_class_day_label') %>" required>
-            <input type="text" class="form-control form-control-sm" name="description" placeholder="<%= t('class_day_description_placeholder') %>" maxlength="255">
-            <button type="submit" class="ca-btn" style="padding:6px 14px;font-size:13px"><%= t('add_class_day_button') %></button>
-          </form>
 
           <form method="post" action="/admin/classes/<%= ccdClass.id %>/schedule/generate" class="ca-generate-form">
             <div class="ca-hint"><%= t('generate_schedule_hint') %></div>
