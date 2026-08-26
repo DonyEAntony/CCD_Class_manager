@@ -28,6 +28,11 @@
     <a class="btn btn-outline-secondary" href="/calendar?month=<%= nextMonthParam %>"><%= t('next_month') %></a>
   </div>
 
+  <div class="calendar-legend">
+    <div class="calendar-legend-item"><span class="calendar-legend-swatch calendar-legend-swatch-class"></span><%= t('calendar_class_day_title') %></div>
+    <div class="calendar-legend-item"><span class="calendar-legend-swatch"></span><%= t('calendar_events_legend_label') %></div>
+  </div>
+
   <div class="page-card">
     <div class="card-body">
       <% if (!monthEvents.length) { %>

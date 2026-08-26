@@ -624,6 +624,31 @@ legend {
 .text-secondary{ color: var(--muted) !important; }
 .brand-title   { font-family: 'Playfair Display', Georgia, serif; }
 
+.calendar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.2rem;
+  margin-bottom: 1rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.calendar-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.calendar-legend-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  background: var(--white);
+  border: 1px solid var(--blue-light);
+}
+.calendar-legend-swatch-class {
+  background: var(--gold-pale);
+  border-color: #f0d090;
+}
+
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));

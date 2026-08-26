@@ -315,6 +315,7 @@ const translations = {
     previous_month: 'Previous Month',
     next_month: 'Next Month',
     calendar_class_day_title: 'Faith Formation Classes',
+    calendar_events_legend_label: 'Parish Events',
     year_view_label: 'Full Year (Printable)',
     year_calendar_title: 'Faith Formation Year',
     session_calendar_label: 'Session Calendar',
@@ -1141,6 +1142,7 @@ const translations = {
     previous_month: 'Mes Anterior',
     next_month: 'Mes Siguiente',
     calendar_class_day_title: 'Clases de Formación en la Fe',
+    calendar_events_legend_label: 'Eventos Parroquiales',
     year_view_label: 'Año Completo (Imprimible)',
     year_calendar_title: 'Año de Formación en la Fe',
     session_calendar_label: 'Calendario de Sesiones',
@@ -2026,7 +2028,7 @@ const getClassSessionDatesInRange = async (startDateValue, endDateValue, classId
   const classFilter = classId ? ' AND scd.ccd_class_id = ?' : '';
   const params = classId ? [startDateValue, endDateValue, classId] : [startDateValue, endDateValue];
   const rows = await db.prepare(`
-    SELECT scd.session_date, scd.description, cc.class_time
+    SELECT scd.session_date, scd.description, cc.id AS classId, cc.class_time, cc.grade_level, cc.section_label AS sectionLabel
     FROM ccd_class_session_dates scd
     INNER JOIN ccd_classes cc ON cc.id = scd.ccd_class_id
     WHERE scd.session_date BETWEEN ? AND ?${classFilter}
@@ -2035,10 +2037,16 @@ const getClassSessionDatesInRange = async (startDateValue, endDateValue, classId
   const byDate = new Map();
   rows.forEach((row) => {
     const dateKey = formatSessionDateValue(new Date(row.session_date));
-    if (!byDate.has(dateKey)) byDate.set(dateKey, { classTimes: new Set(), descriptions: new Set() });
+    if (!byDate.has(dateKey)) byDate.set(dateKey, { classTimes: new Set(), descriptions: new Set(), classes: [] });
     const entry = byDate.get(dateKey);
     if (row.class_time) entry.classTimes.add(row.class_time);
     if (row.description) entry.descriptions.add(row.description);
+    entry.classes.push({
+      classId: row.classId,
+      className: `${CCD_GRADE_MEANINGS[row.grade_level] || row.grade_level}${row.sectionLabel || ''}`,
+      classTime: row.class_time || '',
+      description: row.description || '',
+    });
   });
 
   return byDate;
@@ -3365,13 +3373,18 @@ app.get('/calendar', requireAuth, asyncHandler(async (req, res) => {
     formatSessionDateValue(monthStart),
     formatSessionDateValue(monthEndDate)
   );
-  const classDayOccurrences = Array.from(classDaysByDate.entries()).map(([dateKey, info]) => ({
-    title: res.locals.t('calendar_class_day_title'),
-    occurrence_date: dateKey,
-    event_time: Array.from(info.classTimes).join(' / '),
-    description: Array.from(info.descriptions).join(' · '),
-    isClassDay: true,
-  }));
+  // One pill per class meeting that day (not one merged pill per date), so a parent or
+  // catechist can see which specific class(es) have a session rather than a generic
+  // "Faith Formation Classes" entry with every class's time/note run together.
+  const classDayOccurrences = Array.from(classDaysByDate.entries()).flatMap(([dateKey, info]) =>
+    info.classes.map((classInfo) => ({
+      title: classInfo.className,
+      occurrence_date: dateKey,
+      event_time: classInfo.classTime,
+      description: classInfo.description,
+      isClassDay: true,
+    }))
+  );
 
   const occurrences = [...classDayOccurrences, ...eventOccurrences];
   const weeks = buildCalendarWeeks(occurrences, year, monthIndex);
