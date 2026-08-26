@@ -2011,6 +2011,15 @@ const getClassSessionDates = async (classId, startDateValue = null, endDateValue
   return rows.map((row) => ({ date: new Date(row.session_date), description: row.description || '' }));
 };
 
+// Mirrors the class detail page's "next session" logic: prefer the real stored schedule
+// over the rolling weekly guess once any dates have been configured for the class.
+const getNextSessionDateForClass = async (classId, classTimeText) => {
+  const storedSchedule = await getClassSessionDates(classId);
+  const upcomingDates = storedSchedule.length ? storedSchedule.map((s) => s.date) : getUpcomingSessionDates(classTimeText);
+  const today = formatSessionDateValue(new Date());
+  return upcomingDates.find((d) => formatSessionDateValue(d) >= today) || upcomingDates[0] || null;
+};
+
 // Used to surface confirmed class days (across every class, not just one) on the
 // shared /calendar page, so parents/staff can see them alongside other parish events.
 const getClassSessionDatesInRange = async (startDateValue, endDateValue, classId = null) => {
@@ -6383,16 +6392,15 @@ app.get('/admin/classes', requireAuth, requireRole('admin', 'catechist'), asyncH
   const activeStudentRegs = await db.prepare('SELECT * FROM student_registrations WHERE archived_at IS NULL').all();
   const enrolledRegistrationIds = await getEnrolledRegistrationIds();
 
-  const classes = ccdClasses.map((ccdClass) => {
+  const classes = await Promise.all(ccdClasses.map(async (ccdClass) => {
     const roster = getClassRoster(ccdClass, activeStudentRegs, enrolledRegistrationIds);
-    const upcomingDates = getUpcomingSessionDates(ccdClass.class_time);
     return {
       ...ccdClass,
       studentCount: roster.length,
       pendingCount: roster.filter(isPendingAcceptance).length,
-      nextSessionDate: upcomingDates[0] || null,
+      nextSessionDate: await getNextSessionDateForClass(ccdClass.id, ccdClass.class_time),
     };
-  });
+  }));
 
   res.render('admin-classes', { classes, ccdGradeMeanings: CCD_GRADE_MEANINGS });
 }));
