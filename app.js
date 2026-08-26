@@ -724,6 +724,16 @@ const translations = {
     clear_button: 'Clear',
     autosave_note: 'Attendance saves automatically as you mark it.',
     baptism_cert_pending_badge: 'Baptism cert. pending',
+    years_old_label: 'yrs',
+    upcoming_celebrations_label: 'Upcoming Birthdays & Anniversaries',
+    no_upcoming_celebrations: 'None in the next 30 days.',
+    birthday_label: 'Birthday',
+    baptism_anniversary_label: 'Baptism anniversary',
+    turning_label: 'turning',
+    today_label: 'today',
+    tomorrow_label: 'tomorrow',
+    in_days_label: 'in',
+    days_label: 'days',
     absence_singular: 'absence',
     absence_plural: 'absences',
     last_seven_label: 'Last 7',
@@ -1535,6 +1545,16 @@ const translations = {
     clear_button: 'Borrar',
     autosave_note: 'La asistencia se guarda automáticamente al marcarla.',
     baptism_cert_pending_badge: 'Certificado de bautismo pendiente',
+    years_old_label: 'años',
+    upcoming_celebrations_label: 'Próximos Cumpleaños y Aniversarios',
+    no_upcoming_celebrations: 'Ninguno en los próximos 30 días.',
+    birthday_label: 'Cumpleaños',
+    baptism_anniversary_label: 'Aniversario de bautismo',
+    turning_label: 'cumple',
+    today_label: 'hoy',
+    tomorrow_label: 'mañana',
+    in_days_label: 'en',
+    days_label: 'días',
     absence_singular: 'ausencia',
     absence_plural: 'ausencias',
     last_seven_label: 'Últimas 7',
@@ -1859,6 +1879,44 @@ const getClassSlotValue = (ccdClass) =>
 // off class rosters even though their registration stays "admitted" forever. Registrations
 // that aren't admitted yet (in_progress/conditionally_accepted) are unaffected and keep
 // showing as pending, exactly as before.
+// dob strings are plain YYYY-MM-DD with no time/zone info, so the year/month/day are
+// parsed directly rather than via `new Date(dob)` — that constructor treats a date-only
+// string as UTC midnight, which flips to the previous local day in negative-UTC-offset
+// timezones and silently off-by-ones the age near birthdays/month boundaries.
+const calculateAge = (dob) => {
+  const match = typeof dob === 'string' && dob.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return null;
+  const [, birthYear, birthMonth, birthDay] = match.map(Number);
+  const today = new Date();
+  let age = today.getFullYear() - birthYear;
+  const hasHadBirthdayThisYear =
+    today.getMonth() + 1 > birthMonth ||
+    (today.getMonth() + 1 === birthMonth && today.getDate() >= birthDay);
+  if (!hasHadBirthdayThisYear) age -= 1;
+  return age;
+};
+
+// Finds the next occurrence (this year or next) of an annual date like a birthday or
+// baptism date, for surfacing "upcoming" reminders. Returns null past `withinDays`, or if
+// `dateStr` is missing/unparseable. A Feb 29 anniversary rolls to Mar 1 in non-leap years
+// (native Date overflow) rather than being skipped — an acceptable once-every-4-years quirk.
+const getUpcomingAnniversary = (dateStr, withinDays = 30) => {
+  const match = typeof dateStr === 'string' && dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return null;
+  const [, origYear, month, day] = match.map(Number);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  let nextYear = today.getFullYear();
+  let next = new Date(nextYear, month - 1, day);
+  if (next < today) {
+    nextYear += 1;
+    next = new Date(nextYear, month - 1, day);
+  }
+  const daysUntil = Math.round((next - today) / 86400000);
+  if (daysUntil > withinDays) return null;
+  return { date: formatSessionDateValue(next), daysUntil, years: nextYear - origYear };
+};
+
 const getClassRoster = (ccdClass, allStudentRegs, enrolledRegistrationIds) =>
   allStudentRegs.filter((reg) => {
     if (resolveCcdGrade(reg) !== ccdClass.grade_level) return false;
@@ -6376,6 +6434,7 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist'), as
     const historyPresentCount = historyDates.filter((d) => attendanceByStudentDate.get(`${r.id}|${d}`) === 'present').length;
     return {
       ...r,
+      age: calculateAge(r.student_dob),
       absenceCount: absentTotal,
       baptismCertPending: SACRAMENTAL_GRADE_LEVELS.has(ccdClass.grade_level) && !r.baptism_certificate_path,
       attendanceRatePercent: pastSessionDates.length ? Math.round((presentTotal / pastSessionDates.length) * 100) : null,
@@ -6390,6 +6449,17 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist'), as
   const lowAttendanceStudents = pastSessionDates.length >= 3
     ? rosterWithHistory.filter((r) => r.attendanceRatePercent !== null && r.attendanceRatePercent < 75)
     : [];
+
+  const upcomingCelebrations = rosterWithHistory
+    .flatMap((r) => {
+      const birthday = getUpcomingAnniversary(r.student_dob);
+      const baptismAnniversary = getUpcomingAnniversary(r.baptism_date);
+      const entries = [];
+      if (birthday) entries.push({ studentName: r.student_full_name, type: 'birthday', ...birthday });
+      if (baptismAnniversary) entries.push({ studentName: r.student_full_name, type: 'baptism_anniversary', ...baptismAnniversary });
+      return entries;
+    })
+    .sort((a, b) => a.daysUntil - b.daysUntil);
 
   res.render('admin-class-detail', {
     ccdClass,
@@ -6417,6 +6487,7 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist'), as
     assignableCatechists,
     classAttendanceRatePercent,
     lowAttendanceStudents,
+    upcomingCelebrations,
   });
 }));
 
@@ -6686,7 +6757,13 @@ app.post('/admin/classes/:id/message', requireAuth, requireRole('admin', 'catech
       }
     }
 
-    const skippedCount = selectedStudents.length - recipientsByEmail.size;
+    // Selected-count minus unique-recipient-count isn't the same as "missing an email" —
+    // siblings sharing one parent email collapse into a single recipient too, which isn't
+    // a problem worth reporting. Only students with no email at all are actually missing one.
+    const missingEmailNames = selectedStudents
+      .filter((r) => !(r.primary_contact_email || '').trim())
+      .map((r) => r.student_full_name)
+      .filter(Boolean);
     if (sentCount === 0) {
       req.flash('error', 'Message could not be sent — check the mail server configuration.');
     } else {
@@ -6694,7 +6771,7 @@ app.post('/admin/classes/:id/message', requireAuth, requireRole('admin', 'catech
       req.flash(
         'success',
         `Message sent to ${sentCount} famil${sentCount === 1 ? 'y' : 'ies'}` +
-          (skippedCount ? ` (${skippedCount} selected student${skippedCount === 1 ? '' : 's'} had no contact email on file).` : '.')
+          (missingEmailNames.length ? ` (no contact email on file for: ${missingEmailNames.join(', ')}).` : '.')
       );
     }
     return res.redirect(`/admin/classes/${classId}`);
