@@ -82,6 +82,7 @@
     .ca-avatar.tone-b { background: var(--ca-accent2-200); color: var(--ca-accent2-800); }
     .ca-roster-name-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .ca-roster-name { font: 700 16px var(--ca-font-body); }
+    .ca-roster-age { font: 500 12.5px var(--ca-font-body); color: var(--ca-neutral-600); }
     .ca-badge { border-radius: 999px; padding: 2px 10px; font: 600 10px var(--ca-font-body); letter-spacing: .08em; text-transform: uppercase; }
     .ca-badge-warn { background: var(--ca-accent-200); color: var(--ca-accent-800); }
     .ca-roster-contact { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 3px; font: 400 12.5px var(--ca-font-body); color: var(--ca-neutral-700); }
@@ -135,6 +136,11 @@
     .ca-generate-form { margin-top: .5rem; }
     .ca-teacher-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
     .ca-teacher-row + .ca-teacher-row { margin-top: .6rem; }
+    .ca-celebration-list { display: flex; flex-direction: column; gap: 10px; margin-top: .6rem; }
+    .ca-celebration-row { display: flex; align-items: flex-start; gap: 10px; }
+    .ca-celebration-icon { font-size: 18px; line-height: 1.4; flex: none; }
+    .ca-celebration-name { font: 700 13.5px var(--ca-font-body); }
+    .ca-celebration-meta { font-size: 12px; color: var(--ca-neutral-600); }
     .ca-teacher-contact { display: flex; gap: 8px; margin-top: 4px; }
     .ca-teacher-contact a { width: 30px; height: 30px; border-radius: 999px; border: 1px solid var(--ca-divider); display: flex; align-items: center; justify-content: center; }
     .ca-assign-row { display: flex; gap: 6px; margin-top: .7rem; padding-top: .6rem; border-top: 1px solid var(--ca-divider); }
@@ -229,6 +235,7 @@
               <div style="min-width:0">
                 <div class="ca-roster-name-row">
                   <span class="ca-roster-name"><%= r.student_full_name %></span>
+                  <% if (r.age !== null && r.age !== undefined) { %><span class="ca-roster-age"><%= r.age %> <%= t('years_old_label') %></span><% } %>
                   <% if (isPendingAcceptance(r)) { %><span class="ca-badge ca-badge-warn"><%= t('pending_acceptance_label') %></span><% } %>
                   <% if (r.baptismCertPending) { %><span class="ca-badge ca-badge-warn"><%= t('baptism_cert_pending_badge') %></span><% } %>
                   <% if (r.absenceCount > 0) { %><span class="ca-badge ca-badge-warn"><%= r.absenceCount %> <%= r.absenceCount === 1 ? t('absence_singular') : t('absence_plural') %></span><% } %>
@@ -395,6 +402,33 @@
             <input type="hidden" name="school_year" value="<%= defaultSchoolYear %>">
             <button type="submit" class="ca-btn" style="padding:6px 14px;font-size:13px;margin-top:.4rem"><%= t('generate_schedule_label') %></button>
           </form>
+        </div>
+
+        <div class="ca-sidebar-card">
+          <div class="ca-sidebar-label"><%= t('upcoming_celebrations_label') %></div>
+          <% if (!upcomingCelebrations.length) { %>
+            <div class="ca-hint" style="margin-top:.4rem"><%= t('no_upcoming_celebrations') %></div>
+          <% } else { %>
+            <div class="ca-celebration-list">
+              <% upcomingCelebrations.forEach((c) => { %>
+                <div class="ca-celebration-row">
+                  <span class="ca-celebration-icon"><%= c.type === 'birthday' ? '🎂' : '✝️' %></span>
+                  <div style="min-width:0">
+                    <div class="ca-celebration-name"><%= c.studentName %></div>
+                    <div class="ca-celebration-meta">
+                      <%= c.type === 'birthday' ? t('birthday_label') : t('baptism_anniversary_label') %>
+                      &middot;
+                      <% if (c.daysUntil === 0) { %><%= t('today_label') %>
+                      <% } else if (c.daysUntil === 1) { %><%= t('tomorrow_label') %>
+                      <% } else { %><%= t('in_days_label') %> <%= c.daysUntil %> <%= t('days_label') %>
+                      <% } %>
+                      <% if (c.type === 'birthday') { %> &middot; <%= t('turning_label') %> <%= c.years %><% } %>
+                    </div>
+                  </div>
+                </div>
+              <% }) %>
+            </div>
+          <% } %>
         </div>
 
         <% if (classAttendanceRatePercent !== null) { %>
