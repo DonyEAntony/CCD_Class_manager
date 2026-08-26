@@ -716,6 +716,7 @@ const translations = {
     class_day_removed: 'Class day removed.',
     class_day_description_saved: 'Note saved.',
     remove_class_day: 'Remove this class day',
+    edit_class_day_note: 'Edit note for this class day',
     attendance_label: 'Attendance',
     present_label: 'Present',
     absent_label: 'Absent',
@@ -1537,6 +1538,7 @@ const translations = {
     class_day_removed: 'Día de clase eliminado.',
     class_day_description_saved: 'Nota guardada.',
     remove_class_day: 'Eliminar este día de clase',
+    edit_class_day_note: 'Editar nota de este día de clase',
     attendance_label: 'Asistencia',
     present_label: 'Presente',
     absent_label: 'Ausente',
@@ -3435,10 +3437,13 @@ app.get('/calendar/class/:id', requireAuth, asyncHandler(async (req, res) => {
     }
     monthGroups[monthGroups.length - 1].sessions.push({
       number: index + 1,
+      value: formatSessionDateValue(session.date),
       label: session.date.toLocaleDateString(localeTag, { weekday: 'short', day: 'numeric' }),
       description: session.description,
     });
   });
+
+  const canEdit = req.user.role === 'admin' || (req.user.role === 'catechist' && isClassCatechist(ccdClass, req.user.id));
 
   res.render('calendar-class', {
     ccdClass,
@@ -3449,6 +3454,8 @@ app.get('/calendar/class/:id', requireAuth, asyncHandler(async (req, res) => {
     rangeLabel: sessions.length
       ? `${sessions[0].date.toLocaleDateString(localeTag, { month: 'long', year: 'numeric' })} – ${sessions[sessions.length - 1].date.toLocaleDateString(localeTag, { month: 'long', year: 'numeric' })}`
       : '',
+    canEdit,
+    currentUrl: `/calendar/class/${classId}?school_year=${schoolYear}`,
   });
 }));
 
@@ -6335,6 +6342,15 @@ app.post('/admin/ccd-classes/:id/update', requireAuth, requireRole('admin'), asy
 const isClassCatechist = (ccdClass, userId) =>
   (ccdClass.catechists || []).some((catechist) => Number(catechist.id) === Number(userId));
 
+// Schedule edit actions default to redirecting back to the class detail page, but the
+// per-class calendar view (/calendar/class/:id) posts to these same routes and wants to
+// stay put instead — it passes its own URL as return_to. Only honored when it actually
+// points back at that class's calendar, so this can't be used as an open redirect.
+const resolveScheduleRedirect = (returnTo, classId, fallback) => {
+  const safePattern = new RegExp(`^/calendar/class/${classId}(?:\\?[^\\s]*)?$`);
+  return typeof returnTo === 'string' && safePattern.test(returnTo) ? returnTo : fallback;
+};
+
 const getOwnedCcdClass = async (req, classId) => {
   const ccdClasses = await getCcdClasses();
   const ccdClass = ccdClasses.find((c) => c.id === classId);
@@ -6620,7 +6636,7 @@ app.post('/admin/classes/:id/schedule/add', requireAuth, requireRole('admin', 'c
     'INSERT IGNORE INTO ccd_class_session_dates (ccd_class_id, session_date, description) VALUES (?, ?, ?)'
   ).run(classId, sessionDate, description || null);
   req.flash('success', res.locals.t('class_day_added'));
-  return res.redirect(`/admin/classes/${classId}?date=${sessionDate}`);
+  return res.redirect(resolveScheduleRedirect(req.body.return_to, classId, `/admin/classes/${classId}?date=${sessionDate}`));
 }));
 
 app.post('/admin/classes/:id/schedule/description', requireAuth, requireRole('admin', 'catechist'), asyncHandler(async (req, res) => {
@@ -6642,7 +6658,7 @@ app.post('/admin/classes/:id/schedule/description', requireAuth, requireRole('ad
     'UPDATE ccd_class_session_dates SET description = ? WHERE ccd_class_id = ? AND session_date = ?'
   ).run(description || null, classId, sessionDate);
   req.flash('success', res.locals.t('class_day_description_saved'));
-  return res.redirect(`/admin/classes/${classId}?date=${sessionDate}`);
+  return res.redirect(resolveScheduleRedirect(req.body.return_to, classId, `/admin/classes/${classId}?date=${sessionDate}`));
 }));
 
 app.post('/admin/classes/:id/schedule/remove', requireAuth, requireRole('admin', 'catechist'), asyncHandler(async (req, res) => {
@@ -6663,7 +6679,7 @@ app.post('/admin/classes/:id/schedule/remove', requireAuth, requireRole('admin',
     'DELETE FROM ccd_class_session_dates WHERE ccd_class_id = ? AND session_date = ?'
   ).run(classId, sessionDate);
   req.flash('success', res.locals.t('class_day_removed'));
-  return res.redirect(`/admin/classes/${classId}`);
+  return res.redirect(resolveScheduleRedirect(req.body.return_to, classId, `/admin/classes/${classId}`));
 }));
 
 app.post('/admin/classes/:id/message', requireAuth, requireRole('admin', 'catechist'), messageAttachmentUpload.array('attachments', 5), asyncHandler(async (req, res) => {
