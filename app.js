@@ -6686,7 +6686,13 @@ app.post('/admin/classes/:id/message', requireAuth, requireRole('admin', 'catech
       }
     }
 
-    const skippedCount = selectedStudents.length - recipientsByEmail.size;
+    // Selected-count minus unique-recipient-count isn't the same as "missing an email" —
+    // siblings sharing one parent email collapse into a single recipient too, which isn't
+    // a problem worth reporting. Only students with no email at all are actually missing one.
+    const missingEmailNames = selectedStudents
+      .filter((r) => !(r.primary_contact_email || '').trim())
+      .map((r) => r.student_full_name)
+      .filter(Boolean);
     if (sentCount === 0) {
       req.flash('error', 'Message could not be sent — check the mail server configuration.');
     } else {
@@ -6694,7 +6700,7 @@ app.post('/admin/classes/:id/message', requireAuth, requireRole('admin', 'catech
       req.flash(
         'success',
         `Message sent to ${sentCount} famil${sentCount === 1 ? 'y' : 'ies'}` +
-          (skippedCount ? ` (${skippedCount} selected student${skippedCount === 1 ? '' : 's'} had no contact email on file).` : '.')
+          (missingEmailNames.length ? ` (no contact email on file for: ${missingEmailNames.join(', ')}).` : '.')
       );
     }
     return res.redirect(`/admin/classes/${classId}`);
