@@ -170,6 +170,71 @@
       font-size: 14px;
       padding: 20px 0;
     }
+    .sl-session-pill.editable, .sl-special-pill.editable { padding-right: 6px; }
+    .sl-pill-edit-btn, .sl-pill-remove-btn {
+      border: none;
+      background: rgba(255, 255, 255, 0.28);
+      color: inherit;
+      width: 20px;
+      height: 20px;
+      border-radius: 999px;
+      font-size: 12px;
+      line-height: 1;
+      display: inline-grid;
+      place-items: center;
+      cursor: pointer;
+      flex: none;
+    }
+    .sl-session-pill.editable .sl-pill-edit-btn, .sl-session-pill.editable .sl-pill-remove-btn { color: var(--sl-accent-100); }
+    .sl-inline-edit-input {
+      border: none;
+      border-radius: 6px;
+      padding: 3px 8px;
+      font: 400 13px var(--sl-font-body);
+      min-width: 120px;
+      color: var(--sl-text);
+    }
+    .sl-pill-save-btn {
+      border: none;
+      background: rgba(255, 255, 255, 0.5);
+      color: inherit;
+      width: 20px;
+      height: 20px;
+      border-radius: 999px;
+      font-size: 12px;
+      line-height: 1;
+      display: inline-grid;
+      place-items: center;
+      cursor: pointer;
+      flex: none;
+    }
+    .sl-add-day-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      margin: 20px 0 4px;
+      padding: 14px 18px;
+      background: var(--sl-bg);
+      border-radius: 16px;
+    }
+    .sl-add-day-row input[type="date"], .sl-add-day-row input[type="text"] {
+      border: 1px solid var(--sl-divider);
+      border-radius: 8px;
+      padding: 6px 10px;
+      font: 400 13px var(--sl-font-body);
+      background: var(--sl-surface);
+      color: var(--sl-text);
+    }
+    .sl-add-day-row button {
+      border: none;
+      border-radius: 8px;
+      padding: 7px 16px;
+      background: var(--sl-accent);
+      color: var(--sl-accent-100);
+      font: 600 13px var(--sl-font-body);
+      cursor: pointer;
+    }
 
     @media print {
       @page { size: A4 portrait; margin: 12mm; }
@@ -182,6 +247,9 @@
 <body>
 <%- include('_topbar') %>
 <main class="container py-4 app-shell-wide mx-auto">
+
+  <% if (success.length) { %><div class="alert alert-success no-print" style="margin-bottom:1rem;padding:10px 16px"><%= success[0] %></div><% } %>
+  <% if (error.length) { %><div class="alert alert-danger no-print" style="margin-bottom:1rem;padding:10px 16px"><%= error[0] %></div><% } %>
 
   <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 no-print">
     <div class="d-flex gap-2">
@@ -213,6 +281,15 @@
       <div class="sl-legend-item"><span class="sl-legend-dot" style="background:var(--sl-accent2-300);border:1px solid var(--sl-accent2-300)"></span><%= t('legend_special_day') %></div>
     </div>
 
+    <% if (canEdit) { %>
+      <form method="post" action="/admin/classes/<%= ccdClass.id %>/schedule/add" class="sl-add-day-row no-print">
+        <input type="hidden" name="return_to" value="<%= currentUrl %>">
+        <input type="date" name="session_date" aria-label="<%= t('add_class_day_label') %>" required>
+        <input type="text" name="description" placeholder="<%= t('class_day_description_placeholder') %>" maxlength="255">
+        <button type="submit"><%= t('add_class_day_button') %></button>
+      </form>
+    <% } %>
+
     <% if (!monthGroups.length) { %>
       <div class="sl-empty"><%= t('no_sessions_scheduled') %></div>
     <% } else { %>
@@ -225,17 +302,27 @@
             </div>
             <div class="sl-sessions">
               <% month.sessions.forEach((session) => { %>
-                <% if (session.description) { %>
-                  <div class="sl-special-pill">
+                <% const pillClass = session.description ? 'sl-special-pill' : 'sl-session-pill'; %>
+                <div class="<%= pillClass %> <%= canEdit ? 'editable' : '' %>" data-session-date="<%= session.value %>">
+                  <% if (session.description) { %>
                     <span class="sl-special-date"><%= session.label %></span>
-                    <span class="sl-special-desc"><%= session.description %></span>
-                  </div>
-                <% } else { %>
-                  <div class="sl-session-pill">
+                    <span class="sl-special-desc" data-role="display"><%= session.description %></span>
+                  <% } else { %>
                     <span class="sl-session-num"><%= String(session.number).padStart(2, '0') %></span>
                     <span class="sl-session-date"><%= session.label %></span>
-                  </div>
-                <% } %>
+                    <span class="sl-special-desc" data-role="display" style="display:none"></span>
+                  <% } %>
+                  <% if (canEdit) { %>
+                    <input type="text" class="sl-inline-edit-input no-print" data-role="input" style="display:none" value="<%= session.description || '' %>" placeholder="<%= t('class_day_description_placeholder') %>" maxlength="255">
+                    <button type="button" class="sl-pill-edit-btn no-print" data-role="edit-btn" aria-label="<%= t('edit_class_day_note') %>" title="<%= t('edit_class_day_note') %>">&#9998;</button>
+                    <button type="button" class="sl-pill-save-btn no-print" data-role="save-btn" style="display:none" aria-label="<%= t('save_description_button') %>" title="<%= t('save_description_button') %>">&#10003;</button>
+                    <form method="post" action="/admin/classes/<%= ccdClass.id %>/schedule/remove" class="no-print" style="display:inline" onsubmit="return confirm('<%= t('remove_class_day') %>?');">
+                      <input type="hidden" name="session_date" value="<%= session.value %>">
+                      <input type="hidden" name="return_to" value="<%= currentUrl %>">
+                      <button type="submit" class="sl-pill-remove-btn" aria-label="<%= t('remove_class_day') %>" title="<%= t('remove_class_day') %>">&times;</button>
+                    </form>
+                  <% } %>
+                </div>
               <% }) %>
             </div>
           </div>
@@ -250,6 +337,43 @@
   </div>
 
   <p class="footer-note no-print"><%= t('footer_note') %></p>
+
+  <% if (canEdit) { %>
+    <form method="post" action="/admin/classes/<%= ccdClass.id %>/schedule/description" id="description-edit-form" class="no-print" style="display:none">
+      <input type="hidden" name="session_date" id="description-edit-date">
+      <input type="hidden" name="description" id="description-edit-value">
+      <input type="hidden" name="return_to" value="<%= currentUrl %>">
+    </form>
+    <script>
+      document.querySelectorAll('.sl-session-pill.editable, .sl-special-pill.editable').forEach((pill) => {
+        const displaySpan = pill.querySelector('[data-role="display"]');
+        const input = pill.querySelector('[data-role="input"]');
+        const editBtn = pill.querySelector('[data-role="edit-btn"]');
+        const saveBtn = pill.querySelector('[data-role="save-btn"]');
+
+        const startEditing = () => {
+          displaySpan.style.display = 'none';
+          editBtn.style.display = 'none';
+          input.style.display = '';
+          saveBtn.style.display = '';
+          input.focus();
+          input.select();
+        };
+
+        const save = () => {
+          document.getElementById('description-edit-date').value = pill.getAttribute('data-session-date');
+          document.getElementById('description-edit-value').value = input.value.trim();
+          document.getElementById('description-edit-form').submit();
+        };
+
+        editBtn.addEventListener('click', startEditing);
+        saveBtn.addEventListener('click', save);
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') { e.preventDefault(); save(); }
+        });
+      });
+    </script>
+  <% } %>
 </main>
 </body>
 </html>
