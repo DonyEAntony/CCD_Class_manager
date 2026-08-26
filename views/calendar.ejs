@@ -32,6 +32,11 @@
     <div class="calendar-legend-item"><span class="calendar-legend-swatch calendar-legend-swatch-class"></span><%= t('calendar_class_day_title') %></div>
     <div class="calendar-legend-item"><span class="calendar-legend-swatch"></span><%= t('calendar_events_legend_label') %></div>
   </div>
+  <div class="calendar-legend calendar-legend-codes">
+    <% ccdClassCodeLegend.forEach((entry) => { %>
+      <div class="calendar-legend-item"><strong><%= entry.code %></strong> = <%= entry.label %></div>
+    <% }) %>
+  </div>
 
   <div class="page-card">
     <div class="card-body">
@@ -50,7 +55,7 @@
                   <div class="calendar-events">
                     <% day.events.forEach((eventItem) => { %>
                       <div class="calendar-event-pill <%= eventItem.isClassDay ? 'calendar-class-day' : '' %>">
-                        <strong><%= eventItem.title %></strong>
+                        <strong <% if (eventItem.fullTitle) { %>title="<%= eventItem.fullTitle %>"<% } %>><%= eventItem.title %></strong>
                         <span>
                           <% if (eventItem.isClassDay) { %>
                             <% if (eventItem.event_time) { %><%= eventItem.event_time %><% } %>
