@@ -22,6 +22,7 @@ passport.use(
       if (!matches) {
         return done(null, false, { message: 'Invalid email or password.' });
       }
+      await db.prepare('UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?').run(user.id);
       return done(null, user);
     } catch (error) {
       return done(error);
@@ -44,10 +45,11 @@ const upsertOAuthUser = async (provider, profile, done) => {
       if (db.isDeletedAccount(existing)) {
         // A previously deleted account signing back in via OAuth: the provider has
         // already verified this identity, so reactivate immediately.
-        await db.prepare(`UPDATE users SET account_status = 'active', is_active = 1 WHERE id = ?`).run(existing.id);
+        await db.prepare(`UPDATE users SET account_status = 'active', is_active = 1, last_login_at = CURRENT_TIMESTAMP WHERE id = ?`).run(existing.id);
         const reactivated = await db.prepare('SELECT * FROM users WHERE id = ?').get(existing.id);
         return done(null, reactivated);
       }
+      await db.prepare('UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?').run(existing.id);
       return done(null, existing);
     }
 
@@ -59,7 +61,8 @@ const upsertOAuthUser = async (provider, profile, done) => {
         UPDATE users
         SET provider = ?, provider_id = ?, is_active = 1, account_status = 'active',
             email_verified_at = COALESCE(email_verified_at, CURRENT_TIMESTAMP),
-            email_verification_token = NULL, email_verification_expires_at = NULL
+            email_verification_token = NULL, email_verification_expires_at = NULL,
+            last_login_at = CURRENT_TIMESTAMP
         WHERE id = ?
       `).run(provider, providerId, linkedByEmail.id);
       const updated = await db.prepare('SELECT * FROM users WHERE id = ?').get(linkedByEmail.id);
@@ -70,8 +73,8 @@ const upsertOAuthUser = async (provider, profile, done) => {
     const fullName = profile.displayName || '';
     const result = await db
       .prepare(`
-        INSERT INTO users (email, role, provider, provider_id, full_name, is_active, email_verified_at)
-        VALUES (?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP)
+        INSERT INTO users (email, role, provider, provider_id, full_name, is_active, email_verified_at, last_login_at)
+        VALUES (?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       `)
       .run(email, role, provider, providerId, fullName);
 
