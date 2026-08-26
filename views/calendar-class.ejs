@@ -221,6 +221,27 @@
       font: 600 13px var(--sl-font-body);
       cursor: pointer;
     }
+    .sl-generate-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 18px;
+    }
+    .sl-generate-hint {
+      font-size: 12px;
+      color: var(--sl-neutral-600);
+    }
+    .sl-generate-row button {
+      border: 1px solid var(--sl-divider);
+      border-radius: 8px;
+      padding: 7px 16px;
+      background: var(--sl-surface);
+      color: var(--sl-text);
+      font: 600 13px var(--sl-font-body);
+      cursor: pointer;
+    }
 
     @media print {
       @page { size: A4 portrait; margin: 12mm; }
@@ -275,6 +296,12 @@
         <input type="date" name="session_date" aria-label="<%= t('add_class_day_label') %>" required>
         <input type="text" name="description" placeholder="<%= t('class_day_description_placeholder') %>" maxlength="255">
         <button type="submit"><%= t('add_class_day_button') %></button>
+      </form>
+      <form method="post" action="/admin/classes/<%= ccdClass.id %>/schedule/generate" class="sl-generate-row no-print">
+        <input type="hidden" name="return_to" value="<%= currentUrl %>">
+        <input type="hidden" name="school_year" value="<%= schoolYear %>">
+        <span class="sl-generate-hint"><%= t('generate_schedule_hint') %></span>
+        <button type="submit"><%= t('generate_schedule_label') %></button>
       </form>
     <% } %>
 
