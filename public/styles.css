@@ -401,6 +401,29 @@ legend {
 .badge-family_faith_leader { background: var(--forest); color: #fff; }
 .badge-admin     { background: var(--navy); color: var(--gold-light); }
 
+.mini-role-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font: 700 9px 'Inter', sans-serif;
+  flex: none;
+  cursor: default;
+}
+.status-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: none;
+  cursor: default;
+}
+.status-dot-verified { background: #2a7a5a; }
+.status-dot-pending { background: #c98a1b; }
+.status-dot-deleted { background: var(--muted); }
+
 /* ── Buttons ───────────────────────────────────────────────── */
 .btn {
   font-family: 'Inter', sans-serif;

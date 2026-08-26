@@ -134,8 +134,6 @@
               <th><%= t('email') %></th>
               <th><%= t('name') %></th>
               <th><%= t('phone') %></th>
-              <th><%= t('role') %></th>
-              <th><%= t('status') %></th>
               <th><%= t('last_login_label') %></th>
               <th style="text-align:right;min-width:200px"><%= t('actions') %></th>
             </tr>
@@ -149,18 +147,19 @@
                     <%= u.email %>
                   </div>
                 </td>
-                <td><%= u.full_name || '—' %></td>
-                <td><%= u.phone || '—' %></td>
-                <td><span class="badge badge-role badge-<%= u.role %>"><%= u.role %></span></td>
                 <td>
-                  <% if (isDeletedAccount(u)) { %>
-                    <span class="badge text-bg-secondary"><%= t('deleted_status') %></span>
-                  <% } else if (u.is_active) { %>
-                    <span class="badge text-bg-success"><%= t('verified_status') %></span>
-                  <% } else { %>
-                    <span class="badge text-bg-warning"><%= t('pending_status') %></span>
-                  <% } %>
+                  <% const roleBadgeClass = { user: 'badge-parent', catechist: 'badge-catechist', family_faith_leader: 'badge-family_faith_leader', admin: 'badge-admin' }[u.role] || 'badge-parent'; %>
+                  <% const roleInitial = { user: 'U', catechist: 'C', family_faith_leader: 'F', admin: 'A' }[u.role] || u.role.charAt(0).toUpperCase(); %>
+                  <% const roleLabel = { user: t('role_user'), catechist: t('role_catechist'), family_faith_leader: t('family_faith_leader'), admin: t('role_admin') }[u.role] || u.role; %>
+                  <% const statusKey = isDeletedAccount(u) ? 'deleted' : (u.is_active ? 'verified' : 'pending'); %>
+                  <% const statusLabel = statusKey === 'deleted' ? t('deleted_status') : (statusKey === 'verified' ? t('verified_status') : t('pending_status')); %>
+                  <div class="d-flex align-items-center gap-2">
+                    <span class="mini-role-badge <%= roleBadgeClass %>" title="<%= roleLabel %>" aria-label="<%= roleLabel %>"><%= roleInitial %></span>
+                    <span class="status-dot status-dot-<%= statusKey %>" title="<%= statusLabel %>" aria-label="<%= statusLabel %>"></span>
+                    <span><%= u.full_name || '—' %></span>
+                  </div>
                 </td>
+                <td><%= u.phone || '—' %></td>
                 <td style="white-space:nowrap;font-size:.85rem;color:var(--muted)" title="<%= u.last_login_at ? new Date(u.last_login_at).toLocaleString(lang === 'es' ? 'es-ES' : 'en-US') : '' %>">
                   <%= u.last_login_at ? new Date(u.last_login_at).toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : t('never_logged_in') %>
                 </td>
