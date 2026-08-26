@@ -136,6 +136,7 @@
               <th><%= t('phone') %></th>
               <th><%= t('role') %></th>
               <th><%= t('status') %></th>
+              <th><%= t('last_login_label') %></th>
               <th style="text-align:right;min-width:200px"><%= t('actions') %></th>
             </tr>
           </thead>
@@ -159,6 +160,9 @@
                   <% } else { %>
                     <span class="badge text-bg-warning"><%= t('pending_status') %></span>
                   <% } %>
+                </td>
+                <td style="white-space:nowrap;font-size:.85rem;color:var(--muted)" title="<%= u.last_login_at ? new Date(u.last_login_at).toLocaleString(lang === 'es' ? 'es-ES' : 'en-US') : '' %>">
+                  <%= u.last_login_at ? new Date(u.last_login_at).toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : t('never_logged_in') %>
                 </td>
                 <td style="text-align:right;position:relative">
                   <div class="d-inline-flex gap-2 align-items-center">

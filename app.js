@@ -822,6 +822,8 @@ const translations = {
     status_updated: 'Registration status updated.',
     save_draft: 'Save Draft',
     actions: 'Actions',
+    last_login_label: 'Last Login',
+    never_logged_in: 'Never',
     edit: 'Edit',
     sponsor_form_title_2026: 'Confirmation Sponsor Information Form 2026',
     sponsor_form_kicker: 'Confirmation Preparation',
@@ -1646,6 +1648,8 @@ const translations = {
     status_updated: 'Estado de registro actualizado.',
     save_draft: 'Guardar Borrador',
     actions: 'Acciones',
+    last_login_label: 'Último Ingreso',
+    never_logged_in: 'Nunca',
     edit: 'Editar',
     sponsor_form_title_2026: 'Formulario de Información del Padrino de Confirmación 2026',
     sponsor_form_kicker: 'Preparación para la Confirmación',
@@ -5559,7 +5563,7 @@ app.get('/admin/users', requireAuth, requireRole('admin'), asyncHandler(async (r
   const validRoles = ['user', 'catechist', 'family_faith_leader', 'admin'];
   const roleFilter = validRoles.includes(req.query.role) ? req.query.role : '';
   const users = await db.prepare(`
-    SELECT id, email, role, provider, full_name, phone, is_active, account_status, email_verified_at, created_at
+    SELECT id, email, role, provider, full_name, phone, is_active, account_status, email_verified_at, created_at, last_login_at
     FROM users
     ${roleFilter ? 'WHERE role = ?' : ''}
     ORDER BY created_at DESC
