@@ -712,6 +712,19 @@ legend {
 .calendar-event-pill.calendar-class-day strong {
   color: #7a5a1a;
 }
+.calendar-event-type-tag {
+  display: inline-block;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 1px 7px;
+  border-radius: 999px;
+  margin-top: 2px;
+}
+.calendar-event-type-tag-retreat { background: #ffe1d0; color: #8c491a; }
+.calendar-event-type-tag-rehearsal { background: #e1eecc; color: #3d472b; }
+.calendar-event-type-tag-mass { background: #dde2f6; color: #2c3568; }
 
 /* ── Responsive ────────────────────────────────────────────── */
 @media (max-width: 640px) {

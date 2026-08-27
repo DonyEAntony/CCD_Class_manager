@@ -56,6 +56,9 @@
                     <% day.events.forEach((eventItem) => { %>
                       <div class="calendar-event-pill <%= eventItem.isClassDay ? 'calendar-class-day' : '' %>">
                         <strong <% if (eventItem.fullTitle) { %>title="<%= eventItem.fullTitle %>"<% } %>><%= eventItem.title %></strong>
+                        <% if (eventItem.isClassDay && eventItem.eventType && eventItem.eventType !== 'class_day') { %>
+                          <span class="calendar-event-type-tag calendar-event-type-tag-<%= eventItem.eventType %>"><%= t('event_type_' + eventItem.eventType) %></span>
+                        <% } %>
                         <span>
                           <% if (eventItem.isClassDay) { %>
                             <% if (eventItem.event_time) { %><%= eventItem.event_time %><% } %>
