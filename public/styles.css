@@ -100,27 +100,42 @@ a:hover { color: var(--blue-sky); }
   justify-content: space-between;
   gap: 1rem;
   flex-wrap: wrap;
-  background: var(--gold-pale);
-  border-bottom: 1px solid #f0d090;
-  padding: 0.6rem 1.5rem;
-  font-size: 0.85rem;
-  color: #4a3a10;
+  background: #fdf0e2;
+  border-bottom: 1px solid #e8a33d;
+  border-left: 5px solid #c0392b;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  padding: 0.7rem 1.5rem;
+  font-size: 0.9rem;
+  color: #5a2d0c;
+  position: relative;
+  z-index: 5;
 }
-.notification-banner-body { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; }
-.notification-banner-body strong { color: #4a3a10; }
-.notification-banner-body a { color: var(--navy); font-weight: 600; text-decoration: underline; }
+.notification-banner-body { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.notification-banner-icon {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  color: #c0392b;
+  animation: notification-banner-pulse 1.8s ease-in-out infinite;
+}
+.notification-banner-body strong { color: #5a2d0c; font-weight: 700; }
+.notification-banner-body a { color: var(--navy); font-weight: 700; text-decoration: underline; }
 .notification-banner-dismiss {
   flex: none;
-  border: 1px solid #d9b25a;
+  border: 1px solid #c0392b;
   background: transparent;
-  color: #4a3a10;
+  color: #c0392b;
   border-radius: 6px;
-  padding: 4px 12px;
+  padding: 4px 14px;
   font-size: 0.8rem;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
 }
-.notification-banner-dismiss:hover { background: #f0d090; }
+.notification-banner-dismiss:hover { background: #c0392b; color: #fff; }
+@keyframes notification-banner-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(0.9); }
+}
 
 .site-brand {
   display: flex;
