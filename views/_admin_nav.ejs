@@ -6,10 +6,36 @@
     <a href="/admin/tuition-import"><%= t('tuition_import_nav') %></a>
     <a href="/admin/classes"><%= t('classes_nav') %></a>
     <a href="/admin/users"><%= t('user_administration') %></a>
-    <a href="/admin/scan-registration"><%= t('scan_legacy_form') %></a>
     <a href="/family-faith/visits/availability"><%= t('manage_visit_availability') %></a>
-    <a href="/admin/health/mail" target="_blank" rel="noreferrer">Mail Health</a>
-    <a href="/admin/health/document-ai" target="_blank" rel="noreferrer"><%= t('document_ai_health') %></a>
+    <% if (user.role === 'admin') { %>
+      <div class="admin-nav-dropdown">
+        <button type="button" class="admin-nav-dropdown-toggle" id="admin-tools-toggle" aria-expanded="false"><%= t('admin_tools_menu') %> &#9662;</button>
+        <div class="admin-nav-dropdown-menu d-none" id="admin-tools-menu">
+          <a href="/admin/scan-registration"><%= t('scan_legacy_form') %></a>
+          <a href="/admin/health/mail" target="_blank" rel="noreferrer"><%= t('mail_health') %></a>
+          <a href="/admin/health/document-ai" target="_blank" rel="noreferrer"><%= t('document_ai_health') %></a>
+        </div>
+      </div>
+    <% } %>
   </div>
   <a class="admin-nav-back" href="/dashboard"><%= t('back_to_dashboard') %></a>
 </div>
+<% if (user.role === 'admin') { %>
+  <script>
+    (function () {
+      var toggle = document.getElementById('admin-tools-toggle');
+      var menu = document.getElementById('admin-tools-menu');
+      if (!toggle || !menu) return;
+      toggle.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var isOpen = !menu.classList.contains('d-none');
+        menu.classList.toggle('d-none', isOpen);
+        toggle.setAttribute('aria-expanded', String(!isOpen));
+      });
+      document.addEventListener('click', function () {
+        menu.classList.add('d-none');
+        toggle.setAttribute('aria-expanded', 'false');
+      });
+    }());
+  </script>
+<% } %>
