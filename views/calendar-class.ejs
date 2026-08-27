@@ -42,7 +42,7 @@
       padding: 44px 46px 38px;
       font-family: var(--sl-font-body);
       color: var(--sl-text);
-      max-width: 900px;
+      max-width: 1200px;
       margin: 0 auto;
       display: flex;
       flex-direction: column;
@@ -118,7 +118,7 @@
     }
     .sl-month-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
       gap: 22px 32px;
     }
     .sl-month-block {
