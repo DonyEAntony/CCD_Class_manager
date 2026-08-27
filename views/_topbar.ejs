@@ -21,3 +21,32 @@
     </div>
   </div>
 </div>
+
+<% if (typeof pendingNotifications !== 'undefined' && pendingNotifications.length) { %>
+  <div class="notification-banner-stack">
+    <% pendingNotifications.forEach((notification) => { %>
+      <div class="notification-banner" data-notification-id="<%= notification.id %>">
+        <div class="notification-banner-body">
+          <strong><%= notification.title %></strong>
+          <% if (notification.message) { %><span><%= notification.message %></span><% } %>
+          <% if (notification.type === 'resource') { %>
+            <a href="/resources"><%= t('view_resources_link') %></a>
+          <% } %>
+        </div>
+        <button type="button" class="notification-banner-dismiss" data-notification-id="<%= notification.id %>"><%= t('dismiss_button') %></button>
+      </div>
+    <% }) %>
+  </div>
+  <script>
+    (function () {
+      document.querySelectorAll('.notification-banner-dismiss').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var id = btn.getAttribute('data-notification-id');
+          var banner = document.querySelector('.notification-banner[data-notification-id="' + id + '"]');
+          fetch('/notifications/' + id + '/acknowledge', { method: 'POST' });
+          if (banner) banner.remove();
+        });
+      });
+    }());
+  </script>
+<% } %>

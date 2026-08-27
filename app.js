@@ -97,6 +97,7 @@ const translations = {
     resource_visible_to_individuals_label: 'Visible to these individuals',
     resource_class_teachers_label: 'Catechists of %s',
     resource_class_parents_label: "Parents of %s students",
+    resource_class_participants_label: '%s participants',
     resource_visibility_label: 'Visible to',
     resource_title_and_file_required: 'Please enter a title and choose a file.',
     resource_assignment_required: 'Please choose at least one audience for this resource.',
@@ -105,6 +106,23 @@ const translations = {
     resource_not_found: 'Resource not found.',
     remove_resource_confirm: 'Remove this resource? This cannot be undone.',
     no_resources_yet: 'No resources uploaded yet.',
+    notify_resource_checkbox_label: 'Also notify with a banner',
+    notify_button_label: 'Notify',
+    new_resource_notification_title: 'New resource added',
+    view_resources_link: 'View Resources',
+    dismiss_button: 'Got it',
+    manage_notifications_nav: 'Notifications',
+    admin_notifications_title: 'Notifications',
+    admin_notifications_subtitle: 'Send announcements shown as a banner on every page until dismissed.',
+    add_notification_button: 'Send Notification',
+    notification_title_label: 'Title',
+    notification_message_label: 'Message (optional)',
+    notification_title_required: 'Please enter a title.',
+    notification_added: 'Notification sent.',
+    notification_removed: 'Notification removed.',
+    no_notifications_yet: 'No notifications sent yet.',
+    remove_notification_confirm: "Remove this notification? Anyone who hasn't dismissed it yet will stop seeing it.",
+    acknowledged_count_label: 'acknowledged',
     registration: 'Registration',
     signed_in_as: 'Signed in as',
     new_registration: 'New Registration',
@@ -114,6 +132,7 @@ const translations = {
     submitted_registrations: 'Submitted Registrations',
     student: 'Student',
     grade: 'Grade',
+    adult_faith_formation_label: 'Adult Faith Formation',
     parent: 'Parent / Guardian',
     primary_contact: 'Primary Contact',
     total_fees: 'Total Fees',
@@ -959,6 +978,7 @@ const translations = {
     resource_visible_to_individuals_label: 'Visible para estas personas',
     resource_class_teachers_label: 'Catequistas de %s',
     resource_class_parents_label: 'Padres de estudiantes de %s',
+    resource_class_participants_label: 'Participantes de %s',
     resource_visibility_label: 'Visible para',
     resource_title_and_file_required: 'Por favor ingrese un título y elija un archivo.',
     resource_assignment_required: 'Por favor elija al menos una audiencia para este recurso.',
@@ -967,6 +987,23 @@ const translations = {
     resource_not_found: 'Recurso no encontrado.',
     remove_resource_confirm: '¿Eliminar este recurso? Esta acción no se puede deshacer.',
     no_resources_yet: 'Aún no se han subido recursos.',
+    notify_resource_checkbox_label: 'También notificar con un aviso',
+    notify_button_label: 'Notificar',
+    new_resource_notification_title: 'Nuevo recurso agregado',
+    view_resources_link: 'Ver Recursos',
+    dismiss_button: 'Entendido',
+    manage_notifications_nav: 'Notificaciones',
+    admin_notifications_title: 'Notificaciones',
+    admin_notifications_subtitle: 'Envíe anuncios que se muestran como un aviso en cada página hasta que se descarten.',
+    add_notification_button: 'Enviar Notificación',
+    notification_title_label: 'Título',
+    notification_message_label: 'Mensaje (opcional)',
+    notification_title_required: 'Por favor ingrese un título.',
+    notification_added: 'Notificación enviada.',
+    notification_removed: 'Notificación eliminada.',
+    no_notifications_yet: 'Aún no se han enviado notificaciones.',
+    remove_notification_confirm: '¿Eliminar esta notificación? Quienes aún no la hayan descartado dejarán de verla.',
+    acknowledged_count_label: 'confirmados',
     registration: 'Inscripcion',
     signed_in_as: 'Conectado como',
     new_registration: 'Nueva Inscripción',
@@ -976,6 +1013,7 @@ const translations = {
     submitted_registrations: 'Inscripciones Enviadas',
     student: 'Estudiante',
     grade: 'Grado',
+    adult_faith_formation_label: 'Formación en la Fe para Adultos',
     parent: 'Padre/Madre/Tutor',
     primary_contact: 'Contacto Primario',
     total_fees: 'Total de Cuotas',
@@ -1880,6 +1918,7 @@ const CCD_GRADE_MEANINGS = {
   '7': 'Grade 7',
   '8': 'First Year Confirmation',
   '9': 'Second Year Confirmation',
+  ocia: 'OCIA',
 };
 
 // Short codes for the sacramental-year classes, used anywhere space is tight (calendar
@@ -1953,7 +1992,8 @@ const splitClassTimeText = (classTimeText) => {
 const getCcdClasses = async () => {
   const ccdClasses = await db.prepare(`
     SELECT classes.id, classes.grade_level, classes.class_time, classes.classroom,
-           classes.section_label AS sectionLabel
+           classes.section_label AS sectionLabel, classes.class_kind AS classKind,
+           classes.source_program_type AS sourceProgramType
     FROM ccd_classes classes
     ORDER BY classes.grade_level ASC
   `).all();
@@ -2036,13 +2076,53 @@ const getUpcomingAnniversary = (dateStr, withinDays = 30) => {
   return { date: formatSessionDateValue(next), daysUntil, years: nextYear - origYear };
 };
 
-const getClassRoster = (ccdClass, allStudentRegs, enrolledRegistrationIds) =>
-  allStudentRegs.filter((reg) => {
+// Adapts an adult_registrations row into the same shape the roster templates,
+// attendance routes, and messaging route already expect from a student_registrations
+// row — student_full_name/primary_contact_email/etc — so none of that shared code needs
+// to know or care which table a given roster member actually came from. Fields with no
+// adult equivalent (parent_name, baptism_certificate_path, ...) are left null; the
+// templates already render those as optional/absent.
+const mapAdultRegistrationToRosterRow = (reg) => ({
+  id: reg.id,
+  student_full_name: reg.full_name,
+  student_dob: reg.dob,
+  parent_name: null,
+  primary_contact_relationship: null,
+  primary_contact_email: reg.email,
+  primary_contact_phone: reg.phone,
+  baptism_certificate_path: null,
+  baptism_date: null,
+  disabilities_comments: reg.comments,
+  // Adult sign-ups have no admitted/conditionally-accepted admission pipeline like
+  // children's registrations do — once on the roster, they're never "pending" — so this
+  // is hardcoded to satisfy isPendingAcceptance rather than passed through from
+  // adult_registrations.status (which tracks form-completion progress, not admission).
+  status: 'admitted',
+  user_id: reg.user_id,
+  archived_at: reg.archived_at,
+});
+
+// 'adult' classes (OCIA, and any future adult program) roster from adult_registrations
+// instead of student_registrations — there's no grade/time-slot matching or
+// admitted/enrolled two-step gate for those, just "is a non-archived signup for this
+// class's program". allAdultRegs is only needed for adult classes; children-class
+// callers can omit it.
+const getClassRoster = (ccdClass, allStudentRegs, enrolledRegistrationIds, allAdultRegs = []) => {
+  if (ccdClass.classKind === 'adult') {
+    return allAdultRegs
+      .filter((reg) => reg.program_type === (ccdClass.sourceProgramType || 'ocia'))
+      .map(mapAdultRegistrationToRosterRow);
+  }
+  return allStudentRegs.filter((reg) => {
     if (resolveCcdGrade(reg) !== ccdClass.grade_level) return false;
     if (reg.status === 'admitted' && !enrolledRegistrationIds.has(reg.id)) return false;
     if (!SACRAMENTAL_GRADE_LEVELS.has(ccdClass.grade_level)) return true;
     return reg.preferred_class_time === ccdClass.class_time || reg.preferred_class_time === getClassSlotValue(ccdClass);
   });
+};
+
+const getActiveAdultRegistrations = async () =>
+  db.prepare('SELECT * FROM adult_registrations WHERE archived_at IS NULL').all();
 
 const getEnrolledRegistrationIds = async () => {
   const rows = await db.prepare(
@@ -2063,16 +2143,23 @@ const getCatechistClassIds = async (userId) => {
 // computed from grade/time-slot matching — see getClassRoster), so this replicates that
 // same matching scoped to just this parent's own registrations.
 const getParentClassIds = async (parentUserId) => {
-  const parentRegs = await db.prepare(
+  const parentStudentRegs = await db.prepare(
     'SELECT * FROM student_registrations WHERE archived_at IS NULL AND user_id = ?'
   ).all(parentUserId);
-  if (!parentRegs.length) return [];
+  const parentAdultRegs = await db.prepare(
+    'SELECT * FROM adult_registrations WHERE archived_at IS NULL AND user_id = ?'
+  ).all(parentUserId);
+  if (!parentStudentRegs.length && !parentAdultRegs.length) return [];
   const ccdClasses = await getCcdClasses();
   const enrolledRegistrationIds = await getEnrolledRegistrationIds();
-  return ccdClasses.filter((c) => getClassRoster(c, parentRegs, enrolledRegistrationIds).length > 0).map((c) => c.id);
+  return ccdClasses
+    .filter((c) => getClassRoster(c, parentStudentRegs, enrolledRegistrationIds, parentAdultRegs).length > 0)
+    .map((c) => c.id);
 };
 
-const isResourceVisibleToUser = (assignments, user, catechistClassIds, parentClassIds) =>
+// Shared by Resources and Notifications — both use the identical assignment-rule shape
+// (role / class_teachers / class_parents / user) to decide who something is visible to.
+const userMatchesAssignmentRules = (assignments, user, catechistClassIds, parentClassIds) =>
   assignments.some((rule) => {
     if (rule.assignment_type === 'role') return rule.role === user.role;
     if (rule.assignment_type === 'class_teachers') return catechistClassIds.has(rule.ccd_class_id);
@@ -2080,6 +2167,77 @@ const isResourceVisibleToUser = (assignments, user, catechistClassIds, parentCla
     if (rule.assignment_type === 'user') return Number(rule.target_user_id) === Number(user.id);
     return false;
   });
+
+const ASSIGNABLE_AUDIENCE_ROLES = ['user', 'catechist', 'family_faith_leader', 'admin'];
+
+// Parses the shared audience-picker form fields (role checkboxes, two class multi-selects,
+// an individual-user multi-select) — used by both the resource and notification create
+// forms, which share the same field names.
+const parseAssignmentFieldsFromBody = (body) => ({
+  roles: [].concat(body.roles || []).filter((r) => ASSIGNABLE_AUDIENCE_ROLES.includes(r)),
+  classTeacherIds: [].concat(body.class_teacher_ids || []).map((v) => Number.parseInt(v, 10)).filter(Number.isInteger),
+  classParentIds: [].concat(body.class_parent_ids || []).map((v) => Number.parseInt(v, 10)).filter(Number.isInteger),
+  targetUserIds: [].concat(body.target_user_ids || []).map((v) => Number.parseInt(v, 10)).filter(Number.isInteger),
+});
+
+const hasAnyAssignment = (fields) =>
+  fields.roles.length > 0 || fields.classTeacherIds.length > 0 || fields.classParentIds.length > 0 || fields.targetUserIds.length > 0;
+
+// Writes one row per rule into whichever assignments table (resource_assignments or
+// notification_assignments) — both share the exact same column shape.
+const insertAssignmentRows = async (table, ownerColumn, ownerId, fields) => {
+  const rows = [
+    ...fields.roles.map((role) => [ownerId, 'role', role, null, null]),
+    ...fields.classTeacherIds.map((id) => [ownerId, 'class_teachers', null, id, null]),
+    ...fields.classParentIds.map((id) => [ownerId, 'class_parents', null, id, null]),
+    ...fields.targetUserIds.map((id) => [ownerId, 'user', null, null, id]),
+  ];
+  for (const row of rows) {
+    await db.prepare(
+      `INSERT INTO ${table} (${ownerColumn}, assignment_type, role, ccd_class_id, target_user_id) VALUES (?, ?, ?, ?, ?)`
+    ).run(...row);
+  }
+};
+
+// The inverse of insertAssignmentRows — turns stored assignment rows (e.g. a resource's
+// existing resource_assignments) back into the {roles, classTeacherIds, ...} shape, for
+// copying one thing's audience onto another (see the resource "notify" action below).
+const assignmentRowsToFields = (rows) => ({
+  roles: rows.filter((r) => r.assignment_type === 'role').map((r) => r.role),
+  classTeacherIds: rows.filter((r) => r.assignment_type === 'class_teachers').map((r) => r.ccd_class_id),
+  classParentIds: rows.filter((r) => r.assignment_type === 'class_parents').map((r) => r.ccd_class_id),
+  targetUserIds: rows.filter((r) => r.assignment_type === 'user').map((r) => r.target_user_id),
+});
+
+// Human-readable label for one audience rule — shared by the Resources and Notifications
+// admin list pages, which both show a summary of who a thing is visible to.
+const buildAssignmentDescriber = (t, ccdClassById, userById) => {
+  const roleLabels = {
+    user: t('role_user'),
+    catechist: t('role_catechist'),
+    family_faith_leader: t('family_faith_leader'),
+    admin: t('role_admin'),
+  };
+  const describeAssignment = (rule) => {
+    if (rule.assignment_type === 'role') return roleLabels[rule.role] || rule.role;
+    if (rule.assignment_type === 'class_teachers') {
+      const c = ccdClassById.get(rule.ccd_class_id);
+      return t('resource_class_teachers_label').replace('%s', c ? getCcdClassShortLabel(c) : `#${rule.ccd_class_id}`);
+    }
+    if (rule.assignment_type === 'class_parents') {
+      const c = ccdClassById.get(rule.ccd_class_id);
+      // An adult class has no "parents" — the target is the registrants themselves.
+      const labelKey = c && c.classKind === 'adult' ? 'resource_class_participants_label' : 'resource_class_parents_label';
+      return t(labelKey).replace('%s', c ? getCcdClassShortLabel(c) : `#${rule.ccd_class_id}`);
+    }
+    if (rule.assignment_type === 'user') {
+      const u = userById.get(rule.target_user_id);
+      return u ? (u.full_name || u.email) : `#${rule.target_user_id}`;
+    }
+    return rule.assignment_type;
+  };
+  return { roleLabels, describeAssignment };
+};
 
 // A user's own resource library: every resource with at least one assignment rule that
 // matches them. Admins manage the full library separately (see /admin/resources) but
@@ -2098,7 +2256,33 @@ const getVisibleResourcesForUser = async (user) => {
   const catechistClassIds = new Set(await getCatechistClassIds(user.id));
   const parentClassIds = new Set(await getParentClassIds(user.id));
 
-  return resources.filter((r) => isResourceVisibleToUser(assignmentsByResource.get(r.id) || [], user, catechistClassIds, parentClassIds));
+  return resources.filter((r) => userMatchesAssignmentRules(assignmentsByResource.get(r.id) || [], user, catechistClassIds, parentClassIds));
+};
+
+// Notifications a user hasn't dismissed yet, filtered to their audience — shown as
+// banners on every page (see the per-request middleware and _topbar.ejs) until
+// acknowledged via POST /notifications/:id/acknowledge.
+const getVisibleNotificationsForUser = async (user) => {
+  const notifications = await db.prepare(`
+    SELECT n.* FROM notifications n
+    WHERE NOT EXISTS (
+      SELECT 1 FROM notification_acknowledgements na WHERE na.notification_id = n.id AND na.user_id = ?
+    )
+    ORDER BY n.created_at DESC
+  `).all(user.id);
+  if (!notifications.length) return [];
+
+  const assignments = await db.prepare('SELECT * FROM notification_assignments').all();
+  const assignmentsByNotification = new Map();
+  assignments.forEach((a) => {
+    if (!assignmentsByNotification.has(a.notification_id)) assignmentsByNotification.set(a.notification_id, []);
+    assignmentsByNotification.get(a.notification_id).push(a);
+  });
+
+  const catechistClassIds = new Set(await getCatechistClassIds(user.id));
+  const parentClassIds = new Set(await getParentClassIds(user.id));
+
+  return notifications.filter((n) => userMatchesAssignmentRules(assignmentsByNotification.get(n.id) || [], user, catechistClassIds, parentClassIds));
 };
 
 // When a school year's Faith Formation registration is closed, every currently-Enrolled
@@ -2704,6 +2888,21 @@ app.use((req, res, next) => {
   res.locals.error = req.flash('error');
   res.locals.ADULT_PROGRAMS = getAdultPrograms(res.locals.t);
   next();
+});
+
+// Powers the dismissible notification banners in _topbar.ejs, shown on every page a
+// logged-in user hasn't yet acknowledged them on. Explicitly caught (not asyncHandler)
+// and failed open to an empty list on error, since this runs on every single request and
+// is decoration, not content the request is actually for — it shouldn't be able to take
+// an unrelated page down.
+app.use((req, res, next) => {
+  if (!req.user) {
+    res.locals.pendingNotifications = [];
+    return next();
+  }
+  getVisibleNotificationsForUser(req.user)
+    .then((notifications) => { res.locals.pendingNotifications = notifications; next(); })
+    .catch(() => { res.locals.pendingNotifications = []; next(); });
 });
 
 const getDefaultFaithFormationYear = () => {
@@ -6300,7 +6499,6 @@ app.get('/admin/health/document-ai', requireAuth, requireRole('admin'), async (r
 // ── Resources ─────────────────────────────────────────────────
 // A shared document library every logged-in user can see (scoped to whatever an admin
 // has assigned them), separate from the per-registration certificate uploads above.
-const RESOURCE_ASSIGNABLE_ROLES = ['user', 'catechist', 'family_faith_leader', 'admin'];
 
 app.get('/resources', requireAuth, asyncHandler(async (req, res) => {
   const resources = await getVisibleResourcesForUser(req.user);
@@ -6319,7 +6517,7 @@ app.get('/resources/:id/download', requireAuth, asyncHandler(async (req, res) =>
     const assignments = await db.prepare('SELECT * FROM resource_assignments WHERE resource_id = ?').all(resourceId);
     const catechistClassIds = new Set(await getCatechistClassIds(req.user.id));
     const parentClassIds = new Set(await getParentClassIds(req.user.id));
-    if (!isResourceVisibleToUser(assignments, req.user, catechistClassIds, parentClassIds)) {
+    if (!userMatchesAssignmentRules(assignments, req.user, catechistClassIds, parentClassIds)) {
       req.flash('error', res.locals.t('resource_not_found'));
       return res.redirect('/resources');
     }
@@ -6339,29 +6537,7 @@ app.get('/admin/resources', requireAuth, requireRole('admin'), asyncHandler(asyn
     ORDER BY COALESCE(NULLIF(full_name, ''), email) ASC
   `).all();
   const userById = new Map(assignableUsers.map((u) => [u.id, u]));
-
-  const roleLabels = {
-    user: res.locals.t('role_user'),
-    catechist: res.locals.t('role_catechist'),
-    family_faith_leader: res.locals.t('family_faith_leader'),
-    admin: res.locals.t('role_admin'),
-  };
-  const describeAssignment = (rule) => {
-    if (rule.assignment_type === 'role') return roleLabels[rule.role] || rule.role;
-    if (rule.assignment_type === 'class_teachers') {
-      const c = ccdClassById.get(rule.ccd_class_id);
-      return res.locals.t('resource_class_teachers_label').replace('%s', c ? getCcdClassShortLabel(c) : `#${rule.ccd_class_id}`);
-    }
-    if (rule.assignment_type === 'class_parents') {
-      const c = ccdClassById.get(rule.ccd_class_id);
-      return res.locals.t('resource_class_parents_label').replace('%s', c ? getCcdClassShortLabel(c) : `#${rule.ccd_class_id}`);
-    }
-    if (rule.assignment_type === 'user') {
-      const u = userById.get(rule.target_user_id);
-      return u ? (u.full_name || u.email) : `#${rule.target_user_id}`;
-    }
-    return rule.assignment_type;
-  };
+  const { roleLabels, describeAssignment } = buildAssignmentDescriber(res.locals.t, ccdClassById, userById);
 
   const assignmentsByResource = new Map();
   assignments.forEach((a) => {
@@ -6377,7 +6553,7 @@ app.get('/admin/resources', requireAuth, requireRole('admin'), asyncHandler(asyn
     ccdClasses,
     ccdGradeMeanings: CCD_GRADE_MEANINGS,
     assignableUsers,
-    assignableRoles: RESOURCE_ASSIGNABLE_ROLES,
+    assignableRoles: ASSIGNABLE_AUDIENCE_ROLES,
     roleLabels,
   });
 }));
@@ -6394,12 +6570,8 @@ app.post('/admin/resources', requireAuth, requireRole('admin'), resourceUpload.s
     return res.redirect('/admin/resources');
   }
 
-  const roles = [].concat(req.body.roles || []).filter((r) => RESOURCE_ASSIGNABLE_ROLES.includes(r));
-  const classTeacherIds = [].concat(req.body.class_teacher_ids || []).map((v) => Number.parseInt(v, 10)).filter(Number.isInteger);
-  const classParentIds = [].concat(req.body.class_parent_ids || []).map((v) => Number.parseInt(v, 10)).filter(Number.isInteger);
-  const targetUserIds = [].concat(req.body.target_user_ids || []).map((v) => Number.parseInt(v, 10)).filter(Number.isInteger);
-
-  if (!roles.length && !classTeacherIds.length && !classParentIds.length && !targetUserIds.length) {
+  const assignmentFields = parseAssignmentFieldsFromBody(req.body);
+  if (!hasAnyAssignment(assignmentFields)) {
     await cleanupUpload();
     req.flash('error', res.locals.t('resource_assignment_required'));
     return res.redirect('/admin/resources');
@@ -6413,16 +6585,18 @@ app.post('/admin/resources', requireAuth, requireRole('admin'), resourceUpload.s
   `).run(title, description || null, req.file.filename, req.file.originalname, req.user.id);
   const resourceId = result.lastInsertRowid;
 
-  const assignmentRows = [
-    ...roles.map((role) => [resourceId, 'role', role, null, null]),
-    ...classTeacherIds.map((id) => [resourceId, 'class_teachers', null, id, null]),
-    ...classParentIds.map((id) => [resourceId, 'class_parents', null, id, null]),
-    ...targetUserIds.map((id) => [resourceId, 'user', null, null, id]),
-  ];
-  for (const row of assignmentRows) {
-    await db.prepare(
-      'INSERT INTO resource_assignments (resource_id, assignment_type, role, ccd_class_id, target_user_id) VALUES (?, ?, ?, ?, ?)'
-    ).run(...row);
+  await insertAssignmentRows('resource_assignments', 'resource_id', resourceId, assignmentFields);
+
+  // Same audience as the resource itself — anyone who can see the resource gets a
+  // dismissible banner pointing at it. The checkbox defaults to checked in the form, so
+  // an unchecked (and therefore entirely absent from the submitted body) checkbox is the
+  // only way to opt out, e.g. for a quiet update to an existing document set.
+  if (req.body.notify === 'on') {
+    const notifResult = await db.prepare(`
+      INSERT INTO notifications (type, title, message, resource_id, created_by)
+      VALUES ('resource', ?, ?, ?, ?)
+    `).run(res.locals.t('new_resource_notification_title'), title, resourceId, req.user.id);
+    await insertAssignmentRows('notification_assignments', 'notification_id', notifResult.lastInsertRowid, assignmentFields);
   }
 
   req.flash('success', res.locals.t('resource_added'));
@@ -6442,6 +6616,114 @@ app.post('/admin/resources/:id/delete', requireAuth, requireRole('admin'), async
 
   req.flash('success', res.locals.t('resource_removed'));
   return res.redirect('/admin/resources');
+}));
+
+// Sends (or re-sends) a notification for a resource that already exists — covers
+// resources uploaded before this button existed, and re-reminding an audience later.
+// Always creates a fresh notification row, so it requires a fresh acknowledgement even
+// from someone who dismissed an earlier one for the same resource.
+app.post('/admin/resources/:id/notify', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const resourceId = Number.parseInt(req.params.id, 10);
+  const resource = await db.prepare('SELECT * FROM resources WHERE id = ?').get(resourceId);
+  if (!resource) {
+    req.flash('error', res.locals.t('resource_not_found'));
+    return res.redirect('/admin/resources');
+  }
+
+  const assignmentRows = await db.prepare('SELECT * FROM resource_assignments WHERE resource_id = ?').all(resourceId);
+  const assignmentFields = assignmentRowsToFields(assignmentRows);
+  if (!hasAnyAssignment(assignmentFields)) {
+    req.flash('error', res.locals.t('resource_assignment_required'));
+    return res.redirect('/admin/resources');
+  }
+
+  const notifResult = await db.prepare(`
+    INSERT INTO notifications (type, title, message, resource_id, created_by)
+    VALUES ('resource', ?, ?, ?, ?)
+  `).run(res.locals.t('new_resource_notification_title'), resource.title, resourceId, req.user.id);
+  await insertAssignmentRows('notification_assignments', 'notification_id', notifResult.lastInsertRowid, assignmentFields);
+
+  req.flash('success', res.locals.t('notification_added'));
+  return res.redirect('/admin/resources');
+}));
+
+// ── Notifications ─────────────────────────────────────────────
+// Dismissible banners shown on every page (see the per-request middleware and
+// _topbar.ejs) until the viewing user acknowledges them. Created either directly by an
+// admin (a broadcast) or automatically alongside a resource upload (see above).
+app.post('/notifications/:id/acknowledge', requireAuth, asyncHandler(async (req, res) => {
+  const notificationId = Number.parseInt(req.params.id, 10);
+  if (!Number.isInteger(notificationId)) {
+    return res.status(400).json({ ok: false });
+  }
+  await db.prepare(
+    'INSERT IGNORE INTO notification_acknowledgements (notification_id, user_id) VALUES (?, ?)'
+  ).run(notificationId, req.user.id);
+  return res.json({ ok: true });
+}));
+
+app.get('/admin/notifications', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const notifications = await db.prepare(
+    `SELECT n.*, (SELECT COUNT(*) FROM notification_acknowledgements na WHERE na.notification_id = n.id) AS acknowledgedCount
+     FROM notifications n ORDER BY n.created_at DESC`
+  ).all();
+  const assignments = await db.prepare('SELECT * FROM notification_assignments').all();
+  const ccdClasses = await getCcdClasses();
+  const ccdClassById = new Map(ccdClasses.map((c) => [c.id, c]));
+  const assignableUsers = await db.prepare(`
+    SELECT id, full_name, email, role FROM users
+    WHERE COALESCE(account_status, 'active') <> 'deleted'
+    ORDER BY COALESCE(NULLIF(full_name, ''), email) ASC
+  `).all();
+  const userById = new Map(assignableUsers.map((u) => [u.id, u]));
+  const { roleLabels, describeAssignment } = buildAssignmentDescriber(res.locals.t, ccdClassById, userById);
+
+  const assignmentsByNotification = new Map();
+  assignments.forEach((a) => {
+    if (!assignmentsByNotification.has(a.notification_id)) assignmentsByNotification.set(a.notification_id, []);
+    assignmentsByNotification.get(a.notification_id).push(a);
+  });
+
+  res.render('admin-notifications', {
+    notifications: notifications.map((n) => ({
+      ...n,
+      assignmentLabels: (assignmentsByNotification.get(n.id) || []).map(describeAssignment),
+    })),
+    ccdClasses,
+    ccdGradeMeanings: CCD_GRADE_MEANINGS,
+    assignableUsers,
+    assignableRoles: ASSIGNABLE_AUDIENCE_ROLES,
+    roleLabels,
+  });
+}));
+
+app.post('/admin/notifications', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const title = typeof req.body.title === 'string' ? req.body.title.trim().slice(0, 255) : '';
+  const message = typeof req.body.message === 'string' ? req.body.message.trim().slice(0, 2000) : '';
+  if (!title) {
+    req.flash('error', res.locals.t('notification_title_required'));
+    return res.redirect('/admin/notifications');
+  }
+
+  const assignmentFields = parseAssignmentFieldsFromBody(req.body);
+  if (!hasAnyAssignment(assignmentFields)) {
+    req.flash('error', res.locals.t('resource_assignment_required'));
+    return res.redirect('/admin/notifications');
+  }
+
+  const result = await db.prepare(`
+    INSERT INTO notifications (type, title, message, created_by) VALUES ('broadcast', ?, ?, ?)
+  `).run(title, message || null, req.user.id);
+  await insertAssignmentRows('notification_assignments', 'notification_id', result.lastInsertRowid, assignmentFields);
+
+  req.flash('success', res.locals.t('notification_added'));
+  return res.redirect('/admin/notifications');
+}));
+
+app.post('/admin/notifications/:id/delete', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  await db.prepare('DELETE FROM notifications WHERE id = ?').run(req.params.id);
+  req.flash('success', res.locals.t('notification_removed'));
+  return res.redirect('/admin/notifications');
 }));
 
 app.get('/admin/users/:id/verification-email', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
@@ -6655,9 +6937,16 @@ app.post('/admin/ccd-classes', requireAuth, requireRole('admin'), asyncHandler(a
     return res.redirect('/admin/users');
   }
 
+  // The grade dropdown already includes "ocia" (from CCD_GRADE_MEANINGS), so an admin
+  // creates the OCIA class the same way as any other — picking it here is what flags the
+  // row as an adult class rostered from adult_registrations instead of student
+  // registrations. Any future adult program would follow the same pattern.
+  const classKind = gradeLevel === 'ocia' ? 'adult' : 'children';
+  const sourceProgramType = gradeLevel === 'ocia' ? 'ocia' : null;
+
   await db.prepare(
-    `INSERT INTO ccd_classes (grade_level, class_time, classroom) VALUES (?, ?, ?)`
-  ).run(gradeLevel, classTime, classroom);
+    `INSERT INTO ccd_classes (grade_level, class_time, classroom, class_kind, source_program_type) VALUES (?, ?, ?, ?, ?)`
+  ).run(gradeLevel, classTime, classroom, classKind, sourceProgramType);
   req.flash('success', 'CCD class saved. A grade can have multiple time-slot sections — add another with the same grade to offer parents a choice.');
   return res.redirect('/admin/users');
 }));
@@ -6733,9 +7022,10 @@ app.get('/admin/classes', requireAuth, requireRole('admin', 'catechist'), asyncH
     : allCcdClasses;
   const activeStudentRegs = await db.prepare('SELECT * FROM student_registrations WHERE archived_at IS NULL').all();
   const enrolledRegistrationIds = await getEnrolledRegistrationIds();
+  const activeAdultRegs = await getActiveAdultRegistrations();
 
   const classes = await Promise.all(ccdClasses.map(async (ccdClass) => {
-    const roster = getClassRoster(ccdClass, activeStudentRegs, enrolledRegistrationIds);
+    const roster = getClassRoster(ccdClass, activeStudentRegs, enrolledRegistrationIds, activeAdultRegs);
     return {
       ...ccdClass,
       studentCount: roster.length,
@@ -6757,7 +7047,8 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist'), as
 
   const activeStudentRegs = await db.prepare('SELECT * FROM student_registrations WHERE archived_at IS NULL').all();
   const enrolledRegistrationIds = await getEnrolledRegistrationIds();
-  const roster = getClassRoster(ccdClass, activeStudentRegs, enrolledRegistrationIds)
+  const activeAdultRegs = await getActiveAdultRegistrations();
+  const roster = getClassRoster(ccdClass, activeStudentRegs, enrolledRegistrationIds, activeAdultRegs)
     .sort((a, b) => (a.student_full_name || '').localeCompare(b.student_full_name || ''));
 
   const storedSchedule = await getClassSessionDates(classId);
@@ -7130,7 +7421,8 @@ app.post('/admin/classes/:id/message', requireAuth, requireRole('admin', 'catech
 
     const activeStudentRegs = await db.prepare('SELECT * FROM student_registrations WHERE archived_at IS NULL').all();
     const enrolledRegistrationIds = await getEnrolledRegistrationIds();
-    const selectedStudents = getClassRoster(ccdClass, activeStudentRegs, enrolledRegistrationIds).filter((r) => selectedIds.has(r.id));
+    const activeAdultRegs = await getActiveAdultRegistrations();
+    const selectedStudents = getClassRoster(ccdClass, activeStudentRegs, enrolledRegistrationIds, activeAdultRegs).filter((r) => selectedIds.has(r.id));
 
     // Dedupe by parent email so siblings selected in the same class don't get a duplicate copy.
     const recipientsByEmail = new Map();

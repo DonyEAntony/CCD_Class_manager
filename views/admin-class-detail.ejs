@@ -172,7 +172,13 @@
       <div class="ca-header-left">
         <a href="/admin/classes" class="ca-back-btn" aria-label="<%= t('back_to_classes') %>">&larr;</a>
         <div>
-          <div class="ca-eyebrow"><%= t('grade') %> <%= ccdClass.grade_level %><%= ccdClass.sectionLabel || '' %> &middot; <%= ccdGradeMeanings[ccdClass.grade_level] || ccdClass.grade_level %></div>
+          <div class="ca-eyebrow">
+            <% if (ccdClass.classKind === 'adult') { %>
+              <%= t('adult_faith_formation_label') %>
+            <% } else { %>
+              <%= t('grade') %> <%= ccdClass.grade_level %><%= ccdClass.sectionLabel || '' %> &middot; <%= ccdGradeMeanings[ccdClass.grade_level] || ccdClass.grade_level %>
+            <% } %>
+          </div>
           <h1 class="ca-title"><%= selectedDate ? new Date(selectedDate + 'T00:00:00').toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : '—' %></h1>
         </div>
       </div>

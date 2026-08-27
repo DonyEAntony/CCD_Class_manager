@@ -46,6 +46,23 @@ const ensureColumn = async (table, column, definition) => {
   }
 };
 
+const foreignKeyExists = async (table, constraintName) => {
+  const [rows] = await pool.execute(
+    `SELECT CONSTRAINT_NAME
+     FROM information_schema.TABLE_CONSTRAINTS
+     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND CONSTRAINT_NAME = ? AND CONSTRAINT_TYPE = 'FOREIGN KEY'
+     LIMIT 1`,
+    [dbConfig.database, table, constraintName]
+  );
+  return rows.length > 0;
+};
+
+const dropForeignKeyIfExists = async (table, constraintName) => {
+  if (await foreignKeyExists(table, constraintName)) {
+    await pool.query(`ALTER TABLE \`${table}\` DROP FOREIGN KEY \`${constraintName}\``);
+  }
+};
+
 // Kept in sync with app.js's CCD_GRADE_BY_SACRAMENTAL_YEAR / resolveCcdGrade —
 // db.js has no access to app.js's helpers, so the grade-resolution logic is
 // duplicated here for the one-time backfill below.
@@ -532,6 +549,54 @@ const init = async () => {
       )
     `);
 
+    // A notification is either a standalone admin broadcast, or auto-created alongside a
+    // resource upload (resource_id set) so its audience gets a banner pointing at it.
+    // Shown on every page (see app.js's per-request middleware) until the viewing user
+    // acknowledges it — tracked per-user in notification_acknowledgements below, not a
+    // single "read" flag on the notification itself.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS notifications (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        type VARCHAR(20) NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        message TEXT NULL,
+        resource_id INT NULL,
+        created_by INT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_notifications_resource FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE,
+        CONSTRAINT fk_notifications_created_by FOREIGN KEY (created_by) REFERENCES users(id)
+      )
+    `);
+
+    // Same shape and assignment_type semantics as resource_assignments — a notification
+    // can carry several audience rules at once, matched the same way.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS notification_assignments (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        notification_id INT NOT NULL,
+        assignment_type VARCHAR(20) NOT NULL,
+        role VARCHAR(50) NULL,
+        ccd_class_id INT NULL,
+        target_user_id INT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_notification_assignments_notification FOREIGN KEY (notification_id) REFERENCES notifications(id) ON DELETE CASCADE,
+        CONSTRAINT fk_notification_assignments_class FOREIGN KEY (ccd_class_id) REFERENCES ccd_classes(id),
+        CONSTRAINT fk_notification_assignments_user FOREIGN KEY (target_user_id) REFERENCES users(id)
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS notification_acknowledgements (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        notification_id INT NOT NULL,
+        user_id INT NOT NULL,
+        acknowledged_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_notification_user (notification_id, user_id),
+        CONSTRAINT fk_notification_ack_notification FOREIGN KEY (notification_id) REFERENCES notifications(id) ON DELETE CASCADE,
+        CONSTRAINT fk_notification_ack_user FOREIGN KEY (user_id) REFERENCES users(id)
+      )
+    `);
+
     // Permanent record of each class/grade a student completed, written once per school
     // year when that year's Faith Formation registration is closed. Independent of the
     // student's own row (and of ccd_classes, which can be renamed/removed later) so this
@@ -600,6 +665,17 @@ const init = async () => {
     await ensureColumn('users', 'must_change_password', 'TINYINT(1) NOT NULL DEFAULT 0');
     await ensureColumn('users', 'last_login_at', 'DATETIME NULL');
     await ensureColumn('ccd_classes', 'section_label', 'VARCHAR(10) NULL');
+    // 'children' classes roster from student_registrations as usual; 'adult' classes
+    // (OCIA, and any future adult program) roster from adult_registrations instead,
+    // filtered by source_program_type — see getClassRoster in app.js.
+    await ensureColumn('ccd_classes', 'class_kind', "VARCHAR(20) NOT NULL DEFAULT 'children'");
+    await ensureColumn('ccd_classes', 'source_program_type', 'VARCHAR(50) NULL');
+    // ccd_class_attendance.student_registration_id is really "roster member id" — for an
+    // adult class it holds an adult_registrations.id instead, which the original FK
+    // (scoped to student_registrations only) would reject. The column itself stays
+    // NOT NULL; app.js is responsible for only ever storing a real id from whichever
+    // table the owning class's roster comes from.
+    await dropForeignKeyIfExists('ccd_class_attendance', 'fk_attendance_student');
     await ensureColumn('ccd_class_session_dates', 'description', 'VARCHAR(255) NULL');
     await ensureColumn('ccd_class_session_dates', 'event_type', "VARCHAR(20) NOT NULL DEFAULT 'class_day'");
     // A class can now have more than one catechist, so the single catechist_user_id

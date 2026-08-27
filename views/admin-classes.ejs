@@ -98,7 +98,7 @@
       <% classes.forEach((ccdClass) => { %>
         <div class="col-sm-6 col-lg-4">
           <a href="/admin/classes/<%= ccdClass.id %>" class="class-card">
-            <div class="class-grade-eyebrow"><%= t('grade') %> <%= ccdClass.grade_level %><%= ccdClass.sectionLabel || '' %></div>
+            <div class="class-grade-eyebrow"><%= ccdClass.classKind === 'adult' ? t('adult_faith_formation_label') : `${t('grade')} ${ccdClass.grade_level}${ccdClass.sectionLabel || ''}` %></div>
             <div class="class-title"><%= ccdGradeMeanings[ccdClass.grade_level] || ccdClass.grade_level %></div>
             <div class="class-meta">
               <% const cardCatechists = ccdClass.catechists || []; %>
