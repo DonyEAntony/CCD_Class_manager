@@ -3432,13 +3432,13 @@ app.post('/forgot-password', asyncHandler(async (req, res) => {
     if (user && user.provider === 'local' && !db.isDeletedAccount(user)) {
       const resetToken = createVerificationToken();
       const resetTokenHash = hashVerificationToken(resetToken);
-      const resetExpiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
 
       await db.prepare(`
         UPDATE users
-        SET password_reset_token = ?, password_reset_expires_at = ?
+        SET password_reset_token = ?,
+            password_reset_expires_at = DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 HOUR)
         WHERE id = ?
-      `).run(resetTokenHash, resetExpiresAt, user.id);
+      `).run(resetTokenHash, user.id);
 
       const resetUrl = `${getBaseUrl(req)}/reset-password?token=${resetToken}`;
       const delivery = await sendPasswordResetEmail({ to: user.email, resetUrl, fullName: user.full_name });
@@ -3459,10 +3459,13 @@ app.get('/reset-password', asyncHandler(async (req, res) => {
   }
   const tokenHash = hashVerificationToken(token);
   const user = await db.prepare(
-    'SELECT id, account_status, password_reset_expires_at FROM users WHERE password_reset_token = ?'
+    `SELECT id, account_status, password_reset_expires_at
+     FROM users
+     WHERE password_reset_token = ?
+       AND password_reset_expires_at > UTC_TIMESTAMP()`
   ).get(tokenHash);
 
-  if (!user || db.isDeletedAccount(user) || !user.password_reset_expires_at || new Date(user.password_reset_expires_at) < new Date()) {
+  if (!user || db.isDeletedAccount(user)) {
     req.flash('error', 'Password reset link is invalid or has expired. Please request a new one.');
     return res.redirect('/forgot-password');
   }
@@ -3482,10 +3485,13 @@ app.post('/reset-password', asyncHandler(async (req, res) => {
 
   const tokenHash = hashVerificationToken(token);
   const user = await db.prepare(
-    'SELECT id, account_status, password_reset_expires_at FROM users WHERE password_reset_token = ?'
+    `SELECT id, account_status, password_reset_expires_at
+     FROM users
+     WHERE password_reset_token = ?
+       AND password_reset_expires_at > UTC_TIMESTAMP()`
   ).get(tokenHash);
 
-  if (!user || db.isDeletedAccount(user) || !user.password_reset_expires_at || new Date(user.password_reset_expires_at) < new Date()) {
+  if (!user || db.isDeletedAccount(user)) {
     req.flash('error', 'Password reset link is invalid or has expired. Please request a new one.');
     return res.redirect('/forgot-password');
   }
