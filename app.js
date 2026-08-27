@@ -97,6 +97,7 @@ const translations = {
     resource_visible_to_individuals_label: 'Visible to these individuals',
     resource_class_teachers_label: 'Catechists of %s',
     resource_class_parents_label: "Parents of %s students",
+    resource_class_participants_label: '%s participants',
     resource_visibility_label: 'Visible to',
     resource_title_and_file_required: 'Please enter a title and choose a file.',
     resource_assignment_required: 'Please choose at least one audience for this resource.',
@@ -114,6 +115,7 @@ const translations = {
     submitted_registrations: 'Submitted Registrations',
     student: 'Student',
     grade: 'Grade',
+    adult_faith_formation_label: 'Adult Faith Formation',
     parent: 'Parent / Guardian',
     primary_contact: 'Primary Contact',
     total_fees: 'Total Fees',
@@ -959,6 +961,7 @@ const translations = {
     resource_visible_to_individuals_label: 'Visible para estas personas',
     resource_class_teachers_label: 'Catequistas de %s',
     resource_class_parents_label: 'Padres de estudiantes de %s',
+    resource_class_participants_label: 'Participantes de %s',
     resource_visibility_label: 'Visible para',
     resource_title_and_file_required: 'Por favor ingrese un título y elija un archivo.',
     resource_assignment_required: 'Por favor elija al menos una audiencia para este recurso.',
@@ -976,6 +979,7 @@ const translations = {
     submitted_registrations: 'Inscripciones Enviadas',
     student: 'Estudiante',
     grade: 'Grado',
+    adult_faith_formation_label: 'Formación en la Fe para Adultos',
     parent: 'Padre/Madre/Tutor',
     primary_contact: 'Contacto Primario',
     total_fees: 'Total de Cuotas',
@@ -1880,6 +1884,7 @@ const CCD_GRADE_MEANINGS = {
   '7': 'Grade 7',
   '8': 'First Year Confirmation',
   '9': 'Second Year Confirmation',
+  ocia: 'OCIA',
 };
 
 // Short codes for the sacramental-year classes, used anywhere space is tight (calendar
@@ -1953,7 +1958,8 @@ const splitClassTimeText = (classTimeText) => {
 const getCcdClasses = async () => {
   const ccdClasses = await db.prepare(`
     SELECT classes.id, classes.grade_level, classes.class_time, classes.classroom,
-           classes.section_label AS sectionLabel
+           classes.section_label AS sectionLabel, classes.class_kind AS classKind,
+           classes.source_program_type AS sourceProgramType
     FROM ccd_classes classes
     ORDER BY classes.grade_level ASC
   `).all();
@@ -2036,13 +2042,53 @@ const getUpcomingAnniversary = (dateStr, withinDays = 30) => {
   return { date: formatSessionDateValue(next), daysUntil, years: nextYear - origYear };
 };
 
-const getClassRoster = (ccdClass, allStudentRegs, enrolledRegistrationIds) =>
-  allStudentRegs.filter((reg) => {
+// Adapts an adult_registrations row into the same shape the roster templates,
+// attendance routes, and messaging route already expect from a student_registrations
+// row — student_full_name/primary_contact_email/etc — so none of that shared code needs
+// to know or care which table a given roster member actually came from. Fields with no
+// adult equivalent (parent_name, baptism_certificate_path, ...) are left null; the
+// templates already render those as optional/absent.
+const mapAdultRegistrationToRosterRow = (reg) => ({
+  id: reg.id,
+  student_full_name: reg.full_name,
+  student_dob: reg.dob,
+  parent_name: null,
+  primary_contact_relationship: null,
+  primary_contact_email: reg.email,
+  primary_contact_phone: reg.phone,
+  baptism_certificate_path: null,
+  baptism_date: null,
+  disabilities_comments: reg.comments,
+  // Adult sign-ups have no admitted/conditionally-accepted admission pipeline like
+  // children's registrations do — once on the roster, they're never "pending" — so this
+  // is hardcoded to satisfy isPendingAcceptance rather than passed through from
+  // adult_registrations.status (which tracks form-completion progress, not admission).
+  status: 'admitted',
+  user_id: reg.user_id,
+  archived_at: reg.archived_at,
+});
+
+// 'adult' classes (OCIA, and any future adult program) roster from adult_registrations
+// instead of student_registrations — there's no grade/time-slot matching or
+// admitted/enrolled two-step gate for those, just "is a non-archived signup for this
+// class's program". allAdultRegs is only needed for adult classes; children-class
+// callers can omit it.
+const getClassRoster = (ccdClass, allStudentRegs, enrolledRegistrationIds, allAdultRegs = []) => {
+  if (ccdClass.classKind === 'adult') {
+    return allAdultRegs
+      .filter((reg) => reg.program_type === (ccdClass.sourceProgramType || 'ocia'))
+      .map(mapAdultRegistrationToRosterRow);
+  }
+  return allStudentRegs.filter((reg) => {
     if (resolveCcdGrade(reg) !== ccdClass.grade_level) return false;
     if (reg.status === 'admitted' && !enrolledRegistrationIds.has(reg.id)) return false;
     if (!SACRAMENTAL_GRADE_LEVELS.has(ccdClass.grade_level)) return true;
     return reg.preferred_class_time === ccdClass.class_time || reg.preferred_class_time === getClassSlotValue(ccdClass);
   });
+};
+
+const getActiveAdultRegistrations = async () =>
+  db.prepare('SELECT * FROM adult_registrations WHERE archived_at IS NULL').all();
 
 const getEnrolledRegistrationIds = async () => {
   const rows = await db.prepare(
@@ -2063,13 +2109,18 @@ const getCatechistClassIds = async (userId) => {
 // computed from grade/time-slot matching — see getClassRoster), so this replicates that
 // same matching scoped to just this parent's own registrations.
 const getParentClassIds = async (parentUserId) => {
-  const parentRegs = await db.prepare(
+  const parentStudentRegs = await db.prepare(
     'SELECT * FROM student_registrations WHERE archived_at IS NULL AND user_id = ?'
   ).all(parentUserId);
-  if (!parentRegs.length) return [];
+  const parentAdultRegs = await db.prepare(
+    'SELECT * FROM adult_registrations WHERE archived_at IS NULL AND user_id = ?'
+  ).all(parentUserId);
+  if (!parentStudentRegs.length && !parentAdultRegs.length) return [];
   const ccdClasses = await getCcdClasses();
   const enrolledRegistrationIds = await getEnrolledRegistrationIds();
-  return ccdClasses.filter((c) => getClassRoster(c, parentRegs, enrolledRegistrationIds).length > 0).map((c) => c.id);
+  return ccdClasses
+    .filter((c) => getClassRoster(c, parentStudentRegs, enrolledRegistrationIds, parentAdultRegs).length > 0)
+    .map((c) => c.id);
 };
 
 const isResourceVisibleToUser = (assignments, user, catechistClassIds, parentClassIds) =>
@@ -6354,7 +6405,9 @@ app.get('/admin/resources', requireAuth, requireRole('admin'), asyncHandler(asyn
     }
     if (rule.assignment_type === 'class_parents') {
       const c = ccdClassById.get(rule.ccd_class_id);
-      return res.locals.t('resource_class_parents_label').replace('%s', c ? getCcdClassShortLabel(c) : `#${rule.ccd_class_id}`);
+      // An adult class has no "parents" — the target is the registrants themselves.
+      const labelKey = c && c.classKind === 'adult' ? 'resource_class_participants_label' : 'resource_class_parents_label';
+      return res.locals.t(labelKey).replace('%s', c ? getCcdClassShortLabel(c) : `#${rule.ccd_class_id}`);
     }
     if (rule.assignment_type === 'user') {
       const u = userById.get(rule.target_user_id);
@@ -6655,9 +6708,16 @@ app.post('/admin/ccd-classes', requireAuth, requireRole('admin'), asyncHandler(a
     return res.redirect('/admin/users');
   }
 
+  // The grade dropdown already includes "ocia" (from CCD_GRADE_MEANINGS), so an admin
+  // creates the OCIA class the same way as any other — picking it here is what flags the
+  // row as an adult class rostered from adult_registrations instead of student
+  // registrations. Any future adult program would follow the same pattern.
+  const classKind = gradeLevel === 'ocia' ? 'adult' : 'children';
+  const sourceProgramType = gradeLevel === 'ocia' ? 'ocia' : null;
+
   await db.prepare(
-    `INSERT INTO ccd_classes (grade_level, class_time, classroom) VALUES (?, ?, ?)`
-  ).run(gradeLevel, classTime, classroom);
+    `INSERT INTO ccd_classes (grade_level, class_time, classroom, class_kind, source_program_type) VALUES (?, ?, ?, ?, ?)`
+  ).run(gradeLevel, classTime, classroom, classKind, sourceProgramType);
   req.flash('success', 'CCD class saved. A grade can have multiple time-slot sections — add another with the same grade to offer parents a choice.');
   return res.redirect('/admin/users');
 }));
@@ -6733,9 +6793,10 @@ app.get('/admin/classes', requireAuth, requireRole('admin', 'catechist'), asyncH
     : allCcdClasses;
   const activeStudentRegs = await db.prepare('SELECT * FROM student_registrations WHERE archived_at IS NULL').all();
   const enrolledRegistrationIds = await getEnrolledRegistrationIds();
+  const activeAdultRegs = await getActiveAdultRegistrations();
 
   const classes = await Promise.all(ccdClasses.map(async (ccdClass) => {
-    const roster = getClassRoster(ccdClass, activeStudentRegs, enrolledRegistrationIds);
+    const roster = getClassRoster(ccdClass, activeStudentRegs, enrolledRegistrationIds, activeAdultRegs);
     return {
       ...ccdClass,
       studentCount: roster.length,
@@ -6757,7 +6818,8 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist'), as
 
   const activeStudentRegs = await db.prepare('SELECT * FROM student_registrations WHERE archived_at IS NULL').all();
   const enrolledRegistrationIds = await getEnrolledRegistrationIds();
-  const roster = getClassRoster(ccdClass, activeStudentRegs, enrolledRegistrationIds)
+  const activeAdultRegs = await getActiveAdultRegistrations();
+  const roster = getClassRoster(ccdClass, activeStudentRegs, enrolledRegistrationIds, activeAdultRegs)
     .sort((a, b) => (a.student_full_name || '').localeCompare(b.student_full_name || ''));
 
   const storedSchedule = await getClassSessionDates(classId);
@@ -7130,7 +7192,8 @@ app.post('/admin/classes/:id/message', requireAuth, requireRole('admin', 'catech
 
     const activeStudentRegs = await db.prepare('SELECT * FROM student_registrations WHERE archived_at IS NULL').all();
     const enrolledRegistrationIds = await getEnrolledRegistrationIds();
-    const selectedStudents = getClassRoster(ccdClass, activeStudentRegs, enrolledRegistrationIds).filter((r) => selectedIds.has(r.id));
+    const activeAdultRegs = await getActiveAdultRegistrations();
+    const selectedStudents = getClassRoster(ccdClass, activeStudentRegs, enrolledRegistrationIds, activeAdultRegs).filter((r) => selectedIds.has(r.id));
 
     // Dedupe by parent email so siblings selected in the same class don't get a duplicate copy.
     const recipientsByEmail = new Map();

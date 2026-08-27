@@ -46,6 +46,23 @@ const ensureColumn = async (table, column, definition) => {
   }
 };
 
+const foreignKeyExists = async (table, constraintName) => {
+  const [rows] = await pool.execute(
+    `SELECT CONSTRAINT_NAME
+     FROM information_schema.TABLE_CONSTRAINTS
+     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND CONSTRAINT_NAME = ? AND CONSTRAINT_TYPE = 'FOREIGN KEY'
+     LIMIT 1`,
+    [dbConfig.database, table, constraintName]
+  );
+  return rows.length > 0;
+};
+
+const dropForeignKeyIfExists = async (table, constraintName) => {
+  if (await foreignKeyExists(table, constraintName)) {
+    await pool.query(`ALTER TABLE \`${table}\` DROP FOREIGN KEY \`${constraintName}\``);
+  }
+};
+
 // Kept in sync with app.js's CCD_GRADE_BY_SACRAMENTAL_YEAR / resolveCcdGrade —
 // db.js has no access to app.js's helpers, so the grade-resolution logic is
 // duplicated here for the one-time backfill below.
@@ -600,6 +617,17 @@ const init = async () => {
     await ensureColumn('users', 'must_change_password', 'TINYINT(1) NOT NULL DEFAULT 0');
     await ensureColumn('users', 'last_login_at', 'DATETIME NULL');
     await ensureColumn('ccd_classes', 'section_label', 'VARCHAR(10) NULL');
+    // 'children' classes roster from student_registrations as usual; 'adult' classes
+    // (OCIA, and any future adult program) roster from adult_registrations instead,
+    // filtered by source_program_type — see getClassRoster in app.js.
+    await ensureColumn('ccd_classes', 'class_kind', "VARCHAR(20) NOT NULL DEFAULT 'children'");
+    await ensureColumn('ccd_classes', 'source_program_type', 'VARCHAR(50) NULL');
+    // ccd_class_attendance.student_registration_id is really "roster member id" — for an
+    // adult class it holds an adult_registrations.id instead, which the original FK
+    // (scoped to student_registrations only) would reject. The column itself stays
+    // NOT NULL; app.js is responsible for only ever storing a real id from whichever
+    // table the owning class's roster comes from.
+    await dropForeignKeyIfExists('ccd_class_attendance', 'fk_attendance_student');
     await ensureColumn('ccd_class_session_dates', 'description', 'VARCHAR(255) NULL');
     await ensureColumn('ccd_class_session_dates', 'event_type', "VARCHAR(20) NOT NULL DEFAULT 'class_day'");
     // A class can now have more than one catechist, so the single catechist_user_id
