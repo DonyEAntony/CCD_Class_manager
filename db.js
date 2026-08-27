@@ -567,6 +567,7 @@ const init = async () => {
     await ensureColumn('users', 'last_login_at', 'DATETIME NULL');
     await ensureColumn('ccd_classes', 'section_label', 'VARCHAR(10) NULL');
     await ensureColumn('ccd_class_session_dates', 'description', 'VARCHAR(255) NULL');
+    await ensureColumn('ccd_class_session_dates', 'event_type', "VARCHAR(20) NOT NULL DEFAULT 'class_day'");
     // A class can now have more than one catechist, so the single catechist_user_id
     // column moved to the ccd_class_catechists join table. Migrate any existing
     // assignment across, then drop the old column now that nothing reads it.

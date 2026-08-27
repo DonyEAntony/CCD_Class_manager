@@ -25,6 +25,8 @@
       --sl-accent2-200: #e1eecc;
       --sl-accent2-800: #3d472b;
       --sl-accent2-900: #272e1b;
+      --sl-mass-200: #dde2f6;
+      --sl-mass-900: #2c3568;
       --sl-neutral-200: #eee7db;
       --sl-neutral-600: #82796a;
       --sl-neutral-700: #645c50;
@@ -149,10 +151,33 @@
       font-size: 16px;
     }
     .sl-day-badge.has-note { background: var(--sl-accent-200); color: var(--sl-accent-900); }
+    .sl-day-badge.type-retreat { background: var(--sl-accent-200); color: var(--sl-accent-900); }
+    .sl-day-badge.type-rehearsal { background: var(--sl-accent2-200); color: var(--sl-accent2-900); }
+    .sl-day-badge.type-mass { background: var(--sl-mass-200); color: var(--sl-mass-900); }
     .sl-session-label {
       font: 600 15px var(--sl-font-body);
       flex: 1 1 auto;
       min-width: 0;
+    }
+    .sl-type-tag {
+      flex: none;
+      font: 700 10px var(--sl-font-body);
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      padding: 3px 9px;
+      border-radius: 999px;
+    }
+    .sl-type-tag-retreat { background: var(--sl-accent-200); color: var(--sl-accent-900); }
+    .sl-type-tag-rehearsal { background: var(--sl-accent2-200); color: var(--sl-accent2-900); }
+    .sl-type-tag-mass { background: var(--sl-mass-200); color: var(--sl-mass-900); }
+    .sl-type-select {
+      border: 1px solid var(--sl-divider);
+      border-radius: 6px;
+      padding: 3px 6px;
+      font: 400 12px var(--sl-font-body);
+      background: var(--sl-surface);
+      color: var(--sl-text);
+      flex: none;
     }
     .sl-footer {
       display: flex;
@@ -204,7 +229,7 @@
       background: var(--sl-bg);
       border-radius: 16px;
     }
-    .sl-add-day-row input[type="date"], .sl-add-day-row input[type="text"] {
+    .sl-add-day-row input[type="date"], .sl-add-day-row input[type="text"], .sl-add-day-row select {
       border: 1px solid var(--sl-divider);
       border-radius: 8px;
       padding: 6px 10px;
@@ -294,6 +319,11 @@
       <form method="post" action="/admin/classes/<%= ccdClass.id %>/schedule/add" class="sl-add-day-row no-print">
         <input type="hidden" name="return_to" value="<%= currentUrl %>">
         <input type="date" name="session_date" aria-label="<%= t('add_class_day_label') %>" required>
+        <select name="event_type" aria-label="<%= t('event_type_label') %>">
+          <% eventTypes.forEach((type) => { %>
+            <option value="<%= type %>"><%= t('event_type_' + type) %></option>
+          <% }) %>
+        </select>
         <input type="text" name="description" placeholder="<%= t('class_day_description_placeholder') %>" maxlength="255">
         <button type="submit"><%= t('add_class_day_button') %></button>
       </form>
@@ -313,13 +343,26 @@
           <div class="sl-month-block">
             <div class="sl-month-header"><%= month.label %> <%= month.year %></div>
             <% month.sessions.forEach((session) => { %>
+              <% const badgeClass = session.eventType && session.eventType !== 'class_day' ? 'type-' + session.eventType : (session.description ? 'has-note' : ''); %>
               <div class="sl-session-row <%= canEdit ? 'editable' : '' %>" data-session-date="<%= session.value %>">
-                <span class="sl-day-badge <%= session.description ? 'has-note' : '' %>"><%= session.day %></span>
+                <span class="sl-day-badge <%= badgeClass %>"><%= session.day %></span>
+                <% if (session.eventType && session.eventType !== 'class_day') { %>
+                  <span class="sl-type-tag sl-type-tag-<%= session.eventType %>"><%= t('event_type_' + session.eventType) %></span>
+                <% } %>
                 <span class="sl-session-label" data-role="display"><%= session.description || t('class_session_fallback_label') %></span>
                 <% if (canEdit) { %>
                   <input type="text" class="sl-inline-edit-input no-print" data-role="input" style="display:none" value="<%= session.description || '' %>" placeholder="<%= t('class_day_description_placeholder') %>" maxlength="255">
                   <button type="button" class="sl-pill-edit-btn no-print" data-role="edit-btn" aria-label="<%= t('edit_class_day_note') %>" title="<%= t('edit_class_day_note') %>">&#9998;</button>
                   <button type="button" class="sl-pill-save-btn no-print" data-role="save-btn" style="display:none" aria-label="<%= t('save_description_button') %>" title="<%= t('save_description_button') %>">&#10003;</button>
+                  <form method="post" action="/admin/classes/<%= ccdClass.id %>/schedule/type" class="no-print sl-type-form" style="display:inline">
+                    <input type="hidden" name="session_date" value="<%= session.value %>">
+                    <input type="hidden" name="return_to" value="<%= currentUrl %>">
+                    <select name="event_type" class="sl-type-select" aria-label="<%= t('event_type_label') %>" onchange="this.form.submit()">
+                      <% eventTypes.forEach((type) => { %>
+                        <option value="<%= type %>" <%= session.eventType === type ? 'selected' : '' %>><%= t('event_type_' + type) %></option>
+                      <% }) %>
+                    </select>
+                  </form>
                   <form method="post" action="/admin/classes/<%= ccdClass.id %>/schedule/remove" class="no-print" style="display:inline" onsubmit="return confirm('<%= t('remove_class_day') %>?');">
                     <input type="hidden" name="session_date" value="<%= session.value %>">
                     <input type="hidden" name="return_to" value="<%= currentUrl %>">

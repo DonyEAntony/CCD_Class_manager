@@ -363,7 +363,7 @@
               <div class="ca-schedule-row-wrap">
                 <div class="ca-schedule-row">
                   <a href="/admin/classes/<%= ccdClass.id %>?date=<%= d.value %>" class="<%= d.value === selectedDate ? 'selected' : '' %>">
-                    <span><%= new Date(d.value + 'T00:00:00').toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric' }) %><% if (d.description) { %> &middot; <%= d.description %><% } %></span>
+                    <span><%= new Date(d.value + 'T00:00:00').toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric' }) %><% if (d.eventType && d.eventType !== 'class_day') { %> &middot; <strong><%= t('event_type_' + d.eventType) %></strong><% } %><% if (d.description) { %> &middot; <%= d.description %><% } %></span>
                     <span class="ca-present-count">
                       <% if (d.isNext) { %><%= t('next_label') %><% } else if (d.presentCount !== null) { %><%= d.presentCount %> <%= t('of_label') %> <%= roster.length %><% } %>
                     </span>

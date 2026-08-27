@@ -718,8 +718,14 @@ const translations = {
     class_day_added: 'Class day added.',
     class_day_removed: 'Class day removed.',
     class_day_description_saved: 'Note saved.',
+    class_day_type_saved: 'Class day type updated.',
     remove_class_day: 'Remove this class day',
     edit_class_day_note: 'Edit note for this class day',
+    event_type_label: 'Type',
+    event_type_class_day: 'Class Day',
+    event_type_retreat: 'Retreat Day',
+    event_type_rehearsal: 'Rehearsal',
+    event_type_mass: 'Mass',
     attendance_label: 'Attendance',
     present_label: 'Present',
     absent_label: 'Absent',
@@ -1545,8 +1551,14 @@ const translations = {
     class_day_added: 'Día de clase agregado.',
     class_day_removed: 'Día de clase eliminado.',
     class_day_description_saved: 'Nota guardada.',
+    class_day_type_saved: 'Tipo de día de clase actualizado.',
     remove_class_day: 'Eliminar este día de clase',
     edit_class_day_note: 'Editar nota de este día de clase',
+    event_type_label: 'Tipo',
+    event_type_class_day: 'Día de Clase',
+    event_type_retreat: 'Día de Retiro',
+    event_type_rehearsal: 'Ensayo',
+    event_type_mass: 'Misa',
     attendance_label: 'Asistencia',
     present_label: 'Presente',
     absent_label: 'Ausente',
@@ -1831,6 +1843,12 @@ const CCD_GRADE_SHORT_CODE_LEGEND = ['1', '2', '8', '9'].map((gradeLevel) => ({
   label: CCD_GRADE_MEANINGS[gradeLevel],
 }));
 
+// What kind of gathering a stored class-schedule date represents — 'class_day' (the
+// default/plain case) is a regular class session; the rest cover the other calendar
+// entries a faith formation schedule needs (translated via event_type_* keys).
+const CLASS_SESSION_EVENT_TYPES = ['class_day', 'retreat', 'rehearsal', 'mass'];
+const isValidClassSessionEventType = (value) => CLASS_SESSION_EVENT_TYPES.includes(value);
+
 const CCD_GRADE_BY_SACRAMENTAL_YEAR = {
   first_year_communion: '1',
   second_year_communion: '2',
@@ -2039,9 +2057,9 @@ const getClassSessionDates = async (classId, startDateValue = null, endDateValue
   const rangeFilter = startDateValue && endDateValue ? ' AND session_date BETWEEN ? AND ?' : '';
   const params = startDateValue && endDateValue ? [classId, startDateValue, endDateValue] : [classId];
   const rows = await db.prepare(
-    `SELECT session_date, description FROM ccd_class_session_dates WHERE ccd_class_id = ?${rangeFilter} ORDER BY session_date ASC`
+    `SELECT session_date, description, event_type FROM ccd_class_session_dates WHERE ccd_class_id = ?${rangeFilter} ORDER BY session_date ASC`
   ).all(...params);
-  return rows.map((row) => ({ date: new Date(row.session_date), description: row.description || '' }));
+  return rows.map((row) => ({ date: new Date(row.session_date), description: row.description || '', eventType: row.event_type || 'class_day' }));
 };
 
 // Mirrors the class detail page's "next session" logic: prefer the real stored schedule
@@ -2059,7 +2077,7 @@ const getClassSessionDatesInRange = async (startDateValue, endDateValue, classId
   const classFilter = classId ? ' AND scd.ccd_class_id = ?' : '';
   const params = classId ? [startDateValue, endDateValue, classId] : [startDateValue, endDateValue];
   const rows = await db.prepare(`
-    SELECT scd.session_date, scd.description, cc.id AS classId, cc.class_time, cc.grade_level, cc.section_label AS sectionLabel
+    SELECT scd.session_date, scd.description, scd.event_type, cc.id AS classId, cc.class_time, cc.grade_level, cc.section_label AS sectionLabel
     FROM ccd_class_session_dates scd
     INNER JOIN ccd_classes cc ON cc.id = scd.ccd_class_id
     WHERE scd.session_date BETWEEN ? AND ?${classFilter}
@@ -2078,6 +2096,7 @@ const getClassSessionDatesInRange = async (startDateValue, endDateValue, classId
       classShortLabel: getCcdClassShortLabel({ grade_level: row.grade_level, sectionLabel: row.sectionLabel }),
       classTime: row.class_time || '',
       description: row.description || '',
+      eventType: row.event_type || 'class_day',
     });
   });
 
@@ -3417,6 +3436,7 @@ app.get('/calendar', requireAuth, asyncHandler(async (req, res) => {
       occurrence_date: dateKey,
       event_time: splitClassTimeText(classInfo.classTime).timeRange,
       description: classInfo.description,
+      eventType: classInfo.eventType,
       isClassDay: true,
     }))
   );
@@ -3507,6 +3527,7 @@ app.get('/calendar/class/:id', requireAuth, asyncHandler(async (req, res) => {
       day: session.date.getDate(),
       label: session.date.toLocaleDateString(localeTag, { weekday: 'short', day: 'numeric' }),
       description: session.description,
+      eventType: session.eventType,
     });
   });
 
@@ -3527,6 +3548,7 @@ app.get('/calendar/class/:id', requireAuth, asyncHandler(async (req, res) => {
     classTimeRangeText,
     canEdit,
     currentUrl: `/calendar/class/${classId}?school_year=${schoolYear}`,
+    eventTypes: CLASS_SESSION_EVENT_TYPES,
   });
 }));
 
@@ -6468,6 +6490,7 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist'), as
   const hasStoredSchedule = storedSchedule.length > 0;
   const upcomingDates = hasStoredSchedule ? storedSchedule.map((s) => s.date) : getUpcomingSessionDates(ccdClass.class_time);
   const descriptionByDate = new Map(storedSchedule.map((s) => [formatSessionDateValue(s.date), s.description]));
+  const eventTypeByDate = new Map(storedSchedule.map((s) => [formatSessionDateValue(s.date), s.eventType]));
   const today = formatSessionDateValue(new Date());
   const nextSessionDate = upcomingDates.find((d) => formatSessionDateValue(d) >= today) || upcomingDates[0];
   const nextSessionValue = nextSessionDate ? formatSessionDateValue(nextSessionDate) : null;
@@ -6559,6 +6582,7 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist'), as
         value,
         isNext: value === nextSessionValue,
         description: descriptionByDate.get(value) || '',
+        eventType: eventTypeByDate.get(value) || 'class_day',
         presentCount: counts ? counts.present : null,
       };
     }),
@@ -6701,11 +6725,38 @@ app.post('/admin/classes/:id/schedule/add', requireAuth, requireRole('admin', 'c
     return res.redirect(`/admin/classes/${classId}`);
   }
   const description = typeof req.body.description === 'string' ? req.body.description.trim().slice(0, 255) : '';
+  const eventType = isValidClassSessionEventType(req.body.event_type) ? req.body.event_type : 'class_day';
 
   await db.prepare(
-    'INSERT IGNORE INTO ccd_class_session_dates (ccd_class_id, session_date, description) VALUES (?, ?, ?)'
-  ).run(classId, sessionDate, description || null);
+    'INSERT IGNORE INTO ccd_class_session_dates (ccd_class_id, session_date, description, event_type) VALUES (?, ?, ?, ?)'
+  ).run(classId, sessionDate, description || null, eventType);
   req.flash('success', res.locals.t('class_day_added'));
+  return res.redirect(resolveScheduleRedirect(req.body.return_to, classId, `/admin/classes/${classId}?date=${sessionDate}`));
+}));
+
+app.post('/admin/classes/:id/schedule/type', requireAuth, requireRole('admin', 'catechist'), asyncHandler(async (req, res) => {
+  const classId = Number.parseInt(req.params.id, 10);
+  const ccdClass = await getOwnedCcdClass(req, classId);
+  if (!ccdClass) {
+    req.flash('error', 'Class not found.');
+    return res.redirect('/admin/classes');
+  }
+
+  const sessionDate = typeof req.body.session_date === 'string' ? req.body.session_date.trim() : '';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(sessionDate)) {
+    req.flash('error', res.locals.t('invalid_class_day'));
+    return res.redirect(`/admin/classes/${classId}`);
+  }
+  const eventType = req.body.event_type;
+  if (!isValidClassSessionEventType(eventType)) {
+    req.flash('error', res.locals.t('invalid_class_day'));
+    return res.redirect(resolveScheduleRedirect(req.body.return_to, classId, `/admin/classes/${classId}`));
+  }
+
+  await db.prepare(
+    'UPDATE ccd_class_session_dates SET event_type = ? WHERE ccd_class_id = ? AND session_date = ?'
+  ).run(eventType, classId, sessionDate);
+  req.flash('success', res.locals.t('class_day_type_saved'));
   return res.redirect(resolveScheduleRedirect(req.body.return_to, classId, `/admin/classes/${classId}?date=${sessionDate}`));
 }));
 
