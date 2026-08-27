@@ -78,6 +78,33 @@ const translations = {
     uploaded_documents_subtitle: 'Files attached to your registrations.',
     no_uploads: 'No uploaded files are associated with your account yet.',
     document_type: 'Document Type',
+    resources_nav: 'Resources',
+    resources_page_title: 'Resources',
+    resources_page_subtitle: 'Documents shared with you by the parish office.',
+    no_resources: 'No resources have been shared with you yet.',
+    resource_uploaded_by: 'Shared by',
+    download_button: 'Download',
+    manage_resources_nav: 'Resources',
+    admin_resources_title: 'Resources',
+    admin_resources_subtitle: 'Upload documents and choose who can see them.',
+    add_resource_button: 'Add Resource',
+    resource_title_label: 'Title',
+    resource_description_label: 'Description (optional)',
+    resource_file_label: 'File',
+    resource_visible_to_roles_label: 'Visible to these user types',
+    resource_visible_to_class_teachers_label: 'Visible to catechists of these classes',
+    resource_visible_to_class_parents_label: "Visible to parents of these classes' students",
+    resource_visible_to_individuals_label: 'Visible to these individuals',
+    resource_class_teachers_label: 'Catechists of %s',
+    resource_class_parents_label: "Parents of %s students",
+    resource_visibility_label: 'Visible to',
+    resource_title_and_file_required: 'Please enter a title and choose a file.',
+    resource_assignment_required: 'Please choose at least one audience for this resource.',
+    resource_added: 'Resource added.',
+    resource_removed: 'Resource removed.',
+    resource_not_found: 'Resource not found.',
+    remove_resource_confirm: 'Remove this resource? This cannot be undone.',
+    no_resources_yet: 'No resources uploaded yet.',
     registration: 'Registration',
     signed_in_as: 'Signed in as',
     new_registration: 'New Registration',
@@ -913,6 +940,33 @@ const translations = {
     uploaded_documents_subtitle: 'Archivos adjuntos a sus inscripciones.',
     no_uploads: 'Todavia no hay archivos subidos asociados con su cuenta.',
     document_type: 'Tipo de Documento',
+    resources_nav: 'Recursos',
+    resources_page_title: 'Recursos',
+    resources_page_subtitle: 'Documentos compartidos con usted por la oficina parroquial.',
+    no_resources: 'Aún no se han compartido recursos con usted.',
+    resource_uploaded_by: 'Compartido por',
+    download_button: 'Descargar',
+    manage_resources_nav: 'Recursos',
+    admin_resources_title: 'Recursos',
+    admin_resources_subtitle: 'Suba documentos y elija quién puede verlos.',
+    add_resource_button: 'Agregar Recurso',
+    resource_title_label: 'Título',
+    resource_description_label: 'Descripción (opcional)',
+    resource_file_label: 'Archivo',
+    resource_visible_to_roles_label: 'Visible para estos tipos de usuario',
+    resource_visible_to_class_teachers_label: 'Visible para catequistas de estas clases',
+    resource_visible_to_class_parents_label: 'Visible para padres de estudiantes de estas clases',
+    resource_visible_to_individuals_label: 'Visible para estas personas',
+    resource_class_teachers_label: 'Catequistas de %s',
+    resource_class_parents_label: 'Padres de estudiantes de %s',
+    resource_visibility_label: 'Visible para',
+    resource_title_and_file_required: 'Por favor ingrese un título y elija un archivo.',
+    resource_assignment_required: 'Por favor elija al menos una audiencia para este recurso.',
+    resource_added: 'Recurso agregado.',
+    resource_removed: 'Recurso eliminado.',
+    resource_not_found: 'Recurso no encontrado.',
+    remove_resource_confirm: '¿Eliminar este recurso? Esta acción no se puede deshacer.',
+    no_resources_yet: 'Aún no se han subido recursos.',
     registration: 'Inscripcion',
     signed_in_as: 'Conectado como',
     new_registration: 'Nueva Inscripción',
@@ -1997,6 +2051,56 @@ const getEnrolledRegistrationIds = async () => {
   return new Set(rows.map((row) => row.source_registration_id));
 };
 
+// Classes this catechist teaches, for resolving "resource visible to catechists of
+// class X" — reuses the same ccd_class_catechists membership as everywhere else.
+const getCatechistClassIds = async (userId) => {
+  const ccdClasses = await getCcdClasses();
+  return ccdClasses.filter((c) => isClassCatechist(c, userId)).map((c) => c.id);
+};
+
+// Classes this parent has a child on the roster of, for resolving "resource visible to
+// parents of class X". There's no stored parent->class link (class membership is
+// computed from grade/time-slot matching — see getClassRoster), so this replicates that
+// same matching scoped to just this parent's own registrations.
+const getParentClassIds = async (parentUserId) => {
+  const parentRegs = await db.prepare(
+    'SELECT * FROM student_registrations WHERE archived_at IS NULL AND user_id = ?'
+  ).all(parentUserId);
+  if (!parentRegs.length) return [];
+  const ccdClasses = await getCcdClasses();
+  const enrolledRegistrationIds = await getEnrolledRegistrationIds();
+  return ccdClasses.filter((c) => getClassRoster(c, parentRegs, enrolledRegistrationIds).length > 0).map((c) => c.id);
+};
+
+const isResourceVisibleToUser = (assignments, user, catechistClassIds, parentClassIds) =>
+  assignments.some((rule) => {
+    if (rule.assignment_type === 'role') return rule.role === user.role;
+    if (rule.assignment_type === 'class_teachers') return catechistClassIds.has(rule.ccd_class_id);
+    if (rule.assignment_type === 'class_parents') return parentClassIds.has(rule.ccd_class_id);
+    if (rule.assignment_type === 'user') return Number(rule.target_user_id) === Number(user.id);
+    return false;
+  });
+
+// A user's own resource library: every resource with at least one assignment rule that
+// matches them. Admins manage the full library separately (see /admin/resources) but
+// still only see their own assigned resources here, same as everyone else.
+const getVisibleResourcesForUser = async (user) => {
+  const resources = await db.prepare('SELECT * FROM resources ORDER BY created_at DESC').all();
+  if (!resources.length) return [];
+
+  const assignments = await db.prepare('SELECT * FROM resource_assignments').all();
+  const assignmentsByResource = new Map();
+  assignments.forEach((a) => {
+    if (!assignmentsByResource.has(a.resource_id)) assignmentsByResource.set(a.resource_id, []);
+    assignmentsByResource.get(a.resource_id).push(a);
+  });
+
+  const catechistClassIds = new Set(await getCatechistClassIds(user.id));
+  const parentClassIds = new Set(await getParentClassIds(user.id));
+
+  return resources.filter((r) => isResourceVisibleToUser(assignmentsByResource.get(r.id) || [], user, catechistClassIds, parentClassIds));
+};
+
 // When a school year's Faith Formation registration is closed, every currently-Enrolled
 // student whose admission was for that year gets a permanent class-history entry (grade,
 // class, and school year they completed), and that registration is archived — dropping
@@ -2370,6 +2474,13 @@ const buildMiniMonthWeeks = (year, monthIndex, classDayDates, classWeekdays) => 
 const uploadDir = path.resolve(process.env.UPLOAD_DIR || path.join(__dirname, 'uploads'));
 fs.mkdirSync(uploadDir, { recursive: true });
 
+// Resource library files live outside the public /uploads static mount (see app.use
+// below) — unlike certificates and other uploads, these need real per-user visibility
+// checks at fetch time, not just an unguessable filename, so they're only ever served
+// through the authenticated /resources/:id/download route.
+const resourceUploadDir = path.join(uploadDir, 'resources');
+fs.mkdirSync(resourceUploadDir, { recursive: true });
+
 const getPublicUploadPath = (file) => (file?.filename ? path.posix.join('uploads', file.filename) : null);
 const getPublicUploadPaths = (files) => (Array.isArray(files) ? files.map(getPublicUploadPath).filter(Boolean) : []);
 const parseUploadPaths = (value) => {
@@ -2517,6 +2628,18 @@ const tuitionImportUpload = multer({
   storage: multer.memoryStorage(),
   limits: {
     fileSize: 5 * 1024 * 1024,
+  },
+});
+const resourceUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, resourceUploadDir),
+    filename: (req, file, cb) => {
+      const safe = file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+      cb(null, `${Date.now()}-${safe}`);
+    },
+  }),
+  limits: {
+    fileSize: 25 * 1024 * 1024,
   },
 });
 
@@ -6173,6 +6296,153 @@ app.get('/admin/health/document-ai', requireAuth, requireRole('admin'), async (r
     });
   }
 });
+
+// ── Resources ─────────────────────────────────────────────────
+// A shared document library every logged-in user can see (scoped to whatever an admin
+// has assigned them), separate from the per-registration certificate uploads above.
+const RESOURCE_ASSIGNABLE_ROLES = ['user', 'catechist', 'family_faith_leader', 'admin'];
+
+app.get('/resources', requireAuth, asyncHandler(async (req, res) => {
+  const resources = await getVisibleResourcesForUser(req.user);
+  res.render('resources', { resources });
+}));
+
+app.get('/resources/:id/download', requireAuth, asyncHandler(async (req, res) => {
+  const resourceId = Number.parseInt(req.params.id, 10);
+  const resource = await db.prepare('SELECT * FROM resources WHERE id = ?').get(resourceId);
+  if (!resource) {
+    req.flash('error', res.locals.t('resource_not_found'));
+    return res.redirect('/resources');
+  }
+
+  if (req.user.role !== 'admin') {
+    const assignments = await db.prepare('SELECT * FROM resource_assignments WHERE resource_id = ?').all(resourceId);
+    const catechistClassIds = new Set(await getCatechistClassIds(req.user.id));
+    const parentClassIds = new Set(await getParentClassIds(req.user.id));
+    if (!isResourceVisibleToUser(assignments, req.user, catechistClassIds, parentClassIds)) {
+      req.flash('error', res.locals.t('resource_not_found'));
+      return res.redirect('/resources');
+    }
+  }
+
+  return res.download(path.join(resourceUploadDir, resource.stored_filename), resource.original_filename);
+}));
+
+app.get('/admin/resources', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const resources = await db.prepare('SELECT * FROM resources ORDER BY created_at DESC').all();
+  const assignments = await db.prepare('SELECT * FROM resource_assignments').all();
+  const ccdClasses = await getCcdClasses();
+  const ccdClassById = new Map(ccdClasses.map((c) => [c.id, c]));
+  const assignableUsers = await db.prepare(`
+    SELECT id, full_name, email, role FROM users
+    WHERE COALESCE(account_status, 'active') <> 'deleted'
+    ORDER BY COALESCE(NULLIF(full_name, ''), email) ASC
+  `).all();
+  const userById = new Map(assignableUsers.map((u) => [u.id, u]));
+
+  const roleLabels = {
+    user: res.locals.t('role_user'),
+    catechist: res.locals.t('role_catechist'),
+    family_faith_leader: res.locals.t('family_faith_leader'),
+    admin: res.locals.t('role_admin'),
+  };
+  const describeAssignment = (rule) => {
+    if (rule.assignment_type === 'role') return roleLabels[rule.role] || rule.role;
+    if (rule.assignment_type === 'class_teachers') {
+      const c = ccdClassById.get(rule.ccd_class_id);
+      return res.locals.t('resource_class_teachers_label').replace('%s', c ? getCcdClassShortLabel(c) : `#${rule.ccd_class_id}`);
+    }
+    if (rule.assignment_type === 'class_parents') {
+      const c = ccdClassById.get(rule.ccd_class_id);
+      return res.locals.t('resource_class_parents_label').replace('%s', c ? getCcdClassShortLabel(c) : `#${rule.ccd_class_id}`);
+    }
+    if (rule.assignment_type === 'user') {
+      const u = userById.get(rule.target_user_id);
+      return u ? (u.full_name || u.email) : `#${rule.target_user_id}`;
+    }
+    return rule.assignment_type;
+  };
+
+  const assignmentsByResource = new Map();
+  assignments.forEach((a) => {
+    if (!assignmentsByResource.has(a.resource_id)) assignmentsByResource.set(a.resource_id, []);
+    assignmentsByResource.get(a.resource_id).push(a);
+  });
+
+  res.render('admin-resources', {
+    resources: resources.map((r) => ({
+      ...r,
+      assignmentLabels: (assignmentsByResource.get(r.id) || []).map(describeAssignment),
+    })),
+    ccdClasses,
+    ccdGradeMeanings: CCD_GRADE_MEANINGS,
+    assignableUsers,
+    assignableRoles: RESOURCE_ASSIGNABLE_ROLES,
+    roleLabels,
+  });
+}));
+
+app.post('/admin/resources', requireAuth, requireRole('admin'), resourceUpload.single('file'), asyncHandler(async (req, res) => {
+  const cleanupUpload = async () => {
+    if (req.file) { try { await fs.promises.unlink(req.file.path); } catch { /* already gone */ } }
+  };
+
+  const title = typeof req.body.title === 'string' ? req.body.title.trim().slice(0, 255) : '';
+  if (!title || !req.file) {
+    await cleanupUpload();
+    req.flash('error', res.locals.t('resource_title_and_file_required'));
+    return res.redirect('/admin/resources');
+  }
+
+  const roles = [].concat(req.body.roles || []).filter((r) => RESOURCE_ASSIGNABLE_ROLES.includes(r));
+  const classTeacherIds = [].concat(req.body.class_teacher_ids || []).map((v) => Number.parseInt(v, 10)).filter(Number.isInteger);
+  const classParentIds = [].concat(req.body.class_parent_ids || []).map((v) => Number.parseInt(v, 10)).filter(Number.isInteger);
+  const targetUserIds = [].concat(req.body.target_user_ids || []).map((v) => Number.parseInt(v, 10)).filter(Number.isInteger);
+
+  if (!roles.length && !classTeacherIds.length && !classParentIds.length && !targetUserIds.length) {
+    await cleanupUpload();
+    req.flash('error', res.locals.t('resource_assignment_required'));
+    return res.redirect('/admin/resources');
+  }
+
+  const description = typeof req.body.description === 'string' ? req.body.description.trim().slice(0, 2000) : '';
+
+  const result = await db.prepare(`
+    INSERT INTO resources (title, description, stored_filename, original_filename, uploaded_by)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(title, description || null, req.file.filename, req.file.originalname, req.user.id);
+  const resourceId = result.lastInsertRowid;
+
+  const assignmentRows = [
+    ...roles.map((role) => [resourceId, 'role', role, null, null]),
+    ...classTeacherIds.map((id) => [resourceId, 'class_teachers', null, id, null]),
+    ...classParentIds.map((id) => [resourceId, 'class_parents', null, id, null]),
+    ...targetUserIds.map((id) => [resourceId, 'user', null, null, id]),
+  ];
+  for (const row of assignmentRows) {
+    await db.prepare(
+      'INSERT INTO resource_assignments (resource_id, assignment_type, role, ccd_class_id, target_user_id) VALUES (?, ?, ?, ?, ?)'
+    ).run(...row);
+  }
+
+  req.flash('success', res.locals.t('resource_added'));
+  return res.redirect('/admin/resources');
+}));
+
+app.post('/admin/resources/:id/delete', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const resourceId = Number.parseInt(req.params.id, 10);
+  const resource = await db.prepare('SELECT * FROM resources WHERE id = ?').get(resourceId);
+  if (!resource) {
+    req.flash('error', res.locals.t('resource_not_found'));
+    return res.redirect('/admin/resources');
+  }
+
+  await db.prepare('DELETE FROM resources WHERE id = ?').run(resourceId);
+  try { await fs.promises.unlink(path.join(resourceUploadDir, resource.stored_filename)); } catch { /* already gone */ }
+
+  req.flash('success', res.locals.t('resource_removed'));
+  return res.redirect('/admin/resources');
+}));
 
 app.get('/admin/users/:id/verification-email', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   const userId = Number.parseInt(req.params.id, 10);

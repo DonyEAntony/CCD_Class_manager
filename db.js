@@ -498,6 +498,40 @@ const init = async () => {
       )
     `);
 
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS resources (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        description TEXT NULL,
+        stored_filename VARCHAR(255) NOT NULL,
+        original_filename VARCHAR(255) NOT NULL,
+        uploaded_by INT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_resources_uploaded_by FOREIGN KEY (uploaded_by) REFERENCES users(id)
+      )
+    `);
+
+    // One row per visibility rule; a resource can carry several at once (e.g. "all
+    // catechists" AND "parents of Grade 3"). assignment_type is one of:
+    //   role           - role holds the user role ('user'/'catechist'/'family_faith_leader'/'admin')
+    //   class_teachers - ccd_class_id holds the class; visible to that class's catechists
+    //   class_parents  - ccd_class_id holds the class; visible to parents of that class's roster
+    //   user           - target_user_id holds one specific user
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS resource_assignments (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        resource_id INT NOT NULL,
+        assignment_type VARCHAR(20) NOT NULL,
+        role VARCHAR(50) NULL,
+        ccd_class_id INT NULL,
+        target_user_id INT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_resource_assignments_resource FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE,
+        CONSTRAINT fk_resource_assignments_class FOREIGN KEY (ccd_class_id) REFERENCES ccd_classes(id),
+        CONSTRAINT fk_resource_assignments_user FOREIGN KEY (target_user_id) REFERENCES users(id)
+      )
+    `);
+
     // Permanent record of each class/grade a student completed, written once per school
     // year when that year's Faith Formation registration is closed. Independent of the
     // student's own row (and of ccd_classes, which can be renamed/removed later) so this

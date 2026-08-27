@@ -8,6 +8,9 @@
     <a href="/admin/users"><%= t('user_administration') %></a>
     <a href="/family-faith/visits/availability"><%= t('manage_visit_availability') %></a>
     <% if (user.role === 'admin') { %>
+      <a href="/admin/resources"><%= t('manage_resources_nav') %></a>
+    <% } %>
+    <% if (user.role === 'admin') { %>
       <div class="admin-nav-dropdown">
         <button type="button" class="admin-nav-dropdown-toggle" id="admin-tools-toggle" aria-expanded="false"><%= t('admin_tools_menu') %> &#9662;</button>
         <div class="admin-nav-dropdown-menu d-none" id="admin-tools-menu">
