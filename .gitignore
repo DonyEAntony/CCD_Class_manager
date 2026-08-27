@@ -13,3 +13,4 @@ api-project-910463796029-c858fae15508.json
 .local-server.out.log
 server-*.log
 test-cookies*.txt
+.claude/

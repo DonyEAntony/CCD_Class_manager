@@ -3432,13 +3432,13 @@ app.post('/forgot-password', asyncHandler(async (req, res) => {
     if (user && user.provider === 'local' && !db.isDeletedAccount(user)) {
       const resetToken = createVerificationToken();
       const resetTokenHash = hashVerificationToken(resetToken);
-      const resetExpiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
 
       await db.prepare(`
         UPDATE users
-        SET password_reset_token = ?, password_reset_expires_at = ?
+        SET password_reset_token = ?,
+            password_reset_expires_at = DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 HOUR)
         WHERE id = ?
-      `).run(resetTokenHash, resetExpiresAt, user.id);
+      `).run(resetTokenHash, user.id);
 
       const resetUrl = `${getBaseUrl(req)}/reset-password?token=${resetToken}`;
       const delivery = await sendPasswordResetEmail({ to: user.email, resetUrl, fullName: user.full_name });
@@ -3459,10 +3459,13 @@ app.get('/reset-password', asyncHandler(async (req, res) => {
   }
   const tokenHash = hashVerificationToken(token);
   const user = await db.prepare(
-    'SELECT id, account_status, password_reset_expires_at FROM users WHERE password_reset_token = ?'
+    `SELECT id, account_status, password_reset_expires_at
+     FROM users
+     WHERE password_reset_token = ?
+       AND password_reset_expires_at > UTC_TIMESTAMP()`
   ).get(tokenHash);
 
-  if (!user || db.isDeletedAccount(user) || !user.password_reset_expires_at || new Date(user.password_reset_expires_at) < new Date()) {
+  if (!user || db.isDeletedAccount(user)) {
     req.flash('error', 'Password reset link is invalid or has expired. Please request a new one.');
     return res.redirect('/forgot-password');
   }
@@ -3482,10 +3485,13 @@ app.post('/reset-password', asyncHandler(async (req, res) => {
 
   const tokenHash = hashVerificationToken(token);
   const user = await db.prepare(
-    'SELECT id, account_status, password_reset_expires_at FROM users WHERE password_reset_token = ?'
+    `SELECT id, account_status, password_reset_expires_at
+     FROM users
+     WHERE password_reset_token = ?
+       AND password_reset_expires_at > UTC_TIMESTAMP()`
   ).get(tokenHash);
 
-  if (!user || db.isDeletedAccount(user) || !user.password_reset_expires_at || new Date(user.password_reset_expires_at) < new Date()) {
+  if (!user || db.isDeletedAccount(user)) {
     req.flash('error', 'Password reset link is invalid or has expired. Please request a new one.');
     return res.redirect('/forgot-password');
   }
@@ -4198,6 +4204,64 @@ app.post('/admin/sponsor-confirmation/:id/delete', requireAuth, requireRole('adm
   return res.redirect('/dashboard');
 }));
 
+const SACRAMENT_NEED_BY_SACRAMENTAL_YEAR = {
+  first_year_communion: 'first_holy_communion',
+  first_year_confirmation: 'confirmation',
+};
+
+// Reuses the existing Family Faith Formation household registration instead of building a
+// separate parent-class concept — auto-creates or updates the family's FFF row so they show
+// up for a visit to be scheduled, without needing the (admin-gated) FFF start flow. Safe to
+// call on every save: matches the child by name+dob and no-ops if already recorded.
+const autoEnrollFamilyFaithFormation = async ({
+  userId, schoolYear, sacramentalYear,
+  childFirstName, childLastName, childDob,
+  parentFirstName, parentLastName, parentEmail, parentPhone,
+}) => {
+  const sacramentNeed = SACRAMENT_NEED_BY_SACRAMENTAL_YEAR[sacramentalYear];
+  if (!sacramentNeed || !userId) return;
+
+  const existing = await db.prepare(
+    'SELECT id, members_json FROM family_faith_registrations WHERE user_id = ? AND school_year = ?'
+  ).get(userId, schoolYear);
+
+  const members = existing ? normalizeFamilyMembers(safeJsonParse(existing.members_json, [])) : [];
+
+  const sameChild = (m) => m.role === 'child'
+    && (m.firstName || '').toLowerCase() === (childFirstName || '').toLowerCase()
+    && (m.lastName || '').toLowerCase() === (childLastName || '').toLowerCase()
+    && (m.dob || '') === (childDob || '');
+  const child = members.find(sameChild);
+  if (child) {
+    if (!child.sacramentNeeds.includes(sacramentNeed)) child.sacramentNeeds = [...child.sacramentNeeds, sacramentNeed];
+  } else {
+    members.push({ firstName: childFirstName, lastName: childLastName, role: 'child', dob: childDob, notes: null, sacramentNeeds: [sacramentNeed] });
+  }
+
+  const sameParent = (m) => m.role === 'parent'
+    && (m.firstName || '').toLowerCase() === (parentFirstName || '').toLowerCase()
+    && (m.lastName || '').toLowerCase() === (parentLastName || '').toLowerCase();
+  if (parentFirstName && parentLastName && !members.some(sameParent)) {
+    members.push({ firstName: parentFirstName, lastName: parentLastName, role: 'parent', dob: null, notes: null, sacramentNeeds: [] });
+  }
+
+  const membersJson = JSON.stringify(members);
+  if (existing) {
+    await db.prepare('UPDATE family_faith_registrations SET members_json = ? WHERE id = ?').run(membersJson, existing.id);
+  } else {
+    const familyName = parentLastName ? `${parentLastName} Family` : (childLastName ? `${childLastName} Family` : 'Family');
+    await db.prepare(`
+      INSERT INTO family_faith_registrations
+        (user_id, school_year, family_name, primary_contact_name, primary_contact_email, primary_contact_phone, members_json, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'in_progress')
+    `).run(
+      userId, schoolYear, familyName,
+      [parentFirstName, parentLastName].filter(Boolean).join(' ') || null,
+      parentEmail || null, parentPhone || null, membersJson
+    );
+  }
+};
+
 const handleChildrenRegistration = asyncHandler(async (req, res) => {
     const faithFormationSettings = await requireRegistrationAccess(req, res, 'faith_formation');
     if (!faithFormationSettings) return;
@@ -4404,6 +4468,20 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
 
       const groupIdsAfter = existingRowId ? priorGroupIds : [...priorGroupIds, thisRowId];
 
+      const enrolledInFamilyFaith = !!SACRAMENT_NEED_BY_SACRAMENTAL_YEAR[req.body.sacramental_year];
+      await autoEnrollFamilyFaithFormation({
+        userId: registrationOwnerUserId,
+        schoolYear: faithFormationSettings.schoolYear,
+        sacramentalYear: req.body.sacramental_year || null,
+        childFirstName: firstName,
+        childLastName: lastName,
+        childDob: dob,
+        parentFirstName: orNull(req.body.primary_contact_first_name),
+        parentLastName: orNull(req.body.primary_contact_last_name),
+        parentEmail: orNull(req.body.primary_contact_email),
+        parentPhone: orNull(req.body.primary_contact_phone),
+      });
+
       if (isLastStage) {
         if (groupIdsAfter.length) {
           const placeholders = groupIdsAfter.map(() => '?').join(', ');
@@ -4415,7 +4493,10 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
           `SELECT SUM(registration_fee + sacramental_fee + late_fee) AS total FROM student_registrations WHERE id IN (${groupIdsAfter.map(() => '?').join(', ')})`
         ).get(...groupIdsAfter);
         const totalFeesCharged = totalsRow?.total || 0;
-        req.flash('success', `Registration submitted. Total fees: $${totalFeesCharged}`);
+        const familyFaithNote = enrolledInFamilyFaith
+          ? ' Your family has also been enrolled in Family Faith Formation — visit your dashboard to schedule your family visit.'
+          : '';
+        req.flash('success', `Registration submitted. Total fees: $${totalFeesCharged}.${familyFaithNote}`);
         return res.redirect('/dashboard');
       }
 
@@ -4438,7 +4519,7 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
     }
 
     const existingReg = await db.prepare(
-      'SELECT id, status, baptism_certificate_path, first_communion_certificate_path FROM student_registrations WHERE id = ? AND (user_id = ? OR ? = 1)'
+      'SELECT id, user_id, status, baptism_certificate_path, first_communion_certificate_path FROM student_registrations WHERE id = ? AND (user_id = ? OR ? = 1)'
     ).get(req.body.registration_id, req.user.id, isAdmin ? 1 : 0);
     if (!existingReg) {
       return res.status(404).send('Registration not found.');
@@ -4494,6 +4575,20 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
       baptismCert, communionCert, nextStatus,
       req.body.registration_id, req.user.id, isAdmin ? 1 : 0
     );
+
+    await autoEnrollFamilyFaithFormation({
+      userId: existingReg.user_id,
+      schoolYear: faithFormationSettings.schoolYear,
+      sacramentalYear: req.body.sacramental_year || null,
+      childFirstName: (req.body.student_first_name || '').trim(),
+      childLastName: (req.body.student_last_name || '').trim(),
+      childDob: orNull(req.body.student_dob),
+      parentFirstName: orNull(req.body.primary_contact_first_name),
+      parentLastName: orNull(req.body.primary_contact_last_name),
+      parentEmail: orNull(req.body.primary_contact_email),
+      parentPhone: orNull(req.body.primary_contact_phone),
+    });
+
     req.flash('success', 'Registration updated.');
     return res.redirect('/dashboard');
 });
