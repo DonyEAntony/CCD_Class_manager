@@ -90,6 +90,38 @@ a:hover { color: var(--blue-sky); }
 .site-topbar a { color: var(--gold-light); }
 .site-topbar a:hover { color: #fff; }
 
+.notification-banner-stack {
+  display: flex;
+  flex-direction: column;
+}
+.notification-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  background: var(--gold-pale);
+  border-bottom: 1px solid #f0d090;
+  padding: 0.6rem 1.5rem;
+  font-size: 0.85rem;
+  color: #4a3a10;
+}
+.notification-banner-body { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; }
+.notification-banner-body strong { color: #4a3a10; }
+.notification-banner-body a { color: var(--navy); font-weight: 600; text-decoration: underline; }
+.notification-banner-dismiss {
+  flex: none;
+  border: 1px solid #d9b25a;
+  background: transparent;
+  color: #4a3a10;
+  border-radius: 6px;
+  padding: 4px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.notification-banner-dismiss:hover { background: #f0d090; }
+
 .site-brand {
   display: flex;
   align-items: center;

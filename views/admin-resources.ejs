@@ -22,7 +22,10 @@
       <h1><%= t('admin_resources_title') %></h1>
       <p class="sub mb-0"><%= t('admin_resources_subtitle') %></p>
     </div>
-    <a class="btn btn-outline-secondary" href="/resources"><%= t('resources_nav') %></a>
+    <div class="d-flex gap-2">
+      <a class="btn btn-outline-secondary" href="/admin/notifications"><%= t('manage_notifications_nav') %></a>
+      <a class="btn btn-outline-secondary" href="/resources"><%= t('resources_nav') %></a>
+    </div>
   </div>
 
   <div class="page-card mb-4">
@@ -76,6 +79,10 @@
           </select>
         </div>
 
+        <div class="col-12 form-check">
+          <input class="form-check-input" type="checkbox" name="notify" value="on" id="resource-notify" checked>
+          <label class="form-check-label" for="resource-notify"><%= t('notify_resource_checkbox_label') %></label>
+        </div>
         <div class="col-12">
           <button class="btn btn-primary" type="submit"><%= t('add_resource_button') %></button>
         </div>
@@ -110,6 +117,9 @@
                   <td style="text-align:right">
                     <div class="d-inline-flex gap-2">
                       <a class="btn btn-sm btn-outline-primary" href="/resources/<%= resource.id %>/download"><%= t('download_button') %></a>
+                      <form method="post" action="/admin/resources/<%= resource.id %>/notify">
+                        <button class="btn btn-sm btn-outline-secondary" type="submit"><%= t('notify_button_label') %></button>
+                      </form>
                       <form method="post" action="/admin/resources/<%= resource.id %>/delete" onsubmit="return confirm('<%= t('remove_resource_confirm') %>');">
                         <button class="btn btn-sm btn-outline-danger" type="submit"><%= t('remove') %></button>
                       </form>

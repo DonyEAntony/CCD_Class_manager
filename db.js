@@ -549,6 +549,54 @@ const init = async () => {
       )
     `);
 
+    // A notification is either a standalone admin broadcast, or auto-created alongside a
+    // resource upload (resource_id set) so its audience gets a banner pointing at it.
+    // Shown on every page (see app.js's per-request middleware) until the viewing user
+    // acknowledges it — tracked per-user in notification_acknowledgements below, not a
+    // single "read" flag on the notification itself.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS notifications (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        type VARCHAR(20) NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        message TEXT NULL,
+        resource_id INT NULL,
+        created_by INT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_notifications_resource FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE,
+        CONSTRAINT fk_notifications_created_by FOREIGN KEY (created_by) REFERENCES users(id)
+      )
+    `);
+
+    // Same shape and assignment_type semantics as resource_assignments — a notification
+    // can carry several audience rules at once, matched the same way.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS notification_assignments (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        notification_id INT NOT NULL,
+        assignment_type VARCHAR(20) NOT NULL,
+        role VARCHAR(50) NULL,
+        ccd_class_id INT NULL,
+        target_user_id INT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_notification_assignments_notification FOREIGN KEY (notification_id) REFERENCES notifications(id) ON DELETE CASCADE,
+        CONSTRAINT fk_notification_assignments_class FOREIGN KEY (ccd_class_id) REFERENCES ccd_classes(id),
+        CONSTRAINT fk_notification_assignments_user FOREIGN KEY (target_user_id) REFERENCES users(id)
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS notification_acknowledgements (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        notification_id INT NOT NULL,
+        user_id INT NOT NULL,
+        acknowledged_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_notification_user (notification_id, user_id),
+        CONSTRAINT fk_notification_ack_notification FOREIGN KEY (notification_id) REFERENCES notifications(id) ON DELETE CASCADE,
+        CONSTRAINT fk_notification_ack_user FOREIGN KEY (user_id) REFERENCES users(id)
+      )
+    `);
+
     // Permanent record of each class/grade a student completed, written once per school
     // year when that year's Faith Formation registration is closed. Independent of the
     // student's own row (and of ccd_classes, which can be renamed/removed later) so this
