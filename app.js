@@ -762,6 +762,18 @@ const translations = {
     no_classes_configured_yet: 'No classes have been configured yet.',
     student_count_singular: 'student',
     student_count_plural: 'students',
+    family_count_singular: 'family',
+    family_count_plural: 'families',
+    adult_events_nav: 'Adult Events',
+    adult_classes_header: 'Adult Events',
+    adult_classes_subtitle: 'OCIA and Family Faith Formation classes — rosters, contacts, and schedule.',
+    add_adult_class_button: 'Add Adult Class',
+    adult_program_label: 'Program',
+    linked_class_label: 'Linked Class',
+    linked_class_none_option: 'None (combined session)',
+    linked_class_help: 'Runs alongside this children\'s class — set the same class time/room below if it should be concurrent.',
+    backfill_family_faith_button: 'Back-fill from Linked Class',
+    backfill_family_faith_hint: 'Enrolls families whose child was admitted before this class existed. Safe to click again — already-enrolled families are skipped.',
     next_label: 'Next',
     back_to_classes: 'Back to Classes',
     roster_label: 'Roster',
@@ -1659,6 +1671,18 @@ const translations = {
     no_classes_configured_yet: 'Aún no se han configurado clases.',
     student_count_singular: 'estudiante',
     student_count_plural: 'estudiantes',
+    family_count_singular: 'familia',
+    family_count_plural: 'familias',
+    adult_events_nav: 'Eventos de Adultos',
+    adult_classes_header: 'Eventos de Adultos',
+    adult_classes_subtitle: 'Clases de OCIA y Formación en la Fe Familiar — listas, contactos y horario.',
+    add_adult_class_button: 'Agregar Clase de Adultos',
+    adult_program_label: 'Programa',
+    linked_class_label: 'Clase Vinculada',
+    linked_class_none_option: 'Ninguna (sesión combinada)',
+    linked_class_help: 'Se realiza junto con esta clase de niños — use el mismo horario/salón abajo si debe ser simultánea.',
+    backfill_family_faith_button: 'Rellenar desde la Clase Vinculada',
+    backfill_family_faith_hint: 'Inscribe a las familias cuyo hijo fue admitido antes de que existiera esta clase. Se puede volver a usar — las familias ya inscritas se omiten.',
     next_label: 'Próxima',
     back_to_classes: 'Volver a Clases',
     roster_label: 'Lista de Estudiantes',
@@ -1962,8 +1986,16 @@ const CCD_GRADE_SHORT_CODES = {
   '9': 'C-2',
 };
 
+// Adult programs beyond OCIA (already in CCD_GRADE_MEANINGS) get their own grade_level
+// key rather than one added to that shared map — CCD_GRADE_MEANINGS also backs the
+// Registrations/Students grade filters and the main "Add Class" dropdown, and a program
+// with no children on the roster has no business appearing as a filterable "grade" there.
+const ADULT_PROGRAM_LABELS = {
+  family_faith: 'Family Faith Formation',
+};
+
 const getCcdClassShortLabel = (ccdClass) =>
-  `${CCD_GRADE_SHORT_CODES[ccdClass.grade_level] || CCD_GRADE_MEANINGS[ccdClass.grade_level] || ccdClass.grade_level}${ccdClass.sectionLabel || ''}`;
+  `${CCD_GRADE_SHORT_CODES[ccdClass.grade_level] || CCD_GRADE_MEANINGS[ccdClass.grade_level] || ADULT_PROGRAM_LABELS[ccdClass.grade_level] || ccdClass.grade_level}${ccdClass.sectionLabel || ''}`;
 
 // Fixed display order (Communion years before Confirmation years) for anywhere the short
 // codes need explaining, e.g. the shared calendar's legend.
@@ -2025,7 +2057,7 @@ const getCcdClasses = async () => {
   const ccdClasses = await db.prepare(`
     SELECT classes.id, classes.grade_level, classes.class_time, classes.classroom,
            classes.section_label AS sectionLabel, classes.class_kind AS classKind,
-           classes.source_program_type AS sourceProgramType
+           classes.source_program_type AS sourceProgramType, classes.linked_class_id AS linkedClassId
     FROM ccd_classes classes
     ORDER BY classes.grade_level ASC
   `).all();
@@ -2134,13 +2166,48 @@ const mapAdultRegistrationToRosterRow = (reg) => ({
   archived_at: reg.archived_at,
 });
 
-// 'adult' classes (OCIA, and any future adult program) roster from adult_registrations
-// instead of student_registrations — there's no grade/time-slot matching or
-// admitted/enrolled two-step gate for those, just "is a non-archived signup for this
-// class's program". allAdultRegs is only needed for adult classes; children-class
-// callers can omit it.
-const getClassRoster = (ccdClass, allStudentRegs, enrolledRegistrationIds, allAdultRegs = []) => {
+// Family Faith Formation has no per-person sign-up like adult_registrations — one row is
+// a whole household (see family_faith_registrations.members_json) — so a roster row here
+// represents the family, not an individual. Same shared-shape adaptation as above.
+const mapFamilyFaithRegistrationToRosterRow = (reg) => ({
+  id: reg.id,
+  student_full_name: reg.family_name,
+  student_dob: null,
+  parent_name: reg.primary_contact_name,
+  primary_contact_relationship: null,
+  primary_contact_email: reg.primary_contact_email,
+  primary_contact_phone: reg.primary_contact_phone,
+  baptism_certificate_path: null,
+  baptism_date: null,
+  disabilities_comments: null,
+  status: 'admitted',
+  user_id: reg.user_id,
+  archived_at: null,
+});
+
+// 'adult' classes (OCIA, Family Faith Formation, and any future adult program) roster
+// from a program-specific table instead of student_registrations — there's no
+// grade/time-slot matching or admitted/enrolled two-step gate for those, just "is an
+// active signup for this class's program". allAdultRegs/allFamilyFaithRegs are only
+// needed for adult classes; children-class callers can omit them.
+const getClassRoster = (ccdClass, allStudentRegs, enrolledRegistrationIds, allAdultRegs = [], allFamilyFaithRegs = [], allCcdClasses = []) => {
   if (ccdClass.classKind === 'adult') {
+    if (ccdClass.sourceProgramType === 'family_faith') {
+      // A Family Faith Formation session paired with a specific children's class (e.g. the
+      // one running alongside First Year Holy Communion) only rosters families whose child
+      // is actually on that linked class's roster — matched by the registering parent's
+      // user_id, the one field both a family registration and a student registration
+      // reliably share. An unlinked FFF class (linkedClassId null) rosters every active
+      // household instead, for a single combined session.
+      if (ccdClass.linkedClassId) {
+        const linkedClass = allCcdClasses.find((c) => c.id === ccdClass.linkedClassId);
+        const linkedParentUserIds = linkedClass
+          ? new Set(getClassRoster(linkedClass, allStudentRegs, enrolledRegistrationIds).map((r) => r.user_id).filter(Boolean))
+          : new Set();
+        return allFamilyFaithRegs.filter((reg) => linkedParentUserIds.has(reg.user_id)).map(mapFamilyFaithRegistrationToRosterRow);
+      }
+      return allFamilyFaithRegs.map(mapFamilyFaithRegistrationToRosterRow);
+    }
     return allAdultRegs
       .filter((reg) => reg.program_type === (ccdClass.sourceProgramType || 'ocia'))
       .map(mapAdultRegistrationToRosterRow);
@@ -2155,6 +2222,11 @@ const getClassRoster = (ccdClass, allStudentRegs, enrolledRegistrationIds, allAd
 
 const getActiveAdultRegistrations = async () =>
   db.prepare('SELECT * FROM adult_registrations WHERE archived_at IS NULL').all();
+
+// family_faith_registrations has no archived_at column — 'cancelled'/'discontinued' is
+// its equivalent of "no longer active" (see FAMILY_FAITH_REGISTRATION_STATUSES).
+const getActiveFamilyFaithRegistrations = async () =>
+  db.prepare(`SELECT * FROM family_faith_registrations WHERE status NOT IN ('cancelled', 'discontinued')`).all();
 
 const getEnrolledRegistrationIds = async () => {
   const rows = await db.prepare(
@@ -7066,18 +7138,23 @@ app.post('/admin/ccd-classes', requireAuth, requireRole('admin'), asyncHandler(a
     return res.redirect('/admin/users');
   }
 
-  // The grade dropdown already includes "ocia" (from CCD_GRADE_MEANINGS), so an admin
-  // creates the OCIA class the same way as any other — picking it here is what flags the
-  // row as an adult class rostered from adult_registrations instead of student
-  // registrations. Any future adult program would follow the same pattern.
-  const classKind = gradeLevel === 'ocia' ? 'adult' : 'children';
-  const sourceProgramType = gradeLevel === 'ocia' ? 'ocia' : null;
+  // The grade dropdown already includes "ocia" (from CCD_GRADE_MEANINGS); the Adult
+  // Events page's own small form submits "family_faith" the same way. Either one flags
+  // the row as an adult class rostered from a program-specific table instead of student
+  // registrations — see getClassRoster.
+  const ADULT_PROGRAM_GRADE_LEVELS = new Set(['ocia', 'family_faith']);
+  const classKind = ADULT_PROGRAM_GRADE_LEVELS.has(gradeLevel) ? 'adult' : 'children';
+  const sourceProgramType = classKind === 'adult' ? gradeLevel : null;
+  // Only Family Faith Formation pairs with a specific children's class — meaningless (and
+  // ignored) for OCIA or a regular children's class.
+  const rawLinkedClassId = Number.parseInt(req.body.linked_class_id, 10);
+  const linkedClassId = sourceProgramType === 'family_faith' && Number.isInteger(rawLinkedClassId) ? rawLinkedClassId : null;
 
   await db.prepare(
-    `INSERT INTO ccd_classes (grade_level, class_time, classroom, class_kind, source_program_type) VALUES (?, ?, ?, ?, ?)`
-  ).run(gradeLevel, classTime, classroom, classKind, sourceProgramType);
+    `INSERT INTO ccd_classes (grade_level, class_time, classroom, class_kind, source_program_type, linked_class_id) VALUES (?, ?, ?, ?, ?, ?)`
+  ).run(gradeLevel, classTime, classroom, classKind, sourceProgramType, linkedClassId);
   req.flash('success', 'CCD class saved. A grade can have multiple time-slot sections — add another with the same grade to offer parents a choice.');
-  return res.redirect('/admin/users');
+  return res.redirect(classKind === 'adult' ? '/admin/adult-classes' : '/admin/users');
 }));
 
 app.post('/admin/ccd-classes/:id/delete', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
@@ -7204,16 +7281,15 @@ app.post('/admin/catechists/:id/message', requireAuth, requireRole('admin'), asy
 }));
 
 app.get('/admin/classes', requireAuth, requireRole('admin', 'catechist'), asyncHandler(async (req, res) => {
-  const allCcdClasses = await getCcdClasses();
+  const allCcdClasses = (await getCcdClasses()).filter((c) => c.classKind !== 'adult');
   const ccdClasses = req.user.role === 'catechist'
     ? allCcdClasses.filter((c) => isClassCatechist(c, req.user.id))
     : allCcdClasses;
   const activeStudentRegs = await db.prepare('SELECT * FROM student_registrations WHERE archived_at IS NULL').all();
   const enrolledRegistrationIds = await getEnrolledRegistrationIds();
-  const activeAdultRegs = await getActiveAdultRegistrations();
 
   const classes = await Promise.all(ccdClasses.map(async (ccdClass) => {
-    const roster = getClassRoster(ccdClass, activeStudentRegs, enrolledRegistrationIds, activeAdultRegs);
+    const roster = getClassRoster(ccdClass, activeStudentRegs, enrolledRegistrationIds);
     return {
       ...ccdClass,
       studentCount: roster.length,
@@ -7225,7 +7301,49 @@ app.get('/admin/classes', requireAuth, requireRole('admin', 'catechist'), asyncH
   res.render('admin-classes', { classes, ccdGradeMeanings: CCD_GRADE_MEANINGS });
 }));
 
-app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist'), asyncHandler(async (req, res) => {
+// OCIA and Family Faith Formation live here instead of the children's Classes list —
+// they're rostered from their own program tables (see getClassRoster) and have no grade
+// level a parent picks during registration, so mixing them into the grade-grid page would
+// be confusing. Open to catechists/family_faith_leaders too (not just admin) so whoever's
+// assigned as that class's "teacher" can reach their own roster/attendance/schedule.
+app.get('/admin/adult-classes', requireAuth, requireRole('admin', 'catechist', 'family_faith_leader'), asyncHandler(async (req, res) => {
+  const allCcdClasses = await getCcdClasses();
+  const allAdultClasses = allCcdClasses.filter((c) => c.classKind === 'adult');
+  const ccdClasses = req.user.role === 'admin'
+    ? allAdultClasses
+    : allAdultClasses.filter((c) => isClassCatechist(c, req.user.id));
+  const activeStudentRegs = await db.prepare('SELECT * FROM student_registrations WHERE archived_at IS NULL').all();
+  const enrolledRegistrationIds = await getEnrolledRegistrationIds();
+  const activeAdultRegs = await getActiveAdultRegistrations();
+  const activeFamilyFaithRegs = await getActiveFamilyFaithRegistrations();
+
+  const classes = await Promise.all(ccdClasses.map(async (ccdClass) => {
+    const roster = getClassRoster(ccdClass, activeStudentRegs, enrolledRegistrationIds, activeAdultRegs, activeFamilyFaithRegs, allCcdClasses);
+    return {
+      ...ccdClass,
+      studentCount: roster.length,
+      pendingCount: roster.filter(isPendingAcceptance).length,
+      nextSessionDate: await getNextSessionDateForClass(ccdClass.id, ccdClass.class_time),
+    };
+  }));
+
+  const childrenClasses = allCcdClasses.filter((c) => c.classKind !== 'adult');
+  const childrenClassById = new Map(childrenClasses.map((c) => [c.id, c]));
+
+  res.render('admin-classes-adult', {
+    classes: classes.map((c) => ({
+      ...c,
+      linkedClassLabel: c.linkedClassId && childrenClassById.has(c.linkedClassId)
+        ? `${getCcdClassShortLabel(childrenClassById.get(c.linkedClassId))} — ${childrenClassById.get(c.linkedClassId).class_time || '—'}`
+        : null,
+    })),
+    childrenClasses,
+    ccdGradeMeanings: CCD_GRADE_MEANINGS,
+    adultProgramLabels: ADULT_PROGRAM_LABELS,
+  });
+}));
+
+app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist', 'family_faith_leader'), asyncHandler(async (req, res) => {
   const classId = Number.parseInt(req.params.id, 10);
   const ccdClass = await getOwnedCcdClass(req, classId);
   if (!ccdClass) {
@@ -7236,7 +7354,9 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist'), as
   const activeStudentRegs = await db.prepare('SELECT * FROM student_registrations WHERE archived_at IS NULL').all();
   const enrolledRegistrationIds = await getEnrolledRegistrationIds();
   const activeAdultRegs = await getActiveAdultRegistrations();
-  const roster = getClassRoster(ccdClass, activeStudentRegs, enrolledRegistrationIds, activeAdultRegs)
+  const activeFamilyFaithRegs = await getActiveFamilyFaithRegistrations();
+  const allCcdClasses = await getCcdClasses();
+  const roster = getClassRoster(ccdClass, activeStudentRegs, enrolledRegistrationIds, activeAdultRegs, activeFamilyFaithRegs, allCcdClasses)
     .sort((a, b) => (a.student_full_name || '').localeCompare(b.student_full_name || ''));
 
   const storedSchedule = await getClassSessionDates(classId);
@@ -7265,8 +7385,14 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist'), as
   const faithFormationSettings = await getFaithFormationSettings();
 
   const assignedCatechistIds = new Set((ccdClass.catechists || []).map((c) => c.id));
+  // Family Faith Formation's "teacher" is really a family_faith_leader, not a catechist —
+  // widen the assignable pool for that one program instead of teaching getAssignableTeachers
+  // about a role it otherwise has no reason to know.
+  const assignableCatechistPool = ccdClass.sourceProgramType === 'family_faith'
+    ? [...(await getAssignableTeachers()), ...(await getFamilyFaithLeaders())]
+    : await getAssignableTeachers();
   const assignableCatechists = req.user.role === 'admin'
-    ? (await getAssignableTeachers()).filter((c) => !assignedCatechistIds.has(c.id))
+    ? assignableCatechistPool.filter((c) => !assignedCatechistIds.has(c.id))
     : [];
 
   // Whole-class attendance history — powers the per-student absence badge/history dots
@@ -7323,11 +7449,15 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist'), as
     })
     .sort((a, b) => a.daysUntil - b.daysUntil);
 
+  const linkedClass = ccdClass.linkedClassId ? allCcdClasses.find((c) => c.id === ccdClass.linkedClassId) : null;
+
   res.render('admin-class-detail', {
     ccdClass,
     roster: rosterWithHistory,
     isPendingAcceptance,
     ccdGradeMeanings: CCD_GRADE_MEANINGS,
+    adultProgramLabels: ADULT_PROGRAM_LABELS,
+    linkedClassLabel: linkedClass ? `${getCcdClassShortLabel(linkedClass)} — ${linkedClass.class_time || '—'}` : null,
     upcomingDates: upcomingDates.map((d) => {
       const value = formatSessionDateValue(d);
       const counts = countsByDate.get(value);
@@ -7363,10 +7493,10 @@ app.post('/admin/classes/:id/catechists/add', requireAuth, requireRole('admin'),
   }
 
   const validTeacher = await db.prepare(
-    `SELECT id FROM users WHERE id = ? AND role IN ('admin', 'catechist') AND COALESCE(account_status, 'active') <> 'deleted'`
+    `SELECT id FROM users WHERE id = ? AND role IN ('admin', 'catechist', 'family_faith_leader') AND COALESCE(account_status, 'active') <> 'deleted'`
   ).get(catechistId);
   if (!validTeacher) {
-    req.flash('error', 'That user is not an active admin or catechist.');
+    req.flash('error', 'That user is not an active admin, catechist, or family faith leader.');
     return res.redirect(`/admin/classes/${classId}`);
   }
 
@@ -7392,7 +7522,63 @@ app.post('/admin/classes/:id/catechists/remove', requireAuth, requireRole('admin
   return res.redirect(`/admin/classes/${classId}`);
 }));
 
-app.post('/admin/classes/:id/attendance', requireAuth, requireRole('admin', 'catechist'), asyncHandler(async (req, res) => {
+// Catches up a linked Family Faith Formation class with families whose child was admitted
+// before this pairing existed (or before FFF auto-enrollment existed at all) — reuses the
+// exact same autoEnrollFamilyFaithFormation used on every new registration, so it's safe
+// to click more than once (already-enrolled families are a no-op).
+app.post('/admin/classes/:id/backfill-family-faith', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const classId = Number.parseInt(req.params.id, 10);
+  const ccdClass = await getOwnedCcdClass(req, classId);
+  if (!ccdClass || ccdClass.sourceProgramType !== 'family_faith' || !ccdClass.linkedClassId) {
+    req.flash('error', 'This class has no linked children\'s class to back-fill from.');
+    return res.redirect(`/admin/classes/${classId}`);
+  }
+
+  const allCcdClasses = await getCcdClasses();
+  const linkedClass = allCcdClasses.find((c) => c.id === ccdClass.linkedClassId);
+  if (!linkedClass) {
+    req.flash('error', 'Linked class no longer exists.');
+    return res.redirect(`/admin/classes/${classId}`);
+  }
+
+  const activeStudentRegs = await db.prepare('SELECT * FROM student_registrations WHERE archived_at IS NULL').all();
+  const enrolledRegistrationIds = await getEnrolledRegistrationIds();
+  const admittedRegs = getClassRoster(linkedClass, activeStudentRegs, enrolledRegistrationIds)
+    .filter((reg) => reg.status === 'admitted');
+
+  let backfilledCount = 0;
+  for (const reg of admittedRegs) {
+    const sacramentalYear = reg.sacramental_year
+      || (linkedClass.grade_level === '1' ? 'first_year_communion' : linkedClass.grade_level === '8' ? 'first_year_confirmation' : null);
+    if (!sacramentalYear) continue;
+    // student_full_name is the only stored form of the child's name (first/middle/last
+    // are only ever submitted separately, never persisted separately) — take the last
+    // word as the surname and everything before it as the given name, same split the
+    // original wizard submission would have produced for a first+last (no middle) name.
+    const nameParts = (reg.student_full_name || '').trim().split(/\s+/);
+    const childLastName = nameParts.length > 1 ? nameParts.pop() : (nameParts[0] || '');
+    const childFirstName = nameParts.join(' ');
+
+    await autoEnrollFamilyFaithFormation({
+      userId: reg.user_id,
+      schoolYear: reg.school_year,
+      sacramentalYear,
+      childFirstName,
+      childLastName,
+      childDob: reg.student_dob,
+      parentFirstName: reg.primary_contact_first_name,
+      parentLastName: reg.primary_contact_last_name,
+      parentEmail: reg.primary_contact_email,
+      parentPhone: reg.primary_contact_phone,
+    });
+    backfilledCount += 1;
+  }
+
+  req.flash('success', `Checked ${backfilledCount} admitted famil${backfilledCount === 1 ? 'y' : 'ies'} — already-enrolled ones were left untouched.`);
+  return res.redirect(`/admin/classes/${classId}`);
+}));
+
+app.post('/admin/classes/:id/attendance', requireAuth, requireRole('admin', 'catechist', 'family_faith_leader'), asyncHandler(async (req, res) => {
   const classId = Number.parseInt(req.params.id, 10);
   const studentRegistrationId = Number.parseInt(req.body.student_registration_id, 10);
   const sessionDate = typeof req.body.session_date === 'string' ? req.body.session_date : '';
@@ -7432,7 +7618,7 @@ app.post('/admin/classes/:id/attendance', requireAuth, requireRole('admin', 'cat
   res.json({ ok: true, status: status === 'present' || status === 'absent' ? status : 'unmarked', presentCount, absentCount });
 }));
 
-app.post('/admin/classes/:id/schedule/generate', requireAuth, requireRole('admin', 'catechist'), asyncHandler(async (req, res) => {
+app.post('/admin/classes/:id/schedule/generate', requireAuth, requireRole('admin', 'catechist', 'family_faith_leader'), asyncHandler(async (req, res) => {
   const classId = Number.parseInt(req.params.id, 10);
   const ccdClass = await getOwnedCcdClass(req, classId);
   if (!ccdClass) {
@@ -7464,7 +7650,7 @@ app.post('/admin/classes/:id/schedule/generate', requireAuth, requireRole('admin
   return res.redirect(resolveScheduleRedirect(req.body.return_to, classId, `/admin/classes/${classId}`));
 }));
 
-app.post('/admin/classes/:id/schedule/add', requireAuth, requireRole('admin', 'catechist'), asyncHandler(async (req, res) => {
+app.post('/admin/classes/:id/schedule/add', requireAuth, requireRole('admin', 'catechist', 'family_faith_leader'), asyncHandler(async (req, res) => {
   const classId = Number.parseInt(req.params.id, 10);
   const ccdClass = await getOwnedCcdClass(req, classId);
   if (!ccdClass) {
@@ -7487,7 +7673,7 @@ app.post('/admin/classes/:id/schedule/add', requireAuth, requireRole('admin', 'c
   return res.redirect(resolveScheduleRedirect(req.body.return_to, classId, `/admin/classes/${classId}?date=${sessionDate}`));
 }));
 
-app.post('/admin/classes/:id/schedule/type', requireAuth, requireRole('admin', 'catechist'), asyncHandler(async (req, res) => {
+app.post('/admin/classes/:id/schedule/type', requireAuth, requireRole('admin', 'catechist', 'family_faith_leader'), asyncHandler(async (req, res) => {
   const classId = Number.parseInt(req.params.id, 10);
   const ccdClass = await getOwnedCcdClass(req, classId);
   if (!ccdClass) {
@@ -7513,7 +7699,7 @@ app.post('/admin/classes/:id/schedule/type', requireAuth, requireRole('admin', '
   return res.redirect(resolveScheduleRedirect(req.body.return_to, classId, `/admin/classes/${classId}?date=${sessionDate}`));
 }));
 
-app.post('/admin/classes/:id/schedule/description', requireAuth, requireRole('admin', 'catechist'), asyncHandler(async (req, res) => {
+app.post('/admin/classes/:id/schedule/description', requireAuth, requireRole('admin', 'catechist', 'family_faith_leader'), asyncHandler(async (req, res) => {
   const classId = Number.parseInt(req.params.id, 10);
   const ccdClass = await getOwnedCcdClass(req, classId);
   if (!ccdClass) {
@@ -7535,7 +7721,7 @@ app.post('/admin/classes/:id/schedule/description', requireAuth, requireRole('ad
   return res.redirect(resolveScheduleRedirect(req.body.return_to, classId, `/admin/classes/${classId}?date=${sessionDate}`));
 }));
 
-app.post('/admin/classes/:id/schedule/remove', requireAuth, requireRole('admin', 'catechist'), asyncHandler(async (req, res) => {
+app.post('/admin/classes/:id/schedule/remove', requireAuth, requireRole('admin', 'catechist', 'family_faith_leader'), asyncHandler(async (req, res) => {
   const classId = Number.parseInt(req.params.id, 10);
   const ccdClass = await getOwnedCcdClass(req, classId);
   if (!ccdClass) {
@@ -7556,7 +7742,7 @@ app.post('/admin/classes/:id/schedule/remove', requireAuth, requireRole('admin',
   return res.redirect(resolveScheduleRedirect(req.body.return_to, classId, `/admin/classes/${classId}`));
 }));
 
-app.post('/admin/classes/:id/message', requireAuth, requireRole('admin', 'catechist'), messageAttachmentUpload.array('attachments', 5), asyncHandler(async (req, res) => {
+app.post('/admin/classes/:id/message', requireAuth, requireRole('admin', 'catechist', 'family_faith_leader'), messageAttachmentUpload.array('attachments', 5), asyncHandler(async (req, res) => {
   // Attachments land on disk (uploadDir) as soon as multer parses the request, so every
   // exit path — validation failures included — must clean them up or they'd pile up.
   const uploadedFiles = req.files || [];
@@ -7610,7 +7796,8 @@ app.post('/admin/classes/:id/message', requireAuth, requireRole('admin', 'catech
     const activeStudentRegs = await db.prepare('SELECT * FROM student_registrations WHERE archived_at IS NULL').all();
     const enrolledRegistrationIds = await getEnrolledRegistrationIds();
     const activeAdultRegs = await getActiveAdultRegistrations();
-    const selectedStudents = getClassRoster(ccdClass, activeStudentRegs, enrolledRegistrationIds, activeAdultRegs).filter((r) => selectedIds.has(r.id));
+    const activeFamilyFaithRegs = await getActiveFamilyFaithRegistrations();
+    const selectedStudents = getClassRoster(ccdClass, activeStudentRegs, enrolledRegistrationIds, activeAdultRegs, activeFamilyFaithRegs, ccdClasses).filter((r) => selectedIds.has(r.id));
 
     // Dedupe by parent email so siblings selected in the same class don't get a duplicate copy.
     const recipientsByEmail = new Map();
