@@ -3,7 +3,6 @@
   <div class="admin-nav-links">
     <a href="/admin/registrations">Registrations</a>
     <a href="/admin/students"><%= t('students_nav') %></a>
-    <a href="/admin/tuition-import"><%= t('tuition_import_nav') %></a>
     <a href="/admin/classes"><%= t('classes_nav') %></a>
     <a href="/admin/adult-classes"><%= t('adult_events_nav') %></a>
     <a href="/admin/users"><%= t('user_administration') %></a>
@@ -17,6 +16,7 @@
       <div class="admin-nav-dropdown">
         <button type="button" class="admin-nav-dropdown-toggle" id="admin-tools-toggle" aria-expanded="false"><%= t('admin_tools_menu') %> &#9662;</button>
         <div class="admin-nav-dropdown-menu d-none" id="admin-tools-menu">
+          <a href="/admin/tuition-import"><%= t('tuition_import_nav') %></a>
           <a href="/admin/scan-registration"><%= t('scan_legacy_form') %></a>
           <a href="/admin/health/mail" target="_blank" rel="noreferrer"><%= t('mail_health') %></a>
           <a href="/admin/health/document-ai" target="_blank" rel="noreferrer"><%= t('document_ai_health') %></a>
