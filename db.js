@@ -670,6 +670,11 @@ const init = async () => {
     // filtered by source_program_type — see getClassRoster in app.js.
     await ensureColumn('ccd_classes', 'class_kind', "VARCHAR(20) NOT NULL DEFAULT 'children'");
     await ensureColumn('ccd_classes', 'source_program_type', 'VARCHAR(50) NULL');
+    // A Family Faith Formation class runs concurrently with a specific children's class
+    // (so parents attend their own session while their kids are in CCD) — this points at
+    // that children's ccd_classes row. Meaningless for other adult programs (OCIA has no
+    // paired children's class), so it stays NULL there.
+    await ensureColumn('ccd_classes', 'linked_class_id', 'INT NULL');
     // ccd_class_attendance.student_registration_id is really "roster member id" — for an
     // adult class it holds an adult_registrations.id instead, which the original FK
     // (scoped to student_registrations only) would reject. The column itself stays
