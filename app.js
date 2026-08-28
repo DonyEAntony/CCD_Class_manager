@@ -139,6 +139,12 @@ const translations = {
     catechist_message_sent: 'Message sent to %s.',
     catechist_message_failed: 'Message could not be sent — check the mail server configuration.',
     no_catechists_yet: 'No catechists yet.',
+    staff_broadcast_header: 'Message All Staff',
+    staff_broadcast_roles_label: 'Send to',
+    staff_broadcast_send_button: 'Send to Staff',
+    staff_broadcast_roles_required: 'Choose at least one group to send to.',
+    staff_broadcast_no_recipients: 'No active users found for the selected group(s).',
+    staff_broadcast_sent: 'Message sent — %s staff member(s) Bcc\'d.',
     registration: 'Registration',
     signed_in_as: 'Signed in as',
     new_registration: 'New Registration',
@@ -1048,6 +1054,12 @@ const translations = {
     catechist_message_sent: 'Mensaje enviado a %s.',
     catechist_message_failed: 'No se pudo enviar el mensaje: verifique la configuración del servidor de correo.',
     no_catechists_yet: 'Aún no hay catequistas.',
+    staff_broadcast_header: 'Enviar Mensaje a Todo el Personal',
+    staff_broadcast_roles_label: 'Enviar a',
+    staff_broadcast_send_button: 'Enviar al Personal',
+    staff_broadcast_roles_required: 'Elija al menos un grupo para enviar.',
+    staff_broadcast_no_recipients: 'No se encontraron usuarios activos para el/los grupo(s) seleccionado(s).',
+    staff_broadcast_sent: 'Mensaje enviado — %s miembro(s) del personal en Cco.',
     registration: 'Inscripcion',
     signed_in_as: 'Conectado como',
     new_registration: 'Nueva Inscripción',
@@ -7274,6 +7286,52 @@ app.post('/admin/catechists/:id/message', requireAuth, requireRole('admin'), asy
 
   if (result.delivered) {
     req.flash('success', res.locals.t('catechist_message_sent').replace('%s', catechist.full_name || catechist.email));
+  } else {
+    req.flash('error', res.locals.t('catechist_message_failed'));
+  }
+  return res.redirect('/admin/catechists');
+}));
+
+const STAFF_BROADCAST_ROLES = new Set(['catechist', 'admin', 'family_faith_leader']);
+
+// One email addressed to the admin with every selected staff member Bcc'd, so recipients
+// can't see each other's addresses — same pattern the per-class "Bcc all" message option
+// already uses (see sendClassMessageEmail's bcc param).
+app.post('/admin/catechists/broadcast', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const roles = [].concat(req.body.roles || []).filter((role) => STAFF_BROADCAST_ROLES.has(role));
+  if (!roles.length) {
+    req.flash('error', res.locals.t('staff_broadcast_roles_required'));
+    return res.redirect('/admin/catechists');
+  }
+
+  const message = typeof req.body.message === 'string' ? req.body.message.trim() : '';
+  const subject = typeof req.body.subject === 'string' ? req.body.subject.trim() : '';
+  if (!message) {
+    req.flash('error', res.locals.t('catechist_message_required'));
+    return res.redirect('/admin/catechists');
+  }
+
+  const recipients = await db.prepare(
+    `SELECT DISTINCT email FROM users
+     WHERE role IN (${roles.map(() => '?').join(',')}) AND COALESCE(account_status, 'active') <> 'deleted' AND email IS NOT NULL AND email <> ''`
+  ).all(...roles);
+  const bccList = recipients.map((r) => r.email);
+  if (!bccList.length) {
+    req.flash('error', res.locals.t('staff_broadcast_no_recipients'));
+    return res.redirect('/admin/catechists');
+  }
+
+  const result = await sendClassMessageEmail({
+    to: req.user.email,
+    bcc: bccList.join(', '),
+    subject,
+    message,
+    senderName: req.user.full_name || req.user.email,
+    replyTo: req.user.email || undefined,
+  });
+
+  if (result.delivered) {
+    req.flash('success', res.locals.t('staff_broadcast_sent').replace('%s', bccList.length));
   } else {
     req.flash('error', res.locals.t('catechist_message_failed'));
   }
