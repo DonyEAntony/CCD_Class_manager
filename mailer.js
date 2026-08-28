@@ -33,6 +33,67 @@ const createTransporter = () => {
   });
 };
 
+// Matches the app's own color tokens (public/styles.css :root) so every email reads as
+// the same brand as the site itself, not a generic transactional notice.
+const BRAND = {
+  navy: '#1d3131',
+  goldLight: '#f2c36b',
+  inkSoft: '#33403a',
+  muted: '#6f7a75',
+  border: '#e0e3de',
+  surface: '#eef1f0',
+};
+
+const emailLogoUrl = () => {
+  const base = (process.env.APP_BASE_URL || '').trim().replace(/\/$/, '');
+  return base ? `${base}/st-matthew-logo.png` : '';
+};
+
+// Wraps an inner content fragment in the parish's branded header/footer shell. Email
+// clients strip <style> blocks and most modern CSS unpredictably, so this — and every
+// build*EmailContent template below — sticks to table-based layout and inline styles
+// only (the standard "bulletproof email" constraints).
+const wrapBrandedEmailHtml = (innerHtml) => {
+  const logoUrl = emailLogoUrl();
+  return `
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${BRAND.surface};padding:24px 0;font-family:Arial,Helvetica,sans-serif;">
+  <tr>
+    <td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:8px;overflow:hidden;border:1px solid ${BRAND.border};">
+        <tr>
+          <td style="background:${BRAND.navy};padding:24px 32px;text-align:center;">
+            ${logoUrl ? `<img src="${logoUrl}" alt="Saint Matthew Catholic Church" width="56" height="56" style="display:block;margin:0 auto 10px;border-radius:50%;">` : ''}
+            <div style="color:${BRAND.goldLight};font-size:19px;font-weight:700;letter-spacing:.02em;">Saint Matthew Catholic Church</div>
+            <div style="color:#c9d6d5;font-size:12px;margin-top:4px;">Office of Evangelization and Discipleship</div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:32px;color:${BRAND.inkSoft};font-size:15px;line-height:1.6;">
+            ${innerHtml}
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:16px 32px;border-top:1px solid ${BRAND.border};color:${BRAND.muted};font-size:12px;text-align:center;">
+            Saint Matthew Catholic Church &middot; Office of Evangelization and Discipleship
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>`;
+};
+
+// A background-colored table cell (not a <button>/box-shadow, which many clients strip)
+// is the standard email-safe way to render something that looks like a real button.
+const emailButton = (url, label) => `
+    <table role="presentation" cellpadding="0" cellspacing="0" style="margin:20px 0;">
+      <tr>
+        <td style="background:${BRAND.navy};border-radius:6px;">
+          <a href="${url}" style="display:inline-block;padding:12px 28px;color:${BRAND.goldLight};font-weight:700;font-size:14px;text-decoration:none;">${label}</a>
+        </td>
+      </tr>
+    </table>`;
+
 const verifyMailConfiguration = async () => {
   const transporter = createTransporter();
   if (!transporter) {
@@ -63,7 +124,7 @@ const buildVerificationEmailContent = ({ verificationUrl, fullName }) => ({
   html: `
     <p>Hello ${fullName || ''},</p>
     <p>Please verify your email address before logging in.</p>
-    <p><a href="${verificationUrl}">Verify your account</a></p>
+    ${emailButton(verificationUrl, 'Verify your account')}
     <p>If you did not create this account, you can ignore this message.</p>
   `,
 });
@@ -96,7 +157,7 @@ const sendVerificationEmail = async ({ to, verificationUrl, fullName }) => {
     to,
     subject: content.subject,
     text: content.text,
-    html: content.html,
+    html: wrapBrandedEmailHtml(content.html),
   });
 
   console.info('[mail] Verification email accepted by SMTP server', {
@@ -171,7 +232,7 @@ const sendClassMessageEmail = async ({ to, subject, message, senderName, cc, bcc
     replyTo: replyTo || undefined,
     subject: content.subject,
     text: content.text,
-    html: content.html,
+    html: wrapBrandedEmailHtml(content.html),
     attachments: attachments && attachments.length ? attachments : undefined,
   });
 
@@ -197,7 +258,7 @@ const buildPasswordResetEmailContent = ({ resetUrl, fullName }) => ({
   html: `
     <p>Hello ${fullName || ''},</p>
     <p>We received a request to reset your password. This link expires in 1 hour.</p>
-    <p><a href="${resetUrl}">Reset your password</a></p>
+    ${emailButton(resetUrl, 'Reset your password')}
     <p>If you did not request this, you can ignore this message and your password will stay the same.</p>
   `,
 });
@@ -230,7 +291,7 @@ const sendPasswordResetEmail = async ({ to, resetUrl, fullName }) => {
     to,
     subject: content.subject,
     text: content.text,
-    html: content.html,
+    html: wrapBrandedEmailHtml(content.html),
   });
 
   console.info('[mail] Password reset email accepted by SMTP server', {
@@ -258,7 +319,7 @@ const buildCatechistInvitationEmailContent = ({ activationUrl, fullName }) => ({
     <p>Hello ${fullName || ''},</p>
     <p>An administrator has created a Catechist account for you at Saint Matthew Faith Formation.</p>
     <p>Set your password to activate your account. This link expires in 7 days.</p>
-    <p><a href="${activationUrl}">Activate your account</a></p>
+    ${emailButton(activationUrl, 'Activate your account')}
     <p>If you were not expecting this invitation, you can ignore this message.</p>
   `,
 });
@@ -280,7 +341,7 @@ const buildTemporaryPasswordEmailContent = ({ tempPassword, loginUrl, fullName }
     <p>Hello ${fullName || ''},</p>
     <p>An administrator has created an account for you at Saint Matthew Faith Formation.</p>
     <p>Temporary password: <strong>${tempPassword}</strong></p>
-    <p><a href="${loginUrl}">Log in</a></p>
+    ${emailButton(loginUrl, 'Log in')}
     <p>You will be asked to set a new password the first time you log in.</p>
     <p>If you were not expecting this account, you can ignore this message.</p>
   `,
@@ -314,7 +375,7 @@ const sendTemporaryPasswordEmail = async ({ to, tempPassword, loginUrl, fullName
     to,
     subject: content.subject,
     text: content.text,
-    html: content.html,
+    html: wrapBrandedEmailHtml(content.html),
   });
 
   console.info('[mail] Temporary password email accepted by SMTP server', {
@@ -354,7 +415,7 @@ const sendCatechistInvitationEmail = async ({ to, activationUrl, fullName }) => 
     to,
     subject: content.subject,
     text: content.text,
-    html: content.html,
+    html: wrapBrandedEmailHtml(content.html),
   });
 
   console.info('[mail] Catechist invitation email accepted by SMTP server', {
@@ -372,4 +433,5 @@ module.exports = {
   sendPasswordResetEmail, buildPasswordResetEmailContent, sendClassMessageEmail, buildClassMessageEmailContent,
   sendCatechistInvitationEmail, buildCatechistInvitationEmailContent,
   sendTemporaryPasswordEmail, buildTemporaryPasswordEmailContent,
+  wrapBrandedEmailHtml, emailButton,
 };
