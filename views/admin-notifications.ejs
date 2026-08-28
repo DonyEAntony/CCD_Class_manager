@@ -67,7 +67,7 @@
           <label class="form-label" for="notification-individuals"><%= t('resource_visible_to_individuals_label') %></label>
           <select class="form-select" id="notification-individuals" name="target_user_ids" multiple size="5">
             <% assignableUsers.forEach((u) => { %>
-              <option value="<%= u.id %>"><%= u.full_name || u.email %></option>
+              <option value="<%= u.id %>" <%= preselectTargetUserId === u.id ? 'selected' : '' %>><%= u.full_name || u.email %></option>
             <% }) %>
           </select>
         </div>

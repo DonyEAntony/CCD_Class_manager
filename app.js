@@ -123,6 +123,22 @@ const translations = {
     no_notifications_yet: 'No notifications sent yet.',
     remove_notification_confirm: "Remove this notification? Anyone who hasn't dismissed it yet will stop seeing it.",
     acknowledged_count_label: 'acknowledged',
+    manage_catechists_nav: 'Catechists',
+    admin_catechists_title: 'Catechists',
+    admin_catechists_subtitle: 'Message a catechist directly, or jump to Resources/Notifications with them pre-selected.',
+    catechist_classes_label: 'Classes',
+    no_classes_assigned_label: 'No classes assigned',
+    catechist_message_button: 'Message',
+    catechist_message_subject_label: 'Subject (optional)',
+    catechist_message_body_label: 'Message',
+    catechist_message_send_button: 'Send Email',
+    catechist_assign_resource_button: 'Assign Resource',
+    catechist_send_notification_button: 'Send Notification',
+    catechist_not_found: 'Catechist not found.',
+    catechist_message_required: 'Please enter a message to send.',
+    catechist_message_sent: 'Message sent to %s.',
+    catechist_message_failed: 'Message could not be sent — check the mail server configuration.',
+    no_catechists_yet: 'No catechists yet.',
     registration: 'Registration',
     signed_in_as: 'Signed in as',
     new_registration: 'New Registration',
@@ -1004,6 +1020,22 @@ const translations = {
     no_notifications_yet: 'Aún no se han enviado notificaciones.',
     remove_notification_confirm: '¿Eliminar esta notificación? Quienes aún no la hayan descartado dejarán de verla.',
     acknowledged_count_label: 'confirmados',
+    manage_catechists_nav: 'Catequistas',
+    admin_catechists_title: 'Catequistas',
+    admin_catechists_subtitle: 'Envíe un mensaje directo a un catequista, o vaya a Recursos/Notificaciones con ellos ya seleccionados.',
+    catechist_classes_label: 'Clases',
+    no_classes_assigned_label: 'Sin clases asignadas',
+    catechist_message_button: 'Mensaje',
+    catechist_message_subject_label: 'Asunto (opcional)',
+    catechist_message_body_label: 'Mensaje',
+    catechist_message_send_button: 'Enviar Correo',
+    catechist_assign_resource_button: 'Asignar Recurso',
+    catechist_send_notification_button: 'Enviar Notificación',
+    catechist_not_found: 'Catequista no encontrado.',
+    catechist_message_required: 'Por favor ingrese un mensaje para enviar.',
+    catechist_message_sent: 'Mensaje enviado a %s.',
+    catechist_message_failed: 'No se pudo enviar el mensaje: verifique la configuración del servidor de correo.',
+    no_catechists_yet: 'Aún no hay catequistas.',
     registration: 'Inscripcion',
     signed_in_as: 'Conectado como',
     new_registration: 'Nueva Inscripción',
@@ -6650,6 +6682,7 @@ app.get('/admin/resources', requireAuth, requireRole('admin'), asyncHandler(asyn
     assignableUsers,
     assignableRoles: ASSIGNABLE_AUDIENCE_ROLES,
     roleLabels,
+    preselectTargetUserId: Number.parseInt(req.query.target_user_id, 10) || null,
   });
 }));
 
@@ -6789,6 +6822,7 @@ app.get('/admin/notifications', requireAuth, requireRole('admin'), asyncHandler(
     assignableUsers,
     assignableRoles: ASSIGNABLE_AUDIENCE_ROLES,
     roleLabels,
+    preselectTargetUserId: Number.parseInt(req.query.target_user_id, 10) || null,
   });
 }));
 
@@ -7109,6 +7143,65 @@ const getOwnedCcdClass = async (req, classId) => {
   if (req.user.role !== 'admin' && !isClassCatechist(ccdClass, req.user.id)) return null;
   return ccdClass;
 };
+
+app.get('/admin/catechists', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const catechists = await db.prepare(`
+    SELECT id, full_name, email, phone FROM users
+    WHERE role = 'catechist' AND COALESCE(account_status, 'active') <> 'deleted'
+    ORDER BY COALESCE(NULLIF(full_name, ''), email) ASC
+  `).all();
+
+  const ccdClasses = await getCcdClasses();
+  const classesByCatechist = new Map();
+  ccdClasses.forEach((c) => {
+    c.catechists.forEach((catechist) => {
+      if (!classesByCatechist.has(catechist.id)) classesByCatechist.set(catechist.id, []);
+      classesByCatechist.get(catechist.id).push(c);
+    });
+  });
+
+  res.render('admin-catechists', {
+    catechists: catechists.map((c) => ({
+      ...c,
+      classLabels: (classesByCatechist.get(c.id) || []).map(getCcdClassShortLabel),
+    })),
+  });
+}));
+
+// Direct one-off email to a single catechist — reuses the same personal-correspondence
+// mailer as class messages (buildClassMessageEmailContent's default subject/signature
+// already reads fine outside a class context, so no separate template is needed).
+app.post('/admin/catechists/:id/message', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const catechist = await db.prepare(
+    `SELECT id, full_name, email FROM users WHERE id = ? AND role = 'catechist'`
+  ).get(req.params.id);
+  if (!catechist || !catechist.email) {
+    req.flash('error', res.locals.t('catechist_not_found'));
+    return res.redirect('/admin/catechists');
+  }
+
+  const message = typeof req.body.message === 'string' ? req.body.message.trim() : '';
+  const subject = typeof req.body.subject === 'string' ? req.body.subject.trim() : '';
+  if (!message) {
+    req.flash('error', res.locals.t('catechist_message_required'));
+    return res.redirect('/admin/catechists');
+  }
+
+  const result = await sendClassMessageEmail({
+    to: catechist.email,
+    subject,
+    message,
+    senderName: req.user.full_name || req.user.email,
+    replyTo: req.user.email || undefined,
+  });
+
+  if (result.delivered) {
+    req.flash('success', res.locals.t('catechist_message_sent').replace('%s', catechist.full_name || catechist.email));
+  } else {
+    req.flash('error', res.locals.t('catechist_message_failed'));
+  }
+  return res.redirect('/admin/catechists');
+}));
 
 app.get('/admin/classes', requireAuth, requireRole('admin', 'catechist'), asyncHandler(async (req, res) => {
   const allCcdClasses = await getCcdClasses();
