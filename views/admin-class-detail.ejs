@@ -85,6 +85,7 @@
     .ca-roster-age { font: 500 12.5px var(--ca-font-body); color: var(--ca-neutral-600); }
     .ca-badge { border-radius: 999px; padding: 2px 10px; font: 600 10px var(--ca-font-body); letter-spacing: .08em; text-transform: uppercase; }
     .ca-badge-warn { background: var(--ca-accent-200); color: var(--ca-accent-800); }
+    .ca-badge-info { background: var(--ca-accent2-200); color: var(--ca-accent2-800); }
     .ca-roster-contact { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 3px; font: 400 12.5px var(--ca-font-body); color: var(--ca-neutral-700); }
     .ca-roster-contact a { color: inherit; }
     .ca-roster-note { font-size: 12px; color: var(--ca-neutral-600); font-style: italic; margin-top: 4px; }
@@ -242,6 +243,7 @@
                   <% if (r.age !== null && r.age !== undefined) { %><span class="ca-roster-age"><%= r.age %> <%= t('years_old_label') %></span><% } %>
                   <% if (isPendingAcceptance(r)) { %><span class="ca-badge ca-badge-warn"><%= t('pending_acceptance_label') %></span><% } %>
                   <% if (r.baptismCertPending) { %><span class="ca-badge ca-badge-warn"><%= t('baptism_cert_pending_badge') %></span><% } %>
+                  <% if (r.isAltarServer) { %><span class="ca-badge ca-badge-info">⛪ <%= t('altar_server_badge') %></span><% } %>
                   <% if (r.absenceCount > 0) { %><span class="ca-badge ca-badge-warn"><%= r.absenceCount %> <%= r.absenceCount === 1 ? t('absence_singular') : t('absence_plural') %></span><% } %>
                 </div>
                 <div class="ca-roster-contact">

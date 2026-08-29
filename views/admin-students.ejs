@@ -181,7 +181,7 @@
               <td>
                 <button type="button" class="btn btn-sm btn-outline-secondary student-details-toggle" data-target="student-detail-<%= r.id %>" aria-label="<%= t('student_details_toggle') %>">&#9656;</button>
               </td>
-              <td style="font-weight:600"><%= r.student_full_name %></td>
+              <td style="font-weight:600"><%= r.student_full_name %><% if (r.is_altar_server) { %> <span title="<%= t('altar_server_badge') %>">⛪</span><% } %></td>
               <td><%= r.grade_level || '—' %></td>
               <td style="font-size:.85rem"><%= r.parent_name || r.primary_contact_email || '—' %></td>
               <td>
