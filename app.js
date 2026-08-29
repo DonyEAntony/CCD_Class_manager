@@ -814,6 +814,7 @@ const translations = {
     clear_button: 'Clear',
     autosave_note: 'Attendance saves automatically as you mark it.',
     baptism_cert_pending_badge: 'Baptism cert. pending',
+    altar_server_badge: 'Altar Server',
     years_old_label: 'yrs',
     upcoming_celebrations_label: 'Upcoming Birthdays & Anniversaries',
     no_upcoming_celebrations: 'None in the next 30 days.',
@@ -1729,6 +1730,7 @@ const translations = {
     clear_button: 'Borrar',
     autosave_note: 'La asistencia se guarda automáticamente al marcarla.',
     baptism_cert_pending_badge: 'Certificado de bautismo pendiente',
+    altar_server_badge: 'Monaguillo/a',
     years_old_label: 'años',
     upcoming_celebrations_label: 'Próximos Cumpleaños y Aniversarios',
     no_upcoming_celebrations: 'Ninguno en los próximos 30 días.',
@@ -5579,7 +5581,8 @@ app.get('/admin/students', requireAuth, requireRole('admin'), asyncHandler(async
       COALESCE(sr.tuition_payment_method, s.tuition_payment_method) AS tuition_payment_method,
       COALESCE(sr.parent_contacted, s.parent_contacted) AS parent_contacted,
       COALESCE(sr.parent_contacted_at, s.parent_contacted_at) AS parent_contacted_at,
-      COALESCE(sr.parent_contacted_by, s.parent_contacted_by) AS parent_contacted_by
+      COALESCE(sr.parent_contacted_by, s.parent_contacted_by) AS parent_contacted_by,
+      COALESCE(sr.is_altar_server, s.is_altar_server) AS is_altar_server
     FROM students s
     LEFT JOIN student_registrations sr ON sr.id = s.source_registration_id
     ORDER BY s.student_full_name ASC
@@ -7483,6 +7486,7 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist', 'fa
       age: calculateAge(r.student_dob),
       absenceCount: absentTotal,
       baptismCertPending: SACRAMENTAL_GRADE_LEVELS.has(ccdClass.grade_level) && !r.baptism_certificate_path,
+      isAltarServer: !!r.is_altar_server,
       attendanceRatePercent: pastSessionDates.length ? Math.round((presentTotal / pastSessionDates.length) * 100) : null,
       history: historyDates.map((d) => ({ date: d, status: attendanceByStudentDate.get(`${r.id}|${d}`) || null })),
       historyPresentCount,
@@ -8031,53 +8035,85 @@ const getAltarServerTrainingDates = async ({ includePast = false } = {}) => {
   });
 };
 
-app.get('/altar-server-signup', asyncHandler(async (_req, res) => {
+const getMyAltarServerEligibleChildren = (userId) => db.prepare(
+  'SELECT id, student_full_name, ccd_grade_level, non_sacramental_grade, sacramental_year, is_altar_server FROM student_registrations WHERE user_id = ? ORDER BY student_full_name ASC'
+).all(userId);
+
+app.get('/altar-server-signup', requireAuth, asyncHandler(async (req, res) => {
   const trainingDates = await getAltarServerTrainingDates();
+  const myChildren = await getMyAltarServerEligibleChildren(req.user.id);
   res.render('altar-server-signup', {
     trainingDates,
+    myChildren,
     formData: {},
   });
 }));
 
-app.post('/altar-server-signup', asyncHandler(async (req, res) => {
+app.post('/altar-server-signup', requireAuth, asyncHandler(async (req, res) => {
+  const trainingDates = await getAltarServerTrainingDates();
+  const myChildren = await getMyAltarServerEligibleChildren(req.user.id);
+  const trainingDateId = req.body.training_date_id ? Number.parseInt(req.body.training_date_id, 10) : null;
+  const resolvedTrainingDateId = (trainingDateId && trainingDates.some((d) => d.id === trainingDateId)) ? trainingDateId : null;
+  const existingRegistrationId = req.body.existing_registration_id ? Number.parseInt(req.body.existing_registration_id, 10) : null;
+
+  if (existingRegistrationId) {
+    const reg = await db.prepare(
+      'SELECT id, student_id, student_full_name FROM student_registrations WHERE id = ? AND user_id = ?'
+    ).get(existingRegistrationId, req.user.id);
+    if (!reg) {
+      req.flash('error', 'Please select one of your registered children.');
+      return res.render('altar-server-signup', { trainingDates, myChildren, formData: req.body });
+    }
+
+    await db.prepare(
+      'UPDATE student_registrations SET is_altar_server = 1, altar_server_training_date_id = ? WHERE id = ?'
+    ).run(resolvedTrainingDateId, reg.id);
+    if (reg.student_id) {
+      await db.prepare(
+        'UPDATE students SET is_altar_server = 1, altar_server_training_date_id = ? WHERE id = ?'
+      ).run(resolvedTrainingDateId, reg.student_id);
+    }
+
+    req.flash('success', `Thank you! ${reg.student_full_name} has been signed up to serve at the altar.`);
+    return res.redirect('/dashboard');
+  }
+
   const childFirstName = typeof req.body.child_first_name === 'string' ? req.body.child_first_name.trim() : '';
   const childLastName = typeof req.body.child_last_name === 'string' ? req.body.child_last_name.trim() : '';
   const childDob = typeof req.body.child_dob === 'string' ? req.body.child_dob.trim() : '';
-  const childGrade = typeof req.body.child_grade === 'string' ? req.body.child_grade.trim() : '';
-  const parentName = typeof req.body.parent_name === 'string' ? req.body.parent_name.trim() : '';
-  const parentEmail = typeof req.body.parent_email === 'string' ? req.body.parent_email.trim().toLowerCase() : '';
-  const parentPhone = typeof req.body.parent_phone === 'string' ? req.body.parent_phone.trim() : '';
-  const trainingDateId = req.body.training_date_id ? Number.parseInt(req.body.training_date_id, 10) : null;
-  const notes = typeof req.body.notes === 'string' ? req.body.notes.trim() : '';
 
-  const trainingDates = await getAltarServerTrainingDates();
-  const formData = { child_first_name: childFirstName, child_last_name: childLastName, child_dob: childDob, child_grade: childGrade, parent_name: parentName, parent_email: parentEmail, parent_phone: parentPhone, training_date_id: trainingDateId, notes };
-
-  if (!childFirstName || !childLastName || !parentName || !parentEmail || !parentPhone) {
-    req.flash('error', 'Please fill in all required fields.');
-    return res.render('altar-server-signup', { trainingDates, formData });
+  if (!childFirstName || !childLastName) {
+    req.flash('error', 'Please select one of your children, or enter a first and last name to add a new child.');
+    return res.render('altar-server-signup', { trainingDates, myChildren, formData: req.body });
   }
 
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(parentEmail)) {
-    req.flash('error', 'Please enter a valid email address.');
-    return res.render('altar-server-signup', { trainingDates, formData });
-  }
+  const studentFullName = `${childFirstName} ${childLastName}`;
+  const faithFormationSettings = await getFaithFormationSettings();
 
-  if (!phoneRegex.test(parentPhone)) {
-    req.flash('error', 'Invalid phone format. Use XXX-XXX-XXXX, XXX.XXX.XXXX, or XXX XXX XXXX.');
-    return res.render('altar-server-signup', { trainingDates, formData });
-  }
+  const insertedReg = await db.prepare(`
+    INSERT INTO student_registrations
+      (user_id, school_year, parent_name, primary_contact_email, primary_contact_phone, student_full_name, student_dob, status, is_altar_server, altar_server_training_date_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 'admitted', 1, ?)
+  `).run(
+    req.user.id, faithFormationSettings.schoolYear,
+    req.user.full_name || null, req.user.email || null, req.user.phone || null,
+    studentFullName, childDob || null, resolvedTrainingDateId
+  );
 
-  const resolvedTrainingDateId = (trainingDateId && trainingDates.some((d) => d.id === trainingDateId)) ? trainingDateId : null;
+  const insertedStudent = await db.prepare(`
+    INSERT INTO students
+      (student_full_name, student_dob, parent_user_id, parent_name, primary_contact_email, primary_contact_phone, student_status, source_registration_id, is_altar_server, altar_server_training_date_id)
+    VALUES (?, ?, ?, ?, ?, ?, 'enrolled', ?, 1, ?)
+  `).run(
+    studentFullName, childDob || null, req.user.id,
+    req.user.full_name || null, req.user.email || null, req.user.phone || null,
+    insertedReg.lastInsertRowid, resolvedTrainingDateId
+  );
+  await db.prepare('UPDATE student_registrations SET student_id = ? WHERE id = ?')
+    .run(insertedStudent.lastInsertRowid, insertedReg.lastInsertRowid);
 
-  await db.prepare(`
-    INSERT INTO altar_server_signups
-      (child_first_name, child_last_name, child_dob, child_grade, parent_name, parent_email, parent_phone, training_date_id, notes)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(childFirstName, childLastName, childDob || null, childGrade || null, parentName, parentEmail, parentPhone, resolvedTrainingDateId, notes || null);
-
-  req.flash('success', `Thank you! ${childFirstName}'s altar server signup has been received. We will contact you at ${parentEmail} with next steps.`);
-  return res.redirect('/altar-server-signup');
+  req.flash('success', `Thank you! ${studentFullName} has been signed up to serve at the altar.`);
+  return res.redirect('/dashboard');
 }));
 
 app.post('/admin/altar-server/training-dates', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {

@@ -46,50 +46,47 @@
       <div class="page-card">
         <div class="card-header"><h2 class="h5 mb-0">Signup Form</h2></div>
         <div class="card-body">
-          <form class="row g-3" method="post" action="/altar-server-signup">
+          <form class="row g-3" method="post" action="/altar-server-signup" id="altar-server-form">
 
             <div class="col-12">
-              <h6 class="text-uppercase fw-bold" style="font-size:.7rem;letter-spacing:.08em;color:var(--muted)">Child&rsquo;s Information</h6>
+              <h6 class="text-uppercase fw-bold" style="font-size:.7rem;letter-spacing:.08em;color:var(--muted)">Which child is signing up?</h6>
             </div>
-            <div class="col-md-6">
-              <label class="form-label required">First Name</label>
-              <input class="form-control" type="text" name="child_first_name" autocomplete="given-name" required value="<%= formData.child_first_name || '' %>">
-            </div>
-            <div class="col-md-6">
-              <label class="form-label required">Last Name</label>
-              <input class="form-control" type="text" name="child_last_name" autocomplete="family-name" required value="<%= formData.child_last_name || '' %>">
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Date of Birth</label>
-              <input class="form-control" type="date" name="child_dob" value="<%= formData.child_dob || '' %>">
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Grade Level</label>
-              <select class="form-select" name="child_grade">
-                <option value="">Select grade</option>
-                <% ['3rd Grade','4th Grade','5th Grade','6th Grade','7th Grade','8th Grade','9th Grade','10th Grade','11th Grade','12th Grade'].forEach(function(g) { %>
-                  <option value="<%= g %>" <%= formData.child_grade === g ? 'selected' : '' %>><%= g %></option>
+
+            <% if (myChildren && myChildren.length) { %>
+              <div class="col-12 d-flex flex-column gap-2">
+                <% myChildren.forEach(function(child) { %>
+                  <label class="d-flex align-items-center gap-2" style="border:1px solid var(--border);border-radius:8px;padding:.6rem .9rem;background:var(--off-white)">
+                    <input type="radio" name="existing_registration_id" value="<%= child.id %>" <%= String(formData.existing_registration_id) === String(child.id) ? 'checked' : '' %>>
+                    <span>
+                      <strong><%= child.student_full_name %></strong>
+                      <span style="color:var(--muted)"><%= (child.ccd_grade_level || child.non_sacramental_grade || child.sacramental_year) ? '' : '— not registered for CCD' %></span>
+                      <% if (child.is_altar_server) { %><span class="badge bg-success ms-1">Already an altar server</span><% } %>
+                    </span>
+                  </label>
                 <% }) %>
-              </select>
-            </div>
+                <label class="d-flex align-items-center gap-2" style="border:1px dashed var(--border);border-radius:8px;padding:.6rem .9rem">
+                  <input type="radio" name="existing_registration_id" value="" id="add-new-child-radio" <%= formData.existing_registration_id ? '' : 'checked' %>>
+                  <span>Add a different child</span>
+                </label>
+              </div>
+            <% } %>
 
-            <div class="col-12 mt-1">
-              <h6 class="text-uppercase fw-bold" style="font-size:.7rem;letter-spacing:.08em;color:var(--muted)">Parent / Guardian Information</h6>
-            </div>
-            <div class="col-12">
-              <label class="form-label required">Parent / Guardian Full Name</label>
-              <input class="form-control" type="text" name="parent_name" autocomplete="name" required value="<%= formData.parent_name || '' %>">
-            </div>
-            <div class="col-md-6">
-              <label class="form-label required">Email</label>
-              <input class="form-control" type="email" name="parent_email" autocomplete="email" required value="<%= formData.parent_email || '' %>">
-            </div>
-            <div class="col-md-6">
-              <label class="form-label required">Phone</label>
-              <input class="form-control" type="tel" name="parent_phone" autocomplete="tel"
-                pattern="[0-9]{3}[.\- ]?[0-9]{3}[.\- ]?[0-9]{4}"
-                title="Format: 123-456-7890"
-                required value="<%= formData.parent_phone || '' %>">
+            <div class="col-12 mt-1" id="new-child-fields" <%= (myChildren && myChildren.length && formData.existing_registration_id) ? 'style="display:none"' : '' %>>
+              <h6 class="text-uppercase fw-bold mb-2" style="font-size:.7rem;letter-spacing:.08em;color:var(--muted)">New Child&rsquo;s Information</h6>
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label required">First Name</label>
+                  <input class="form-control" type="text" name="child_first_name" autocomplete="given-name" value="<%= formData.child_first_name || '' %>">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label required">Last Name</label>
+                  <input class="form-control" type="text" name="child_last_name" autocomplete="family-name" value="<%= formData.child_last_name || '' %>">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Date of Birth</label>
+                  <input class="form-control" type="date" name="child_dob" value="<%= formData.child_dob || '' %>">
+                </div>
+              </div>
             </div>
 
             <% if (trainingDates && trainingDates.length) { %>
@@ -109,14 +106,9 @@
             </div>
             <% } %>
 
-            <div class="col-12">
-              <label class="form-label">Notes or Questions</label>
-              <textarea class="form-control" name="notes" rows="3" placeholder="Any scheduling concerns, questions for the parish, or other information"><%= formData.notes || '' %></textarea>
-            </div>
-
             <div class="col-12 d-flex flex-wrap gap-2">
               <button class="btn btn-primary" type="submit">Submit Signup</button>
-              <a class="btn btn-outline-secondary" href="/">Back to Home</a>
+              <a class="btn btn-outline-secondary" href="/dashboard">Back to Dashboard</a>
             </div>
           </form>
         </div>
@@ -153,5 +145,19 @@
     </div>
   </div>
 </main>
+<script>
+  (function () {
+    var form = document.getElementById('altar-server-form');
+    var newChildFields = document.getElementById('new-child-fields');
+    if (!form || !newChildFields) return;
+    var radios = form.querySelectorAll('input[name="existing_registration_id"]');
+    var sync = function () {
+      var addingNew = Array.prototype.some.call(radios, function (r) { return r.checked && r.value === ''; }) || !radios.length;
+      newChildFields.style.display = addingNew ? '' : 'none';
+    };
+    radios.forEach(function (r) { r.addEventListener('change', sync); });
+    sync();
+  })();
+</script>
 </body>
 </html>

@@ -223,7 +223,7 @@
             <tbody>
             <% studentRegs.forEach(r => { %>
               <tr>
-                <td style="font-weight:600"><%= r.student_full_name %></td>
+                <td style="font-weight:600"><%= r.student_full_name %><% if (r.is_altar_server) { %> <span title="<%= t('altar_server_badge') %>">⛪</span><% } %></td>
                 <td><%= (typeof resolveCcdGrade === 'function' ? resolveCcdGrade(r) : r.ccd_grade_level) || '—' %></td>
                 <td style="font-size:.85rem"><%= r.parent_name || r.primary_contact_email || '—' %></td>
                 <td><strong>$<%= (r.registration_fee||0)+(r.sacramental_fee||0)+(r.late_fee||0) %></strong></td>
