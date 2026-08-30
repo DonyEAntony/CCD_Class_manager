@@ -7446,10 +7446,11 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist', 'fa
   const faithFormationSettings = await getFaithFormationSettings();
 
   const assignedCatechistIds = new Set((ccdClass.catechists || []).map((c) => c.id));
-  // Family Faith Formation's "teacher" is really a family_faith_leader, not a catechist —
-  // widen the assignable pool for that one program instead of teaching getAssignableTeachers
-  // about a role it otherwise has no reason to know.
-  const assignableCatechistPool = ccdClass.sourceProgramType === 'family_faith'
+  // A family_faith_leader can be a legitimate "teacher" for any adult faith formation
+  // class, not just Family Faith Formation itself (e.g. leading OCIA or Baptism Prep) —
+  // widen the assignable pool for every adult class instead of teaching
+  // getAssignableTeachers about a role it otherwise has no reason to know.
+  const assignableCatechistPool = ccdClass.classKind === 'adult'
     ? [...(await getAssignableTeachers()), ...(await getFamilyFaithLeaders())]
     : await getAssignableTeachers();
   const assignableCatechists = req.user.role === 'admin'
