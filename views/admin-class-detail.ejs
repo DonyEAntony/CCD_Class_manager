@@ -312,6 +312,33 @@
 
       <div class="col-lg-4">
 
+        <div class="ca-sidebar-card">
+          <div class="ca-sidebar-label"><%= t('upcoming_celebrations_label') %></div>
+          <% if (!upcomingCelebrations.length) { %>
+            <div class="ca-hint" style="margin-top:.4rem"><%= t('no_upcoming_celebrations') %></div>
+          <% } else { %>
+            <div class="ca-celebration-list">
+              <% upcomingCelebrations.forEach((c) => { %>
+                <div class="ca-celebration-row">
+                  <span class="ca-celebration-icon"><%= c.type === 'birthday' ? '🎂' : '✝️' %></span>
+                  <div style="min-width:0">
+                    <div class="ca-celebration-name"><%= c.studentName %></div>
+                    <div class="ca-celebration-meta">
+                      <%= c.type === 'birthday' ? t('birthday_label') : t('baptism_anniversary_label') %>
+                      &middot;
+                      <% if (c.daysUntil === 0) { %><%= t('today_label') %>
+                      <% } else if (c.daysUntil === 1) { %><%= t('tomorrow_label') %>
+                      <% } else { %><%= t('in_days_label') %> <%= c.daysUntil %> <%= t('days_label') %>
+                      <% } %>
+                      <% if (c.type === 'birthday') { %> &middot; <%= t('turning_label') %> <%= c.years %><% } %>
+                    </div>
+                  </div>
+                </div>
+              <% }) %>
+            </div>
+          <% } %>
+        </div>
+
         <% if (linkedClassLabel) { %>
           <div class="ca-sidebar-card">
             <div class="ca-sidebar-label-row">
@@ -398,33 +425,6 @@
               </div>
             <% }) %>
           </div>
-        </div>
-
-        <div class="ca-sidebar-card">
-          <div class="ca-sidebar-label"><%= t('upcoming_celebrations_label') %></div>
-          <% if (!upcomingCelebrations.length) { %>
-            <div class="ca-hint" style="margin-top:.4rem"><%= t('no_upcoming_celebrations') %></div>
-          <% } else { %>
-            <div class="ca-celebration-list">
-              <% upcomingCelebrations.forEach((c) => { %>
-                <div class="ca-celebration-row">
-                  <span class="ca-celebration-icon"><%= c.type === 'birthday' ? '🎂' : '✝️' %></span>
-                  <div style="min-width:0">
-                    <div class="ca-celebration-name"><%= c.studentName %></div>
-                    <div class="ca-celebration-meta">
-                      <%= c.type === 'birthday' ? t('birthday_label') : t('baptism_anniversary_label') %>
-                      &middot;
-                      <% if (c.daysUntil === 0) { %><%= t('today_label') %>
-                      <% } else if (c.daysUntil === 1) { %><%= t('tomorrow_label') %>
-                      <% } else { %><%= t('in_days_label') %> <%= c.daysUntil %> <%= t('days_label') %>
-                      <% } %>
-                      <% if (c.type === 'birthday') { %> &middot; <%= t('turning_label') %> <%= c.years %><% } %>
-                    </div>
-                  </div>
-                </div>
-              <% }) %>
-            </div>
-          <% } %>
         </div>
 
         <% if (classAttendanceRatePercent !== null) { %>
