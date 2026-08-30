@@ -145,6 +145,7 @@ const translations = {
     staff_broadcast_roles_required: 'Choose at least one group to send to.',
     staff_broadcast_no_recipients: 'No active users found for the selected group(s).',
     staff_broadcast_sent: 'Message sent — %s staff member(s) Bcc\'d.',
+    staff_broadcast_partial: 'Only %s of %s staff member(s) received the message — these addresses were rejected: %s',
     registration: 'Registration',
     signed_in_as: 'Signed in as',
     new_registration: 'New Registration',
@@ -1062,6 +1063,7 @@ const translations = {
     staff_broadcast_roles_required: 'Elija al menos un grupo para enviar.',
     staff_broadcast_no_recipients: 'No se encontraron usuarios activos para el/los grupo(s) seleccionado(s).',
     staff_broadcast_sent: 'Mensaje enviado — %s miembro(s) del personal en Cco.',
+    staff_broadcast_partial: 'Solo %s de %s miembro(s) del personal recibieron el mensaje — estas direcciones fueron rechazadas: %s',
     registration: 'Inscripcion',
     signed_in_as: 'Conectado como',
     new_registration: 'Nueva Inscripción',
@@ -7360,10 +7362,25 @@ app.post('/admin/catechists/broadcast', requireAuth, requireRole('admin'), async
     replyTo: req.user.email || undefined,
   });
 
-  if (result.delivered) {
-    req.flash('success', res.locals.t('staff_broadcast_sent').replace('%s', bccList.length));
-  } else {
+  if (!result.delivered) {
     req.flash('error', res.locals.t('catechist_message_failed'));
+    return res.redirect('/admin/catechists');
+  }
+
+  // sendMail() not throwing only means the SMTP server accepted the request — an
+  // individual Bcc address can still bounce at the RCPT TO stage and come back in
+  // result.rejected, so check that before telling the sender it actually went out.
+  const rejectedSet = new Set((result.rejected || []).map((addr) => String(addr).toLowerCase()));
+  const rejectedBcc = bccList.filter((addr) => rejectedSet.has(addr.toLowerCase()));
+
+  if (rejectedBcc.length) {
+    console.warn('[admin] Staff broadcast partially rejected by SMTP server', { rejected: rejectedBcc });
+    req.flash('error', res.locals.t('staff_broadcast_partial')
+      .replace('%s', bccList.length - rejectedBcc.length)
+      .replace('%s', bccList.length)
+      .replace('%s', rejectedBcc.join(', ')));
+  } else {
+    req.flash('success', res.locals.t('staff_broadcast_sent').replace('%s', bccList.length));
   }
   return res.redirect('/admin/catechists');
 }));
