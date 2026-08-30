@@ -75,10 +75,62 @@ const escapeHtml = (value) => String(value == null ? '' : value)
   .replace(/"/g, '&quot;')
   .replace(/'/g, '&#39;');
 
+// The staff notice always carries today's date — a sender never backdates or schedules
+// one — so the template marks the spot with an HTML comment (`<!--NOTICE_DATE-->`, never
+// offered as a fill-in field) instead of a bracket placeholder, and this always computes
+// it fresh rather than trusting anything submitted by the sender.
+const formatNoticeDate = (date = new Date()) => {
+  const weekday = date.toLocaleDateString('en-US', { weekday: 'long' });
+  const monthDay = date.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+  return `${weekday}, ${monthDay}`;
+};
+
+// Builds the "What we need from you" section for the staff notice from a list of
+// {date, text} action items, or '' to drop the section entirely — the block only makes
+// sense once there is at least one item to show. Mirrors the row markup the template
+// used to hard-code, but the last row alone gets the heavier closing rule that used to
+// be pinned to a fixed third "Ongoing" row.
+const buildActionItemsSectionHtml = (items) => {
+  if (!items || !items.length) return '';
+  const rows = items.map((item, index) => {
+    const isLast = index === items.length - 1;
+    const border = isLast ? 'border-bottom:2px solid #201e1d;' : 'border-bottom:1px solid #d6d4d3;';
+    const dateLabel = item.date && String(item.date).trim() ? `By ${escapeHtml(item.date)}` : 'Ongoing';
+    const text = escapeHtml(item.text);
+    return `
+        <tr>
+          <td width="120" style="padding:14px 16px 14px 0;${border}font-size:13px;line-height:20px;mso-line-height-rule:exactly;font-weight:700;color:#6b6866;vertical-align:top;">${dateLabel}</td>
+          <td style="padding:14px 0;${border}font-size:15px;line-height:22px;mso-line-height-rule:exactly;color:#201e1d;vertical-align:top;">${text}</td>
+        </tr>`;
+  }).join('');
+
+  return `
+  <tr>
+    <td class="px" style="padding:8px 40px 0 40px;font-family:Arial,Helvetica,sans-serif;">
+      <div style="font-size:11px;line-height:16px;mso-line-height-rule:exactly;font-weight:700;color:#ec3013;letter-spacing:0.14em;text-transform:uppercase;padding-bottom:12px;">What we need from you</div>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-top:2px solid #201e1d;">${rows}
+      </table>
+    </td>
+  </tr>`;
+};
+
+// Per-template hooks applied after the generic bracket/merge-field substitution, for
+// spots that aren't sender-typed prose: a computed value (today's date) or a
+// variable-length repeated block (action items) that the {token: value} substitution
+// model above can't express. Each hook receives the substituted HTML and the render
+// options passed to renderTemplate, and returns HTML with its own markers resolved.
+const TEMPLATE_POSTPROCESS = {
+  'staff-notice': (html, options) => html
+    .replace('<!--NOTICE_DATE-->', escapeHtml(formatNoticeDate()))
+    .replace('<!--ACTION_ITEMS_SECTION-->', buildActionItemsSectionHtml((options && options.actionItems) || [])),
+};
+
 // valuesByToken: { [placeholderToken]: rawSenderText }. A blank or missing value keeps
 // the placeholder's own bracket text in place, so an unfilled spot still reads as an
-// obvious placeholder rather than turning into empty, broken-looking markup.
-const renderTemplate = (id, valuesByToken) => {
+// obvious placeholder rather than turning into empty, broken-looking markup. `options` is
+// passed through to the template's postprocess hook, if it has one (see
+// TEMPLATE_POSTPROCESS above).
+const renderTemplate = (id, valuesByToken, options) => {
   const html = loadTemplateHtml(id);
   if (html == null) return null;
   const fields = extractPlaceholders(html);
@@ -88,6 +140,8 @@ const renderTemplate = (id, valuesByToken) => {
     const filled = raw && String(raw).trim() ? escapeHtml(raw).replace(/\n/g, '<br>') : field.token;
     out = out.split(field.token).join(filled);
   });
+  const postprocess = TEMPLATE_POSTPROCESS[id];
+  if (postprocess) out = postprocess(out, options);
   return out;
 };
 

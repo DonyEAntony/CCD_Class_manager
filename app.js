@@ -146,6 +146,12 @@ const translations = {
     staff_broadcast_template_blank_option: 'Plain message',
     staff_broadcast_template_fields_hint: 'Fill in the highlighted spots below — anything left blank keeps its placeholder text.',
     staff_broadcast_preview_button: 'Preview',
+    staff_broadcast_action_items_label: 'What we need from you (optional)',
+    staff_broadcast_action_items_hint: "Add a deadline and an action item for each thing staff need to do. Leave this empty and the \"What we need from you\" section won't appear at all. A row with no date reads as \"Ongoing\".",
+    staff_broadcast_action_item_date_placeholder: 'Date (optional)',
+    staff_broadcast_action_item_text_placeholder: 'Action item',
+    staff_broadcast_add_action_item_button: 'Add item',
+    staff_broadcast_remove_action_item_button: 'Remove item',
     staff_broadcast_send_button: 'Send to Staff',
     staff_broadcast_roles_required: 'Choose at least one group to send to.',
     staff_broadcast_no_recipients: 'No active users found for the selected group(s).',
@@ -1069,6 +1075,12 @@ const translations = {
     staff_broadcast_template_blank_option: 'Mensaje simple',
     staff_broadcast_template_fields_hint: 'Complete los espacios resaltados a continuación — lo que deje en blanco conserva su texto de marcador de posición.',
     staff_broadcast_preview_button: 'Vista previa',
+    staff_broadcast_action_items_label: 'Lo que necesitamos de usted (opcional)',
+    staff_broadcast_action_items_hint: 'Agregue una fecha límite y una tarea por cada cosa que el personal deba hacer. Si lo deja vacío, la sección "Lo que necesitamos de usted" no aparecerá. Una fila sin fecha se muestra como "Continuo".',
+    staff_broadcast_action_item_date_placeholder: 'Fecha (opcional)',
+    staff_broadcast_action_item_text_placeholder: 'Tarea',
+    staff_broadcast_add_action_item_button: 'Agregar tarea',
+    staff_broadcast_remove_action_item_button: 'Quitar tarea',
     staff_broadcast_send_button: 'Enviar al Personal',
     staff_broadcast_roles_required: 'Elija al menos un grupo para enviar.',
     staff_broadcast_no_recipients: 'No se encontraron usuarios activos para el/los grupo(s) seleccionado(s).',
@@ -7313,6 +7325,26 @@ const readTemplateFieldValues = (tpl, body) => {
   return valuesByToken;
 };
 
+// Reads the staff notice's repeatable action-item rows (parallel `action_item_date[]` /
+// action_item_text[]` arrays from the "Add item" widget) into a {date, text}[] list, for
+// email-templates.js's buildActionItemsSectionHtml. A row with no text isn't an item —
+// it's a blank the sender left when adding then not filling a row — so it's dropped
+// rather than sent as an empty bullet; only what's left decides whether the whole "What
+// we need from you" section appears at all.
+const readActionItems = (body) => {
+  const dates = [].concat(body.action_item_date || []);
+  const texts = [].concat(body.action_item_text || []);
+  return texts
+    .map((text, index) => ({ date: dates[index], text: typeof text === 'string' ? text.trim() : '' }))
+    .filter((item) => item.text);
+};
+
+// Builds the render() options for a template, threading through the staff notice's
+// action items when that's the template in play; other templates ignore the extra field.
+const readTemplateRenderOptions = (tpl, body) => (
+  tpl.id === 'staff-notice' ? { actionItems: readActionItems(body) } : undefined
+);
+
 // Renders a chosen template with the submitted placeholder values as a standalone HTML
 // page — the target of the composer's "Preview" button (formtarget="_blank"), so a
 // sender can check the filled-in email before it goes out.
@@ -7323,7 +7355,7 @@ app.post('/admin/catechists/email-preview', requireAuth, requireRole('admin'), a
     return res.status(400).send('Unknown email template.');
   }
 
-  const html = renderTemplate(tpl.id, readTemplateFieldValues(tpl, req.body));
+  const html = renderTemplate(tpl.id, readTemplateFieldValues(tpl, req.body), readTemplateRenderOptions(tpl, req.body));
   res.set('Content-Type', 'text/html; charset=utf-8');
   return res.send(html);
 }));
@@ -7400,7 +7432,9 @@ app.post('/admin/catechists/broadcast', requireAuth, requireRole('admin'), async
     return res.redirect('/admin/catechists');
   }
 
-  const templateHtml = tpl ? renderTemplate(tpl.id, readTemplateFieldValues(tpl, req.body)) : null;
+  const templateHtml = tpl
+    ? renderTemplate(tpl.id, readTemplateFieldValues(tpl, req.body), readTemplateRenderOptions(tpl, req.body))
+    : null;
 
   const result = await sendClassMessageEmail({
     to: req.user.email,
