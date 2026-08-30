@@ -12,7 +12,6 @@ const db = require('./db');
 const MySqlSessionStore = require('./session-store');
 const { processScanDocument, verifyDocumentAiConfiguration } = require('./document-ai');
 const { sendVerificationEmail, smtpLogConfig, verifyMailConfiguration, buildVerificationEmailContent, sendPasswordResetEmail, sendClassMessageEmail, sendCatechistInvitationEmail, sendTemporaryPasswordEmail } = require('./mailer');
-const { listTemplatesWithFields, renderTemplate } = require('./email-templates');
 const { requireAuth, requireRole } = require('./middleware');
 
 const app = express();
@@ -142,10 +141,6 @@ const translations = {
     no_catechists_yet: 'No catechists yet.',
     staff_broadcast_header: 'Message All Staff',
     staff_broadcast_roles_label: 'Send to',
-    staff_broadcast_template_label: 'Email template',
-    staff_broadcast_template_blank_option: 'Plain message',
-    staff_broadcast_template_fields_hint: 'Fill in the highlighted spots below — anything left blank keeps its placeholder text.',
-    staff_broadcast_preview_button: 'Preview',
     staff_broadcast_send_button: 'Send to Staff',
     staff_broadcast_roles_required: 'Choose at least one group to send to.',
     staff_broadcast_no_recipients: 'No active users found for the selected group(s).',
@@ -1064,10 +1059,6 @@ const translations = {
     no_catechists_yet: 'Aún no hay catequistas.',
     staff_broadcast_header: 'Enviar Mensaje a Todo el Personal',
     staff_broadcast_roles_label: 'Enviar a',
-    staff_broadcast_template_label: 'Plantilla de correo',
-    staff_broadcast_template_blank_option: 'Mensaje simple',
-    staff_broadcast_template_fields_hint: 'Complete los espacios resaltados a continuación — lo que deje en blanco conserva su texto de marcador de posición.',
-    staff_broadcast_preview_button: 'Vista previa',
     staff_broadcast_send_button: 'Enviar al Personal',
     staff_broadcast_roles_required: 'Elija al menos un grupo para enviar.',
     staff_broadcast_no_recipients: 'No se encontraron usuarios activos para el/los grupo(s) seleccionado(s).',
@@ -7295,35 +7286,7 @@ app.get('/admin/catechists', requireAuth, requireRole('admin'), asyncHandler(asy
       ...c,
       classLabels: (classesByCatechist.get(c.id) || []).map(getCcdClassShortLabel),
     })),
-    templates: listTemplatesWithFields(),
   });
-}));
-
-// Reads the submitted `field_<id>` inputs for a template's placeholders back into a
-// {token: value} map, using the same extraction the template's form fields were built
-// from — see email-templates.js for why fields are keyed by a hash of the token, not
-// their position in the file.
-const readTemplateFieldValues = (tpl, body) => {
-  const valuesByToken = {};
-  tpl.fields.forEach((field) => {
-    valuesByToken[field.token] = body[`field_${field.id}`];
-  });
-  return valuesByToken;
-};
-
-// Renders a chosen template with the submitted placeholder values as a standalone HTML
-// page — the target of the composer's "Preview" button (formtarget="_blank"), so a
-// sender can check the filled-in email before it goes out.
-app.post('/admin/catechists/email-preview', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
-  const templateId = typeof req.body.template === 'string' ? req.body.template : '';
-  const tpl = listTemplatesWithFields().find((t) => t.id === templateId);
-  if (!tpl) {
-    return res.status(400).send('Unknown email template.');
-  }
-
-  const html = renderTemplate(tpl.id, readTemplateFieldValues(tpl, req.body));
-  res.set('Content-Type', 'text/html; charset=utf-8');
-  return res.send(html);
 }));
 
 // Direct one-off email to a single catechist — reuses the same personal-correspondence
@@ -7375,15 +7338,7 @@ app.post('/admin/catechists/broadcast', requireAuth, requireRole('admin'), async
 
   const message = typeof req.body.message === 'string' ? req.body.message.trim() : '';
   const subject = typeof req.body.subject === 'string' ? req.body.subject.trim() : '';
-  const templateId = typeof req.body.template === 'string' ? req.body.template.trim() : '';
-  const tpl = templateId ? listTemplatesWithFields().find((t) => t.id === templateId) : null;
-  if (templateId && !tpl) {
-    return res.status(400).send('Unknown email template.');
-  }
-
-  // A template supplies its own body from placeholder fields; without one, the free-text
-  // Message box is required, same as before templates existed.
-  if (!tpl && !message) {
+  if (!message) {
     req.flash('error', res.locals.t('catechist_message_required'));
     return res.redirect('/admin/catechists');
   }
@@ -7398,14 +7353,11 @@ app.post('/admin/catechists/broadcast', requireAuth, requireRole('admin'), async
     return res.redirect('/admin/catechists');
   }
 
-  const templateHtml = tpl ? renderTemplate(tpl.id, readTemplateFieldValues(tpl, req.body)) : null;
-
   const result = await sendClassMessageEmail({
     to: req.user.email,
     bcc: bccList.join(', '),
-    subject: subject || (tpl ? tpl.label : undefined),
+    subject,
     message,
-    html: templateHtml || undefined,
     senderName: req.user.full_name || req.user.email,
     replyTo: req.user.email || undefined,
   });

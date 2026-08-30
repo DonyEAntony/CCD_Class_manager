@@ -186,26 +186,6 @@ const buildClassMessageEmailContent = ({ subject, message, senderName }) => ({
   `,
 });
 
-// A rough plain-text fallback for emails whose HTML body is a fully pre-built template
-// (see the `html` param on sendClassMessageEmail below) rather than one wrapped from a
-// simple message string, for mail clients that render text/plain instead of text/html.
-const htmlToPlainText = (html) => String(html || '')
-  .replace(/<style[\s\S]*?<\/style>/gi, '')
-  .replace(/<!--[\s\S]*?-->/g, '')
-  .replace(/<br\s*\/?>/gi, '\n')
-  .replace(/<\/(p|div|tr|table|h[1-6])>/gi, '\n')
-  .replace(/<[^>]+>/g, '')
-  .replace(/&nbsp;/g, ' ')
-  .replace(/&mdash;/g, '—')
-  .replace(/&ndash;/g, '–')
-  .replace(/&middot;/g, '·')
-  .replace(/&amp;/g, '&')
-  .replace(/&#39;/g, "'")
-  .replace(/&quot;/g, '"')
-  .replace(/[ \t]+\n/g, '\n')
-  .replace(/\n{3,}/g, '\n\n')
-  .trim();
-
 // The system EMAIL_FROM is a bare mailbox address shared by every automated email
 // (verification, password reset, etc). Class messages are personal correspondence
 // from a specific catechist/admin, so they get that sender's name in the From
@@ -216,11 +196,7 @@ const extractEmailAddress = (fromValue) => {
   return match ? match[1] : (fromValue || '');
 };
 
-// `html`, when passed, is a complete, already-branded email (e.g. a rendered Faith
-// Formation template) to send as-is instead of building one from `message` — used by the
-// Discipleship Team template composer. `message` is then only used for logging/callers
-// that still want a plain-text body; the plain-text fallback is derived from `html`.
-const sendClassMessageEmail = async ({ to, subject, message, senderName, cc, bcc, replyTo, attachments, html }) => {
+const sendClassMessageEmail = async ({ to, subject, message, senderName, cc, bcc, replyTo, attachments }) => {
   const transporter = createTransporter();
   if (!transporter) {
     console.warn('[mail] Class message email skipped: SMTP config incomplete', {
@@ -246,9 +222,7 @@ const sendClassMessageEmail = async ({ to, subject, message, senderName, cc, bcc
     from: smtpLogConfig.from,
   });
 
-  const content = html
-    ? { subject: subject && subject.trim() ? subject.trim() : 'Message from Saint Matthew Faith Formation', text: htmlToPlainText(html) }
-    : buildClassMessageEmailContent({ subject, message, senderName });
+  const content = buildClassMessageEmailContent({ subject, message, senderName });
   const from = senderName ? { name: senderName, address: extractEmailAddress(resolvedFrom) } : resolvedFrom;
   const info = await transporter.sendMail({
     from,
@@ -258,7 +232,7 @@ const sendClassMessageEmail = async ({ to, subject, message, senderName, cc, bcc
     replyTo: replyTo || undefined,
     subject: content.subject,
     text: content.text,
-    html: html || wrapBrandedEmailHtml(content.html),
+    html: wrapBrandedEmailHtml(content.html),
     attachments: attachments && attachments.length ? attachments : undefined,
   });
 

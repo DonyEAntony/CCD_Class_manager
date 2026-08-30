@@ -47,49 +47,16 @@
             </div>
           </div>
         </div>
-
         <div class="col-12 col-md-4">
-          <label class="form-label" for="broadcast-template"><%= t('staff_broadcast_template_label') %></label>
-          <select class="form-select" id="broadcast-template" name="template">
-            <option value=""><%= t('staff_broadcast_template_blank_option') %></option>
-            <% templates.forEach((tpl) => { %>
-              <option value="<%= tpl.id %>"><%= tpl.label %></option>
-            <% }) %>
-          </select>
-        </div>
-        <div class="col-12 col-md-8">
           <label class="form-label"><%= t('catechist_message_subject_label') %></label>
           <input class="form-control" type="text" name="subject" maxlength="255">
         </div>
-
-        <div class="col-12" id="broadcast-plain-fields">
+        <div class="col-12 col-md-6">
           <label class="form-label"><%= t('catechist_message_body_label') %></label>
           <textarea class="form-control" name="message" rows="2" required></textarea>
         </div>
-
-        <% templates.forEach((tpl) => { %>
-          <div class="col-12 broadcast-template-fields" data-template="<%= tpl.id %>" hidden>
-            <% if (tpl.fields.length) { %>
-              <div class="form-text mb-2"><%= t('staff_broadcast_template_fields_hint') %></div>
-              <div class="row gy-2 gx-2">
-                <% tpl.fields.forEach((field) => { %>
-                  <div class="col-12 col-md-6">
-                    <label class="form-label" for="broadcast-field-<%= field.id %>"><%= field.label %></label>
-                    <% if (field.label.length > 50) { %>
-                      <textarea class="form-control" id="broadcast-field-<%= field.id %>" name="field_<%= field.id %>" rows="2"></textarea>
-                    <% } else { %>
-                      <input class="form-control" type="text" id="broadcast-field-<%= field.id %>" name="field_<%= field.id %>">
-                    <% } %>
-                  </div>
-                <% }) %>
-              </div>
-            <% } %>
-          </div>
-        <% }) %>
-
-        <div class="col-12 d-flex justify-content-end gap-2">
-          <button class="btn btn-outline-secondary" type="submit" formaction="/admin/catechists/email-preview" formtarget="_blank" formnovalidate><%= t('staff_broadcast_preview_button') %></button>
-          <button class="btn btn-primary" type="submit"><%= t('staff_broadcast_send_button') %></button>
+        <div class="col-12 col-md-2 d-flex align-items-end">
+          <button class="btn btn-primary w-100" type="submit"><%= t('staff_broadcast_send_button') %></button>
         </div>
       </form>
     </div>
@@ -166,26 +133,6 @@
         if (row) row.classList.toggle('d-none');
       });
     });
-  }());
-
-  (function () {
-    var templateSelect = document.getElementById('broadcast-template');
-    if (!templateSelect) return;
-    var plainFields = document.getElementById('broadcast-plain-fields');
-    var messageInput = plainFields ? plainFields.querySelector('textarea[name="message"]') : null;
-    var templateFieldSets = document.querySelectorAll('.broadcast-template-fields');
-
-    function syncBroadcastTemplateFields() {
-      var selected = templateSelect.value;
-      if (plainFields) plainFields.hidden = !!selected;
-      if (messageInput) messageInput.required = !selected;
-      templateFieldSets.forEach(function (fieldset) {
-        fieldset.hidden = fieldset.getAttribute('data-template') !== selected;
-      });
-    }
-
-    templateSelect.addEventListener('change', syncBroadcastTemplateFields);
-    syncBroadcastTemplateFields();
   }());
 </script>
 </body>
