@@ -30,13 +30,19 @@
     </div>
   </div>
 
+  <% if (resources.length > 5) { %>
+    <div class="mb-3">
+      <input type="search" class="form-control" id="resource-search" placeholder="<%= t('resource_search_placeholder') %>" aria-label="<%= t('resource_search_placeholder') %>">
+    </div>
+  <% } %>
+
   <div class="page-card">
     <div class="card-body p-0">
       <% if (!resources.length) { %>
         <div class="p-4 text-center" style="color:var(--muted);font-size:.9rem"><em><%= t('no_resources') %></em></div>
       <% } else { %>
         <div class="table-responsive">
-          <table class="table mb-0">
+          <table class="table mb-0" id="resource-table">
             <thead>
               <tr>
                 <th><%= t('resource_title_label') %></th>
@@ -46,7 +52,7 @@
             </thead>
             <tbody>
               <% resources.forEach((resource) => { %>
-                <tr>
+                <tr data-search-text="<%= [resource.title, resource.description].filter(Boolean).join(' ').toLowerCase() %>">
                   <td>
                     <div style="font-weight:600"><%= resource.title %></div>
                     <% if (resource.description) { %><div style="font-size:.82rem;color:var(--muted)"><%= resource.description %></div><% } %>
@@ -57,10 +63,32 @@
               <% }) %>
             </tbody>
           </table>
+          <div class="p-4 text-center d-none" id="resource-search-empty" style="color:var(--muted);font-size:.9rem"><em><%= t('no_resources_match_search') %></em></div>
         </div>
       <% } %>
     </div>
   </div>
 </main>
+<script>
+  (function () {
+    var searchInput = document.getElementById('resource-search');
+    var table = document.getElementById('resource-table');
+    if (!searchInput || !table) return;
+    var rows = Array.from(table.querySelectorAll('tbody tr'));
+    var emptyState = document.getElementById('resource-search-empty');
+
+    searchInput.addEventListener('input', function () {
+      var needle = searchInput.value.trim().toLowerCase();
+      var visibleCount = 0;
+      rows.forEach(function (row) {
+        var matches = !needle || row.getAttribute('data-search-text').indexOf(needle) !== -1;
+        row.classList.toggle('d-none', !matches);
+        if (matches) visibleCount += 1;
+      });
+      if (emptyState) emptyState.classList.toggle('d-none', visibleCount !== 0);
+      table.classList.toggle('d-none', visibleCount === 0);
+    });
+  }());
+</script>
 </body>
 </html>
