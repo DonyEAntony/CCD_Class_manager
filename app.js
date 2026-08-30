@@ -146,6 +146,7 @@ const translations = {
     staff_broadcast_no_recipients: 'No active users found for the selected group(s).',
     staff_broadcast_sent: 'Message sent — %s staff member(s) Bcc\'d.',
     staff_broadcast_partial: 'Only %s of %s staff member(s) received the message — these addresses were rejected: %s',
+    class_message_bcc_partial: 'Only %s of %s recipient(s) received the message — these addresses were rejected: %s',
     registration: 'Registration',
     signed_in_as: 'Signed in as',
     new_registration: 'New Registration',
@@ -1064,6 +1065,7 @@ const translations = {
     staff_broadcast_no_recipients: 'No se encontraron usuarios activos para el/los grupo(s) seleccionado(s).',
     staff_broadcast_sent: 'Mensaje enviado — %s miembro(s) del personal en Cco.',
     staff_broadcast_partial: 'Solo %s de %s miembro(s) del personal recibieron el mensaje — estas direcciones fueron rechazadas: %s',
+    class_message_bcc_partial: 'Solo %s de %s destinatario(s) recibieron el mensaje — estas direcciones fueron rechazadas: %s',
     registration: 'Inscripcion',
     signed_in_as: 'Conectado como',
     new_registration: 'Nueva Inscripción',
@@ -7923,10 +7925,12 @@ app.post('/admin/classes/:id/message', requireAuth, requireRole('admin', 'catech
     const replyTo = req.user.email || undefined;
     const useBcc = req.body.send_mode === 'bcc';
     let sentCount = 0;
+    let rejectedBcc = [];
     if (useBcc) {
+      const bccList = Array.from(recipientsByEmail.values());
       const result = await sendClassMessageEmail({
         to: req.user.email,
-        bcc: Array.from(recipientsByEmail.values()).join(', '),
+        bcc: bccList.join(', '),
         subject,
         message,
         senderName,
@@ -7934,7 +7938,14 @@ app.post('/admin/classes/:id/message', requireAuth, requireRole('admin', 'catech
         replyTo,
         attachments,
       });
-      if (result.delivered) sentCount = recipientsByEmail.size;
+      if (result.delivered) {
+        // sendMail() not throwing only means the SMTP server accepted the request — an
+        // individual Bcc address can still bounce at the RCPT TO stage and come back in
+        // result.rejected, so check that before counting it as sent.
+        const rejectedSet = new Set((result.rejected || []).map((addr) => String(addr).toLowerCase()));
+        rejectedBcc = bccList.filter((addr) => rejectedSet.has(addr.toLowerCase()));
+        sentCount = bccList.length - rejectedBcc.length;
+      }
     } else {
       for (const email of recipientsByEmail.values()) {
         const result = await sendClassMessageEmail({ to: email, subject, message, senderName, cc: ccList, replyTo, attachments });
@@ -7953,6 +7964,13 @@ app.post('/admin/classes/:id/message', requireAuth, requireRole('admin', 'catech
       req.flash('error', 'Message could not be sent — check the mail server configuration.');
     } else {
       if (ccAllInvalid) req.flash('error', 'The Cc address was not a valid email and was not included.');
+      if (rejectedBcc.length) {
+        console.warn('[admin] Class message Bcc partially rejected by SMTP server', { classId, rejected: rejectedBcc });
+        req.flash('error', res.locals.t('class_message_bcc_partial')
+          .replace('%s', sentCount)
+          .replace('%s', sentCount + rejectedBcc.length)
+          .replace('%s', rejectedBcc.join(', ')));
+      }
       req.flash(
         'success',
         `Message sent to ${sentCount} famil${sentCount === 1 ? 'y' : 'ies'}` +
