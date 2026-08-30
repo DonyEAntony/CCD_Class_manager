@@ -545,6 +545,7 @@ const translations = {
     filter_by_status: 'Filter by status',
     all_statuses: 'All statuses',
     change_role: 'Change role',
+    edit_profile: 'Edit profile',
     more_actions: 'More actions',
     previous_page: 'Previous',
     next_page: 'Next',
@@ -1461,6 +1462,7 @@ const translations = {
     filter_by_status: 'Filtrar por estado',
     all_statuses: 'Todos los estados',
     change_role: 'Cambiar rol',
+    edit_profile: 'Editar perfil',
     more_actions: 'Más acciones',
     previous_page: 'Anterior',
     next_page: 'Siguiente',
@@ -6667,6 +6669,31 @@ app.post('/admin/users/:id/role', requireAuth, requireRole('admin'), asyncHandle
   }
   await db.prepare('UPDATE users SET role = ? WHERE id = ?').run(req.body.role, req.params.id);
   req.flash('success', 'User role updated.');
+  res.redirect('/admin/users');
+}));
+
+app.post('/admin/users/:id/profile', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const fullName = typeof req.body.full_name === 'string' ? req.body.full_name.trim() : '';
+  const phone = typeof req.body.phone === 'string' ? req.body.phone.trim() : '';
+
+  if (!fullName) {
+    req.flash('error', 'Full name is required.');
+    return res.redirect('/admin/users');
+  }
+  if (phone && !phoneRegex.test(phone)) {
+    req.flash('error', 'Invalid phone format. Use XXX-XXX-XXXX, XXX.XXX.XXXX, or XXX XXX XXXX.');
+    return res.redirect('/admin/users');
+  }
+
+  const nameParts = fullName.split(/\s+/);
+  const firstName = nameParts[0] || '';
+  const lastName = nameParts.slice(1).join(' ') || '';
+
+  await db.prepare(
+    'UPDATE users SET full_name = ?, first_name = ?, last_name = ?, phone = ? WHERE id = ?'
+  ).run(fullName, firstName, lastName, phone || null, req.params.id);
+
+  req.flash('success', 'User profile updated.');
   res.redirect('/admin/users');
 }));
 
