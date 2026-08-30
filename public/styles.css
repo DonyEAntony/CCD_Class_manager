@@ -614,6 +614,7 @@ legend {
 .user-menu-item-danger:hover { background: #fef2f2; color: #dc3545; }
 .user-menu-divider { height: 1px; background: var(--border); margin: 4px 6px; }
 .user-role-form { padding: 8px 10px 2px; }
+.user-profile-form { padding: 8px 10px; }
 
 /* ── Forms ─────────────────────────────────────────────────── */
 .form-label {

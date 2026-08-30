@@ -172,6 +172,20 @@
                   </div>
                   <div class="user-menu d-none" id="user-menu-<%= u.id %>">
                     <a class="user-menu-item" href="/admin/users/<%= u.id %>/uploads"><%= t('user_uploads') %></a>
+                    <button type="button" class="user-menu-item user-profile-toggle" data-target="user-profile-form-<%= u.id %>"><%= t('edit_profile') %></button>
+                    <div class="d-none user-profile-form" id="user-profile-form-<%= u.id %>">
+                      <form class="d-flex flex-column gap-2" method="post" action="/admin/users/<%= u.id %>/profile">
+                        <div>
+                          <label class="form-label mb-1" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)" for="user-profile-name-<%= u.id %>"><%= t('invite_full_name_label') %></label>
+                          <input class="form-control form-control-sm" type="text" id="user-profile-name-<%= u.id %>" name="full_name" required value="<%= u.full_name || '' %>">
+                        </div>
+                        <div>
+                          <label class="form-label mb-1" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)" for="user-profile-phone-<%= u.id %>"><%= t('invite_phone_label') %></label>
+                          <input class="form-control form-control-sm" type="text" id="user-profile-phone-<%= u.id %>" name="phone" placeholder="555-123-4567" value="<%= u.phone || '' %>">
+                        </div>
+                        <button class="btn btn-primary btn-sm" type="submit"><%= t('save') %></button>
+                      </form>
+                    </div>
                     <button type="button" class="user-menu-item user-role-toggle" data-target="user-role-form-<%= u.id %>"><%= t('change_role') %></button>
                     <div class="d-none user-role-form" id="user-role-form-<%= u.id %>">
                       <form class="d-flex gap-2" method="post" action="/admin/users/<%= u.id %>/role">
@@ -951,6 +965,14 @@
     });
 
     document.querySelectorAll('.user-role-toggle').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const form = document.getElementById(btn.getAttribute('data-target'));
+        if (form) form.classList.toggle('d-none');
+      });
+    });
+
+    document.querySelectorAll('.user-profile-toggle').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const form = document.getElementById(btn.getAttribute('data-target'));

@@ -145,6 +145,7 @@ const translations = {
     staff_broadcast_roles_required: 'Choose at least one group to send to.',
     staff_broadcast_no_recipients: 'No active users found for the selected group(s).',
     staff_broadcast_sent: 'Message sent — %s staff member(s) Bcc\'d.',
+    staff_broadcast_partial: 'Only %s of %s staff member(s) received the message — these addresses were rejected: %s',
     registration: 'Registration',
     signed_in_as: 'Signed in as',
     new_registration: 'New Registration',
@@ -545,6 +546,7 @@ const translations = {
     filter_by_status: 'Filter by status',
     all_statuses: 'All statuses',
     change_role: 'Change role',
+    edit_profile: 'Edit profile',
     more_actions: 'More actions',
     previous_page: 'Previous',
     next_page: 'Next',
@@ -1061,6 +1063,7 @@ const translations = {
     staff_broadcast_roles_required: 'Elija al menos un grupo para enviar.',
     staff_broadcast_no_recipients: 'No se encontraron usuarios activos para el/los grupo(s) seleccionado(s).',
     staff_broadcast_sent: 'Mensaje enviado — %s miembro(s) del personal en Cco.',
+    staff_broadcast_partial: 'Solo %s de %s miembro(s) del personal recibieron el mensaje — estas direcciones fueron rechazadas: %s',
     registration: 'Inscripcion',
     signed_in_as: 'Conectado como',
     new_registration: 'Nueva Inscripción',
@@ -1461,6 +1464,7 @@ const translations = {
     filter_by_status: 'Filtrar por estado',
     all_statuses: 'Todos los estados',
     change_role: 'Cambiar rol',
+    edit_profile: 'Editar perfil',
     more_actions: 'Más acciones',
     previous_page: 'Anterior',
     next_page: 'Siguiente',
@@ -6670,6 +6674,31 @@ app.post('/admin/users/:id/role', requireAuth, requireRole('admin'), asyncHandle
   res.redirect('/admin/users');
 }));
 
+app.post('/admin/users/:id/profile', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const fullName = typeof req.body.full_name === 'string' ? req.body.full_name.trim() : '';
+  const phone = typeof req.body.phone === 'string' ? req.body.phone.trim() : '';
+
+  if (!fullName) {
+    req.flash('error', 'Full name is required.');
+    return res.redirect('/admin/users');
+  }
+  if (phone && !phoneRegex.test(phone)) {
+    req.flash('error', 'Invalid phone format. Use XXX-XXX-XXXX, XXX.XXX.XXXX, or XXX XXX XXXX.');
+    return res.redirect('/admin/users');
+  }
+
+  const nameParts = fullName.split(/\s+/);
+  const firstName = nameParts[0] || '';
+  const lastName = nameParts.slice(1).join(' ') || '';
+
+  await db.prepare(
+    'UPDATE users SET full_name = ?, first_name = ?, last_name = ?, phone = ? WHERE id = ?'
+  ).run(fullName, firstName, lastName, phone || null, req.params.id);
+
+  req.flash('success', 'User profile updated.');
+  res.redirect('/admin/users');
+}));
+
 app.get('/admin/health/mail', requireAuth, requireRole('admin'), async (req, res) => {
   try {
     const result = await verifyMailConfiguration();
@@ -7333,10 +7362,25 @@ app.post('/admin/catechists/broadcast', requireAuth, requireRole('admin'), async
     replyTo: req.user.email || undefined,
   });
 
-  if (result.delivered) {
-    req.flash('success', res.locals.t('staff_broadcast_sent').replace('%s', bccList.length));
-  } else {
+  if (!result.delivered) {
     req.flash('error', res.locals.t('catechist_message_failed'));
+    return res.redirect('/admin/catechists');
+  }
+
+  // sendMail() not throwing only means the SMTP server accepted the request — an
+  // individual Bcc address can still bounce at the RCPT TO stage and come back in
+  // result.rejected, so check that before telling the sender it actually went out.
+  const rejectedSet = new Set((result.rejected || []).map((addr) => String(addr).toLowerCase()));
+  const rejectedBcc = bccList.filter((addr) => rejectedSet.has(addr.toLowerCase()));
+
+  if (rejectedBcc.length) {
+    console.warn('[admin] Staff broadcast partially rejected by SMTP server', { rejected: rejectedBcc });
+    req.flash('error', res.locals.t('staff_broadcast_partial')
+      .replace('%s', bccList.length - rejectedBcc.length)
+      .replace('%s', bccList.length)
+      .replace('%s', rejectedBcc.join(', ')));
+  } else {
+    req.flash('success', res.locals.t('staff_broadcast_sent').replace('%s', bccList.length));
   }
   return res.redirect('/admin/catechists');
 }));
@@ -7446,10 +7490,11 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist', 'fa
   const faithFormationSettings = await getFaithFormationSettings();
 
   const assignedCatechistIds = new Set((ccdClass.catechists || []).map((c) => c.id));
-  // Family Faith Formation's "teacher" is really a family_faith_leader, not a catechist —
-  // widen the assignable pool for that one program instead of teaching getAssignableTeachers
-  // about a role it otherwise has no reason to know.
-  const assignableCatechistPool = ccdClass.sourceProgramType === 'family_faith'
+  // A family_faith_leader can be a legitimate "teacher" for any adult faith formation
+  // class, not just Family Faith Formation itself (e.g. leading OCIA or Baptism Prep) —
+  // widen the assignable pool for every adult class instead of teaching
+  // getAssignableTeachers about a role it otherwise has no reason to know.
+  const assignableCatechistPool = ccdClass.classKind === 'adult'
     ? [...(await getAssignableTeachers()), ...(await getFamilyFaithLeaders())]
     : await getAssignableTeachers();
   const assignableCatechists = req.user.role === 'admin'

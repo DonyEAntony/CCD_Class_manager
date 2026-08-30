@@ -236,13 +236,34 @@ const sendClassMessageEmail = async ({ to, subject, message, senderName, cc, bcc
     attachments: attachments && attachments.length ? attachments : undefined,
   });
 
-  console.info('[mail] Class message email accepted by SMTP server', {
-    to,
+  // The SMTP call succeeding only means the server accepted the request — with a Bcc
+  // list, some individual recipients can still come back in info.rejected (bad address,
+  // full mailbox, etc.) even though sendMail() itself didn't throw. Callers that fan out
+  // to many recipients (broadcasts, class Bcc messages) need this to report real delivery
+  // counts instead of an all-or-nothing "sent" flag.
+  if (info.rejected && info.rejected.length) {
+    console.warn('[mail] Class message email partially rejected by SMTP server', {
+      to,
+      accepted: info.accepted,
+      rejected: info.rejected,
+      messageId: info.messageId,
+      response: info.response,
+    });
+  } else {
+    console.info('[mail] Class message email accepted by SMTP server', {
+      to,
+      messageId: info.messageId,
+      response: info.response,
+    });
+  }
+
+  return {
+    delivered: true,
     messageId: info.messageId,
     response: info.response,
-  });
-
-  return { delivered: true, messageId: info.messageId, response: info.response };
+    accepted: info.accepted || [],
+    rejected: info.rejected || [],
+  };
 };
 
 const buildPasswordResetEmailContent = ({ resetUrl, fullName }) => ({
