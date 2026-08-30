@@ -1,6 +1,9 @@
 <%# _admin_nav.ejs - include under _topbar on every /admin/* page %>
 <div class="admin-nav">
-  <div class="admin-nav-links">
+  <button type="button" class="admin-nav-toggle" id="admin-nav-toggle" aria-expanded="false" aria-controls="admin-nav-links">
+    <span aria-hidden="true">&#9776;</span> <%= t('admin_nav_menu_label') %>
+  </button>
+  <div class="admin-nav-links" id="admin-nav-links">
     <a href="/admin/registrations">Registrations</a>
     <a href="/admin/students"><%= t('students_nav') %></a>
     <a href="/admin/classes"><%= t('classes_nav') %></a>
@@ -26,6 +29,34 @@
   </div>
   <a class="admin-nav-back" href="/dashboard"><%= t('back_to_dashboard') %></a>
 </div>
+<script>
+  (function () {
+    var navToggle = document.getElementById('admin-nav-toggle');
+    var navLinks = document.getElementById('admin-nav-links');
+    if (navToggle && navLinks) {
+      navToggle.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var isOpen = navLinks.classList.contains('open');
+        navLinks.classList.toggle('open', !isOpen);
+        navToggle.setAttribute('aria-expanded', String(!isOpen));
+      });
+      // Close on an outside click, and on picking a link — a mobile drawer that's still
+      // open after navigating away, or after tapping elsewhere on the page, just looks broken.
+      document.addEventListener('click', function (e) {
+        if (navLinks.classList.contains('open') && !navLinks.contains(e.target) && e.target !== navToggle) {
+          navLinks.classList.remove('open');
+          navToggle.setAttribute('aria-expanded', 'false');
+        }
+      });
+      navLinks.querySelectorAll('a').forEach(function (link) {
+        link.addEventListener('click', function () {
+          navLinks.classList.remove('open');
+          navToggle.setAttribute('aria-expanded', 'false');
+        });
+      });
+    }
+  }());
+</script>
 <% if (user.role === 'admin') { %>
   <script>
     (function () {

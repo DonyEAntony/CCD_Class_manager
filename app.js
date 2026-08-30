@@ -192,6 +192,7 @@ const translations = {
     associated_registrations: 'Associated Registrations',
     associated_registrations_subtitle: 'Registrations connected to this user account.',
     back_to_dashboard: 'Back to Dashboard',
+    admin_nav_menu_label: 'Menu',
     email: 'Email',
     file: 'File',
     phone: 'Phone',
@@ -838,6 +839,7 @@ const translations = {
     unmarked_label: 'unmarked',
     mark_all_present_button: 'Mark all present',
     clear_button: 'Clear',
+    clear_attendance_confirm: "Clear today's attendance for everyone in this class? This can't be undone.",
     autosave_note: 'Attendance saves automatically as you mark it.',
     baptism_cert_pending_badge: 'Baptism cert. pending',
     altar_server_badge: 'Altar Server',
@@ -1133,6 +1135,7 @@ const translations = {
     associated_registrations: 'Inscripciones Asociadas',
     associated_registrations_subtitle: 'Inscripciones conectadas a esta cuenta de usuario.',
     back_to_dashboard: 'Volver al Panel',
+    admin_nav_menu_label: 'Menú',
     email: 'Correo Electrónico',
     file: 'Archivo',
     phone: 'Telefono',
@@ -1779,6 +1782,7 @@ const translations = {
     unmarked_label: 'sin marcar',
     mark_all_present_button: 'Marcar todos presentes',
     clear_button: 'Borrar',
+    clear_attendance_confirm: '¿Borrar la asistencia de hoy para todos en esta clase? Esto no se puede deshacer.',
     autosave_note: 'La asistencia se guarda automáticamente al marcarla.',
     baptism_cert_pending_badge: 'Certificado de bautismo pendiente',
     altar_server_badge: 'Monaguillo/a',
@@ -5397,26 +5401,82 @@ app.get('/admin/registrations/export.csv', requireAuth, requireRole('admin'), as
   const parentFilter = typeof req.query.parent === 'string' ? req.query.parent.trim() : '';
   const typeFilter = EXPORT_REGISTRATION_TYPES.has(req.query.type) ? req.query.type : '';
 
+  // Only honor a status filter when it's explicitly passed (the composer link only ever
+  // sends one when the on-screen list itself is filtered away from its "everything"
+  // default) — an export URL with no status param keeps exporting every row of the type,
+  // same as it always has, so nothing changes for anyone who bookmarked or scripted one.
+  const statusOptionsForType = typeFilter ? REGISTRATION_TYPE_STATUS_OPTIONS[typeFilter] : null;
+  const requestedStatus = typeof req.query.status === 'string' ? req.query.status.trim() : '';
+  const statusFilter = statusOptionsForType && statusOptionsForType.includes(requestedStatus) && requestedStatus !== 'all'
+    ? requestedStatus
+    : '';
+
+  // Same reasoning as statusFilter above: only reorder rows when the on-screen list was
+  // itself explicitly sorted, so a plain export URL keeps its long-standing newest-first
+  // order.
+  const sortableColumnsForType = typeFilter === 'child' ? new Set(['grade', 'submitted']) : new Set(['submitted']);
+  const requestedSort = typeof req.query.sort === 'string' ? req.query.sort : '';
+  const sortBy = sortableColumnsForType.has(requestedSort) ? requestedSort : '';
+  const sortDir = req.query.dir === 'asc' ? 'asc' : 'desc';
+  const applyExportSort = (rows) => {
+    if (!sortBy) return rows;
+    const sorted = [...rows];
+    if (sortBy === 'submitted') {
+      sorted.sort((a, b) => {
+        const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return sortDir === 'asc' ? aTime - bTime : bTime - aTime;
+      });
+    } else if (sortBy === 'grade') {
+      sorted.sort((a, b) => {
+        const aGrade = Number(resolveCcdGrade(a)) || null;
+        const bGrade = Number(resolveCcdGrade(b)) || null;
+        if (!aGrade && !bGrade) return 0;
+        if (!aGrade) return 1;
+        if (!bGrade) return -1;
+        return sortDir === 'asc' ? aGrade - bGrade : bGrade - aGrade;
+      });
+    }
+    return sorted;
+  };
+
   const includeChild = !typeFilter || typeFilter === 'child';
   const includeFamily = !typeFilter || typeFilter === 'family_faith';
   const includeAdult = !typeFilter || typeFilter === 'adult';
   const includeSponsor = !typeFilter || typeFilter === 'sponsor_confirmation';
 
-  const [studentRegsAll, familyRegs, adultRegs, sponsorRegs] = await Promise.all([
+  const [studentRegsAll, familyRegsAll, adultRegsAll, sponsorRegsAll] = await Promise.all([
     includeChild ? db.prepare('SELECT * FROM student_registrations ORDER BY created_at DESC').all() : [],
     includeFamily ? db.prepare('SELECT * FROM family_faith_registrations ORDER BY created_at DESC').all() : [],
     includeAdult ? db.prepare('SELECT * FROM adult_registrations ORDER BY created_at DESC').all() : [],
     includeSponsor ? db.prepare('SELECT * FROM sponsor_confirmations ORDER BY created_at DESC').all() : [],
   ]);
-  const studentRegs = studentRegsAll.filter((reg) => {
+  const studentRegs = applyExportSort(studentRegsAll.filter((reg) => {
     if (gradeFilter && resolveCcdGrade(reg) !== gradeFilter) return false;
     if (parentFilter) {
       const needle = parentFilter.toLowerCase();
       const haystack = `${reg.parent_name || ''} ${reg.primary_contact_email || ''}`.toLowerCase();
       if (!haystack.includes(needle)) return false;
     }
+    if (statusFilter && typeFilter === 'child') {
+      if (statusFilter === 'active' && reg.archived_at) return false;
+      if (statusFilter === 'archived' && !reg.archived_at) return false;
+      if (CHILD_REGISTRATION_STATUSES.includes(statusFilter) && reg.status !== statusFilter) return false;
+    }
     return true;
-  });
+  }));
+  const familyRegs = applyExportSort(familyRegsAll.filter((reg) => (
+    !(statusFilter && typeFilter === 'family_faith') || reg.status === statusFilter
+  )));
+  const adultRegs = applyExportSort(adultRegsAll.filter((reg) => {
+    if (!(statusFilter && typeFilter === 'adult')) return true;
+    if (statusFilter === 'active') return !reg.archived_at;
+    if (statusFilter === 'archived') return !!reg.archived_at;
+    return true;
+  }));
+  const sponsorRegs = applyExportSort(sponsorRegsAll.filter((reg) => (
+    !(statusFilter && typeFilter === 'sponsor_confirmation') || reg.status === statusFilter
+  )));
 
   const verifierUserIds = new Set();
   studentRegs.forEach((reg) => {

@@ -511,6 +511,7 @@
     const presentLabel = <%- JSON.stringify(t('present_label').toLowerCase()) %>;
     const absentLabel = <%- JSON.stringify(t('absent_label').toLowerCase()) %>;
     const unmarkedLabel = <%- JSON.stringify(t('unmarked_label')) %>;
+    const clearAttendanceConfirm = <%- JSON.stringify(t('clear_attendance_confirm')) %>;
     const summaryEls = Array.from(document.querySelectorAll('.ca-stats-bar'));
     const markAllBtn = document.getElementById('mark-all-present-btn');
     const clearBtn = document.getElementById('clear-attendance-btn');
@@ -574,6 +575,7 @@
     }
     if (clearBtn) {
       clearBtn.addEventListener('click', () => {
+        if (!window.confirm(clearAttendanceConfirm)) return;
         Promise.all(rosterIds.map((id) => setAttendance(id, 'unmarked'))).then(() => {
           updateSummary(0, 0);
         });
