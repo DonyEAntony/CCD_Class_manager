@@ -47,8 +47,11 @@
     </div>
     <% const exportQuery = [
          `type=${encodeURIComponent(activeTypeFilter)}`,
+         activeStatusFilter !== defaultStatusByType[activeTypeFilter] ? `status=${encodeURIComponent(activeStatusFilter)}` : '',
          activeGradeFilter ? `grade=${encodeURIComponent(activeGradeFilter)}` : '',
          activeParentFilter ? `parent=${encodeURIComponent(activeParentFilter)}` : '',
+         activeSortBy ? `sort=${encodeURIComponent(activeSortBy)}` : '',
+         activeSortBy ? `dir=${encodeURIComponent(activeSortDir)}` : '',
        ].filter(Boolean).join('&'); %>
     <a class="btn btn-outline-primary" id="export-csv-link" href="/admin/registrations/export.csv?<%= exportQuery %>" download>
       <%= t('export_registrations_csv') %>

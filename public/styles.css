@@ -251,6 +251,53 @@ a:hover { color: var(--blue-sky); }
 }
 .admin-nav-dropdown-menu a:hover { background: var(--surface); color: var(--navy) !important; }
 
+.admin-nav-toggle {
+  display: none;
+  align-items: center;
+  gap: 0.4rem;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: rgba(255,255,255,0.85);
+  cursor: pointer;
+  order: 1;
+}
+.admin-nav-toggle:hover { color: var(--gold-light); }
+
+/* Below ~tablet width the nav's ~9 links + dropdown wrap into several cramped rows of
+   small tap targets. Collapse them behind a toggle instead: the toggle and "Back to
+   Dashboard" stay on one compact row (via `order`), and the link list becomes a
+   full-width panel that only appears when opened. */
+@media (max-width: 768px) {
+  .admin-nav-toggle { display: inline-flex; }
+  .admin-nav-back { order: 2; }
+  .admin-nav-links {
+    display: none;
+    order: 3;
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.7rem;
+    padding-top: 0.6rem;
+    border-top: 1px solid rgba(255,255,255,0.15);
+    margin-top: 0.2rem;
+  }
+  .admin-nav-links.open { display: flex; }
+  .admin-nav-dropdown { width: 100%; }
+  .admin-nav-dropdown-menu {
+    position: static;
+    width: 100%;
+    margin-top: 0.5rem;
+    box-shadow: none;
+    border: none;
+    background: rgba(255,255,255,0.06);
+  }
+  .admin-nav-dropdown-menu a { color: rgba(255,255,255,0.85) !important; }
+  .admin-nav-dropdown-menu a:hover { background: rgba(255,255,255,0.1); color: var(--gold-light) !important; }
+}
+
 /* ── Language Toggle ───────────────────────────────────────── */
 .lang-toggle {
   display: flex;
