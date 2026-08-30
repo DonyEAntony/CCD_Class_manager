@@ -28,9 +28,17 @@
     <a class="btn btn-outline-secondary" href="/calendar?month=<%= nextMonthParam %>"><%= t('next_month') %></a>
   </div>
 
-  <div class="calendar-legend">
-    <div class="calendar-legend-item"><span class="calendar-legend-swatch calendar-legend-swatch-class"></span><%= t('calendar_class_day_title') %></div>
-    <div class="calendar-legend-item"><span class="calendar-legend-swatch"></span><%= t('calendar_events_legend_label') %></div>
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div class="calendar-legend mb-0">
+      <div class="calendar-legend-item"><span class="calendar-legend-swatch calendar-legend-swatch-class"></span><%= t('calendar_class_day_title') %></div>
+      <div class="calendar-legend-item"><span class="calendar-legend-swatch"></span><%= t('calendar_events_legend_label') %></div>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <label class="form-label mb-0" for="calendar-class-filter" style="font-size:.85rem"><%= t('calendar_filter_by_class_label') %></label>
+      <select class="form-select form-select-sm d-none" id="calendar-class-filter" style="width:auto">
+        <option value=""><%= t('calendar_filter_all_classes_option') %></option>
+      </select>
+    </div>
   </div>
   <div class="calendar-legend calendar-legend-codes">
     <% ccdClassCodeLegend.forEach((entry) => { %>
@@ -54,7 +62,7 @@
                   <div class="calendar-day-number"><%= day.dayNumber %></div>
                   <div class="calendar-events">
                     <% day.events.forEach((eventItem) => { %>
-                      <div class="calendar-event-pill <%= eventItem.isClassDay ? 'calendar-class-day' : '' %>">
+                      <div class="calendar-event-pill <%= eventItem.isClassDay ? 'calendar-class-day' : '' %>" <% if (eventItem.isClassDay) { %>data-class-code="<%= eventItem.title %>"<% } %>>
                         <strong <% if (eventItem.fullTitle) { %>title="<%= eventItem.fullTitle %>"<% } %>><%= eventItem.title %></strong>
                         <% if (eventItem.isClassDay && eventItem.eventType && eventItem.eventType !== 'class_day') { %>
                           <span class="calendar-event-type-tag calendar-event-type-tag-<%= eventItem.eventType %>"><%= t('event_type_' + eventItem.eventType) %></span>
@@ -84,5 +92,47 @@
 
   <p class="footer-note"><%= t('footer_note') %></p>
 </main>
+<script>
+  (function () {
+    var select = document.getElementById('calendar-class-filter');
+    if (!select) return;
+    var pills = Array.from(document.querySelectorAll('.calendar-event-pill.calendar-class-day'));
+    if (!pills.length) return;
+
+    // Built from whatever class codes actually appear this month, rather than a fixed
+    // server-side list — stays correct as classes/sections change without needing to
+    // track every grade's code here.
+    var codes = Array.from(new Set(pills.map(function (pill) { return pill.getAttribute('data-class-code'); }).filter(Boolean))).sort();
+    codes.forEach(function (code) {
+      var opt = document.createElement('option');
+      opt.value = code;
+      opt.textContent = code;
+      select.appendChild(opt);
+    });
+    select.classList.remove('d-none');
+
+    var STORAGE_KEY = 'calendarClassFilter';
+    var applyFilter = function (code) {
+      pills.forEach(function (pill) {
+        pill.classList.toggle('d-none', !!code && pill.getAttribute('data-class-code') !== code);
+      });
+    };
+
+    // Persisted client-side (not a URL param) because Previous/Next Month are full page
+    // loads to a different URL — without this, picking a class would reset every time a
+    // parent flips the month.
+    var saved = '';
+    try { saved = window.localStorage.getItem(STORAGE_KEY) || ''; } catch (e) { /* private browsing, etc. */ }
+    if (saved && codes.indexOf(saved) !== -1) {
+      select.value = saved;
+      applyFilter(saved);
+    }
+
+    select.addEventListener('change', function () {
+      applyFilter(select.value);
+      try { window.localStorage.setItem(STORAGE_KEY, select.value); } catch (e) { /* private browsing, etc. */ }
+    });
+  }());
+</script>
 </body>
 </html>

@@ -208,17 +208,8 @@
   <div class="page-card mb-4">
     <div class="card-body">
 
-      <ul class="nav nav-tabs mb-4" id="registrationTabs" role="tablist">
-        <li class="nav-item" role="presentation">
-          <button class="nav-link active" id="programs-tab" data-bs-toggle="tab" data-bs-target="#programs-pane" type="button" role="tab" aria-controls="programs-pane" aria-selected="true"><%= t('program_registrations_tab') %></button>
-        </li>
-        <li class="nav-item" role="presentation">
-          <button class="nav-link" id="sponsor-ministry-tab" data-bs-toggle="tab" data-bs-target="#sponsor-ministry-pane" type="button" role="tab" aria-controls="sponsor-ministry-pane" aria-selected="false"><%= t('sponsor_ministry_signups_tab') %></button>
-        </li>
-      </ul>
-
-      <div class="tab-content" id="registrationTabsContent">
-        <div class="tab-pane fade show active" id="programs-pane" role="tabpanel" aria-labelledby="programs-tab">
+      <div class="mb-4">
+        <h2 class="h6 mb-3"><%= t('program_registrations_tab') %></h2>
           <div class="row g-3">
             <div class="col-sm-6 col-lg-4">
               <a href="<%= canOpenFaithFormation ? '/registration/children' : '#' %>" class="program-card prog-children <%= canOpenFaithFormation ? '' : 'opacity-75' %>">
@@ -263,26 +254,26 @@
               </a>
             </div>
           </div>
-        </div>
+      </div>
 
-        <div class="tab-pane fade" id="sponsor-ministry-pane" role="tabpanel" aria-labelledby="sponsor-ministry-tab">
-          <div class="row g-3">
-            <div class="col-sm-6 col-lg-4">
-              <a href="<%= canOpenSponsorForm ? '/registration/sponsor-confirmation' : '#' %>" class="program-card prog-sponsor <%= canOpenSponsorForm ? '' : 'opacity-75' %>">
-                <div class="prog-icon">SC</div>
-                <div class="prog-title"><%= t('confirmation_sponsor_form_title') %></div>
-                <div class="prog-subtitle"><%= faithFormationSettings && faithFormationSettings.schoolYear ? `${t('school_year')} ${faithFormationSettings.schoolYear}` : t('student_sponsor_subtitle') %></div>
-                <p class="prog-desc"><%= canOpenSponsorForm ? t('sponsor_form_desc') : t('sponsor_form_unavailable') %></p>
-              </a>
-            </div>
-            <div class="col-sm-6 col-lg-4">
-              <a href="/altar-server-signup" class="program-card" style="--prog-color:rgba(168,85,247,0.12);--prog-text:rgb(109,40,217)">
-                <div class="prog-icon" style="background:rgba(168,85,247,0.12);color:rgb(109,40,217)">&#9765;</div>
-                <div class="prog-title"><%= t('altar_server_signup_title') %></div>
-                <div class="prog-subtitle"><%= t('ministry_subtitle') %></div>
-                <p class="prog-desc"><%= t('altar_server_signup_desc') %></p>
-              </a>
-            </div>
+      <div>
+        <h2 class="h6 mb-3"><%= t('sponsor_ministry_signups_tab') %></h2>
+        <div class="row g-3">
+          <div class="col-sm-6 col-lg-4">
+            <a href="<%= canOpenSponsorForm ? '/registration/sponsor-confirmation' : '#' %>" class="program-card prog-sponsor <%= canOpenSponsorForm ? '' : 'opacity-75' %>">
+              <div class="prog-icon">SC</div>
+              <div class="prog-title"><%= t('confirmation_sponsor_form_title') %></div>
+              <div class="prog-subtitle"><%= faithFormationSettings && faithFormationSettings.schoolYear ? `${t('school_year')} ${faithFormationSettings.schoolYear}` : t('student_sponsor_subtitle') %></div>
+              <p class="prog-desc"><%= canOpenSponsorForm ? t('sponsor_form_desc') : t('sponsor_form_unavailable') %></p>
+            </a>
+          </div>
+          <div class="col-sm-6 col-lg-4">
+            <a href="/altar-server-signup" class="program-card" style="--prog-color:rgba(168,85,247,0.12);--prog-text:rgb(109,40,217)">
+              <div class="prog-icon" style="background:rgba(168,85,247,0.12);color:rgb(109,40,217)">&#9765;</div>
+              <div class="prog-title"><%= t('altar_server_signup_title') %></div>
+              <div class="prog-subtitle"><%= t('ministry_subtitle') %></div>
+              <p class="prog-desc"><%= t('altar_server_signup_desc') %></p>
+            </a>
           </div>
         </div>
       </div>
