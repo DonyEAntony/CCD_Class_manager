@@ -9,6 +9,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const sanitizeHtml = require('sanitize-html');
 
 const TEMPLATE_DIR = path.join(__dirname, 'email-templates');
 
@@ -114,14 +115,53 @@ const buildActionItemsSectionHtml = (items) => {
   </tr>`;
 };
 
+// The read-time subtitle (e.g. "2 min read") is genuinely optional prose, unlike the
+// always-present date next to it — so instead of the generic bracket-placeholder
+// mechanism (which leaves the literal "[2 min read]" text in place when unfilled), a
+// blank value drops both the text and its leading separator dot rather than showing
+// either.
+const buildReadTimeHtml = (readTime) => (
+  readTime && String(readTime).trim() ? ` &middot; ${escapeHtml(readTime)}` : ''
+);
+
+// Each paragraph row is a lightweight contenteditable toolbar (bold/italic/underline/
+// link/bulleted list only, not a full rich-text library), but contenteditable markup
+// still isn't trustworthy just because it came from an admin's browser — a paste or
+// direct DOM edit could carry arbitrary tags — and this is about to go out to every
+// recipient's inbox, so it's run through an allowlist before use rather than trusted
+// or escaped-as-plain-text like the other fields.
+const PARAGRAPH_ALLOWED_TAGS = ['b', 'strong', 'i', 'em', 'u', 'br', 'ul', 'ol', 'li', 'a'];
+const sanitizeParagraphHtml = (html) => sanitizeHtml(html || '', {
+  allowedTags: PARAGRAPH_ALLOWED_TAGS,
+  allowedAttributes: { a: ['href', 'target', 'rel'] },
+  allowedSchemes: ['http', 'https', 'mailto'],
+  transformTags: {
+    a: sanitizeHtml.simpleTransform('a', { target: '_blank', rel: 'noopener noreferrer' }, true),
+  },
+});
+
+// The notice body is a sender-chosen number of paragraphs (the composer lets them add
+// or remove rows freely, numbered "Paragraph 1", "Paragraph 2", ... with no per-row
+// prompt text), so it's a repeated block like the action items rather than a fixed
+// bracket placeholder. A blank row — including one that sanitizes down to nothing — is
+// dropped, same as a blank action item.
+const buildNoticeParagraphsHtml = (paragraphs) => (paragraphs || [])
+  .map((html) => sanitizeParagraphHtml(html).trim())
+  .filter(Boolean)
+  .map((html) => `<p style="margin:0 0 22px 0;font-size:16px;line-height:26px;mso-line-height-rule:exactly;">${html}</p>`)
+  .join('\n');
+
 // Per-template hooks applied after the generic bracket/merge-field substitution, for
-// spots that aren't sender-typed prose: a computed value (today's date) or a
-// variable-length repeated block (action items) that the {token: value} substitution
-// model above can't express. Each hook receives the substituted HTML and the render
-// options passed to renderTemplate, and returns HTML with its own markers resolved.
+// spots that aren't sender-typed prose: a computed value (today's date), an optional
+// subtitle (read time), or a variable-length repeated block (paragraphs, action items)
+// that the {token: value} substitution model above can't express. Each hook receives
+// the substituted HTML and the render options passed to renderTemplate, and returns
+// HTML with its own markers resolved.
 const TEMPLATE_POSTPROCESS = {
   'staff-notice': (html, options) => html
     .replace('<!--NOTICE_DATE-->', escapeHtml(formatNoticeDate()))
+    .replace('<!--READ_TIME-->', buildReadTimeHtml(options && options.readTime))
+    .replace('<!--NOTICE_PARAGRAPHS-->', buildNoticeParagraphsHtml((options && options.paragraphs) || []))
     .replace('<!--ACTION_ITEMS_SECTION-->', buildActionItemsSectionHtml((options && options.actionItems) || [])),
 };
 

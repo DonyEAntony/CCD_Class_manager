@@ -146,6 +146,18 @@ const translations = {
     staff_broadcast_template_blank_option: 'Plain message',
     staff_broadcast_template_fields_hint: 'Fill in the highlighted spots below — anything left blank keeps its placeholder text.',
     staff_broadcast_preview_button: 'Preview',
+    staff_broadcast_paragraphs_label: 'Notice body',
+    staff_broadcast_paragraph_label: 'Paragraph %s',
+    staff_broadcast_add_paragraph_button: 'Add paragraph',
+    staff_broadcast_remove_paragraph_button: 'Remove paragraph',
+    staff_broadcast_paragraph_bold_button: 'Bold',
+    staff_broadcast_paragraph_italic_button: 'Italic',
+    staff_broadcast_paragraph_underline_button: 'Underline',
+    staff_broadcast_paragraph_list_button: 'Bulleted list',
+    staff_broadcast_paragraph_link_button: 'Link',
+    staff_broadcast_paragraph_link_prompt: 'Link URL:',
+    staff_broadcast_read_time_label: 'Read time (optional)',
+    staff_broadcast_read_time_placeholder: 'e.g. 2 min read',
     staff_broadcast_action_items_label: 'What we need from you (optional)',
     staff_broadcast_action_items_hint: "Add a deadline and an action item for each thing staff need to do. Leave this empty and the \"What we need from you\" section won't appear at all. A row with no date reads as \"Ongoing\".",
     staff_broadcast_action_item_date_placeholder: 'Date (optional)',
@@ -1075,6 +1087,18 @@ const translations = {
     staff_broadcast_template_blank_option: 'Mensaje simple',
     staff_broadcast_template_fields_hint: 'Complete los espacios resaltados a continuación — lo que deje en blanco conserva su texto de marcador de posición.',
     staff_broadcast_preview_button: 'Vista previa',
+    staff_broadcast_paragraphs_label: 'Cuerpo del aviso',
+    staff_broadcast_paragraph_label: 'Párrafo %s',
+    staff_broadcast_add_paragraph_button: 'Agregar párrafo',
+    staff_broadcast_remove_paragraph_button: 'Quitar párrafo',
+    staff_broadcast_paragraph_bold_button: 'Negrita',
+    staff_broadcast_paragraph_italic_button: 'Cursiva',
+    staff_broadcast_paragraph_underline_button: 'Subrayado',
+    staff_broadcast_paragraph_list_button: 'Lista con viñetas',
+    staff_broadcast_paragraph_link_button: 'Enlace',
+    staff_broadcast_paragraph_link_prompt: 'URL del enlace:',
+    staff_broadcast_read_time_label: 'Tiempo de lectura (opcional)',
+    staff_broadcast_read_time_placeholder: 'p. ej. 2 min de lectura',
     staff_broadcast_action_items_label: 'Lo que necesitamos de usted (opcional)',
     staff_broadcast_action_items_hint: 'Agregue una fecha límite y una tarea por cada cosa que el personal deba hacer. Si lo deja vacío, la sección "Lo que necesitamos de usted" no aparecerá. Una fila sin fecha se muestra como "Continuo".',
     staff_broadcast_action_item_date_placeholder: 'Fecha (opcional)',
@@ -7339,10 +7363,25 @@ const readActionItems = (body) => {
     .filter((item) => item.text);
 };
 
+// Reads the staff notice's repeatable paragraph rows (`paragraph_text[]` from the
+// composer's "Add paragraph" widget) into a trimmed, non-empty string[] — a blank row
+// left over from adding-then-not-filling one is dropped rather than sent as an empty
+// paragraph.
+const readNoticeParagraphs = (body) => [].concat(body.paragraph_text || [])
+  .map((text) => (typeof text === 'string' ? text.trim() : ''))
+  .filter(Boolean);
+
 // Builds the render() options for a template, threading through the staff notice's
-// action items when that's the template in play; other templates ignore the extra field.
+// paragraphs, action items, and optional read-time subtitle when that's the template
+// in play; other templates ignore the extra fields.
 const readTemplateRenderOptions = (tpl, body) => (
-  tpl.id === 'staff-notice' ? { actionItems: readActionItems(body) } : undefined
+  tpl.id === 'staff-notice'
+    ? {
+      paragraphs: readNoticeParagraphs(body),
+      actionItems: readActionItems(body),
+      readTime: typeof body.read_time === 'string' ? body.read_time.trim() : '',
+    }
+    : undefined
 );
 
 // Renders a chosen template with the submitted placeholder values as a standalone HTML
