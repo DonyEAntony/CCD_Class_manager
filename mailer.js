@@ -62,7 +62,7 @@ const wrapBrandedEmailHtml = (innerHtml) => {
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:8px;overflow:hidden;border:1px solid ${BRAND.border};">
         <tr>
           <td style="background:${BRAND.navy};padding:24px 32px;text-align:center;">
-            ${logoUrl ? `<img src="${logoUrl}" alt="Saint Matthew Catholic Church" width="56" height="56" style="display:block;margin:0 auto 10px;border-radius:50%;">` : ''}
+            ${logoUrl ? `<img src="${logoUrl}" alt="Saint Matthew Catholic Church" width="156" height="40" style="display:block;margin:0 auto 10px;">` : ''}
             <div style="color:${BRAND.goldLight};font-size:19px;font-weight:700;letter-spacing:.02em;">Saint Matthew Catholic Church</div>
             <div style="color:#c9d6d5;font-size:12px;margin-top:4px;">Office of Evangelization and Discipleship</div>
           </td>
