@@ -98,19 +98,24 @@ const translations = {
     resource_visible_to_class_teachers_label: 'Visible to catechists of these classes',
     resource_visible_to_class_parents_label: "Visible to parents of these classes' students",
     resource_visible_to_individuals_label: 'Visible to these individuals',
+    resource_audience_optional_hint: "Optional — leave everything above blank to save this resource without sharing it yet. You can share it with an audience anytime from the list below.",
     resource_class_teachers_label: 'Catechists of %s',
     resource_class_parents_label: "Parents of %s students",
     resource_class_participants_label: '%s participants',
     resource_visibility_label: 'Visible to',
+    resource_not_shared_label: 'Not shared yet',
     resource_title_and_file_required: 'Please enter a title and choose a file.',
     resource_assignment_required: 'Please choose at least one audience for this resource.',
     resource_added: 'Resource added.',
     resource_removed: 'Resource removed.',
+    resource_shared: 'Sharing updated.',
     resource_not_found: 'Resource not found.',
     remove_resource_confirm: 'Remove this resource? This cannot be undone.',
     no_resources_yet: 'No resources uploaded yet.',
     notify_resource_checkbox_label: 'Also notify with a banner',
     notify_button_label: 'Notify',
+    resource_share_button: 'Share',
+    save_sharing_button: 'Save Sharing',
     new_resource_notification_title: 'New resource added',
     view_resources_link: 'View Resources',
     dismiss_button: 'Got it',
@@ -1053,19 +1058,24 @@ const translations = {
     resource_visible_to_class_teachers_label: 'Visible para catequistas de estas clases',
     resource_visible_to_class_parents_label: 'Visible para padres de estudiantes de estas clases',
     resource_visible_to_individuals_label: 'Visible para estas personas',
+    resource_audience_optional_hint: 'Opcional — deje todo lo anterior en blanco para guardar este recurso sin compartirlo todavía. Puede compartirlo con una audiencia en cualquier momento desde la lista de abajo.',
     resource_class_teachers_label: 'Catequistas de %s',
     resource_class_parents_label: 'Padres de estudiantes de %s',
     resource_class_participants_label: 'Participantes de %s',
     resource_visibility_label: 'Visible para',
+    resource_not_shared_label: 'Aún no compartido',
     resource_title_and_file_required: 'Por favor ingrese un título y elija un archivo.',
     resource_assignment_required: 'Por favor elija al menos una audiencia para este recurso.',
     resource_added: 'Recurso agregado.',
     resource_removed: 'Recurso eliminado.',
+    resource_shared: 'Se actualizó cómo se comparte.',
     resource_not_found: 'Recurso no encontrado.',
     remove_resource_confirm: '¿Eliminar este recurso? Esta acción no se puede deshacer.',
     no_resources_yet: 'Aún no se han subido recursos.',
     notify_resource_checkbox_label: 'También notificar con un aviso',
     notify_button_label: 'Notificar',
+    resource_share_button: 'Compartir',
+    save_sharing_button: 'Guardar Compartición',
     new_resource_notification_title: 'Nuevo recurso agregado',
     view_resources_link: 'Ver Recursos',
     dismiss_button: 'Entendido',
@@ -6905,10 +6915,15 @@ app.get('/resources', requireAuth, asyncHandler(async (req, res) => {
 
   return res.render('resources', {
     isAdmin: true,
-    resources: resourcesAll.map((r) => ({
-      ...r,
-      assignmentLabels: (assignmentsByResource.get(r.id) || []).map(describeAssignment),
-    })),
+    resources: resourcesAll.map((r) => {
+      const rows = assignmentsByResource.get(r.id) || [];
+      return {
+        ...r,
+        assignmentLabels: rows.map(describeAssignment),
+        // Pre-fills each resource's inline "Share" form with its current audience.
+        assignmentFields: assignmentRowsToFields(rows),
+      };
+    }),
     ccdClasses,
     ccdGradeMeanings: CCD_GRADE_MEANINGS,
     assignableUsers,
@@ -6958,12 +6973,10 @@ app.post('/admin/resources', requireAuth, requireRole('admin'), resourceUpload.s
     return res.redirect('/resources');
   }
 
+  // The audience is optional at upload time — an admin can save a resource with nobody
+  // assigned yet and share it later from the list (see the /share route below), rather
+  // than being forced to pick an audience before the file even finishes uploading.
   const assignmentFields = parseAssignmentFieldsFromBody(req.body);
-  if (!hasAnyAssignment(assignmentFields)) {
-    await cleanupUpload();
-    req.flash('error', res.locals.t('resource_assignment_required'));
-    return res.redirect('/resources');
-  }
 
   const description = typeof req.body.description === 'string' ? req.body.description.trim().slice(0, 2000) : '';
 
@@ -6978,8 +6991,9 @@ app.post('/admin/resources', requireAuth, requireRole('admin'), resourceUpload.s
   // Same audience as the resource itself — anyone who can see the resource gets a
   // dismissible banner pointing at it. The checkbox defaults to checked in the form, so
   // an unchecked (and therefore entirely absent from the submitted body) checkbox is the
-  // only way to opt out, e.g. for a quiet update to an existing document set.
-  if (req.body.notify === 'on') {
+  // only way to opt out, e.g. for a quiet update to an existing document set. Notifying
+  // nobody isn't meaningful, so it's skipped entirely when no audience was chosen.
+  if (req.body.notify === 'on' && hasAnyAssignment(assignmentFields)) {
     const notifResult = await db.prepare(`
       INSERT INTO notifications (type, title, message, resource_id, created_by)
       VALUES ('resource', ?, ?, ?, ?)
@@ -6988,6 +7002,34 @@ app.post('/admin/resources', requireAuth, requireRole('admin'), resourceUpload.s
   }
 
   req.flash('success', res.locals.t('resource_added'));
+  return res.redirect('/resources');
+}));
+
+// Sets (replacing whatever was there before) a resource's audience after the fact —
+// pairs with the upload form allowing an empty audience, so "add it now, decide who
+// sees it later" is a real two-step flow rather than a one-shot choice at upload time.
+// An empty submission is valid too: it un-shares the resource entirely.
+app.post('/admin/resources/:id/share', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const resourceId = Number.parseInt(req.params.id, 10);
+  const resource = await db.prepare('SELECT * FROM resources WHERE id = ?').get(resourceId);
+  if (!resource) {
+    req.flash('error', res.locals.t('resource_not_found'));
+    return res.redirect('/resources');
+  }
+
+  const assignmentFields = parseAssignmentFieldsFromBody(req.body);
+  await db.prepare('DELETE FROM resource_assignments WHERE resource_id = ?').run(resourceId);
+  await insertAssignmentRows('resource_assignments', 'resource_id', resourceId, assignmentFields);
+
+  if (req.body.notify === 'on' && hasAnyAssignment(assignmentFields)) {
+    const notifResult = await db.prepare(`
+      INSERT INTO notifications (type, title, message, resource_id, created_by)
+      VALUES ('resource', ?, ?, ?, ?)
+    `).run(res.locals.t('new_resource_notification_title'), resource.title, resourceId, req.user.id);
+    await insertAssignmentRows('notification_assignments', 'notification_id', notifResult.lastInsertRowid, assignmentFields);
+  }
+
+  req.flash('success', res.locals.t('resource_shared'));
   return res.redirect('/resources');
 }));
 

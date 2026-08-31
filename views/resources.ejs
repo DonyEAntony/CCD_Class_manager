@@ -49,39 +49,14 @@
             <textarea class="form-control" id="resource-description" name="description" rows="2" maxlength="2000"></textarea>
           </div>
 
-          <div class="col-12 col-md-3">
-            <label class="form-label"><%= t('resource_visible_to_roles_label') %></label>
-            <% assignableRoles.forEach((role) => { %>
-              <div class="form-check">
-                <input class="form-check-input" type="checkbox" name="roles" value="<%= role %>" id="resource-role-<%= role %>">
-                <label class="form-check-label" for="resource-role-<%= role %>"><%= roleLabels[role] || role %></label>
-              </div>
-            <% }) %>
+          <div class="col-12">
+            <div class="form-text"><%= t('resource_audience_optional_hint') %></div>
           </div>
-          <div class="col-12 col-md-3">
-            <label class="form-label" for="resource-class-teachers"><%= t('resource_visible_to_class_teachers_label') %></label>
-            <select class="form-select" id="resource-class-teachers" name="class_teacher_ids" multiple size="5">
-              <% ccdClasses.forEach((c) => { %>
-                <option value="<%= c.id %>"><%= ccdGradeMeanings[c.grade_level] || c.grade_level %><%= c.sectionLabel || '' %></option>
-              <% }) %>
-            </select>
-          </div>
-          <div class="col-12 col-md-3">
-            <label class="form-label" for="resource-class-parents"><%= t('resource_visible_to_class_parents_label') %></label>
-            <select class="form-select" id="resource-class-parents" name="class_parent_ids" multiple size="5">
-              <% ccdClasses.forEach((c) => { %>
-                <option value="<%= c.id %>"><%= ccdGradeMeanings[c.grade_level] || c.grade_level %><%= c.sectionLabel || '' %></option>
-              <% }) %>
-            </select>
-          </div>
-          <div class="col-12 col-md-3">
-            <label class="form-label" for="resource-individuals"><%= t('resource_visible_to_individuals_label') %></label>
-            <select class="form-select" id="resource-individuals" name="target_user_ids" multiple size="5">
-              <% assignableUsers.forEach((u) => { %>
-                <option value="<%= u.id %>" <%= preselectTargetUserId === u.id ? 'selected' : '' %>><%= u.full_name || u.email %></option>
-              <% }) %>
-            </select>
-          </div>
+          <%- include('_resource_audience_fields', {
+            t, assignableRoles, roleLabels, ccdClasses, ccdGradeMeanings, assignableUsers,
+            fieldIdPrefix: 'resource',
+            audiencePrefill: { roles: [], classTeacherIds: [], classParentIds: [], targetUserIds: preselectTargetUserId ? [preselectTargetUserId] : [] },
+          }) %>
 
           <div class="col-12 form-check">
             <input class="form-check-input" type="checkbox" name="notify" value="on" id="resource-notify" checked>
@@ -125,13 +100,20 @@
                     <% if (resource.description) { %><div style="font-size:.82rem;color:var(--muted)"><%= resource.description %></div><% } %>
                   </td>
                   <% if (isAdmin) { %>
-                    <td style="font-size:.85rem"><%= resource.assignmentLabels.join(', ') || '—' %></td>
+                    <td style="font-size:.85rem">
+                      <% if (resource.assignmentLabels.length) { %>
+                        <%= resource.assignmentLabels.join(', ') %>
+                      <% } else { %>
+                        <span style="color:var(--muted);font-style:italic"><%= t('resource_not_shared_label') %></span>
+                      <% } %>
+                    </td>
                   <% } %>
                   <td style="font-size:.8rem;color:var(--muted)"><%= dateLabel(resource.created_at) %></td>
                   <td style="<%= isAdmin ? 'text-align:right' : '' %>">
                     <div class="d-inline-flex gap-2">
                       <a class="btn btn-sm btn-outline-primary" href="/resources/<%= resource.id %>/download"><%= t('download_button') %></a>
                       <% if (isAdmin) { %>
+                        <button class="btn btn-sm btn-outline-secondary resource-share-toggle" type="button" data-target="resource-share-<%= resource.id %>"><%= t('resource_share_button') %></button>
                         <form method="post" action="/admin/resources/<%= resource.id %>/notify">
                           <button class="btn btn-sm btn-outline-secondary" type="submit"><%= t('notify_button_label') %></button>
                         </form>
@@ -142,6 +124,26 @@
                     </div>
                   </td>
                 </tr>
+                <% if (isAdmin) { %>
+                  <tr class="d-none" id="resource-share-<%= resource.id %>">
+                    <td colspan="4">
+                      <form method="post" action="/admin/resources/<%= resource.id %>/share" class="row gy-2 gx-2 py-2">
+                        <%- include('_resource_audience_fields', {
+                          t, assignableRoles, roleLabels, ccdClasses, ccdGradeMeanings, assignableUsers,
+                          fieldIdPrefix: 'resource-share-' + resource.id,
+                          audiencePrefill: resource.assignmentFields,
+                        }) %>
+                        <div class="col-12 form-check">
+                          <input class="form-check-input" type="checkbox" name="notify" value="on" id="resource-share-notify-<%= resource.id %>">
+                          <label class="form-check-label" for="resource-share-notify-<%= resource.id %>"><%= t('notify_resource_checkbox_label') %></label>
+                        </div>
+                        <div class="col-12">
+                          <button class="btn btn-primary btn-sm" type="submit"><%= t('save_sharing_button') %></button>
+                        </div>
+                      </form>
+                    </td>
+                  </tr>
+                <% } %>
               <% }) %>
             </tbody>
           </table>
@@ -153,10 +155,22 @@
 </main>
 <script>
   (function () {
+    document.querySelectorAll('.resource-share-toggle').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var row = document.getElementById(btn.getAttribute('data-target'));
+        if (row) row.classList.toggle('d-none');
+      });
+    });
+  }());
+
+  (function () {
     var searchInput = document.getElementById('resource-search');
     var table = document.getElementById('resource-table');
     if (!searchInput || !table) return;
-    var rows = Array.from(table.querySelectorAll('tbody tr'));
+    // Only the visible resource row carries data-search-text — each admin resource also
+    // has a second, initially-hidden <tr> right after it for the "Share" form, which
+    // this search shouldn't try to match against directly.
+    var rows = Array.from(table.querySelectorAll('tbody tr[data-search-text]'));
     var emptyState = document.getElementById('resource-search-empty');
 
     searchInput.addEventListener('input', function () {
@@ -165,6 +179,12 @@
       rows.forEach(function (row) {
         var matches = !needle || row.getAttribute('data-search-text').indexOf(needle) !== -1;
         row.classList.toggle('d-none', !matches);
+        // Filtering a resource out of view should close (not just visually strand) its
+        // open Share panel, if it had one.
+        var shareRow = row.nextElementSibling;
+        if (!matches && shareRow && shareRow.id && shareRow.id.indexOf('resource-share-') === 0) {
+          shareRow.classList.add('d-none');
+        }
         if (matches) visibleCount += 1;
       });
       if (emptyState) emptyState.classList.toggle('d-none', visibleCount !== 0);
