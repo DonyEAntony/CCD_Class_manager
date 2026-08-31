@@ -67,6 +67,28 @@
   <% if (error.length) { %><div class="alert alert-danger mb-3"><%= error[0] %></div><% } %>
   <% const myFeeBreakdown = Array.isArray(typeof feeBreakdown === 'undefined' ? null : feeBreakdown) ? feeBreakdown : []; %>
   <% const myTotalFeesDue = typeof totalFeesDue === 'number' ? totalFeesDue : 0; %>
+  <% const canOpenFaithFormation = user.role === 'admin' || user.role === 'catechist' || (faithFormationSettings && faithFormationSettings.faithFormationRegistrationOpen); %>
+  <% const canOpenSponsorForm = user.role === 'admin' || user.role === 'catechist' || (faithFormationSettings && faithFormationSettings.sponsorFormRegistrationOpen); %>
+
+  <% const myIncompleteStudentRegs = (studentRegs || []).filter((r) => String(r.user_id) === String(user.id) && !r.archived_at && r.status === 'incomplete'); %>
+  <% if (myIncompleteStudentRegs.length) { %>
+    <div class="alert alert-warning d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+      <div>
+        <strong><%= myIncompleteStudentRegs.length > 1 ? t('unfinished_registration_banner_title_plural') : t('unfinished_registration_banner_title') %></strong>
+        <div class="mt-1" style="font-size:.9rem">
+          <%= t('unfinished_registration_banner_body').replace('%s', myIncompleteStudentRegs.map((r) => r.student_full_name).join(', ')) %>
+        </div>
+      </div>
+      <div class="d-flex flex-wrap gap-2">
+        <% myIncompleteStudentRegs.forEach((r) => { %>
+          <a class="btn btn-warning btn-sm <%= canOpenFaithFormation ? '' : 'disabled' %>" href="<%= canOpenFaithFormation ? ('/registration/children/edit/' + r.id) : '#' %>">
+            <%= t('finish_registration_button') %><%= myIncompleteStudentRegs.length > 1 ? ': ' + r.student_full_name : '' %>
+          </a>
+        <% }) %>
+      </div>
+    </div>
+  <% } %>
+
   <% if (myTotalFeesDue > 0) { %>
     <div class="border rounded-3 p-3 bg-light mb-3">
       <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-2">
@@ -146,9 +168,6 @@
       <a class="btn btn-outline-secondary" href="/logout"><%= t('logout') %></a>
     </div>
   </div>
-
-  <% const canOpenFaithFormation = user.role === 'admin' || user.role === 'catechist' || (faithFormationSettings && faithFormationSettings.faithFormationRegistrationOpen); %>
-  <% const canOpenSponsorForm = user.role === 'admin' || user.role === 'catechist' || (faithFormationSettings && faithFormationSettings.sponsorFormRegistrationOpen); %>
 
   <% const myStudentsList = Array.isArray(typeof myStudents === 'undefined' ? null : myStudents) ? myStudents : []; %>
 
