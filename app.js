@@ -900,6 +900,13 @@ const translations = {
     select_all_label: 'Select all',
     select_none_label: 'Select none',
     copy_all_emails_label: 'Copy all emails',
+    organize_by_table_button: 'Organize by Table',
+    organize_tables_prompt: 'How many tables?',
+    organize_tables_invalid_count: 'Enter a number of tables between 1 and 30.',
+    organized_into_tables_label: 'Organized into %s tables.',
+    table_column_label: 'Table',
+    table_option_label: 'Table %s',
+    table_unassigned_option: '—',
     copy_teacher_emails_label: 'Copy teacher emails',
     assign_teacher_button: 'Assign',
     no_catechists_available: 'No other catechists available to assign.',
@@ -1860,6 +1867,13 @@ const translations = {
     select_all_label: 'Seleccionar todos',
     select_none_label: 'Deseleccionar todos',
     copy_all_emails_label: 'Copiar todos los correos',
+    organize_by_table_button: 'Organizar por Mesa',
+    organize_tables_prompt: '¿Cuántas mesas?',
+    organize_tables_invalid_count: 'Ingrese un número de mesas entre 1 y 30.',
+    organized_into_tables_label: 'Organizado en %s mesas.',
+    table_column_label: 'Mesa',
+    table_option_label: 'Mesa %s',
+    table_unassigned_option: '—',
     copy_teacher_emails_label: 'Copiar correos de catequistas',
     assign_teacher_button: 'Asignar',
     no_catechists_available: 'No hay más catequistas disponibles para asignar.',
@@ -7749,6 +7763,14 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist', 'fa
 
   const presentCount = attendanceRows.filter((row) => row.status === 'present').length;
   const absentCount = attendanceRows.filter((row) => row.status === 'absent').length;
+
+  // Table/seating assignments persist per class (not per session, unlike attendance) —
+  // whatever was last organized or manually adjusted stays put week to week.
+  const tableRows = await db.prepare(
+    'SELECT student_registration_id, table_number FROM ccd_class_table_assignments WHERE ccd_class_id = ?'
+  ).all(classId);
+  const tableByStudent = {};
+  tableRows.forEach((row) => { tableByStudent[row.student_registration_id] = row.table_number; });
   const faithFormationSettings = await getFaithFormationSettings();
 
   const assignedCatechistIds = new Set((ccdClass.catechists || []).map((c) => c.id));
@@ -7843,6 +7865,7 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist', 'fa
     selectedDate,
     selectedDescription: descriptionByDate.get(selectedDate) || '',
     attendanceByStudent,
+    tableByStudent,
     presentCount,
     absentCount,
     unmarkedCount: roster.length - presentCount - absentCount,
@@ -7985,6 +8008,118 @@ app.post('/admin/classes/:id/attendance', requireAuth, requireRole('admin', 'cat
   const absentCount = attendanceRows.filter((row) => row.status === 'absent').length;
 
   res.json({ ok: true, status: status === 'present' || status === 'absent' ? status : 'unmarked', presentCount, absentCount });
+}));
+
+// Auto-groups the roster into `table_count` tables of similar age, sorting by date of
+// birth and slicing into contiguous chunks (not dealt round-robin) so each table's ages
+// actually cluster together. Replaces whatever table assignments already existed for
+// this class — same "re-running it starts fresh" model as attendance's Mark all/Clear —
+// since the whole point is a clean re-seat, not a merge with a prior arrangement.
+app.post('/admin/classes/:id/tables/organize', requireAuth, requireRole('admin', 'catechist', 'family_faith_leader'), asyncHandler(async (req, res) => {
+  const classId = Number.parseInt(req.params.id, 10);
+  const tableCount = Number.parseInt(req.body.table_count, 10);
+
+  if (!Number.isInteger(classId) || !Number.isInteger(tableCount) || tableCount < 1 || tableCount > 30) {
+    return res.status(400).json({ ok: false, error: 'Invalid request.' });
+  }
+
+  if (req.user.role === 'catechist') {
+    const ownedClass = await db.prepare(
+      'SELECT 1 FROM ccd_class_catechists WHERE ccd_class_id = ? AND catechist_user_id = ?'
+    ).get(classId, req.user.id);
+    if (!ownedClass) {
+      return res.status(403).json({ ok: false, error: 'Forbidden.' });
+    }
+  }
+
+  // Not getOwnedCcdClass — that also requires a family_faith_leader to be a registered
+  // catechist on the class, which is stricter than the attendance route above (the same
+  // roles allowed into this route) enforces; a plain lookup keeps the two consistent.
+  const allCcdClasses = await getCcdClasses();
+  const ccdClass = allCcdClasses.find((c) => c.id === classId);
+  if (!ccdClass) {
+    return res.status(404).json({ ok: false, error: 'Class not found.' });
+  }
+
+  const activeStudentRegs = await db.prepare('SELECT * FROM student_registrations WHERE archived_at IS NULL').all();
+  const enrolledRegistrationIds = await getEnrolledRegistrationIds();
+  const activeAdultRegs = await getActiveAdultRegistrations();
+  const activeFamilyFaithRegs = await getActiveFamilyFaithRegistrations();
+  const roster = getClassRoster(ccdClass, activeStudentRegs, enrolledRegistrationIds, activeAdultRegs, activeFamilyFaithRegs, allCcdClasses);
+
+  if (!roster.length) {
+    return res.json({ ok: true, assignments: [] });
+  }
+
+  // Undated-birthdate students (rare, but not impossible on an incomplete record) sort
+  // last rather than clumping at one end by falling back to the epoch.
+  const sorted = [...roster].sort((a, b) => {
+    const aTime = a.student_dob ? new Date(a.student_dob).getTime() : Infinity;
+    const bTime = b.student_dob ? new Date(b.student_dob).getTime() : Infinity;
+    return aTime - bTime;
+  });
+
+  const effectiveTableCount = Math.min(tableCount, sorted.length);
+  const baseSize = Math.floor(sorted.length / effectiveTableCount);
+  const remainder = sorted.length % effectiveTableCount;
+  const assignments = [];
+  let cursor = 0;
+  for (let table = 1; table <= effectiveTableCount; table += 1) {
+    // The first `remainder` tables absorb one extra student each, so table sizes never
+    // differ by more than one instead of dumping every leftover student onto the last one.
+    const size = baseSize + (table <= remainder ? 1 : 0);
+    for (let i = 0; i < size; i += 1) {
+      assignments.push({ studentRegistrationId: sorted[cursor].id, tableNumber: table });
+      cursor += 1;
+    }
+  }
+
+  await db.prepare('DELETE FROM ccd_class_table_assignments WHERE ccd_class_id = ?').run(classId);
+  for (const a of assignments) {
+    await db.prepare(`
+      INSERT INTO ccd_class_table_assignments (ccd_class_id, student_registration_id, table_number)
+      VALUES (?, ?, ?)
+    `).run(classId, a.studentRegistrationId, a.tableNumber);
+  }
+
+  return res.json({ ok: true, assignments, tableCount: effectiveTableCount });
+}));
+
+// Moves one student to a different table (or un-seats them entirely with a blank
+// table_number) — the adjustment step after /organize, or a standalone manual seating
+// choice if a catechist never bothers auto-organizing at all.
+app.post('/admin/classes/:id/tables/assign', requireAuth, requireRole('admin', 'catechist', 'family_faith_leader'), asyncHandler(async (req, res) => {
+  const classId = Number.parseInt(req.params.id, 10);
+  const studentRegistrationId = Number.parseInt(req.body.student_registration_id, 10);
+  const rawTableNumber = typeof req.body.table_number === 'string' ? req.body.table_number.trim() : '';
+  const tableNumber = rawTableNumber === '' ? null : Number.parseInt(rawTableNumber, 10);
+
+  if (!Number.isInteger(classId) || !Number.isInteger(studentRegistrationId) || (tableNumber !== null && (!Number.isInteger(tableNumber) || tableNumber < 1 || tableNumber > 30))) {
+    return res.status(400).json({ ok: false, error: 'Invalid request.' });
+  }
+
+  if (req.user.role === 'catechist') {
+    const ownedClass = await db.prepare(
+      'SELECT 1 FROM ccd_class_catechists WHERE ccd_class_id = ? AND catechist_user_id = ?'
+    ).get(classId, req.user.id);
+    if (!ownedClass) {
+      return res.status(403).json({ ok: false, error: 'Forbidden.' });
+    }
+  }
+
+  if (tableNumber === null) {
+    await db.prepare(
+      'DELETE FROM ccd_class_table_assignments WHERE ccd_class_id = ? AND student_registration_id = ?'
+    ).run(classId, studentRegistrationId);
+  } else {
+    await db.prepare(`
+      INSERT INTO ccd_class_table_assignments (ccd_class_id, student_registration_id, table_number)
+      VALUES (?, ?, ?)
+      ON DUPLICATE KEY UPDATE table_number = VALUES(table_number)
+    `).run(classId, studentRegistrationId, tableNumber);
+  }
+
+  return res.json({ ok: true, tableNumber });
 }));
 
 app.post('/admin/classes/:id/schedule/generate', requireAuth, requireRole('admin', 'catechist', 'family_faith_leader'), asyncHandler(async (req, res) => {
