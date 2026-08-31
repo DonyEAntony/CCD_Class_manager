@@ -30,6 +30,16 @@
     <div class="card-header"><h2 class="h5 mb-0"><%= t('staff_broadcast_header') %></h2></div>
     <div class="card-body">
       <form method="post" action="/admin/catechists/broadcast" class="row gy-3 gx-3" id="staff-broadcast-form">
+        <div class="col-12 d-none" id="broadcast-draft-banner">
+          <div class="alert alert-info d-flex flex-wrap justify-content-between align-items-center gap-2 mb-0">
+            <span id="broadcast-draft-banner-text"></span>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-sm btn-primary" id="broadcast-draft-restore"><%= t('staff_broadcast_draft_restore_button') %></button>
+              <button type="button" class="btn btn-sm btn-outline-secondary" id="broadcast-draft-discard"><%= t('staff_broadcast_draft_discard_button') %></button>
+            </div>
+          </div>
+        </div>
+
         <div class="col-12">
           <label class="form-label"><%= t('staff_broadcast_roles_label') %></label>
           <div class="d-flex flex-wrap gap-3">
@@ -134,8 +144,15 @@
           </div>
         <% }) %>
 
+        <div class="col-12 d-none" id="broadcast-preview-panel">
+          <div class="border rounded-3 p-2" style="background:var(--surface)">
+            <div class="fw-semibold mb-2" style="font-size:.85rem"><%= t('staff_broadcast_preview_heading') %></div>
+            <iframe id="broadcast-preview-frame" title="<%= t('staff_broadcast_preview_heading') %>" style="width:100%;min-height:420px;border:1px solid var(--border);border-radius:6px;background:#fff"></iframe>
+          </div>
+        </div>
+
         <div class="col-12 d-flex justify-content-end gap-2">
-          <button class="btn btn-outline-secondary" type="submit" formaction="/admin/catechists/email-preview" formtarget="_blank" formnovalidate><%= t('staff_broadcast_preview_button') %></button>
+          <button class="btn btn-outline-secondary" type="button" hidden id="broadcast-preview-toggle"><%= t('staff_broadcast_preview_button') %></button>
           <button class="btn btn-primary" type="submit"><%= t('staff_broadcast_send_button') %></button>
         </div>
       </form>
@@ -272,11 +289,15 @@
       });
     }
 
-    function addParagraphRow() {
+    function addParagraphRow(initialHtml) {
       var fragment = rowTemplate.content.cloneNode(true);
       var row = fragment.querySelector('.staff-notice-paragraph-row');
       var editor = row.querySelector('.staff-notice-paragraph-editor');
       var hiddenInput = row.querySelector('.staff-notice-paragraph-value');
+      if (initialHtml) {
+        editor.innerHTML = initialHtml;
+        hiddenInput.value = initialHtml;
+      }
 
       function syncValue() { hiddenInput.value = editor.innerHTML; }
 
@@ -312,7 +333,7 @@
       renumberParagraphs();
     }
 
-    addBtn.addEventListener('click', addParagraphRow);
+    addBtn.addEventListener('click', function () { addParagraphRow(); });
     addParagraphRow();
 
     // Belt-and-suspenders: re-sync every editor's hidden input right before submit, in
@@ -327,6 +348,12 @@
         });
       });
     }
+
+    // Exposed so the draft-restore code below can rebuild these rows from a saved
+    // draft without duplicating the editor-wiring logic above.
+    window.__broadcastComposer = window.__broadcastComposer || {};
+    window.__broadcastComposer.addParagraphRow = addParagraphRow;
+    window.__broadcastComposer.clearParagraphRows = function () { container.innerHTML = ''; };
   }());
 
   (function () {
@@ -335,17 +362,222 @@
     var container = document.getElementById('staff-notice-action-items');
     var rowTemplate = document.getElementById('staff-notice-action-item-template');
 
-    function addActionItemRow() {
+    function addActionItemRow(initialDate, initialText) {
       var fragment = rowTemplate.content.cloneNode(true);
       var row = fragment.querySelector('.staff-notice-action-item-row');
+      if (initialDate) row.querySelector('input[name="action_item_date[]"]').value = initialDate;
+      if (initialText) row.querySelector('input[name="action_item_text[]"]').value = initialText;
       row.querySelector('.staff-notice-action-item-remove').addEventListener('click', function () {
         row.remove();
       });
       container.appendChild(fragment);
     }
 
-    addBtn.addEventListener('click', addActionItemRow);
+    addBtn.addEventListener('click', function () { addActionItemRow(); });
     addActionItemRow();
+
+    // Exposed so the draft-restore code below can rebuild these rows from a saved draft.
+    window.__broadcastComposer = window.__broadcastComposer || {};
+    window.__broadcastComposer.addActionItemRow = addActionItemRow;
+    window.__broadcastComposer.clearActionItemRows = function () { container.innerHTML = ''; };
+  }());
+
+  (function () {
+    var form = document.getElementById('staff-broadcast-form');
+    var templateSelect = document.getElementById('broadcast-template');
+    if (!form || !templateSelect) return;
+
+    function debounce(fn, wait) {
+      var timer;
+      return function () {
+        var args = arguments;
+        clearTimeout(timer);
+        timer = setTimeout(function () { fn.apply(null, args); }, wait);
+      };
+    }
+
+    // ── Inline live preview (replaces the old "opens a new tab" Preview button) ──
+    var previewToggleBtn = document.getElementById('broadcast-preview-toggle');
+    var previewPanel = document.getElementById('broadcast-preview-panel');
+    var previewFrame = document.getElementById('broadcast-preview-frame');
+
+    function isPreviewOpen() {
+      return !!(previewPanel && !previewPanel.classList.contains('d-none'));
+    }
+
+    // The preview endpoint only understands templated messages (it 400s with no
+    // `template`), so there's nothing useful to show — and no button to show — for the
+    // plain "no template" fallback message.
+    function syncPreviewAvailability() {
+      var hasTemplate = !!templateSelect.value;
+      if (previewToggleBtn) previewToggleBtn.hidden = !hasTemplate;
+      if (!hasTemplate && previewPanel) previewPanel.classList.add('d-none');
+    }
+
+    function refreshPreview() {
+      if (!previewFrame || !templateSelect.value || !isPreviewOpen()) return;
+      var params = new URLSearchParams(new FormData(form));
+      fetch('/admin/catechists/email-preview', { method: 'POST', body: params })
+        .then(function (res) { return res.ok ? res.text() : Promise.reject(new Error('preview request failed')); })
+        .then(function (html) { previewFrame.srcdoc = html; })
+        .catch(function () { /* a transient preview miss isn't worth surfacing to the sender */ });
+    }
+
+    if (previewToggleBtn) {
+      previewToggleBtn.addEventListener('click', function () {
+        if (previewPanel) previewPanel.classList.toggle('d-none');
+        if (isPreviewOpen()) refreshPreview();
+      });
+    }
+    templateSelect.addEventListener('change', function () {
+      syncPreviewAvailability();
+      refreshPreview();
+    });
+    syncPreviewAvailability();
+
+    var debouncedRefreshPreview = debounce(refreshPreview, 500);
+    form.addEventListener('input', debouncedRefreshPreview);
+    form.addEventListener('change', debouncedRefreshPreview);
+
+    // ── Draft protection ──────────────────────────────────────────────────────
+    // A long staff notice (several paragraphs, action items) is real typing effort;
+    // an accidental refresh or back-navigation shouldn't lose it. Snapshotted to
+    // localStorage (not the server) since it's purely a per-browser safety net, not
+    // a real save — it's cleared the moment the message actually sends.
+    var DRAFT_KEY = 'staffBroadcastDraft';
+    var draftBanner = document.getElementById('broadcast-draft-banner');
+    var draftBannerText = document.getElementById('broadcast-draft-banner-text');
+    var draftRestoreBtn = document.getElementById('broadcast-draft-restore');
+    var draftDiscardBtn = document.getElementById('broadcast-draft-discard');
+    var draftBannerTemplate = <%- JSON.stringify(t('staff_broadcast_draft_banner_text')) %>;
+    var pendingDraft = null;
+
+    function buildDraftSnapshot() {
+      var roles = Array.from(form.querySelectorAll('input[name="roles"]:checked')).map(function (cb) { return cb.value; });
+      var fields = {};
+      form.querySelectorAll('[name^="field_"]').forEach(function (el) { fields[el.name] = el.value; });
+      var paragraphs = Array.from(document.querySelectorAll('.staff-notice-paragraph-value')).map(function (el) { return el.value; });
+      var actionDates = Array.from(document.querySelectorAll('input[name="action_item_date[]"]')).map(function (el) { return el.value; });
+      var actionTexts = Array.from(document.querySelectorAll('input[name="action_item_text[]"]')).map(function (el) { return el.value; });
+      var actionItems = actionTexts.map(function (text, i) { return { date: actionDates[i] || '', text: text }; });
+      var readTimeInput = document.getElementById('staff-notice-read-time');
+      var subjectInput = form.querySelector('[name="subject"]');
+      var messageInput = form.querySelector('[name="message"]');
+      return {
+        savedAt: Date.now(),
+        roles: roles,
+        template: templateSelect.value,
+        subject: subjectInput ? subjectInput.value : '',
+        message: messageInput ? messageInput.value : '',
+        fields: fields,
+        readTime: readTimeInput ? readTimeInput.value : '',
+        paragraphs: paragraphs,
+        actionItems: actionItems,
+      };
+    }
+
+    function isDraftMeaningful(draft) {
+      if (!draft) return false;
+      if ((draft.subject || '').trim() || (draft.message || '').trim() || (draft.readTime || '').trim()) return true;
+      if (Object.keys(draft.fields || {}).some(function (k) { return (draft.fields[k] || '').trim(); })) return true;
+      if ((draft.paragraphs || []).some(function (p) { return (p || '').replace(/<[^>]*>/g, '').trim(); })) return true;
+      if ((draft.actionItems || []).some(function (item) { return (item.text || '').trim(); })) return true;
+      return false;
+    }
+
+    function saveDraft() {
+      var snapshot = buildDraftSnapshot();
+      try {
+        if (isDraftMeaningful(snapshot)) {
+          window.localStorage.setItem(DRAFT_KEY, JSON.stringify(snapshot));
+        } else {
+          window.localStorage.removeItem(DRAFT_KEY);
+        }
+      } catch (e) { /* private browsing, storage full, etc. — the draft just won't persist */ }
+    }
+
+    function restoreDraft(draft) {
+      form.querySelectorAll('input[name="roles"]').forEach(function (cb) {
+        cb.checked = draft.roles.indexOf(cb.value) !== -1;
+      });
+      templateSelect.value = draft.template || '';
+      templateSelect.dispatchEvent(new Event('change'));
+
+      var subjectInput = form.querySelector('[name="subject"]');
+      if (subjectInput) subjectInput.value = draft.subject || '';
+      var messageInput = form.querySelector('[name="message"]');
+      if (messageInput) messageInput.value = draft.message || '';
+      Object.keys(draft.fields || {}).forEach(function (name) {
+        var el = form.querySelector('[name="' + name + '"]');
+        if (el) el.value = draft.fields[name];
+      });
+      var readTimeInput = document.getElementById('staff-notice-read-time');
+      if (readTimeInput) readTimeInput.value = draft.readTime || '';
+
+      var composer = window.__broadcastComposer || {};
+      if (composer.clearParagraphRows && composer.addParagraphRow) {
+        composer.clearParagraphRows();
+        if (draft.paragraphs && draft.paragraphs.length) {
+          draft.paragraphs.forEach(function (html) { composer.addParagraphRow(html); });
+        } else {
+          composer.addParagraphRow();
+        }
+      }
+      if (composer.clearActionItemRows && composer.addActionItemRow) {
+        composer.clearActionItemRows();
+        if (draft.actionItems && draft.actionItems.length) {
+          draft.actionItems.forEach(function (item) { composer.addActionItemRow(item.date, item.text); });
+        } else {
+          composer.addActionItemRow();
+        }
+      }
+
+      syncPreviewAvailability();
+      if (isPreviewOpen()) refreshPreview();
+    }
+
+    function hideDraftBanner() {
+      if (draftBanner) draftBanner.classList.add('d-none');
+    }
+
+    function showDraftBanner(draft) {
+      pendingDraft = draft;
+      if (!draftBanner) return;
+      if (draftBannerText) {
+        var savedAtLabel = '';
+        try { savedAtLabel = new Date(draft.savedAt).toLocaleString(); } catch (e) { /* ignore */ }
+        draftBannerText.textContent = draftBannerTemplate.replace('%s', savedAtLabel);
+      }
+      draftBanner.classList.remove('d-none');
+    }
+
+    if (draftRestoreBtn) {
+      draftRestoreBtn.addEventListener('click', function () {
+        if (pendingDraft) restoreDraft(pendingDraft);
+        hideDraftBanner();
+      });
+    }
+    if (draftDiscardBtn) {
+      draftDiscardBtn.addEventListener('click', function () {
+        try { window.localStorage.removeItem(DRAFT_KEY); } catch (e) { /* ignore */ }
+        hideDraftBanner();
+      });
+    }
+
+    var debouncedSaveDraft = debounce(saveDraft, 800);
+    form.addEventListener('input', debouncedSaveDraft);
+    form.addEventListener('change', debouncedSaveDraft);
+    form.addEventListener('submit', function () {
+      try { window.localStorage.removeItem(DRAFT_KEY); } catch (e) { /* ignore */ }
+    });
+
+    try {
+      var raw = window.localStorage.getItem(DRAFT_KEY);
+      if (raw) {
+        var saved = JSON.parse(raw);
+        if (isDraftMeaningful(saved)) showDraftBanner(saved);
+      }
+    } catch (e) { /* corrupt/inaccessible storage — just skip the restore prompt */ }
   }());
 </script>
 </body>
