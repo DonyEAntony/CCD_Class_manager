@@ -414,6 +414,7 @@ const translations = {
     no_events_configured: 'No events configured yet.',
     no_event_definitions: 'No event definitions created yet.',
     children_faith_formation: "Children's Faith Formation",
+    teen_faith_formation: 'Teen Faith Formation',
     general_events: 'General Events for Everyone',
     monthly_calendar: 'Monthly Calendar',
     no_events_this_month: 'No scheduled events for this month.',
@@ -1386,6 +1387,7 @@ const translations = {
     no_events_configured: 'No hay eventos configurados todavia.',
     no_event_definitions: 'No hay definiciones de eventos creadas todavia.',
     children_faith_formation: 'Formacion en la Fe para Ninos',
+    teen_faith_formation: 'Formacion en la Fe para Adolescentes',
     general_events: 'Eventos Generales para Todos',
     monthly_calendar: 'Calendario Mensual',
     no_events_this_month: 'No hay eventos programados para este mes.',
@@ -2040,6 +2042,7 @@ const SACRAMENT_BADGE_OPTIONS = ['baptism', 'first_reconciliation', 'first_holy_
 
 const getAudienceLabelKey = (audience) => {
   if (audience === 'children') return 'children_faith_formation';
+  if (audience === 'teens') return 'teen_faith_formation';
   if (audience === 'family_faith') return 'prog_family_title';
   if (audience === 'baptism_prep') return 'prog_baptism_title';
   if (audience === 'ocia') return 'prog_ocia_title';
@@ -6364,7 +6367,7 @@ app.get('/admin/users', requireAuth, requireRole('admin'), asyncHandler(async (r
   const ccdClasses = await getCcdClasses();
   const catechists = await getCatechists();
   const eventDefinitions = await getFaithFormationEventDefinitions();
-  const managedEvents = await getFaithFormationEvents(['children', 'family_faith', 'baptism_prep', 'ocia', 'general'], { includePast: true });
+  const managedEvents = await getFaithFormationEvents(['children', 'teens', 'family_faith', 'baptism_prep', 'ocia', 'general'], { includePast: true });
   const faithFormationSettings = await getFaithFormationSettings();
   const registrationYearStatuses = await getRegistrationYearStatusList(parseFaithFormationStartYear(faithFormationSettings.currentRegistrationYear));
   const altarServerTrainingDates = await getAltarServerTrainingDates({ includePast: true });
@@ -8418,7 +8421,7 @@ app.post('/admin/classes/:id/message', requireAuth, requireRole('admin', 'catech
 app.post('/admin/events', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   const title = typeof req.body.title === 'string' ? req.body.title.trim() : '';
   const audience = typeof req.body.audience === 'string' ? req.body.audience.trim() : '';
-  const validAudiences = ['children', 'family_faith', 'baptism_prep', 'ocia', 'general'];
+  const validAudiences = ['children', 'teens', 'family_faith', 'baptism_prep', 'ocia', 'general'];
 
   if (!title) {
     req.flash('error', 'Please enter an event title.');
