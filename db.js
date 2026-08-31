@@ -685,6 +685,10 @@ const init = async () => {
     await dropForeignKeyIfExists('ccd_class_attendance', 'fk_attendance_student');
     await ensureColumn('ccd_class_session_dates', 'description', 'VARCHAR(255) NULL');
     await ensureColumn('ccd_class_session_dates', 'event_type', "VARCHAR(20) NOT NULL DEFAULT 'class_day'");
+    // Optional label for a class's assigned teacher — 'facilitator' or 'companion' (the
+    // roles Family Faith Formation actually uses), or NULL for a plain teacher/catechist
+    // with no special designation. Set at assignment time or edited afterward.
+    await ensureColumn('ccd_class_catechists', 'role', 'VARCHAR(20) NULL');
     // A class can now have more than one catechist, so the single catechist_user_id
     // column moved to the ccd_class_catechists join table. Migrate any existing
     // assignment across, then drop the old column now that nothing reads it.
