@@ -75,7 +75,7 @@
     .ca-roster-actions { display: flex; align-items: center; gap: 16px; font-size: 12.5px; flex-wrap: wrap; }
     .ca-roster-actions .muted { color: var(--ca-neutral-600); }
 
-    .ca-roster-card { display: grid; grid-template-columns: 26px 44px 1fr auto; gap: 16px; align-items: center; padding: 14px 20px; background: var(--ca-surface); border-radius: var(--ca-radius-lg); box-shadow: var(--ca-shadow-sm); margin-bottom: 10px; }
+    .ca-roster-card { display: grid; grid-template-columns: 26px 44px 1fr auto auto; gap: 16px; align-items: center; padding: 14px 20px; background: var(--ca-surface); border-radius: var(--ca-radius-lg); box-shadow: var(--ca-shadow-sm); margin-bottom: 10px; }
     .ca-roster-card input[type="checkbox"] { width: 17px; height: 17px; accent-color: var(--ca-accent); }
     .ca-avatar { width: 44px; height: 44px; border-radius: 999px; display: grid; place-items: center; font-family: var(--ca-font-heading); font-size: 14px; flex: none; }
     .ca-avatar.tone-a { background: var(--ca-accent-200); color: var(--ca-accent-800); }
@@ -101,6 +101,9 @@
     .ca-attendance-btn:hover { background: var(--ca-surface-2); }
     .ca-attendance-btn.present-btn.active { background: var(--ca-accent2-500); color: #fff; }
     .ca-attendance-btn.absent-btn.active { background: var(--ca-accent-600); color: #fff; }
+    .ca-table-select-wrap { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+    .ca-table-select-label { font: 600 9.5px var(--ca-font-body); letter-spacing: .1em; text-transform: uppercase; color: var(--ca-neutral-600); }
+    .ca-table-select { width: 92px; font-size: 12.5px; padding: 4px 8px; border-radius: 999px; border: 1px solid var(--ca-divider); background: var(--ca-bg); color: var(--ca-text); }
 
     .ca-composer { background: var(--ca-surface); border-radius: var(--ca-radius-lg); padding: 24px 26px; box-shadow: var(--ca-shadow-sm); margin-top: .35rem; }
     .ca-composer-title { font-size: 19px; }
@@ -149,6 +152,7 @@
     @media (max-width: 900px) {
       .ca-roster-card { grid-template-columns: 22px 40px 1fr; }
       .ca-attendance-toggle { grid-column: 1 / -1; justify-self: start; }
+      .ca-table-select-wrap { grid-column: 1 / -1; justify-self: start; align-items: flex-start; }
     }
   </style>
 </head>
@@ -217,6 +221,8 @@
                 : (roster.length === 1 ? t('student_count_singular') : t('student_count_plural')) %>
             </label>
             <div class="ca-roster-actions">
+              <button type="button" class="ca-mark-all-btn" id="organize-tables-btn"><%= t('organize_by_table_button') %></button>
+              <span id="organize-tables-feedback" class="muted"></span>
               <span class="muted" id="recipient-count-label"></span>
               <a href="#" id="copy-all-emails"><%= t('copy_all_emails_label') %></a>
               <span id="copy-all-emails-feedback" class="muted"></span>
@@ -232,6 +238,7 @@
             <% const nameParts = (r.student_full_name || '').trim().split(/\s+/).filter(Boolean); %>
             <% const initials = ((nameParts[0] ? nameParts[0][0] : '') + (nameParts.length > 1 ? nameParts[nameParts.length - 1][0] : '')).toUpperCase(); %>
             <% const currentStatus = attendanceByStudent[r.id] || ''; %>
+            <% const currentTable = tableByStudent[r.id] || ''; %>
             <div class="ca-roster-card" data-student-row="<%= r.id %>">
               <div>
                 <input type="checkbox" class="message-recipient-checkbox" name="student_registration_ids" value="<%= r.id %>" id="msg-check-<%= r.id %>" data-email="<%= r.primary_contact_email || '' %>" checked>
@@ -265,6 +272,15 @@
               <div class="ca-attendance-toggle">
                 <button type="button" class="ca-attendance-btn present-btn <%= currentStatus === 'present' ? 'active' : '' %>" data-student-id="<%= r.id %>" data-status="present" aria-label="<%= t('present_label') %>"><%= t('present_label') %></button>
                 <button type="button" class="ca-attendance-btn absent-btn <%= currentStatus === 'absent' ? 'active' : '' %>" data-student-id="<%= r.id %>" data-status="absent" aria-label="<%= t('absent_label') %>"><%= t('absent_label') %></button>
+              </div>
+              <div class="ca-table-select-wrap">
+                <label class="ca-table-select-label" for="table-select-<%= r.id %>"><%= t('table_column_label') %></label>
+                <select class="ca-table-select table-select" id="table-select-<%= r.id %>" data-student-id="<%= r.id %>">
+                  <option value="" <%= currentTable === '' ? 'selected' : '' %>><%= t('table_unassigned_option') %></option>
+                  <% for (let tableOption = 1; tableOption <= 12; tableOption += 1) { %>
+                    <option value="<%= tableOption %>" <%= currentTable === tableOption ? 'selected' : '' %>><%= t('table_option_label').replace('%s', tableOption) %></option>
+                  <% } %>
+                </select>
               </div>
             </div>
           <% }) %>
@@ -581,6 +597,56 @@
         });
       });
     }
+  }());
+
+  (function () {
+    const classId = <%- JSON.stringify(ccdClass.id) %>;
+    const organizeBtn = document.getElementById('organize-tables-btn');
+    const organizeFeedback = document.getElementById('organize-tables-feedback');
+    const tableSelects = Array.from(document.querySelectorAll('.table-select'));
+    const organizeTablesPrompt = <%- JSON.stringify(t('organize_tables_prompt')) %>;
+    const organizeTablesInvalidCount = <%- JSON.stringify(t('organize_tables_invalid_count')) %>;
+    const organizedIntoTablesTemplate = <%- JSON.stringify(t('organized_into_tables_label')) %>;
+    if (!organizeBtn && !tableSelects.length) return;
+
+    const setTableSelectValue = (studentId, tableNumber) => {
+      const select = document.getElementById('table-select-' + studentId);
+      if (select) select.value = tableNumber === null || tableNumber === undefined ? '' : String(tableNumber);
+    };
+
+    if (organizeBtn) {
+      organizeBtn.addEventListener('click', () => {
+        const raw = window.prompt(organizeTablesPrompt, '4');
+        if (raw === null) return;
+        const tableCount = Number.parseInt(raw, 10);
+        if (!Number.isInteger(tableCount) || tableCount < 1 || tableCount > 30) {
+          if (organizeFeedback) organizeFeedback.textContent = organizeTablesInvalidCount;
+          return;
+        }
+        fetch('/admin/classes/' + classId + '/tables/organize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ table_count: tableCount }),
+        })
+          .then((r) => r.json())
+          .then((data) => {
+            if (!data.ok) return;
+            (data.assignments || []).forEach((a) => setTableSelectValue(a.studentRegistrationId, a.tableNumber));
+            if (organizeFeedback) organizeFeedback.textContent = organizedIntoTablesTemplate.replace('%s', data.tableCount);
+          });
+      });
+    }
+
+    tableSelects.forEach((select) => {
+      select.addEventListener('change', () => {
+        const studentId = select.getAttribute('data-student-id');
+        fetch('/admin/classes/' + classId + '/tables/assign', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ student_registration_id: studentId, table_number: select.value }),
+        });
+      });
+    });
   }());
 
   (function () {

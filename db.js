@@ -518,6 +518,20 @@ const init = async () => {
     `);
 
     await pool.query(`
+      CREATE TABLE IF NOT EXISTS ccd_class_table_assignments (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        ccd_class_id INT NOT NULL,
+        student_registration_id INT NOT NULL,
+        table_number INT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_class_table_student (ccd_class_id, student_registration_id),
+        CONSTRAINT fk_class_table_assignments_class FOREIGN KEY (ccd_class_id) REFERENCES ccd_classes(id),
+        CONSTRAINT fk_class_table_assignments_student FOREIGN KEY (student_registration_id) REFERENCES student_registrations(id)
+      )
+    `);
+
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS resources (
         id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
         title VARCHAR(255) NOT NULL,
