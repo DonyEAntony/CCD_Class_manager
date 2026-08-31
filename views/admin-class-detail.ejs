@@ -74,6 +74,10 @@
     .ca-roster-toggle input { width: 17px; height: 17px; accent-color: var(--ca-accent); border-radius: 6px; }
     .ca-roster-actions { display: flex; align-items: center; gap: 16px; font-size: 12.5px; flex-wrap: wrap; }
     .ca-roster-actions .muted { color: var(--ca-neutral-600); }
+    .ca-group-toggle { display: flex; align-items: center; gap: 6px; font: 400 12.5px var(--ca-font-body); color: var(--ca-neutral-700); cursor: pointer; }
+    .ca-group-toggle input { width: 14px; height: 14px; accent-color: var(--ca-accent); }
+    .ca-table-group-heading { font: 700 11px var(--ca-font-body); letter-spacing: .1em; text-transform: uppercase; color: var(--ca-accent-700); padding: 14px 4px 6px; }
+    .ca-table-group-heading:first-child { padding-top: 0; }
 
     .ca-roster-card { display: grid; grid-template-columns: 26px 44px 1fr auto auto; gap: 16px; align-items: center; padding: 14px 20px; background: var(--ca-surface); border-radius: var(--ca-radius-lg); box-shadow: var(--ca-shadow-sm); margin-bottom: 10px; }
     .ca-roster-card input[type="checkbox"] { width: 17px; height: 17px; accent-color: var(--ca-accent); }
@@ -224,6 +228,10 @@
             <div class="ca-roster-actions">
               <button type="button" class="ca-mark-all-btn" id="organize-tables-btn"><%= t('organize_by_table_button') %></button>
               <span id="organize-tables-feedback" class="muted"></span>
+              <label class="ca-group-toggle">
+                <input type="checkbox" id="group-by-table-toggle">
+                <%= t('group_by_table_toggle_label') %>
+              </label>
               <span class="muted" id="recipient-count-label"></span>
               <a href="#" id="copy-all-emails"><%= t('copy_all_emails_label') %></a>
               <span id="copy-all-emails-feedback" class="muted"></span>
@@ -240,7 +248,7 @@
             <% const initials = ((nameParts[0] ? nameParts[0][0] : '') + (nameParts.length > 1 ? nameParts[nameParts.length - 1][0] : '')).toUpperCase(); %>
             <% const currentStatus = attendanceByStudent[r.id] || ''; %>
             <% const currentTable = tableByStudent[r.id] || ''; %>
-            <div class="ca-roster-card" data-student-row="<%= r.id %>">
+            <div class="ca-roster-card" data-student-row="<%= r.id %>" data-original-index="<%= index %>">
               <div>
                 <input type="checkbox" class="message-recipient-checkbox" name="student_registration_ids" value="<%= r.id %>" id="msg-check-<%= r.id %>" data-email="<%= r.primary_contact_email || '' %>" checked>
               </div>
@@ -635,16 +643,72 @@
     const classId = <%- JSON.stringify(ccdClass.id) %>;
     const organizeBtn = document.getElementById('organize-tables-btn');
     const organizeFeedback = document.getElementById('organize-tables-feedback');
+    const groupToggle = document.getElementById('group-by-table-toggle');
+    const rosterContainer = document.getElementById('class-message-form');
     const tableSelects = Array.from(document.querySelectorAll('.table-select'));
     const organizeTablesPrompt = <%- JSON.stringify(t('organize_tables_prompt')) %>;
     const organizeTablesInvalidCount = <%- JSON.stringify(t('organize_tables_invalid_count')) %>;
     const organizedIntoTablesTemplate = <%- JSON.stringify(t('organized_into_tables_label')) %>;
+    const tableGroupLabelTemplate = <%- JSON.stringify(t('table_option_label')) %>;
+    const unassignedGroupLabel = <%- JSON.stringify(t('unassigned')) %>;
     if (!organizeBtn && !tableSelects.length) return;
 
     const setTableSelectValue = (studentId, tableNumber) => {
       const select = document.getElementById('table-select-' + studentId);
       if (select) select.value = tableNumber === null || tableNumber === undefined ? '' : String(tableNumber);
     };
+
+    // Purely a client-side re-sort of what's already on the page — every table value is
+    // already in the DOM (each roster card's own select), so grouping never needs a
+    // server round trip, just reflows the existing cards under Table N / Unassigned
+    // headings (or back to the server-sorted alphabetical order the page loaded with).
+    const GROUP_STORAGE_KEY = 'classRosterGroupByTable';
+    const applyGrouping = (grouped) => {
+      if (!rosterContainer) return;
+      rosterContainer.querySelectorAll('.ca-table-group-heading').forEach((h) => h.remove());
+      const cards = Array.from(rosterContainer.querySelectorAll('.ca-roster-card'));
+
+      if (!grouped) {
+        cards
+          .sort((a, b) => Number(a.dataset.originalIndex) - Number(b.dataset.originalIndex))
+          .forEach((card) => rosterContainer.appendChild(card));
+        return;
+      }
+
+      const groups = {};
+      cards.forEach((card) => {
+        const select = card.querySelector('.table-select');
+        const key = select && select.value ? select.value : 'unassigned';
+        (groups[key] = groups[key] || []).push(card);
+      });
+      const orderedKeys = Object.keys(groups)
+        .filter((k) => k !== 'unassigned')
+        .sort((a, b) => Number(a) - Number(b));
+      if (groups.unassigned) orderedKeys.push('unassigned');
+
+      orderedKeys.forEach((key) => {
+        const heading = document.createElement('div');
+        heading.className = 'ca-table-group-heading';
+        heading.textContent = key === 'unassigned' ? unassignedGroupLabel : tableGroupLabelTemplate.replace('%s', key);
+        rosterContainer.appendChild(heading);
+        groups[key].forEach((card) => rosterContainer.appendChild(card));
+      });
+    };
+
+    const isGrouped = () => !!(groupToggle && groupToggle.checked);
+    const refreshGrouping = () => { if (isGrouped()) applyGrouping(true); };
+
+    if (groupToggle) {
+      let savedPreference = false;
+      try { savedPreference = window.localStorage.getItem(GROUP_STORAGE_KEY) === '1'; } catch (e) { /* private browsing, etc. */ }
+      groupToggle.checked = savedPreference;
+      applyGrouping(savedPreference);
+
+      groupToggle.addEventListener('change', () => {
+        applyGrouping(groupToggle.checked);
+        try { window.localStorage.setItem(GROUP_STORAGE_KEY, groupToggle.checked ? '1' : '0'); } catch (e) { /* private browsing, etc. */ }
+      });
+    }
 
     if (organizeBtn) {
       organizeBtn.addEventListener('click', () => {
@@ -665,6 +729,7 @@
             if (!data.ok) return;
             (data.assignments || []).forEach((a) => setTableSelectValue(a.studentRegistrationId, a.tableNumber));
             if (organizeFeedback) organizeFeedback.textContent = organizedIntoTablesTemplate.replace('%s', data.tableCount);
+            refreshGrouping();
           });
       });
     }
@@ -677,6 +742,7 @@
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body: new URLSearchParams({ student_registration_id: studentId, table_number: select.value }),
         });
+        refreshGrouping();
       });
     });
   }());
