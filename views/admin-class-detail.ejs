@@ -135,6 +135,7 @@
     .ca-schedule-remove-btn:hover { border-color: var(--ca-accent-600); color: var(--ca-accent-600); }
     .ca-teacher-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
     .ca-teacher-row + .ca-teacher-row { margin-top: .6rem; }
+    .ca-teacher-role-select { margin-top: 5px; font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--ca-divider); background: var(--ca-bg); color: var(--ca-text); }
     .ca-celebration-list { display: flex; flex-direction: column; gap: 10px; margin-top: .6rem; }
     .ca-celebration-row { display: flex; align-items: flex-start; gap: 10px; }
     .ca-celebration-icon { font-size: 18px; line-height: 1.4; flex: none; }
@@ -387,6 +388,15 @@
                     <% if (catechist.phone) { %><a href="tel:<%= catechist.phone %>">&#128222;</a><% } %>
                     <% if (catechist.email) { %><a href="mailto:<%= catechist.email %>">&#9993;</a><% } %>
                   </div>
+                  <% if (user.role === 'admin') { %>
+                    <select class="ca-teacher-role-select" data-catechist-id="<%= catechist.id %>">
+                      <option value="" <%= !catechist.role ? 'selected' : '' %>><%= t('class_teacher_role_none_option') %></option>
+                      <option value="facilitator" <%= catechist.role === 'facilitator' ? 'selected' : '' %>><%= t('class_teacher_role_facilitator') %></option>
+                      <option value="companion" <%= catechist.role === 'companion' ? 'selected' : '' %>><%= t('class_teacher_role_companion') %></option>
+                    </select>
+                  <% } else if (catechist.role) { %>
+                    <span class="ca-badge ca-badge-info"><%= t('class_teacher_role_' + catechist.role) %></span>
+                  <% } %>
                 </div>
                 <% if (user.role === 'admin') { %>
                   <form method="post" action="/admin/classes/<%= ccdClass.id %>/catechists/remove" onsubmit="return confirm('<%= t('remove_teacher_confirm') %>');">
@@ -402,12 +412,17 @@
           <% if (user.role === 'admin') { %>
             <div class="ca-assign-row">
               <% if (assignableCatechists && assignableCatechists.length) { %>
-                <form method="post" action="/admin/classes/<%= ccdClass.id %>/catechists/add" class="d-flex gap-2 w-100">
-                  <select class="form-select form-select-sm" name="catechist_user_id" required>
+                <form method="post" action="/admin/classes/<%= ccdClass.id %>/catechists/add" class="d-flex gap-2 w-100 flex-wrap">
+                  <select class="form-select form-select-sm" name="catechist_user_id" required style="flex:1 1 140px">
                     <option value=""><%= t('select_placeholder') %></option>
                     <% assignableCatechists.forEach((c) => { %>
                       <option value="<%= c.id %>"><%= c.full_name || c.email %></option>
                     <% }) %>
+                  </select>
+                  <select class="form-select form-select-sm" name="role" style="flex:1 1 110px">
+                    <option value=""><%= t('class_teacher_role_none_option') %></option>
+                    <option value="facilitator"><%= t('class_teacher_role_facilitator') %></option>
+                    <option value="companion"><%= t('class_teacher_role_companion') %></option>
                   </select>
                   <button type="submit" class="ca-btn text-nowrap"><%= t('assign_teacher_button') %></button>
                 </form>
@@ -517,6 +532,23 @@
         () => { if (copyTeacherFeedback) copyTeacherFeedback.textContent = emailsCopiedLabel; },
         () => { if (copyTeacherFeedback) copyTeacherFeedback.textContent = copyEmailsFailedLabel; }
       );
+    });
+  }());
+
+  (function () {
+    const classId = <%- JSON.stringify(ccdClass.id) %>;
+    const roleSelects = Array.from(document.querySelectorAll('.ca-teacher-role-select'));
+    roleSelects.forEach((select) => {
+      select.addEventListener('change', () => {
+        fetch('/admin/classes/' + classId + '/catechists/role', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            catechist_user_id: select.getAttribute('data-catechist-id'),
+            role: select.value,
+          }),
+        });
+      });
     });
   }());
 

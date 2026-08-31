@@ -911,6 +911,10 @@ const translations = {
     assign_teacher_button: 'Assign',
     no_catechists_available: 'No other catechists available to assign.',
     remove_teacher_confirm: 'Remove this teacher from the class?',
+    class_teacher_role_label: 'Role',
+    class_teacher_role_none_option: 'No role',
+    class_teacher_role_facilitator: 'Facilitator',
+    class_teacher_role_companion: 'Companion',
     emails_copied_label: 'Copied!',
     no_emails_to_copy_label: 'No contact emails to copy.',
     copy_emails_failed_label: 'Could not copy — copy manually instead.',
@@ -1878,6 +1882,10 @@ const translations = {
     assign_teacher_button: 'Asignar',
     no_catechists_available: 'No hay más catequistas disponibles para asignar.',
     remove_teacher_confirm: '¿Eliminar este catequista de la clase?',
+    class_teacher_role_label: 'Función',
+    class_teacher_role_none_option: 'Sin función',
+    class_teacher_role_facilitator: 'Facilitador',
+    class_teacher_role_companion: 'Acompañante',
     emails_copied_label: '¡Copiado!',
     no_emails_to_copy_label: 'No hay correos de contacto para copiar.',
     copy_emails_failed_label: 'No se pudo copiar — cópielo manualmente.',
@@ -2181,7 +2189,7 @@ const getCcdClasses = async () => {
 
   const catechistLinks = await db.prepare(`
     SELECT cc.ccd_class_id, u.id AS catechist_id, u.full_name AS catechist_name,
-           u.email AS catechist_email, u.phone AS catechist_phone
+           u.email AS catechist_email, u.phone AS catechist_phone, cc.role AS catechist_role
     FROM ccd_class_catechists cc
     JOIN users u ON u.id = cc.catechist_user_id
     ORDER BY COALESCE(NULLIF(u.full_name, ''), u.email) ASC
@@ -2194,6 +2202,7 @@ const getCcdClasses = async () => {
       name: row.catechist_name,
       email: row.catechist_email,
       phone: row.catechist_phone,
+      role: row.catechist_role || null,
     });
   });
 
@@ -7876,6 +7885,15 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist', 'fa
   });
 }));
 
+// Optional label for an assigned teacher — the two roles Family Faith Formation
+// actually uses. Blank/anything else is stored as NULL (a plain teacher/catechist with
+// no special designation), not rejected — the label is a nicety, not a requirement.
+const CLASS_TEACHER_ROLES = new Set(['facilitator', 'companion']);
+const normalizeClassTeacherRole = (value) => {
+  const normalized = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  return CLASS_TEACHER_ROLES.has(normalized) ? normalized : null;
+};
+
 app.post('/admin/classes/:id/catechists/add', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   const classId = Number.parseInt(req.params.id, 10);
   const catechistId = Number.parseInt(req.body.catechist_user_id, 10);
@@ -7892,11 +7910,28 @@ app.post('/admin/classes/:id/catechists/add', requireAuth, requireRole('admin'),
     return res.redirect(`/admin/classes/${classId}`);
   }
 
+  const role = normalizeClassTeacherRole(req.body.role);
   await db.prepare(
-    'INSERT IGNORE INTO ccd_class_catechists (ccd_class_id, catechist_user_id) VALUES (?, ?)'
-  ).run(classId, catechistId);
+    'INSERT IGNORE INTO ccd_class_catechists (ccd_class_id, catechist_user_id, role) VALUES (?, ?, ?)'
+  ).run(classId, catechistId, role);
   req.flash('success', 'Teacher assigned to class.');
   return res.redirect(`/admin/classes/${classId}`);
+}));
+
+// Relabels an already-assigned teacher's role without removing and re-adding them —
+// a blank submission clears it back to a plain teacher/catechist with no designation.
+app.post('/admin/classes/:id/catechists/role', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const classId = Number.parseInt(req.params.id, 10);
+  const catechistId = Number.parseInt(req.body.catechist_user_id, 10);
+  if (!Number.isInteger(classId) || !Number.isInteger(catechistId)) {
+    return res.status(400).json({ ok: false, error: 'Invalid request.' });
+  }
+
+  const role = normalizeClassTeacherRole(req.body.role);
+  await db.prepare(
+    'UPDATE ccd_class_catechists SET role = ? WHERE ccd_class_id = ? AND catechist_user_id = ?'
+  ).run(role, classId, catechistId);
+  return res.json({ ok: true, role });
 }));
 
 app.post('/admin/classes/:id/catechists/remove', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
