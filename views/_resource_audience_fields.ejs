@@ -1,0 +1,42 @@
+<%# _resource_audience_fields.ejs - the role/class-teacher/class-parent/individual
+    audience picker shared by the "Add Resource" form and each resource's inline
+    "Share" form. Locals: t, assignableRoles, roleLabels, ccdClasses, ccdGradeMeanings,
+    assignableUsers, fieldIdPrefix (unique id namespace), and optionally audiencePrefill
+    ({ roles, classTeacherIds, classParentIds, targetUserIds }) to pre-check/pre-select
+    an existing audience. %>
+<% const prefill = typeof audiencePrefill !== 'undefined' && audiencePrefill
+     ? audiencePrefill
+     : { roles: [], classTeacherIds: [], classParentIds: [], targetUserIds: [] }; %>
+<div class="col-12 col-md-3">
+  <label class="form-label"><%= t('resource_visible_to_roles_label') %></label>
+  <% assignableRoles.forEach((role) => { %>
+    <div class="form-check">
+      <input class="form-check-input" type="checkbox" name="roles" value="<%= role %>" id="<%= fieldIdPrefix %>-role-<%= role %>" <%= prefill.roles.includes(role) ? 'checked' : '' %>>
+      <label class="form-check-label" for="<%= fieldIdPrefix %>-role-<%= role %>"><%= roleLabels[role] || role %></label>
+    </div>
+  <% }) %>
+</div>
+<div class="col-12 col-md-3">
+  <label class="form-label" for="<%= fieldIdPrefix %>-class-teachers"><%= t('resource_visible_to_class_teachers_label') %></label>
+  <select class="form-select" id="<%= fieldIdPrefix %>-class-teachers" name="class_teacher_ids" multiple size="5">
+    <% ccdClasses.forEach((c) => { %>
+      <option value="<%= c.id %>" <%= prefill.classTeacherIds.includes(c.id) ? 'selected' : '' %>><%= ccdGradeMeanings[c.grade_level] || c.grade_level %><%= c.sectionLabel || '' %></option>
+    <% }) %>
+  </select>
+</div>
+<div class="col-12 col-md-3">
+  <label class="form-label" for="<%= fieldIdPrefix %>-class-parents"><%= t('resource_visible_to_class_parents_label') %></label>
+  <select class="form-select" id="<%= fieldIdPrefix %>-class-parents" name="class_parent_ids" multiple size="5">
+    <% ccdClasses.forEach((c) => { %>
+      <option value="<%= c.id %>" <%= prefill.classParentIds.includes(c.id) ? 'selected' : '' %>><%= ccdGradeMeanings[c.grade_level] || c.grade_level %><%= c.sectionLabel || '' %></option>
+    <% }) %>
+  </select>
+</div>
+<div class="col-12 col-md-3">
+  <label class="form-label" for="<%= fieldIdPrefix %>-individuals"><%= t('resource_visible_to_individuals_label') %></label>
+  <select class="form-select" id="<%= fieldIdPrefix %>-individuals" name="target_user_ids" multiple size="5">
+    <% assignableUsers.forEach((u) => { %>
+      <option value="<%= u.id %>" <%= prefill.targetUserIds.includes(u.id) ? 'selected' : '' %>><%= u.full_name || u.email %></option>
+    <% }) %>
+  </select>
+</div>
