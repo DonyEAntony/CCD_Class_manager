@@ -454,6 +454,15 @@
 
   <p class="footer-note"><%= t('footer_note') %></p>
 </main>
+<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index:1080">
+  <div id="attendance-undo-toast" class="toast align-items-center" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="8000">
+    <div class="d-flex">
+      <div class="toast-body" id="attendance-undo-toast-body"></div>
+      <button type="button" class="btn btn-sm btn-link text-decoration-none me-1 my-auto" id="attendance-undo-btn"><%= t('undo_button') %></button>
+      <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+  </div>
+</div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
   const copyTextToClipboard = (text, onSuccess, onFail) => {
@@ -511,10 +520,16 @@
     const presentLabel = <%- JSON.stringify(t('present_label').toLowerCase()) %>;
     const absentLabel = <%- JSON.stringify(t('absent_label').toLowerCase()) %>;
     const unmarkedLabel = <%- JSON.stringify(t('unmarked_label')) %>;
-    const clearAttendanceConfirm = <%- JSON.stringify(t('clear_attendance_confirm')) %>;
+    const markedAllPresentToastTemplate = <%- JSON.stringify(t('attendance_marked_all_present_toast')) %>;
+    const clearedAttendanceToastTemplate = <%- JSON.stringify(t('attendance_cleared_toast')) %>;
+    const attendanceUndoRestoredToast = <%- JSON.stringify(t('attendance_undo_restored_toast')) %>;
     const summaryEls = Array.from(document.querySelectorAll('.ca-stats-bar'));
     const markAllBtn = document.getElementById('mark-all-present-btn');
     const clearBtn = document.getElementById('clear-attendance-btn');
+    const undoToastEl = document.getElementById('attendance-undo-toast');
+    const undoToastBody = document.getElementById('attendance-undo-toast-body');
+    const undoBtn = document.getElementById('attendance-undo-btn');
+    const undoToast = (undoToastEl && window.bootstrap) ? new window.bootstrap.Toast(undoToastEl) : null;
 
     if (!sessionDate) return;
 
@@ -566,18 +581,63 @@
       });
     });
 
+    // Snapshot of each student's attendance right before a bulk action (Mark all
+    // present / Clear), read from the button states rather than server data so it
+    // reflects whatever was on screen at that moment, including any not-yet-summarized
+    // individual clicks.
+    const captureAttendanceSnapshot = () => {
+      const snapshot = {};
+      rosterIds.forEach((id) => {
+        const row = document.querySelector('.ca-roster-card[data-student-row="' + id + '"]');
+        const presentBtn = row && row.querySelector('.present-btn');
+        const absentBtn = row && row.querySelector('.absent-btn');
+        snapshot[id] = presentBtn && presentBtn.classList.contains('active')
+          ? 'present'
+          : (absentBtn && absentBtn.classList.contains('active') ? 'absent' : 'unmarked');
+      });
+      return snapshot;
+    };
+
+    let pendingUndoSnapshot = null;
+    const showUndoToast = (message, snapshot) => {
+      pendingUndoSnapshot = snapshot;
+      if (undoToastBody) undoToastBody.textContent = message;
+      if (undoToast) undoToast.show();
+    };
+
+    if (undoBtn) {
+      undoBtn.addEventListener('click', () => {
+        if (!pendingUndoSnapshot) return;
+        const snapshot = pendingUndoSnapshot;
+        pendingUndoSnapshot = null;
+        Promise.all(rosterIds.map((id) => setAttendance(id, snapshot[id]))).then(() => {
+          const presentCount = Object.values(snapshot).filter((s) => s === 'present').length;
+          const absentCount = Object.values(snapshot).filter((s) => s === 'absent').length;
+          updateSummary(presentCount, absentCount);
+          if (undoToastBody) undoToastBody.textContent = attendanceUndoRestoredToast;
+        });
+        if (undoToast) undoToast.hide();
+      });
+    }
+
+    // A bulk action fires immediately (no blocking confirm) — a fast-moving classroom
+    // shouldn't stop for a dialog — but is fully reversible for a few seconds via the
+    // undo toast instead.
     if (markAllBtn) {
       markAllBtn.addEventListener('click', () => {
+        const snapshot = captureAttendanceSnapshot();
         Promise.all(rosterIds.map((id) => setAttendance(id, 'present'))).then(() => {
           updateSummary(rosterIds.length, 0);
+          showUndoToast(markedAllPresentToastTemplate.replace('%s', rosterIds.length), snapshot);
         });
       });
     }
     if (clearBtn) {
       clearBtn.addEventListener('click', () => {
-        if (!window.confirm(clearAttendanceConfirm)) return;
+        const snapshot = captureAttendanceSnapshot();
         Promise.all(rosterIds.map((id) => setAttendance(id, 'unmarked'))).then(() => {
           updateSummary(0, 0);
+          showUndoToast(clearedAttendanceToastTemplate.replace('%s', rosterIds.length), snapshot);
         });
       });
     }
