@@ -21,7 +21,7 @@
       <p class="sub mb-0"><%= t('admin_catechists_subtitle') %></p>
     </div>
     <div class="d-flex gap-2">
-      <a class="btn btn-outline-secondary" href="/admin/resources"><%= t('manage_resources_nav') %></a>
+      <a class="btn btn-outline-secondary" href="/resources"><%= t('manage_resources_nav') %></a>
       <a class="btn btn-outline-secondary" href="/admin/notifications"><%= t('manage_notifications_nav') %></a>
     </div>
   </div>
@@ -192,7 +192,7 @@
                   <td style="text-align:right">
                     <div class="d-inline-flex gap-2">
                       <button class="btn btn-sm btn-outline-secondary catechist-message-toggle" type="button" data-target="catechist-message-<%= catechist.id %>"><%= t('catechist_message_button') %></button>
-                      <a class="btn btn-sm btn-outline-secondary" href="/admin/resources?target_user_id=<%= catechist.id %>"><%= t('catechist_assign_resource_button') %></a>
+                      <a class="btn btn-sm btn-outline-secondary" href="/resources?target_user_id=<%= catechist.id %>"><%= t('catechist_assign_resource_button') %></a>
                       <a class="btn btn-sm btn-outline-secondary" href="/admin/notifications?target_user_id=<%= catechist.id %>"><%= t('catechist_send_notification_button') %></a>
                     </div>
                   </td>
