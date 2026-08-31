@@ -6858,9 +6858,48 @@ app.get('/admin/health/document-ai', requireAuth, requireRole('admin'), async (r
 // A shared document library every logged-in user can see (scoped to whatever an admin
 // has assigned them), separate from the per-registration certificate uploads above.
 
+// Admins get the management view (upload + full audience/visibility controls + every
+// resource regardless of who it's assigned to) directly on this page instead of a
+// separate /admin/resources destination — everyone else keeps the plain "what's been
+// shared with me" list. /admin/resources itself now just redirects here (see below),
+// kept only so existing links/bookmarks still land somewhere.
 app.get('/resources', requireAuth, asyncHandler(async (req, res) => {
-  const resources = await getVisibleResourcesForUser(req.user);
-  res.render('resources', { resources });
+  if (req.user.role !== 'admin') {
+    const resources = await getVisibleResourcesForUser(req.user);
+    return res.render('resources', { isAdmin: false, resources });
+  }
+
+  const resourcesAll = await db.prepare('SELECT * FROM resources ORDER BY created_at DESC').all();
+  const assignments = await db.prepare('SELECT * FROM resource_assignments').all();
+  const ccdClasses = await getCcdClasses();
+  const ccdClassById = new Map(ccdClasses.map((c) => [c.id, c]));
+  const assignableUsers = await db.prepare(`
+    SELECT id, full_name, email, role FROM users
+    WHERE COALESCE(account_status, 'active') <> 'deleted'
+    ORDER BY COALESCE(NULLIF(full_name, ''), email) ASC
+  `).all();
+  const userById = new Map(assignableUsers.map((u) => [u.id, u]));
+  const { roleLabels, describeAssignment } = buildAssignmentDescriber(res.locals.t, ccdClassById, userById);
+
+  const assignmentsByResource = new Map();
+  assignments.forEach((a) => {
+    if (!assignmentsByResource.has(a.resource_id)) assignmentsByResource.set(a.resource_id, []);
+    assignmentsByResource.get(a.resource_id).push(a);
+  });
+
+  return res.render('resources', {
+    isAdmin: true,
+    resources: resourcesAll.map((r) => ({
+      ...r,
+      assignmentLabels: (assignmentsByResource.get(r.id) || []).map(describeAssignment),
+    })),
+    ccdClasses,
+    ccdGradeMeanings: CCD_GRADE_MEANINGS,
+    assignableUsers,
+    assignableRoles: ASSIGNABLE_AUDIENCE_ROLES,
+    roleLabels,
+    preselectTargetUserId: Number.parseInt(req.query.target_user_id, 10) || null,
+  });
 }));
 
 app.get('/resources/:id/download', requireAuth, asyncHandler(async (req, res) => {
@@ -6884,38 +6923,12 @@ app.get('/resources/:id/download', requireAuth, asyncHandler(async (req, res) =>
   return res.download(path.join(resourceUploadDir, resource.stored_filename), resource.original_filename);
 }));
 
-app.get('/admin/resources', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
-  const resources = await db.prepare('SELECT * FROM resources ORDER BY created_at DESC').all();
-  const assignments = await db.prepare('SELECT * FROM resource_assignments').all();
-  const ccdClasses = await getCcdClasses();
-  const ccdClassById = new Map(ccdClasses.map((c) => [c.id, c]));
-  const assignableUsers = await db.prepare(`
-    SELECT id, full_name, email, role FROM users
-    WHERE COALESCE(account_status, 'active') <> 'deleted'
-    ORDER BY COALESCE(NULLIF(full_name, ''), email) ASC
-  `).all();
-  const userById = new Map(assignableUsers.map((u) => [u.id, u]));
-  const { roleLabels, describeAssignment } = buildAssignmentDescriber(res.locals.t, ccdClassById, userById);
-
-  const assignmentsByResource = new Map();
-  assignments.forEach((a) => {
-    if (!assignmentsByResource.has(a.resource_id)) assignmentsByResource.set(a.resource_id, []);
-    assignmentsByResource.get(a.resource_id).push(a);
-  });
-
-  res.render('admin-resources', {
-    resources: resources.map((r) => ({
-      ...r,
-      assignmentLabels: (assignmentsByResource.get(r.id) || []).map(describeAssignment),
-    })),
-    ccdClasses,
-    ccdGradeMeanings: CCD_GRADE_MEANINGS,
-    assignableUsers,
-    assignableRoles: ASSIGNABLE_AUDIENCE_ROLES,
-    roleLabels,
-    preselectTargetUserId: Number.parseInt(req.query.target_user_id, 10) || null,
-  });
-}));
+// Kept only so existing bookmarks/links (and any other still-linking view) land
+// somewhere real — the actual admin management view now lives at /resources itself.
+app.get('/admin/resources', requireAuth, requireRole('admin'), (req, res) => {
+  const query = req.url.split('?')[1];
+  return res.redirect('/resources' + (query ? `?${query}` : ''));
+});
 
 app.post('/admin/resources', requireAuth, requireRole('admin'), resourceUpload.single('file'), asyncHandler(async (req, res) => {
   const cleanupUpload = async () => {
@@ -6926,14 +6939,14 @@ app.post('/admin/resources', requireAuth, requireRole('admin'), resourceUpload.s
   if (!title || !req.file) {
     await cleanupUpload();
     req.flash('error', res.locals.t('resource_title_and_file_required'));
-    return res.redirect('/admin/resources');
+    return res.redirect('/resources');
   }
 
   const assignmentFields = parseAssignmentFieldsFromBody(req.body);
   if (!hasAnyAssignment(assignmentFields)) {
     await cleanupUpload();
     req.flash('error', res.locals.t('resource_assignment_required'));
-    return res.redirect('/admin/resources');
+    return res.redirect('/resources');
   }
 
   const description = typeof req.body.description === 'string' ? req.body.description.trim().slice(0, 2000) : '';
@@ -6959,7 +6972,7 @@ app.post('/admin/resources', requireAuth, requireRole('admin'), resourceUpload.s
   }
 
   req.flash('success', res.locals.t('resource_added'));
-  return res.redirect('/admin/resources');
+  return res.redirect('/resources');
 }));
 
 app.post('/admin/resources/:id/delete', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
@@ -6967,14 +6980,14 @@ app.post('/admin/resources/:id/delete', requireAuth, requireRole('admin'), async
   const resource = await db.prepare('SELECT * FROM resources WHERE id = ?').get(resourceId);
   if (!resource) {
     req.flash('error', res.locals.t('resource_not_found'));
-    return res.redirect('/admin/resources');
+    return res.redirect('/resources');
   }
 
   await db.prepare('DELETE FROM resources WHERE id = ?').run(resourceId);
   try { await fs.promises.unlink(path.join(resourceUploadDir, resource.stored_filename)); } catch { /* already gone */ }
 
   req.flash('success', res.locals.t('resource_removed'));
-  return res.redirect('/admin/resources');
+  return res.redirect('/resources');
 }));
 
 // Sends (or re-sends) a notification for a resource that already exists — covers
@@ -6986,14 +6999,14 @@ app.post('/admin/resources/:id/notify', requireAuth, requireRole('admin'), async
   const resource = await db.prepare('SELECT * FROM resources WHERE id = ?').get(resourceId);
   if (!resource) {
     req.flash('error', res.locals.t('resource_not_found'));
-    return res.redirect('/admin/resources');
+    return res.redirect('/resources');
   }
 
   const assignmentRows = await db.prepare('SELECT * FROM resource_assignments WHERE resource_id = ?').all(resourceId);
   const assignmentFields = assignmentRowsToFields(assignmentRows);
   if (!hasAnyAssignment(assignmentFields)) {
     req.flash('error', res.locals.t('resource_assignment_required'));
-    return res.redirect('/admin/resources');
+    return res.redirect('/resources');
   }
 
   const notifResult = await db.prepare(`
@@ -7003,7 +7016,7 @@ app.post('/admin/resources/:id/notify', requireAuth, requireRole('admin'), async
   await insertAssignmentRows('notification_assignments', 'notification_id', notifResult.lastInsertRowid, assignmentFields);
 
   req.flash('success', res.locals.t('notification_added'));
-  return res.redirect('/admin/resources');
+  return res.redirect('/resources');
 }));
 
 // ── Notifications ─────────────────────────────────────────────
