@@ -792,6 +792,12 @@ const translations = {
     unfinished_registration_banner_title_plural: 'Unfinished registrations',
     unfinished_registration_banner_body: "You started registering %s but didn't finish. Pick up where you left off.",
     finish_registration_button: 'Finish registration',
+    registered_card_title: "You're Registered",
+    registered_for_class_prefix: 'Registered for',
+    class_assignment_pending_note: 'Class assignment pending — check back soon.',
+    upcoming_classes_label: 'Upcoming classes',
+    tentative_schedule_note: 'Tentative — subject to change',
+    edit_registration_button: 'Edit Registration',
     my_students_tab: 'My Students',
     register_next_year: 'Register for Next Year',
     view_my_registrations: 'View My Registrations',
@@ -1765,6 +1771,12 @@ const translations = {
     unfinished_registration_banner_title_plural: 'Inscripciones sin terminar',
     unfinished_registration_banner_body: 'Comenzó a inscribir a %s pero no terminó. Continúe donde lo dejó.',
     finish_registration_button: 'Terminar inscripción',
+    registered_card_title: 'Está Inscrito',
+    registered_for_class_prefix: 'Inscrito en',
+    class_assignment_pending_note: 'Asignación de clase pendiente — vuelva a consultar pronto.',
+    upcoming_classes_label: 'Próximas clases',
+    tentative_schedule_note: 'Provisional — sujeto a cambios',
+    edit_registration_button: 'Editar Inscripción',
     my_students_tab: 'Mis Estudiantes',
     register_next_year: 'Inscribir para el Próximo Año',
     view_my_registrations: 'Ver Mis Inscripciones',
@@ -2356,6 +2368,35 @@ const getClassRoster = (ccdClass, allStudentRegs, enrolledRegistrationIds, allAd
     if (!SACRAMENTAL_GRADE_LEVELS.has(ccdClass.grade_level)) return true;
     return reg.preferred_class_time === ccdClass.class_time || reg.preferred_class_time === getClassSlotValue(ccdClass);
   });
+};
+
+// Reverse lookup of getClassRoster's children-class matching rule: given one submitted
+// registration, finds the specific class it landed in, for surfacing "you're registered
+// for X" on the parent's dashboard. Same grade + (for sacramental grades) time-slot match.
+const findClassForStudentReg = (reg, ccdClasses) => {
+  const gradeLevel = resolveCcdGrade(reg);
+  if (!gradeLevel) return null;
+  return ccdClasses.find((c) => {
+    if (c.classKind === 'adult') return false;
+    if (c.grade_level !== gradeLevel) return false;
+    if (!SACRAMENTAL_GRADE_LEVELS.has(c.grade_level)) return true;
+    return reg.preferred_class_time === c.class_time || reg.preferred_class_time === getClassSlotValue(c);
+  }) || null;
+};
+
+// Next few weeks of session dates for a dashboard preview. Prefers the real
+// admin-confirmed schedule (ccd_class_session_dates); falls back to a rolling weekly
+// guess from class_time when no dates have been configured yet — either way it's
+// presented to parents as tentative, since a holiday/break exception can still move it.
+const getUpcomingSessionsPreview = async (ccdClass, weeksAhead = 4) => {
+  if (!ccdClass) return [];
+  const today = formatSessionDateValue(new Date());
+  const storedSchedule = await getClassSessionDates(ccdClass.id);
+  const upcomingStored = storedSchedule
+    .map((s) => s.date)
+    .filter((d) => formatSessionDateValue(d) >= today)
+    .slice(0, weeksAhead);
+  return upcomingStored.length ? upcomingStored : getUpcomingSessionDates(ccdClass.class_time, weeksAhead);
 };
 
 const getActiveAdultRegistrations = async () =>
@@ -3871,8 +3912,30 @@ app.get('/dashboard', requireAuth, asyncHandler(async (req, res) => {
   // that original registration since.
   const myStudents = await db.prepare('SELECT * FROM students WHERE parent_user_id = ? ORDER BY student_full_name ASC').all(req.user.id);
 
+  // "You're registered" dashboard card: for each submitted (not incomplete/cancelled)
+  // child registration, resolve the actual class it landed in and a tentative preview of
+  // its next few session dates, so a parent can see at a glance which class/time their
+  // child is in without digging into the My Registrations table.
+  const ccdClasses = await getCcdClasses();
+  const myRegisteredChildren = await Promise.all(
+    studentRegs
+      .filter((r) => ['in_progress', 'conditionally_accepted', 'admitted'].includes(r.status))
+      .map(async (r) => {
+        const assignedClass = findClassForStudentReg(r, ccdClasses);
+        const upcomingSessionDates = assignedClass
+          ? (await getUpcomingSessionsPreview(assignedClass)).map((d) => formatSessionDateValue(d))
+          : [];
+        return {
+          reg: r,
+          gradeLabel: CCD_GRADE_MEANINGS[resolveCcdGrade(r)] || resolveCcdGrade(r) || null,
+          assignedClass,
+          upcomingSessionDates,
+        };
+      })
+  );
+
   const ADULT_PROGRAMS = getAdultPrograms(res.locals.t);
-  res.render('dashboard', { studentRegs, familyRegs, adultRegs, sponsorRegs, myStudents, ADULT_PROGRAMS, faithFormationSettings, resolveCcdGrade, feeBreakdown, totalFeesDue });
+  res.render('dashboard', { studentRegs, familyRegs, adultRegs, sponsorRegs, myStudents, myRegisteredChildren, ADULT_PROGRAMS, faithFormationSettings, resolveCcdGrade, feeBreakdown, totalFeesDue });
 }));
 
 app.get('/family-faith/visits/availability', requireAuth, asyncHandler(async (req, res) => {
@@ -4738,7 +4801,14 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
         const familyFaithNote = enrolledInFamilyFaith
           ? ' Your family has also been enrolled in Family Faith Formation — visit your dashboard to schedule your family visit.'
           : '';
-        req.flash('success', `Registration submitted. Total fees: $${totalFeesCharged}.${familyFaithNote}`);
+        const registeredNameRows = groupIdsAfter.length
+          ? await db.prepare(
+              `SELECT student_full_name FROM student_registrations WHERE id IN (${groupIdsAfter.map(() => '?').join(', ')}) ORDER BY id ASC`
+            ).all(...groupIdsAfter)
+          : [];
+        const registeredNames = registeredNameRows.map((row) => row.student_full_name).filter(Boolean).join(', ');
+        const namesNote = registeredNames ? ` for ${registeredNames}` : '';
+        req.flash('success', `Registration submitted${namesNote}! Total fees: $${totalFeesCharged}.${familyFaithNote} You can review or update any details from your dashboard at any time.`);
         return res.redirect('/dashboard');
       }
 
