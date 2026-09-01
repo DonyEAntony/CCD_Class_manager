@@ -127,17 +127,55 @@
     </div>
   <% } %>
 
-  <% const myActiveStudentRegs = (studentRegs || []).filter((r) => String(r.user_id) === String(user.id) && !r.archived_at); %>
-  <% if (myActiveStudentRegs.length) { %>
-    <div class="alert alert-info d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
-      <div>
-        <strong><%= t('already_have_prefix') %> <%= myActiveStudentRegs.length === 1 ? t('registration_singular') : (myActiveStudentRegs.length + ' ' + t('registrations_word')) %> <%= t('on_file_for_suffix') %></strong>
-        <span>
-          <% myActiveStudentRegs.forEach((r, i) => { %><%= i > 0 ? ', ' : ' ' %><%= r.student_full_name %> (<%= t(r.status) %>)<% }) %>
-        </span>
-        <div class="mt-1" style="font-size:.85rem"><%= t('check_my_registrations_prefix') %> "<%= t('my_registrations_tab') %>" <%= t('check_my_registrations_suffix') %></div>
+  <% const myRegisteredChildrenList = Array.isArray(typeof myRegisteredChildren === 'undefined' ? null : myRegisteredChildren) ? myRegisteredChildren : []; %>
+  <% if (myRegisteredChildrenList.length) { %>
+    <div class="page-card mb-3">
+      <div class="card-body">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+          <h2 class="h6 mb-0">✅ <%= t('registered_card_title') %></h2>
+          <button type="button" class="btn btn-outline-primary btn-sm" id="jump-to-my-registrations"><%= t('view_my_registrations') %></button>
+        </div>
+        <div class="row g-3">
+          <% myRegisteredChildrenList.forEach((item) => { %>
+            <% const r = item.reg; const cls = item.assignedClass; %>
+            <div class="col-md-6">
+              <div class="border rounded-3 p-3 h-100">
+                <div class="d-flex justify-content-between align-items-start gap-2">
+                  <div style="min-width:0">
+                    <div class="fw-semibold"><%= r.student_full_name %></div>
+                    <% if (cls) { %>
+                      <div style="font-size:.85rem;color:var(--muted)">
+                        <%= t('registered_for_class_prefix') %> <%= item.gradeLabel %><%= cls.sectionLabel || '' %>
+                        <% if (cls.class_time) { %> &middot; <%= cls.class_time %><% } %>
+                        <% if (cls.classroom) { %> &middot; <%= t('room') %> <%= cls.classroom %><% } %>
+                      </div>
+                      <% if (cls.catechists && cls.catechists.length) { %>
+                        <div style="font-size:.8rem;color:var(--muted)"><%= t('role_catechist') %>: <%= cls.catechists.map((c) => c.name || c.email).join(', ') %></div>
+                      <% } %>
+                    <% } else { %>
+                      <div style="font-size:.85rem;color:var(--muted)"><%= t('class_assignment_pending_note') %></div>
+                    <% } %>
+                  </div>
+                  <span class="badge" style="background:var(--surface);color:var(--navy-soft);font-size:.7rem;border-radius:2rem;padding:.3em .8em;font-weight:700;border:1px solid var(--border);white-space:nowrap">
+                    <%= t(r.status) %>
+                  </span>
+                </div>
+                <% if (item.upcomingSessionDates && item.upcomingSessionDates.length) { %>
+                  <div class="mt-2" style="font-size:.8rem">
+                    <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700"><%= t('upcoming_classes_label') %></div>
+                    <div><%= item.upcomingSessionDates.map((d) => new Date(d + 'T00:00:00').toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', { month: 'short', day: 'numeric' })).join(' · ') %></div>
+                    <div style="color:var(--muted);font-size:.72rem"><%= t('tentative_schedule_note') %></div>
+                  </div>
+                <% } %>
+                <div class="mt-3 d-flex flex-wrap gap-2">
+                  <a class="btn btn-sm btn-outline-primary" href="/registration/children/edit/<%= r.id %>"><%= t('edit_registration_button') %></a>
+                  <% if (cls) { %><a class="btn btn-sm btn-outline-secondary" href="/calendar/class/<%= cls.id %>"><%= t('view_class_calendar_label') %></a><% } %>
+                </div>
+              </div>
+            </div>
+          <% }) %>
+        </div>
       </div>
-      <button type="button" class="btn btn-outline-primary btn-sm" id="jump-to-my-registrations"><%= t('view_my_registrations') %></button>
     </div>
   <% } %>
 
