@@ -260,6 +260,7 @@
                   <% if (isPendingAcceptance(r)) { %><span class="ca-badge ca-badge-warn"><%= t('pending_acceptance_label') %></span><% } %>
                   <% if (r.baptismCertPending) { %><span class="ca-badge ca-badge-warn"><%= t('baptism_cert_pending_badge') %></span><% } %>
                   <% if (r.isAltarServer) { %><span class="ca-badge ca-badge-info">⛪ <%= t('altar_server_badge') %></span><% } %>
+                  <% if (r.programType === 'adult_confirmation') { %><span class="ca-badge ca-badge-info"><%= t('prog_confirm_title') %></span><% } %>
                   <% if (r.absenceCount > 0) { %><span class="ca-badge ca-badge-warn"><%= r.absenceCount %> <%= r.absenceCount === 1 ? t('absence_singular') : t('absence_plural') %></span><% } %>
                 </div>
                 <div class="ca-roster-contact">

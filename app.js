@@ -2288,6 +2288,7 @@ const mapAdultRegistrationToRosterRow = (reg) => ({
   baptism_certificate_path: null,
   baptism_date: null,
   disabilities_comments: reg.comments,
+  programType: reg.program_type,
   // Adult sign-ups have no admitted/conditionally-accepted admission pipeline like
   // children's registrations do — once on the roster, they're never "pending" — so this
   // is hardcoded to satisfy isPendingAcceptance rather than passed through from
@@ -2339,8 +2340,14 @@ const getClassRoster = (ccdClass, allStudentRegs, enrolledRegistrationIds, allAd
       }
       return allFamilyFaithRegs.map(mapFamilyFaithRegistrationToRosterRow);
     }
+    // OCIA class sessions also serve Adult Confirmation candidates (already-baptized
+    // Catholics completing their initiation) — same weekly class, separate registration
+    // program — so an OCIA class rosters both program types together.
+    const rosterProgramTypes = (ccdClass.sourceProgramType || 'ocia') === 'ocia'
+      ? ['ocia', 'adult_confirmation']
+      : [ccdClass.sourceProgramType];
     return allAdultRegs
-      .filter((reg) => reg.program_type === (ccdClass.sourceProgramType || 'ocia'))
+      .filter((reg) => rosterProgramTypes.includes(reg.program_type))
       .map(mapAdultRegistrationToRosterRow);
   }
   return allStudentRegs.filter((reg) => {
