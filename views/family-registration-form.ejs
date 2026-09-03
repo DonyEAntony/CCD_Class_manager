@@ -312,6 +312,16 @@
       if (!members.length || members.some((member) => !member.firstName || !member.lastName)) {
         event.preventDefault();
         alert('Please add at least one family member with a first and last name.');
+        return;
+      }
+      // Nothing previously stopped a repeat click/Enter from firing this form again while
+      // the first submission was still in flight, so a slow response could produce
+      // duplicate registrations. Disabling only here (validation already passed) blocks
+      // every repeat without touching the submission already on its way.
+      const submitBtn = form.querySelector('button[type="submit"]');
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = <%- JSON.stringify(t('submitting_registration')) %>;
       }
     });
 

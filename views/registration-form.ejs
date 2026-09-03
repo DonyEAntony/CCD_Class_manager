@@ -621,6 +621,7 @@
       notBaptizedOnlyOptionPrefix: <%- JSON.stringify(t('not_baptized_only_option_prefix')) %>,
       notBaptizedOnlyOptionSuffix: <%- JSON.stringify(t('not_baptized_only_option_suffix')) %>,
       submitRegistration: <%- JSON.stringify(t('submit_registration')) %>,
+      submittingRegistration: <%- JSON.stringify(t('submitting_registration')) %>,
       saveAndContinue: <%- JSON.stringify(t('save_and_continue')) %>,
       wizardParentInfoChild1: <%- JSON.stringify(t('wizard_parent_info_child1')) %>,
       wizardChildWord: <%- JSON.stringify(t('wizard_child_word')) %>,
@@ -1036,6 +1037,20 @@
         submitRow.classList.add('d-none');
         parentSection.classList.remove('d-none');
         syncRequiredByVisibility();
+      });
+    }
+
+    // Nothing here previously stopped a slow or anxious tap from firing the form more
+    // than once — the button stayed enabled and gave no feedback while the request was
+    // in flight, and each POST with an empty registration_id (true for every submit of a
+    // brand-new registration) inserts a new row rather than updating one. Disabling the
+    // button on the browser's own 'submit' event (which only fires once validation has
+    // already passed) blocks every repeat click/Enter-key without touching the request
+    // that's already on its way.
+    if (submitBtn) {
+      registrationForm.addEventListener('submit', () => {
+        submitBtn.disabled = true;
+        submitBtn.textContent = i18n.submittingRegistration;
       });
     }
   }());

@@ -319,7 +319,14 @@
       if (!name || !requiredFieldsValid || !contactValid) {
         e.preventDefault();
         alert('Please correct the validation errors before submitting.');
+        return;
       }
+      // Nothing previously stopped a repeat click/Enter from firing this form again
+      // while the first submission was still in flight, so a slow response could produce
+      // duplicate registrations. Disabling only here (validation already passed) blocks
+      // every repeat without touching the submission already on its way.
+      submitBtn.disabled = true;
+      submitBtn.textContent = <%- JSON.stringify(t('submitting_registration')) %>;
     });
     checkRequired(); // Initial check
   }());
