@@ -155,6 +155,7 @@
     .sl-day-badge.type-rehearsal { background: var(--sl-accent2-200); color: var(--sl-accent2-900); }
     .sl-day-badge.type-mass { background: var(--sl-mass-200); color: var(--sl-mass-900); }
     .sl-day-badge.type-general-event { background: var(--sl-accent2-200); color: var(--sl-accent2-900); }
+    .sl-day-badge.type-important { background: #fdeeee; color: #7a1f1f; }
     .sl-session-label {
       font: 600 15px var(--sl-font-body);
       flex: 1 1 auto;
@@ -172,6 +173,7 @@
     .sl-type-tag-rehearsal { background: var(--sl-accent2-200); color: var(--sl-accent2-900); }
     .sl-type-tag-mass { background: var(--sl-mass-200); color: var(--sl-mass-900); }
     .sl-type-tag-general-event { background: var(--sl-accent2-200); color: var(--sl-accent2-900); }
+    .sl-type-tag-important { background: #fdeeee; color: #a33; }
     .sl-type-select {
       border: 1px solid var(--sl-divider);
       border-radius: 6px;
@@ -345,10 +347,12 @@
           <div class="sl-month-block">
             <div class="sl-month-header"><%= month.label %> <%= month.year %></div>
             <% month.sessions.forEach((session) => { %>
-              <% const badgeClass = session.isGeneralEvent ? 'type-general-event' : (session.eventType && session.eventType !== 'class_day' ? 'type-' + session.eventType : (session.description ? 'has-note' : '')); %>
+              <% const badgeClass = session.isImportant ? 'type-important' : (session.isGeneralEvent ? 'type-general-event' : (session.eventType && session.eventType !== 'class_day' ? 'type-' + session.eventType : (session.description ? 'has-note' : ''))); %>
               <div class="sl-session-row <%= (canEdit && !session.isGeneralEvent) ? 'editable' : '' %>" data-session-date="<%= session.value %>">
                 <span class="sl-day-badge <%= badgeClass %>"><%= session.day %></span>
-                <% if (session.isGeneralEvent) { %>
+                <% if (session.isImportant) { %>
+                  <span class="sl-type-tag sl-type-tag-important">&#9733; <%= t('important_event_tag') %></span>
+                <% } else if (session.isGeneralEvent) { %>
                   <span class="sl-type-tag sl-type-tag-general-event"><%= t('event_type_general_event') %></span>
                 <% } else if (session.eventType && session.eventType !== 'class_day') { %>
                   <span class="sl-type-tag sl-type-tag-<%= session.eventType %>"><%= t('event_type_' + session.eventType) %></span>
