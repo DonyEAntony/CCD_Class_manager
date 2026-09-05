@@ -32,6 +32,7 @@
     <div class="calendar-legend mb-0">
       <div class="calendar-legend-item"><span class="calendar-legend-swatch calendar-legend-swatch-class"></span><%= t('calendar_class_day_title') %></div>
       <div class="calendar-legend-item"><span class="calendar-legend-swatch"></span><%= t('calendar_events_legend_label') %></div>
+      <div class="calendar-legend-item"><span class="calendar-legend-swatch calendar-legend-swatch-liturgical"></span><%= t('calendar_liturgical_legend_label') %></div>
     </div>
     <div class="d-flex align-items-center gap-2">
       <label class="form-label mb-0" for="calendar-class-filter" style="font-size:.85rem"><%= t('calendar_filter_by_class_label') %></label>
@@ -62,23 +63,35 @@
                   <div class="calendar-day-number"><%= day.dayNumber %></div>
                   <div class="calendar-events">
                     <% day.events.forEach((eventItem) => { %>
-                      <div class="calendar-event-pill <%= eventItem.isClassDay ? 'calendar-class-day' : '' %>" <% if (eventItem.isClassDay) { %>data-class-code="<%= eventItem.title %>"<% } %>>
-                        <strong <% if (eventItem.fullTitle) { %>title="<%= eventItem.fullTitle %>"<% } %>><%= eventItem.title %></strong>
-                        <% if (eventItem.isClassDay && eventItem.eventType && eventItem.eventType !== 'class_day') { %>
-                          <span class="calendar-event-type-tag calendar-event-type-tag-<%= eventItem.eventType %>"><%= t('event_type_' + eventItem.eventType) %></span>
-                        <% } %>
-                        <span>
-                          <% if (eventItem.isClassDay) { %>
-                            <% if (eventItem.event_time) { %><%= eventItem.event_time %><% } %>
-                            <% if (eventItem.description) { %><%= eventItem.event_time ? ' · ' : '' %><%= eventItem.description %><% } %>
-                          <% } else { %>
-                            <% if (eventItem.schedule_type === 'recurring' && eventItem.recurrence_pattern) { %><%= eventItem.recurrence_pattern %><% } %>
-                            <% if (eventItem.event_time) { %><%= eventItem.schedule_type === 'recurring' && eventItem.recurrence_pattern ? ' · ' : '' %><%= eventItem.event_time %><% } %>
-                            <% if (eventItem.event_end_time) { %> - <%= eventItem.event_end_time %><% } %>
-                            <% if (eventItem.location) { %> · <%= eventItem.location %><% } %>
+                      <% if (eventItem.isLiturgical) { %>
+                        <div class="calendar-event-pill calendar-liturgical-day">
+                          <strong><%= eventItem.title %></strong>
+                          <% if (eventItem.seasonKey) { %>
+                            <span class="calendar-liturgical-season-tag calendar-liturgical-season-tag-<%= eventItem.seasonKey %>"><%= t('liturgical_season_' + eventItem.seasonKey) %></span>
                           <% } %>
-                        </span>
-                      </div>
+                        </div>
+                      <% } else { %>
+                        <div class="calendar-event-pill <%= eventItem.isClassDay ? 'calendar-class-day' : '' %> <%= eventItem.audience === 'sacrament_day' ? 'calendar-event-important' : '' %>" <% if (eventItem.isClassDay) { %>data-class-code="<%= eventItem.title %>"<% } %>>
+                          <% if (eventItem.audience === 'sacrament_day') { %>
+                            <span class="calendar-important-tag">&#9733; <%= t('important_event_tag') %></span>
+                          <% } %>
+                          <strong <% if (eventItem.fullTitle) { %>title="<%= eventItem.fullTitle %>"<% } %>><%= eventItem.title %></strong>
+                          <% if (eventItem.isClassDay && eventItem.eventType && eventItem.eventType !== 'class_day') { %>
+                            <span class="calendar-event-type-tag calendar-event-type-tag-<%= eventItem.eventType %>"><%= t('event_type_' + eventItem.eventType) %></span>
+                          <% } %>
+                          <span>
+                            <% if (eventItem.isClassDay) { %>
+                              <% if (eventItem.event_time) { %><%= eventItem.event_time %><% } %>
+                              <% if (eventItem.description) { %><%= eventItem.event_time ? ' · ' : '' %><%= eventItem.description %><% } %>
+                            <% } else { %>
+                              <% if (eventItem.schedule_type === 'recurring' && eventItem.recurrence_pattern) { %><%= eventItem.recurrence_pattern %><% } %>
+                              <% if (eventItem.event_time) { %><%= eventItem.schedule_type === 'recurring' && eventItem.recurrence_pattern ? ' · ' : '' %><%= eventItem.event_time %><% } %>
+                              <% if (eventItem.event_end_time) { %> - <%= eventItem.event_end_time %><% } %>
+                              <% if (eventItem.location) { %> · <%= eventItem.location %><% } %>
+                            <% } %>
+                          </span>
+                        </div>
+                      <% } %>
                     <% }) %>
                   </div>
                 <% } %>

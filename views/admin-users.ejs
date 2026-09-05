@@ -598,6 +598,7 @@
   <% const audienceLabelKey = (audience) => {
        if (audience === 'children') return 'children_faith_formation';
        if (audience === 'teens') return 'teen_faith_formation';
+       if (audience === 'sacrament_day') return 'audience_sacrament_day';
        if (audience === 'family_faith') return 'prog_family_title';
        if (audience === 'baptism_prep') return 'prog_baptism_title';
        if (audience === 'ocia') return 'prog_ocia_title';
@@ -617,6 +618,7 @@
           <select class="form-select" name="audience" required>
             <option value="children"><%= t('children_faith_formation') %></option>
             <option value="teens"><%= t('teen_faith_formation') %></option>
+            <option value="sacrament_day"><%= t('audience_sacrament_day') %></option>
             <option value="family_faith"><%= t('prog_family_title') %></option>
             <option value="baptism_prep"><%= t('prog_baptism_title') %></option>
             <option value="ocia"><%= t('prog_ocia_title') %></option>
@@ -735,7 +737,7 @@
             <tbody>
               <% availableManagedEvents.forEach((eventItem) => { %>
                 <tr id="event-schedule-display-<%= eventItem.id %>">
-                  <td><%= eventItem.title %></td>
+                  <td><%= eventItem.title %><% if (eventItem.audience === 'sacrament_day') { %> <span class="badge" style="background:#d88;color:#7a1f1f;">&#9733; <%= t('important_event_tag') %></span><% } %></td>
                   <td><%= t(audienceLabelKey(eventItem.audience)) %></td>
                   <td><%= t(eventItem.schedule_type === 'recurring' ? 'recurring_event' : 'one_time_event') %></td>
                   <td><%= eventItem.recurrence_pattern || '' %><% if (!eventItem.recurrence_pattern) { %><span style="color:var(--muted)">&mdash;</span><% } %></td>

@@ -781,6 +781,10 @@ legend {
   background: var(--gold-pale);
   border-color: #f0d090;
 }
+.calendar-legend-swatch-liturgical {
+  background: #ede4f5;
+  border-color: #c9a8e0;
+}
 
 .calendar-grid {
   display: grid;
@@ -853,6 +857,52 @@ legend {
 .calendar-event-type-tag-retreat { background: #ffe1d0; color: #8c491a; }
 .calendar-event-type-tag-rehearsal { background: #e1eecc; color: #3d472b; }
 .calendar-event-type-tag-mass { background: #dde2f6; color: #2c3568; }
+
+/* Liturgical purple (the traditional Advent/Lent color) marks every liturgical-calendar
+   pill; the season tag underneath only appears on the one day a season actually begins,
+   tinted to that season's own liturgical color rather than the pill's default purple. */
+.calendar-event-pill.calendar-liturgical-day {
+  background: #ede4f5;
+  border-color: #c9a8e0;
+}
+.calendar-event-pill.calendar-liturgical-day strong {
+  color: #5b2a75;
+}
+.calendar-liturgical-season-tag {
+  display: inline-block;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 1px 7px;
+  border-radius: 999px;
+  margin-top: 2px;
+}
+.calendar-liturgical-season-tag-advent,
+.calendar-liturgical-season-tag-lent { background: #ede4f5; color: #5b2a75; }
+.calendar-liturgical-season-tag-easter { background: #fdf3d8; color: #8a6d1f; }
+.calendar-liturgical-season-tag-ordinary { background: #e1eecc; color: #3d472b; }
+
+/* The sacrament-reception ceremony (First Communion Mass, Confirmation) for Second Year
+   Communion/Confirmation is the single most important date on those grades' calendars —
+   called out with a red-toned highlight distinct from every other pill color already in
+   use (gold class days, purple liturgical days, plain white parish events). */
+.calendar-event-pill.calendar-event-important {
+  background: #fdeeee;
+  border: 2px solid #d88;
+}
+.calendar-event-pill.calendar-event-important strong {
+  color: #7a1f1f;
+}
+.calendar-important-tag {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #a33;
+  margin-bottom: 2px;
+}
 
 /* ── Responsive ────────────────────────────────────────────── */
 @media (max-width: 640px) {

@@ -416,6 +416,8 @@ const translations = {
     no_event_definitions: 'No event definitions created yet.',
     children_faith_formation: "Children's Faith Formation",
     teen_faith_formation: 'Teen Faith Formation',
+    audience_sacrament_day: 'Sacrament Day (2nd Year Communion & Confirmation)',
+    important_event_tag: 'Important',
     general_events: 'General Events for Everyone',
     monthly_calendar: 'Monthly Calendar',
     no_events_this_month: 'No scheduled events for this month.',
@@ -423,8 +425,27 @@ const translations = {
     next_month: 'Next Month',
     calendar_class_day_title: 'Faith Formation Classes',
     calendar_events_legend_label: 'Parish Events',
+    calendar_liturgical_legend_label: 'Liturgical Day',
     calendar_filter_by_class_label: 'Show only',
     calendar_filter_all_classes_option: 'All classes',
+    liturgical_mary_mother_of_god: 'Mary, Mother of God',
+    liturgical_epiphany: 'Epiphany',
+    liturgical_ash_wednesday: 'Ash Wednesday',
+    liturgical_palm_sunday: 'Palm Sunday',
+    liturgical_holy_thursday: 'Holy Thursday',
+    liturgical_good_friday: 'Good Friday',
+    liturgical_easter_sunday: 'Easter Sunday',
+    liturgical_ascension: 'Ascension',
+    liturgical_pentecost: 'Pentecost',
+    liturgical_assumption: 'Assumption of Mary',
+    liturgical_all_saints: 'All Saints',
+    liturgical_immaculate_conception: 'Immaculate Conception',
+    liturgical_advent_1: '1st Sunday of Advent',
+    liturgical_christmas: 'Christmas',
+    liturgical_season_advent: 'Advent begins',
+    liturgical_season_lent: 'Lent begins',
+    liturgical_season_easter: 'Easter season begins',
+    liturgical_season_ordinary: 'Ordinary Time resumes',
     year_view_label: 'Full Year (Printable)',
     year_calendar_title: 'Faith Formation Year',
     session_calendar_label: 'Session Calendar',
@@ -1397,6 +1418,8 @@ const translations = {
     no_event_definitions: 'No hay definiciones de eventos creadas todavia.',
     children_faith_formation: 'Formacion en la Fe para Ninos',
     teen_faith_formation: 'Formacion en la Fe para Adolescentes',
+    audience_sacrament_day: 'Día del Sacramento (2do Año de Comunión y Confirmación)',
+    important_event_tag: 'Importante',
     general_events: 'Eventos Generales para Todos',
     monthly_calendar: 'Calendario Mensual',
     no_events_this_month: 'No hay eventos programados para este mes.',
@@ -1404,8 +1427,27 @@ const translations = {
     next_month: 'Mes Siguiente',
     calendar_class_day_title: 'Clases de Formación en la Fe',
     calendar_events_legend_label: 'Eventos Parroquiales',
+    calendar_liturgical_legend_label: 'Día Litúrgico',
     calendar_filter_by_class_label: 'Mostrar solo',
     calendar_filter_all_classes_option: 'Todas las clases',
+    liturgical_mary_mother_of_god: 'María, Madre de Dios',
+    liturgical_epiphany: 'Epifanía',
+    liturgical_ash_wednesday: 'Miércoles de Ceniza',
+    liturgical_palm_sunday: 'Domingo de Ramos',
+    liturgical_holy_thursday: 'Jueves Santo',
+    liturgical_good_friday: 'Viernes Santo',
+    liturgical_easter_sunday: 'Domingo de Pascua',
+    liturgical_ascension: 'Ascensión',
+    liturgical_pentecost: 'Pentecostés',
+    liturgical_assumption: 'Asunción de María',
+    liturgical_all_saints: 'Todos los Santos',
+    liturgical_immaculate_conception: 'Inmaculada Concepción',
+    liturgical_advent_1: 'Primer Domingo de Adviento',
+    liturgical_christmas: 'Navidad',
+    liturgical_season_advent: 'Comienza el Adviento',
+    liturgical_season_lent: 'Comienza la Cuaresma',
+    liturgical_season_easter: 'Comienza el Tiempo Pascual',
+    liturgical_season_ordinary: 'Reanuda el Tiempo Ordinario',
     year_view_label: 'Año Completo (Imprimible)',
     year_calendar_title: 'Año de Formación en la Fe',
     session_calendar_label: 'Calendario de Sesiones',
@@ -2232,16 +2274,22 @@ const getCcdClasses = async () => {
 
 const SACRAMENTAL_GRADE_LEVELS = new Set(Object.values(CCD_GRADE_BY_SACRAMENTAL_YEAR));
 
-// Maps a children's CCD grade to the Faith Formation Event audience it should also pick
-// up on its own class calendar — e.g. a "Teen Mass" (audience 'teens') scheduled once in
-// Admin > Users shows automatically on the Grade 7 / First Year Confirmation / Second
-// Year Confirmation class calendars, not just the shared parish-wide /calendar page.
+// Maps a children's CCD grade to the Faith Formation Event audience(s) it should also
+// pick up on its own class calendar — e.g. a "Teen Mass" (audience 'teens') scheduled
+// once in Admin > Users shows automatically on the Grade 7 / First Year Confirmation /
+// Second Year Confirmation class calendars, not just the shared parish-wide /calendar
+// page. A grade can match more than one audience (Second Year Communion is both
+// 'children' and 'sacrament_day'), so every matching key is returned, not just the first.
 const GRADE_LEVELS_BY_AUDIENCE = {
   teens: new Set(['7', '8', '9']),
   children: new Set(['1', '2', '3', '4', '5', '6']),
+  // The sacrament-reception year for each track — First Communion Mass, Confirmation —
+  // is the single most important date on these two grades' calendars, so it gets its own
+  // audience rather than blending into the regular 'children'/'teens' Mass notices.
+  sacrament_day: new Set(['2', '9']),
 };
-const getClassCalendarAudience = (gradeLevel) =>
-  Object.keys(GRADE_LEVELS_BY_AUDIENCE).find((audience) => GRADE_LEVELS_BY_AUDIENCE[audience].has(gradeLevel)) || null;
+const getClassCalendarAudiences = (gradeLevel) =>
+  Object.keys(GRADE_LEVELS_BY_AUDIENCE).filter((audience) => GRADE_LEVELS_BY_AUDIENCE[audience].has(gradeLevel));
 
 const getClassSlotValue = (ccdClass) =>
   ccdClass.classroom ? `${ccdClass.class_time} — ${ccdClass.classroom}` : ccdClass.class_time;
@@ -2904,6 +2952,86 @@ const expandScheduledEventsForMonth = (scheduledEvents, year, monthIndex) => {
     return a.title.localeCompare(b.title);
   });
 };
+
+// Anonymous Gregorian algorithm (a.k.a. Meeus/Jones/Butcher) for the date of Western
+// Easter Sunday in a given calendar year — every other movable feast below is defined
+// relative to it.
+const getEasterSunday = (year) => {
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(year, month - 1, day);
+};
+const addDaysToDate = (date, days) => {
+  const result = new Date(date);
+  result.setDate(result.getDate() + days);
+  return result;
+};
+const findNextSundayOnOrAfter = (date) => addDaysToDate(date, (7 - date.getDay()) % 7);
+
+// The full Catholic liturgical calendar runs to hundreds of saints' days — this covers
+// only the dates a parish CCD calendar actually needs to plan class schedules around:
+// Holy Week/Easter, Christmas, the other holy days of obligation, and the first day of
+// each liturgical season. `seasonKey` (only set on the day a season actually begins) is
+// what the calendar renders as a distinct "season begins" tag.
+//
+// Ascension is rendered here on the Sunday it's transferred to (Easter + 42 days), which
+// is how most — but not all — U.S. ecclesiastical provinces observe it; a few (Boston,
+// Hartford, New York, Newark, Omaha, Philadelphia) keep the Thursday (Easter + 39). If
+// this parish is in one of those provinces, that one date needs adjusting by hand.
+const getLiturgicalDatesForYear = (year) => {
+  const easter = getEasterSunday(year);
+  const christmas = new Date(year, 11, 25);
+  // Advent begins on the Sunday nearest November 30th, i.e. the one Sunday that always
+  // falls within the week of Nov 27 – Dec 3.
+  const adventStart = findNextSundayOnOrAfter(new Date(year, 10, 27));
+  // The U.S. bishops transferred Epiphany from the fixed January 6th to the Sunday
+  // falling between January 2nd and 8th.
+  const epiphany = findNextSundayOnOrAfter(new Date(year, 0, 2));
+
+  return [
+    { date: formatSessionDateValue(new Date(year, 0, 1)), titleKey: 'liturgical_mary_mother_of_god' },
+    { date: formatSessionDateValue(epiphany), titleKey: 'liturgical_epiphany' },
+    { date: formatSessionDateValue(addDaysToDate(easter, -46)), titleKey: 'liturgical_ash_wednesday', seasonKey: 'lent' },
+    { date: formatSessionDateValue(addDaysToDate(easter, -7)), titleKey: 'liturgical_palm_sunday' },
+    { date: formatSessionDateValue(addDaysToDate(easter, -3)), titleKey: 'liturgical_holy_thursday' },
+    { date: formatSessionDateValue(addDaysToDate(easter, -2)), titleKey: 'liturgical_good_friday' },
+    { date: formatSessionDateValue(easter), titleKey: 'liturgical_easter_sunday', seasonKey: 'easter' },
+    { date: formatSessionDateValue(addDaysToDate(easter, 42)), titleKey: 'liturgical_ascension' },
+    { date: formatSessionDateValue(addDaysToDate(easter, 49)), titleKey: 'liturgical_pentecost', seasonKey: 'ordinary' },
+    { date: formatSessionDateValue(new Date(year, 7, 15)), titleKey: 'liturgical_assumption' },
+    { date: formatSessionDateValue(new Date(year, 10, 1)), titleKey: 'liturgical_all_saints' },
+    { date: formatSessionDateValue(new Date(year, 11, 8)), titleKey: 'liturgical_immaculate_conception' },
+    { date: formatSessionDateValue(adventStart), titleKey: 'liturgical_advent_1', seasonKey: 'advent' },
+    { date: formatSessionDateValue(christmas), titleKey: 'liturgical_christmas' },
+  ];
+};
+
+// A month view only ever falls within one calendar year, so the liturgical dates for
+// that single year are all that's needed — unlike the school-year views (calendar/year,
+// calendar/class) which span two calendar years and need both.
+const getLiturgicalOccurrencesForMonth = (year, monthIndex, t) => getLiturgicalDatesForYear(year)
+  .filter((item) => {
+    const [itemYear, itemMonth] = item.date.split('-').map(Number);
+    return itemYear === year && (itemMonth - 1) === monthIndex;
+  })
+  .map((item) => ({
+    title: t(item.titleKey),
+    occurrence_date: item.date,
+    isLiturgical: true,
+    seasonKey: item.seasonKey || null,
+  }));
 
 const buildCalendarWeeks = (occurrences, year, monthIndex) => {
   const firstOfMonth = new Date(year, monthIndex, 1);
@@ -4098,7 +4226,9 @@ app.get('/calendar', requireAuth, asyncHandler(async (req, res) => {
     }))
   );
 
-  const occurrences = [...classDayOccurrences, ...eventOccurrences];
+  const liturgicalOccurrences = getLiturgicalOccurrencesForMonth(year, monthIndex, res.locals.t);
+
+  const occurrences = [...classDayOccurrences, ...eventOccurrences, ...liturgicalOccurrences];
   const weeks = buildCalendarWeeks(occurrences, year, monthIndex);
 
   res.render('calendar', {
@@ -4170,9 +4300,9 @@ app.get('/calendar/class/:id', requireAuth, asyncHandler(async (req, res) => {
   // class's own calendar when its audience matches this grade's group — read-only here
   // (edited/removed from the Events admin section instead), so it's kept out of
   // sessionCount and given no eventType (no editable type-select or remove button).
-  const classCalendarAudience = getClassCalendarAudience(ccdClass.grade_level);
-  const matchingGeneralEvents = classCalendarAudience
-    ? await getFaithFormationEvents([classCalendarAudience], { includePast: true })
+  const classCalendarAudiences = getClassCalendarAudiences(ccdClass.grade_level);
+  const matchingGeneralEvents = classCalendarAudiences.length
+    ? await getFaithFormationEvents(classCalendarAudiences, { includePast: true })
     : [];
   const generalEventEntries = [];
   for (let monthOffset = 8; monthOffset < 8 + 9; monthOffset += 1) {
@@ -4185,6 +4315,10 @@ app.get('/calendar/class/:id', requireAuth, asyncHandler(async (req, res) => {
           ? `${occurrence.title} — ${formatTimeLabel(occurrence.event_time)}`
           : occurrence.title,
         isGeneralEvent: true,
+        // The sacrament-reception ceremony (First Communion Mass, Confirmation) is the
+        // single most important date on these grades' calendars — flagged so the
+        // template can visually call it out instead of blending in with routine events.
+        isImportant: occurrence.audience === 'sacrament_day',
       });
     });
   }
@@ -4214,6 +4348,7 @@ app.get('/calendar/class/:id', requireAuth, asyncHandler(async (req, res) => {
       description: entry.description,
       eventType: entry.eventType,
       isGeneralEvent: entry.isGeneralEvent,
+      isImportant: entry.isImportant || false,
     });
   });
 
@@ -6497,7 +6632,7 @@ app.get('/admin/users', requireAuth, requireRole('admin'), asyncHandler(async (r
   // directly in the table (or pre-filling the edit form's <input type="date">) would show
   // its verbose toString() ("Sun Jan 10 2027 00:00:00 GMT-0500...") instead of a plain
   // "2027-01-10", so it's normalized here once for every consumer of this list.
-  const managedEvents = (await getFaithFormationEvents(['children', 'teens', 'family_faith', 'baptism_prep', 'ocia', 'general'], { includePast: true }))
+  const managedEvents = (await getFaithFormationEvents(['children', 'teens', 'sacrament_day', 'family_faith', 'baptism_prep', 'ocia', 'general'], { includePast: true }))
     .map((eventItem) => ({ ...eventItem, event_date: eventItem.event_date ? formatSessionDateValue(new Date(eventItem.event_date)) : null }));
   const faithFormationSettings = await getFaithFormationSettings();
   const registrationYearStatuses = await getRegistrationYearStatusList(parseFaithFormationStartYear(faithFormationSettings.currentRegistrationYear));
@@ -8552,7 +8687,7 @@ app.post('/admin/classes/:id/message', requireAuth, requireRole('admin', 'catech
 app.post('/admin/events', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   const title = typeof req.body.title === 'string' ? req.body.title.trim() : '';
   const audience = typeof req.body.audience === 'string' ? req.body.audience.trim() : '';
-  const validAudiences = ['children', 'teens', 'family_faith', 'baptism_prep', 'ocia', 'general'];
+  const validAudiences = ['children', 'teens', 'sacrament_day', 'family_faith', 'baptism_prep', 'ocia', 'general'];
 
   if (!title) {
     req.flash('error', 'Please enter an event title.');
