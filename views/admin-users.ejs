@@ -683,11 +683,11 @@
           <label class="form-label"><%= t('event_date') %></label>
           <input class="form-control" type="date" name="event_date">
         </div>
-        <div class="col-md-1">
+        <div class="col-md-2">
           <label class="form-label"><%= t('event_time') %></label>
           <input class="form-control" type="time" name="event_time">
         </div>
-        <div class="col-md-1">
+        <div class="col-md-2">
           <label class="form-label"><%= t('event_end_time') %></label>
           <input class="form-control" type="time" name="event_end_time">
         </div>
@@ -734,7 +734,7 @@
             </thead>
             <tbody>
               <% availableManagedEvents.forEach((eventItem) => { %>
-                <tr>
+                <tr id="event-schedule-display-<%= eventItem.id %>">
                   <td><%= eventItem.title %></td>
                   <td><%= t(audienceLabelKey(eventItem.audience)) %></td>
                   <td><%= t(eventItem.schedule_type === 'recurring' ? 'recurring_event' : 'one_time_event') %></td>
@@ -743,9 +743,57 @@
                   <td><%= eventItem.event_time || '' %><% if (!eventItem.event_time) { %><span style="color:var(--muted)">&mdash;</span><% } %></td>
                   <td><%= eventItem.event_end_time || '' %><% if (!eventItem.event_end_time) { %><span style="color:var(--muted)">&mdash;</span><% } %></td>
                   <td><%= eventItem.location || '' %><% if (!eventItem.location) { %><span style="color:var(--muted)">&mdash;</span><% } %></td>
-                  <td>
+                  <td class="d-flex gap-1">
+                    <button type="button" class="btn btn-outline-secondary btn-sm event-schedule-edit-toggle" data-event-schedule-id="<%= eventItem.id %>"><%= t('edit') %></button>
                     <form method="post" action="/admin/event-schedules/<%= eventItem.id %>/delete">
                       <button class="btn btn-outline-secondary btn-sm" type="submit"><%= t('remove') %></button>
+                    </form>
+                  </td>
+                </tr>
+                <tr id="event-schedule-edit-<%= eventItem.id %>" class="d-none">
+                  <td colspan="9">
+                    <form method="post" action="/admin/event-schedules/<%= eventItem.id %>/update" class="row g-2 align-items-end">
+                      <div class="col-md-2">
+                        <label class="form-label"><%= t('schedule_type') %></label>
+                        <select class="form-select" name="schedule_type">
+                          <option value="one_time" <%= eventItem.schedule_type !== 'recurring' ? 'selected' : '' %>><%= t('one_time_event') %></option>
+                          <option value="recurring" <%= eventItem.schedule_type === 'recurring' ? 'selected' : '' %>><%= t('recurring_event') %></option>
+                        </select>
+                      </div>
+                      <div class="col-md-2">
+                        <label class="form-label"><%= t('weekday') %></label>
+                        <select class="form-select" name="recurrence_pattern">
+                          <option value=""><%= t('select_weekday') %></option>
+                          <% availableWeekdays.forEach((day) => { %>
+                            <option value="<%= day %>" <%= eventItem.recurrence_pattern === day ? 'selected' : '' %>><%= day %></option>
+                          <% }) %>
+                        </select>
+                      </div>
+                      <div class="col-md-2">
+                        <label class="form-label"><%= t('event_date') %></label>
+                        <input class="form-control" type="date" name="event_date" value="<%= eventItem.event_date || '' %>">
+                      </div>
+                      <div class="col-md-2">
+                        <label class="form-label"><%= t('event_time') %></label>
+                        <input class="form-control" type="time" name="event_time" value="<%= eventItem.event_time || '' %>">
+                      </div>
+                      <div class="col-md-2">
+                        <label class="form-label"><%= t('event_end_time') %></label>
+                        <input class="form-control" type="time" name="event_end_time" value="<%= eventItem.event_end_time || '' %>">
+                      </div>
+                      <div class="col-md-2">
+                        <label class="form-label"><%= t('event_location') %></label>
+                        <select class="form-select" name="location">
+                          <option value=""><%= t('select_classroom') %></option>
+                          <% availableClassrooms.forEach((room) => { %>
+                            <option value="<%= room %>" <%= eventItem.location === room ? 'selected' : '' %>><%= room %></option>
+                          <% }) %>
+                        </select>
+                      </div>
+                      <div class="col-12 d-flex gap-2">
+                        <button class="btn btn-primary btn-sm" type="submit"><%= t('save') %></button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm event-schedule-edit-cancel" data-event-schedule-id="<%= eventItem.id %>"><%= t('cancel') %></button>
+                      </div>
                     </form>
                   </td>
                 </tr>
@@ -899,6 +947,22 @@
 
     scheduleType.addEventListener('change', updateScheduleFields);
     updateScheduleFields();
+  }());
+
+  (function () {
+    const toggleEditRow = (id, showEdit) => {
+      const displayRow = document.getElementById(`event-schedule-display-${id}`);
+      const editRow = document.getElementById(`event-schedule-edit-${id}`);
+      if (!displayRow || !editRow) return;
+      displayRow.classList.toggle('d-none', showEdit);
+      editRow.classList.toggle('d-none', !showEdit);
+    };
+    document.querySelectorAll('.event-schedule-edit-toggle').forEach((btn) => {
+      btn.addEventListener('click', () => toggleEditRow(btn.dataset.eventScheduleId, true));
+    });
+    document.querySelectorAll('.event-schedule-edit-cancel').forEach((btn) => {
+      btn.addEventListener('click', () => toggleEditRow(btn.dataset.eventScheduleId, false));
+    });
   }());
 
   (function () {

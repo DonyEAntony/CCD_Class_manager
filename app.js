@@ -6493,7 +6493,12 @@ app.get('/admin/users', requireAuth, requireRole('admin'), asyncHandler(async (r
   const ccdClasses = await getCcdClasses();
   const catechists = await getCatechists();
   const eventDefinitions = await getFaithFormationEventDefinitions();
-  const managedEvents = await getFaithFormationEvents(['children', 'teens', 'family_faith', 'baptism_prep', 'ocia', 'general'], { includePast: true });
+  // event_date comes back from mysql2 as a Date object, not a string — rendering it
+  // directly in the table (or pre-filling the edit form's <input type="date">) would show
+  // its verbose toString() ("Sun Jan 10 2027 00:00:00 GMT-0500...") instead of a plain
+  // "2027-01-10", so it's normalized here once for every consumer of this list.
+  const managedEvents = (await getFaithFormationEvents(['children', 'teens', 'family_faith', 'baptism_prep', 'ocia', 'general'], { includePast: true }))
+    .map((eventItem) => ({ ...eventItem, event_date: eventItem.event_date ? formatSessionDateValue(new Date(eventItem.event_date)) : null }));
   const faithFormationSettings = await getFaithFormationSettings();
   const registrationYearStatuses = await getRegistrationYearStatusList(parseFaithFormationStartYear(faithFormationSettings.currentRegistrationYear));
   const altarServerTrainingDates = await getAltarServerTrainingDates({ includePast: true });
@@ -8572,29 +8577,46 @@ app.post('/admin/events/:id/delete', requireAuth, requireRole('admin'), asyncHan
   return res.redirect('/admin/users');
 }));
 
+// Shared by create and update below so the two can't drift the way the audience-label
+// ternary chain once did (see the 'teens' audience commit). Returns either
+// { error } or the parsed, ready-to-bind field values.
+const parseEventScheduleFields = (body) => {
+  const scheduleType = typeof body.schedule_type === 'string' ? body.schedule_type.trim() : 'one_time';
+  const recurrencePattern = typeof body.recurrence_pattern === 'string' ? body.recurrence_pattern.trim() : '';
+  const eventDate = typeof body.event_date === 'string' ? body.event_date.trim() : '';
+  const eventTime = typeof body.event_time === 'string' ? body.event_time.trim() : '';
+  const eventEndTime = typeof body.event_end_time === 'string' ? body.event_end_time.trim() : '';
+  const location = typeof body.location === 'string' ? body.location.trim() : '';
+
+  if (!['one_time', 'recurring'].includes(scheduleType)) {
+    return { error: 'Please choose a valid schedule type.' };
+  }
+  if (scheduleType === 'recurring' && !recurrencePattern) {
+    return { error: 'Please choose a weekday for recurring events.' };
+  }
+  if (scheduleType === 'one_time' && !eventDate) {
+    return { error: 'Please choose a date for one-time events.' };
+  }
+
+  return {
+    scheduleType,
+    recurrencePattern: scheduleType === 'recurring' ? recurrencePattern : null,
+    eventDate: scheduleType === 'one_time' ? eventDate : null,
+    eventTime: eventTime || null,
+    eventEndTime: eventEndTime || null,
+    location: location || null,
+  };
+};
+
 app.post('/admin/event-schedules', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   const eventDefinitionId = Number(req.body.event_definition_id);
-  const scheduleType = typeof req.body.schedule_type === 'string' ? req.body.schedule_type.trim() : 'one_time';
-  const recurrencePattern = typeof req.body.recurrence_pattern === 'string' ? req.body.recurrence_pattern.trim() : '';
-  const eventDate = typeof req.body.event_date === 'string' ? req.body.event_date.trim() : '';
-  const eventTime = typeof req.body.event_time === 'string' ? req.body.event_time.trim() : '';
-  const eventEndTime = typeof req.body.event_end_time === 'string' ? req.body.event_end_time.trim() : '';
-  const location = typeof req.body.location === 'string' ? req.body.location.trim() : '';
-
   if (!Number.isInteger(eventDefinitionId) || eventDefinitionId <= 0) {
     req.flash('error', 'Please choose an event to schedule.');
     return res.redirect('/admin/users');
   }
-  if (!['one_time', 'recurring'].includes(scheduleType)) {
-    req.flash('error', 'Please choose a valid schedule type.');
-    return res.redirect('/admin/users');
-  }
-  if (scheduleType === 'recurring' && !recurrencePattern) {
-    req.flash('error', 'Please choose a weekday for recurring events.');
-    return res.redirect('/admin/users');
-  }
-  if (scheduleType === 'one_time' && !eventDate) {
-    req.flash('error', 'Please choose a date for one-time events.');
+  const parsed = parseEventScheduleFields(req.body);
+  if (parsed.error) {
+    req.flash('error', parsed.error);
     return res.redirect('/admin/users');
   }
 
@@ -8602,14 +8624,45 @@ app.post('/admin/event-schedules', requireAuth, requireRole('admin'), asyncHandl
     'INSERT INTO faith_formation_event_schedules (event_definition_id, schedule_type, recurrence_pattern, event_date, event_time, event_end_time, location) VALUES (?, ?, ?, ?, ?, ?, ?)'
   ).run(
     eventDefinitionId,
-    scheduleType,
-    scheduleType === 'recurring' ? recurrencePattern : null,
-    scheduleType === 'one_time' ? eventDate : null,
-    eventTime || null,
-    eventEndTime || null,
-    location || null
+    parsed.scheduleType,
+    parsed.recurrencePattern,
+    parsed.eventDate,
+    parsed.eventTime,
+    parsed.eventEndTime,
+    parsed.location
   );
   req.flash('success', 'Event schedule saved.');
+  return res.redirect('/admin/users');
+}));
+
+// There was previously no way to fix a wrong time (or date/location/weekday) on an
+// already-scheduled event short of deleting it and re-adding it from scratch.
+app.post('/admin/event-schedules/:id/update', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const scheduleId = Number.parseInt(req.params.id, 10);
+  if (!Number.isInteger(scheduleId) || scheduleId <= 0) {
+    req.flash('error', 'Invalid event schedule.');
+    return res.redirect('/admin/users');
+  }
+  const parsed = parseEventScheduleFields(req.body);
+  if (parsed.error) {
+    req.flash('error', parsed.error);
+    return res.redirect('/admin/users');
+  }
+
+  await db.prepare(
+    `UPDATE faith_formation_event_schedules
+     SET schedule_type = ?, recurrence_pattern = ?, event_date = ?, event_time = ?, event_end_time = ?, location = ?
+     WHERE id = ?`
+  ).run(
+    parsed.scheduleType,
+    parsed.recurrencePattern,
+    parsed.eventDate,
+    parsed.eventTime,
+    parsed.eventEndTime,
+    parsed.location,
+    scheduleId
+  );
+  req.flash('success', 'Event schedule updated.');
   return res.redirect('/admin/users');
 }));
 
