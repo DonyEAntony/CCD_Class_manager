@@ -858,6 +858,7 @@ const translations = {
     event_type_retreat: 'Retreat Day',
     event_type_rehearsal: 'Rehearsal',
     event_type_mass: 'Mass',
+    event_type_general_event: 'Parish Event',
     attendance_label: 'Attendance',
     present_label: 'Present',
     absent_label: 'Absent',
@@ -1838,6 +1839,7 @@ const translations = {
     event_type_retreat: 'Día de Retiro',
     event_type_rehearsal: 'Ensayo',
     event_type_mass: 'Misa',
+    event_type_general_event: 'Evento Parroquial',
     attendance_label: 'Asistencia',
     present_label: 'Presente',
     absent_label: 'Ausente',
@@ -2229,6 +2231,17 @@ const getCcdClasses = async () => {
 };
 
 const SACRAMENTAL_GRADE_LEVELS = new Set(Object.values(CCD_GRADE_BY_SACRAMENTAL_YEAR));
+
+// Maps a children's CCD grade to the Faith Formation Event audience it should also pick
+// up on its own class calendar — e.g. a "Teen Mass" (audience 'teens') scheduled once in
+// Admin > Users shows automatically on the Grade 7 / First Year Confirmation / Second
+// Year Confirmation class calendars, not just the shared parish-wide /calendar page.
+const GRADE_LEVELS_BY_AUDIENCE = {
+  teens: new Set(['7', '8', '9']),
+  children: new Set(['1', '2', '3', '4', '5', '6']),
+};
+const getClassCalendarAudience = (gradeLevel) =>
+  Object.keys(GRADE_LEVELS_BY_AUDIENCE).find((audience) => GRADE_LEVELS_BY_AUDIENCE[audience].has(gradeLevel)) || null;
 
 const getClassSlotValue = (ccdClass) =>
   ccdClass.classroom ? `${ccdClass.class_time} — ${ccdClass.classroom}` : ccdClass.class_time;
@@ -2875,9 +2888,14 @@ const expandScheduledEventsForMonth = (scheduledEvents, year, monthIndex) => {
     }
 
     if (!eventItem.event_date) return;
-    const eventDate = new Date(`${eventItem.event_date}T00:00:00`);
-    if (eventDate.getFullYear() !== year || eventDate.getMonth() !== monthIndex) return;
-    occurrences.push({ ...eventItem, occurrence_date: eventItem.event_date });
+    // event_date comes back from mysql2 as a Date object, not a string — concatenating it
+    // into a template literal (the old `${eventItem.event_date}T00:00:00`) stringified it
+    // to its verbose toString() form first, producing an unparseable date and silently
+    // dropping every one-time event from the calendar in every month, always.
+    const eventDateValue = formatSessionDateValue(new Date(eventItem.event_date));
+    const [eventYear, eventMonth] = eventDateValue.split('-').map(Number);
+    if (eventYear !== year || (eventMonth - 1) !== monthIndex) return;
+    occurrences.push({ ...eventItem, occurrence_date: eventDateValue });
   });
 
   return occurrences.sort((a, b) => {
@@ -4148,25 +4166,54 @@ app.get('/calendar/class/:id', requireAuth, asyncHandler(async (req, res) => {
   const sessions = await getClassSessionDates(classId, `${startYear}-09-01`, `${startYear + 1}-05-31`);
   const localeTag = res.locals.lang === 'es' ? 'es-ES' : 'en-US';
 
+  // A Faith Formation Event (Admin > Users, e.g. "Teen Mass") also shows up on this
+  // class's own calendar when its audience matches this grade's group — read-only here
+  // (edited/removed from the Events admin section instead), so it's kept out of
+  // sessionCount and given no eventType (no editable type-select or remove button).
+  const classCalendarAudience = getClassCalendarAudience(ccdClass.grade_level);
+  const matchingGeneralEvents = classCalendarAudience
+    ? await getFaithFormationEvents([classCalendarAudience], { includePast: true })
+    : [];
+  const generalEventEntries = [];
+  for (let monthOffset = 8; monthOffset < 8 + 9; monthOffset += 1) {
+    const year = startYear + Math.floor(monthOffset / 12);
+    const monthIndex = monthOffset % 12;
+    expandScheduledEventsForMonth(matchingGeneralEvents, year, monthIndex).forEach((occurrence) => {
+      generalEventEntries.push({
+        date: new Date(`${occurrence.occurrence_date}T00:00:00`),
+        description: occurrence.event_time
+          ? `${occurrence.title} — ${formatTimeLabel(occurrence.event_time)}`
+          : occurrence.title,
+        isGeneralEvent: true,
+      });
+    });
+  }
+
+  const combinedEntries = [
+    ...sessions.map((session) => ({ date: session.date, description: session.description, eventType: session.eventType, isGeneralEvent: false })),
+    ...generalEventEntries,
+  ].sort((a, b) => a.date - b.date);
+
   const monthGroups = [];
   let currentKey = null;
-  sessions.forEach((session, index) => {
-    const key = `${session.date.getFullYear()}-${session.date.getMonth()}`;
+  combinedEntries.forEach((entry, index) => {
+    const key = `${entry.date.getFullYear()}-${entry.date.getMonth()}`;
     if (key !== currentKey) {
       monthGroups.push({
-        label: session.date.toLocaleDateString(localeTag, { month: 'long' }),
-        year: session.date.getFullYear(),
+        label: entry.date.toLocaleDateString(localeTag, { month: 'long' }),
+        year: entry.date.getFullYear(),
         sessions: [],
       });
       currentKey = key;
     }
     monthGroups[monthGroups.length - 1].sessions.push({
       number: index + 1,
-      value: formatSessionDateValue(session.date),
-      day: session.date.getDate(),
-      label: session.date.toLocaleDateString(localeTag, { weekday: 'short', day: 'numeric' }),
-      description: session.description,
-      eventType: session.eventType,
+      value: formatSessionDateValue(entry.date),
+      day: entry.date.getDate(),
+      label: entry.date.toLocaleDateString(localeTag, { weekday: 'short', day: 'numeric' }),
+      description: entry.description,
+      eventType: entry.eventType,
+      isGeneralEvent: entry.isGeneralEvent,
     });
   });
 
