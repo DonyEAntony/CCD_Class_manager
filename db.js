@@ -565,6 +565,58 @@ const init = async () => {
       )
     `);
 
+    // A curated page bundling several resources/links together with explanatory text in
+    // between — e.g. "New Catechist Orientation" linking the handbook, a training video,
+    // and the attendance policy with a paragraph of context for each. Shares the exact
+    // same visibility-rule shape as resources (see resource_page_assignments below).
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS resource_pages (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        description TEXT NULL,
+        created_by INT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_resource_pages_created_by FOREIGN KEY (created_by) REFERENCES users(id)
+      )
+    `);
+
+    // One row per item on a resource page, in display order (position). item_type is
+    // either 'resource' (resource_id points at an uploaded file already in the resources
+    // library) or 'link' (link_url/link_label hold an external URL and its display text).
+    // explanation is the optional paragraph of context shown with that item.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS resource_page_items (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        resource_page_id INT NOT NULL,
+        position INT NOT NULL DEFAULT 0,
+        item_type VARCHAR(20) NOT NULL,
+        resource_id INT NULL,
+        link_url TEXT NULL,
+        link_label VARCHAR(255) NULL,
+        explanation TEXT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_resource_page_items_page FOREIGN KEY (resource_page_id) REFERENCES resource_pages(id) ON DELETE CASCADE,
+        CONSTRAINT fk_resource_page_items_resource FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Same shape and assignment_type semantics as resource_assignments — a resource page
+    // can carry several visibility rules at once, matched the same way.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS resource_page_assignments (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        resource_page_id INT NOT NULL,
+        assignment_type VARCHAR(20) NOT NULL,
+        role VARCHAR(50) NULL,
+        ccd_class_id INT NULL,
+        target_user_id INT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_resource_page_assignments_page FOREIGN KEY (resource_page_id) REFERENCES resource_pages(id) ON DELETE CASCADE,
+        CONSTRAINT fk_resource_page_assignments_class FOREIGN KEY (ccd_class_id) REFERENCES ccd_classes(id),
+        CONSTRAINT fk_resource_page_assignments_user FOREIGN KEY (target_user_id) REFERENCES users(id)
+      )
+    `);
+
     // A notification is either a standalone admin broadcast, or auto-created alongside a
     // resource upload (resource_id set) so its audience gets a banner pointing at it.
     // Shown on every page (see app.js's per-request middleware) until the viewing user

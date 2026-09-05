@@ -119,6 +119,43 @@ const translations = {
     new_resource_notification_title: 'New resource added',
     view_resources_link: 'View Resources',
     dismiss_button: 'Got it',
+    resource_pages_nav: 'Resource Pages',
+    manage_resource_pages_nav: 'Resource Pages',
+    resource_pages_page_title: 'Resource Pages',
+    resource_pages_page_subtitle: 'Curated pages shared with you by the parish office.',
+    admin_resource_pages_title: 'Resource Pages',
+    admin_resource_pages_subtitle: 'Group resources and links into shareable pages, with explanations, for catechists and leaders.',
+    no_resource_pages: 'No resource pages have been shared with you yet.',
+    no_resource_pages_yet: 'No resource pages created yet.',
+    add_resource_page_button: 'Add Page',
+    resource_page_title_label: 'Page Title',
+    resource_page_description_label: 'Description (optional)',
+    resource_page_title_required: 'Please enter a page title.',
+    resource_page_added: 'Resource page created.',
+    resource_page_not_found: 'Resource page not found.',
+    resource_page_removed: 'Resource page removed.',
+    remove_resource_page_confirm: 'Remove this resource page? This cannot be undone.',
+    resource_page_items_col: 'Items',
+    manage_page_button: 'Manage',
+    view_page_button: 'View Page',
+    back_to_resource_pages: 'Back to Resource Pages',
+    resource_page_add_item_heading: 'Add Item',
+    resource_page_item_type_label: 'Item Type',
+    resource_page_item_type_resource: 'Existing Resource',
+    resource_page_item_type_link: 'External Link',
+    resource_page_select_resource_label: 'Resource',
+    resource_page_select_resource_placeholder: 'Choose a resource…',
+    resource_page_link_url_label: 'Link URL',
+    resource_page_link_label_label: 'Link Label',
+    resource_page_explanation_label: 'Explanation (optional)',
+    resource_page_add_item_button: 'Add Item',
+    resource_page_no_items: 'No items on this page yet.',
+    resource_page_item_added: 'Item added.',
+    resource_page_item_removed: 'Item removed.',
+    resource_page_item_invalid: 'Please choose a resource, or enter a valid link starting with http:// or https://.',
+    move_up: 'Move up',
+    move_down: 'Move down',
+    open_link_button: 'Open Link',
     manage_notifications_nav: 'Notifications',
     admin_notifications_title: 'Notifications',
     admin_notifications_subtitle: 'Send announcements shown as a banner on every page until dismissed.',
@@ -1121,6 +1158,43 @@ const translations = {
     new_resource_notification_title: 'Nuevo recurso agregado',
     view_resources_link: 'Ver Recursos',
     dismiss_button: 'Entendido',
+    resource_pages_nav: 'Páginas de Recursos',
+    manage_resource_pages_nav: 'Páginas de Recursos',
+    resource_pages_page_title: 'Páginas de Recursos',
+    resource_pages_page_subtitle: 'Páginas curadas compartidas con usted por la oficina parroquial.',
+    admin_resource_pages_title: 'Páginas de Recursos',
+    admin_resource_pages_subtitle: 'Agrupe recursos y enlaces en páginas compartibles, con explicaciones, para catequistas y líderes.',
+    no_resource_pages: 'Aún no se han compartido páginas de recursos con usted.',
+    no_resource_pages_yet: 'Aún no se han creado páginas de recursos.',
+    add_resource_page_button: 'Agregar Página',
+    resource_page_title_label: 'Título de la Página',
+    resource_page_description_label: 'Descripción (opcional)',
+    resource_page_title_required: 'Por favor ingrese un título de página.',
+    resource_page_added: 'Página de recursos creada.',
+    resource_page_not_found: 'Página de recursos no encontrada.',
+    resource_page_removed: 'Página de recursos eliminada.',
+    remove_resource_page_confirm: '¿Eliminar esta página de recursos? Esto no se puede deshacer.',
+    resource_page_items_col: 'Elementos',
+    manage_page_button: 'Administrar',
+    view_page_button: 'Ver Página',
+    back_to_resource_pages: 'Volver a Páginas de Recursos',
+    resource_page_add_item_heading: 'Agregar Elemento',
+    resource_page_item_type_label: 'Tipo de Elemento',
+    resource_page_item_type_resource: 'Recurso Existente',
+    resource_page_item_type_link: 'Enlace Externo',
+    resource_page_select_resource_label: 'Recurso',
+    resource_page_select_resource_placeholder: 'Elija un recurso…',
+    resource_page_link_url_label: 'URL del Enlace',
+    resource_page_link_label_label: 'Etiqueta del Enlace',
+    resource_page_explanation_label: 'Explicación (opcional)',
+    resource_page_add_item_button: 'Agregar Elemento',
+    resource_page_no_items: 'Aún no hay elementos en esta página.',
+    resource_page_item_added: 'Elemento agregado.',
+    resource_page_item_removed: 'Elemento eliminado.',
+    resource_page_item_invalid: 'Por favor elija un recurso, o ingrese un enlace válido que comience con http:// o https://.',
+    move_up: 'Subir',
+    move_down: 'Bajar',
+    open_link_button: 'Abrir Enlace',
     manage_notifications_nav: 'Notificaciones',
     admin_notifications_title: 'Notificaciones',
     admin_notifications_subtitle: 'Envíe anuncios que se muestran como un aviso en cada página hasta que se descarten.',
@@ -2603,6 +2677,53 @@ const getVisibleResourcesForUser = async (user) => {
   const parentClassIds = new Set(await getParentClassIds(user.id));
 
   return resources.filter((r) => userMatchesAssignmentRules(assignmentsByResource.get(r.id) || [], user, catechistClassIds, parentClassIds));
+};
+
+// A curated page bundling several resources/links together with explanatory text —
+// same "every page with at least one matching visibility rule" shape as
+// getVisibleResourcesForUser above, just against resource_page_assignments instead.
+const getVisibleResourcePagesForUser = async (user) => {
+  const pages = await db.prepare('SELECT * FROM resource_pages ORDER BY created_at DESC').all();
+  if (!pages.length) return [];
+
+  const assignments = await db.prepare('SELECT * FROM resource_page_assignments').all();
+  const assignmentsByPage = new Map();
+  assignments.forEach((a) => {
+    if (!assignmentsByPage.has(a.resource_page_id)) assignmentsByPage.set(a.resource_page_id, []);
+    assignmentsByPage.get(a.resource_page_id).push(a);
+  });
+
+  const catechistClassIds = new Set(await getCatechistClassIds(user.id));
+  const parentClassIds = new Set(await getParentClassIds(user.id));
+
+  return pages.filter((p) => userMatchesAssignmentRules(assignmentsByPage.get(p.id) || [], user, catechistClassIds, parentClassIds));
+};
+
+// Every item on one resource page, in display order, with the underlying resource's own
+// title/filename joined in for 'resource'-type items (link items have no resources row).
+const getResourcePageItems = async (pageId) => db.prepare(`
+  SELECT rpi.*, r.title AS resource_title, r.original_filename AS resource_original_filename
+  FROM resource_page_items rpi
+  LEFT JOIN resources r ON r.id = rpi.resource_id
+  WHERE rpi.resource_page_id = ?
+  ORDER BY rpi.position ASC, rpi.id ASC
+`).all(pageId);
+
+// Being granted access to a resource *page* implicitly grants access to every resource
+// bundled inside it, regardless of that resource's own separate resource_assignments —
+// otherwise sharing a page with someone would silently fail to let them open half its
+// items. Used as a fallback by the download route below, only once the direct
+// resource_assignments check has already failed.
+const canAccessResourceViaPage = async (user, resourceId) => {
+  const pageRows = await db.prepare('SELECT DISTINCT resource_page_id FROM resource_page_items WHERE resource_id = ?').all(resourceId);
+  if (!pageRows.length) return false;
+  const pageIds = pageRows.map((r) => r.resource_page_id);
+  const assignments = await db.prepare(
+    `SELECT * FROM resource_page_assignments WHERE resource_page_id IN (${pageIds.map(() => '?').join(', ')})`
+  ).all(...pageIds);
+  const catechistClassIds = new Set(await getCatechistClassIds(user.id));
+  const parentClassIds = new Set(await getParentClassIds(user.id));
+  return userMatchesAssignmentRules(assignments, user, catechistClassIds, parentClassIds);
 };
 
 // Notifications a user hasn't dismissed yet, filtered to their audience — shown as
@@ -7239,7 +7360,8 @@ app.get('/resources/:id/download', requireAuth, asyncHandler(async (req, res) =>
     const assignments = await db.prepare('SELECT * FROM resource_assignments WHERE resource_id = ?').all(resourceId);
     const catechistClassIds = new Set(await getCatechistClassIds(req.user.id));
     const parentClassIds = new Set(await getParentClassIds(req.user.id));
-    if (!userMatchesAssignmentRules(assignments, req.user, catechistClassIds, parentClassIds)) {
+    const hasDirectAccess = userMatchesAssignmentRules(assignments, req.user, catechistClassIds, parentClassIds);
+    if (!hasDirectAccess && !(await canAccessResourceViaPage(req.user, resourceId))) {
       req.flash('error', res.locals.t('resource_not_found'));
       return res.redirect('/resources');
     }
@@ -7369,6 +7491,212 @@ app.post('/admin/resources/:id/notify', requireAuth, requireRole('admin'), async
 
   req.flash('success', res.locals.t('notification_added'));
   return res.redirect('/resources');
+}));
+
+// ── Resource Pages ────────────────────────────────────────────
+// A curated page bundling several resources/links together with explanatory text in
+// between (e.g. "New Catechist Orientation"), sharing the exact same visibility-rule
+// model as the plain Resources library above.
+app.get('/resource-pages', requireAuth, asyncHandler(async (req, res) => {
+  if (req.user.role !== 'admin') {
+    const pages = await getVisibleResourcePagesForUser(req.user);
+    return res.render('resource-pages', { isAdmin: false, pages });
+  }
+
+  const pagesAll = await db.prepare('SELECT * FROM resource_pages ORDER BY created_at DESC').all();
+  const assignments = await db.prepare('SELECT * FROM resource_page_assignments').all();
+  const ccdClasses = await getCcdClasses();
+  const ccdClassById = new Map(ccdClasses.map((c) => [c.id, c]));
+  const assignableUsers = await db.prepare(`
+    SELECT id, full_name, email, role FROM users
+    WHERE COALESCE(account_status, 'active') <> 'deleted'
+    ORDER BY COALESCE(NULLIF(full_name, ''), email) ASC
+  `).all();
+  const userById = new Map(assignableUsers.map((u) => [u.id, u]));
+  const { roleLabels, describeAssignment } = buildAssignmentDescriber(res.locals.t, ccdClassById, userById);
+
+  const assignmentsByPage = new Map();
+  assignments.forEach((a) => {
+    if (!assignmentsByPage.has(a.resource_page_id)) assignmentsByPage.set(a.resource_page_id, []);
+    assignmentsByPage.get(a.resource_page_id).push(a);
+  });
+
+  const itemCounts = await db.prepare('SELECT resource_page_id, COUNT(*) AS count FROM resource_page_items GROUP BY resource_page_id').all();
+  const itemCountByPage = new Map(itemCounts.map((r) => [r.resource_page_id, r.count]));
+
+  return res.render('resource-pages', {
+    isAdmin: true,
+    pages: pagesAll.map((p) => {
+      const rows = assignmentsByPage.get(p.id) || [];
+      return {
+        ...p,
+        assignmentLabels: rows.map(describeAssignment),
+        assignmentFields: assignmentRowsToFields(rows),
+        itemCount: itemCountByPage.get(p.id) || 0,
+      };
+    }),
+    ccdClasses,
+    ccdGradeMeanings: CCD_GRADE_MEANINGS,
+    assignableUsers,
+    assignableRoles: ASSIGNABLE_AUDIENCE_ROLES,
+    roleLabels,
+  });
+}));
+
+app.post('/admin/resource-pages', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const title = typeof req.body.title === 'string' ? req.body.title.trim().slice(0, 255) : '';
+  if (!title) {
+    req.flash('error', res.locals.t('resource_page_title_required'));
+    return res.redirect('/resource-pages');
+  }
+  const description = typeof req.body.description === 'string' ? req.body.description.trim().slice(0, 2000) : '';
+  const result = await db.prepare(
+    'INSERT INTO resource_pages (title, description, created_by) VALUES (?, ?, ?)'
+  ).run(title, description || null, req.user.id);
+  req.flash('success', res.locals.t('resource_page_added'));
+  return res.redirect(`/resource-pages/${result.lastInsertRowid}`);
+}));
+
+app.post('/admin/resource-pages/:id/share', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const pageId = Number.parseInt(req.params.id, 10);
+  const page = await db.prepare('SELECT * FROM resource_pages WHERE id = ?').get(pageId);
+  if (!page) {
+    req.flash('error', res.locals.t('resource_page_not_found'));
+    return res.redirect('/resource-pages');
+  }
+  const assignmentFields = parseAssignmentFieldsFromBody(req.body);
+  await db.prepare('DELETE FROM resource_page_assignments WHERE resource_page_id = ?').run(pageId);
+  await insertAssignmentRows('resource_page_assignments', 'resource_page_id', pageId, assignmentFields);
+  req.flash('success', res.locals.t('resource_shared'));
+  return res.redirect(`/resource-pages/${pageId}`);
+}));
+
+app.post('/admin/resource-pages/:id/delete', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const pageId = Number.parseInt(req.params.id, 10);
+  await db.prepare('DELETE FROM resource_pages WHERE id = ?').run(pageId);
+  req.flash('success', res.locals.t('resource_page_removed'));
+  return res.redirect('/resource-pages');
+}));
+
+app.get('/resource-pages/:id', requireAuth, asyncHandler(async (req, res) => {
+  const pageId = Number.parseInt(req.params.id, 10);
+  const page = await db.prepare('SELECT * FROM resource_pages WHERE id = ?').get(pageId);
+  if (!page) {
+    req.flash('error', res.locals.t('resource_page_not_found'));
+    return res.redirect('/resource-pages');
+  }
+
+  const isAdmin = req.user.role === 'admin';
+  if (!isAdmin) {
+    const visiblePages = await getVisibleResourcePagesForUser(req.user);
+    if (!visiblePages.some((p) => p.id === pageId)) {
+      req.flash('error', res.locals.t('resource_page_not_found'));
+      return res.redirect('/resource-pages');
+    }
+  }
+
+  const items = await getResourcePageItems(pageId);
+
+  if (!isAdmin) {
+    return res.render('resource-page-view', { isAdmin: false, page, items });
+  }
+
+  const resourcesAll = await db.prepare('SELECT id, title FROM resources ORDER BY title ASC').all();
+  const ccdClasses = await getCcdClasses();
+  const ccdClassById = new Map(ccdClasses.map((c) => [c.id, c]));
+  const assignableUsers = await db.prepare(`
+    SELECT id, full_name, email, role FROM users
+    WHERE COALESCE(account_status, 'active') <> 'deleted'
+    ORDER BY COALESCE(NULLIF(full_name, ''), email) ASC
+  `).all();
+  const userById = new Map(assignableUsers.map((u) => [u.id, u]));
+  const { roleLabels } = buildAssignmentDescriber(res.locals.t, ccdClassById, userById);
+  const assignmentRows = await db.prepare('SELECT * FROM resource_page_assignments WHERE resource_page_id = ?').all(pageId);
+
+  return res.render('resource-page-view', {
+    isAdmin: true,
+    page,
+    items,
+    resourcesAll,
+    ccdClasses,
+    ccdGradeMeanings: CCD_GRADE_MEANINGS,
+    assignableUsers,
+    assignableRoles: ASSIGNABLE_AUDIENCE_ROLES,
+    roleLabels,
+    assignmentFields: assignmentRowsToFields(assignmentRows),
+  });
+}));
+
+app.post('/admin/resource-pages/:id/items', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const pageId = Number.parseInt(req.params.id, 10);
+  const page = await db.prepare('SELECT * FROM resource_pages WHERE id = ?').get(pageId);
+  if (!page) {
+    req.flash('error', res.locals.t('resource_page_not_found'));
+    return res.redirect('/resource-pages');
+  }
+
+  const itemType = req.body.item_type === 'link' ? 'link' : 'resource';
+  const explanation = typeof req.body.explanation === 'string' ? req.body.explanation.trim().slice(0, 2000) : '';
+
+  let resourceId = null;
+  let linkUrl = null;
+  let linkLabel = null;
+
+  if (itemType === 'resource') {
+    resourceId = Number.parseInt(req.body.resource_id, 10);
+    if (!Number.isInteger(resourceId)) {
+      req.flash('error', res.locals.t('resource_page_item_invalid'));
+      return res.redirect(`/resource-pages/${pageId}`);
+    }
+  } else {
+    linkUrl = typeof req.body.link_url === 'string' ? req.body.link_url.trim().slice(0, 2000) : '';
+    linkLabel = typeof req.body.link_label === 'string' ? req.body.link_label.trim().slice(0, 255) : '';
+    if (!linkUrl || !/^https?:\/\//i.test(linkUrl)) {
+      req.flash('error', res.locals.t('resource_page_item_invalid'));
+      return res.redirect(`/resource-pages/${pageId}`);
+    }
+    if (!linkLabel) linkLabel = linkUrl;
+  }
+
+  const maxPositionRow = await db.prepare('SELECT MAX(position) AS maxPosition FROM resource_page_items WHERE resource_page_id = ?').get(pageId);
+  const nextPosition = (maxPositionRow?.maxPosition ?? -1) + 1;
+
+  await db.prepare(`
+    INSERT INTO resource_page_items (resource_page_id, position, item_type, resource_id, link_url, link_label, explanation)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(pageId, nextPosition, itemType, resourceId, linkUrl, linkLabel, explanation || null);
+
+  req.flash('success', res.locals.t('resource_page_item_added'));
+  return res.redirect(`/resource-pages/${pageId}`);
+}));
+
+app.post('/admin/resource-pages/:id/items/:itemId/delete', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const pageId = Number.parseInt(req.params.id, 10);
+  await db.prepare('DELETE FROM resource_page_items WHERE id = ? AND resource_page_id = ?').run(req.params.itemId, pageId);
+  req.flash('success', res.locals.t('resource_page_item_removed'));
+  return res.redirect(`/resource-pages/${pageId}`);
+}));
+
+// Swaps this item's position with its immediate neighbor in the requested direction —
+// the simplest reordering that works given items are always displayed in position order
+// and only their relative order (not the numbers themselves) is ever meaningful.
+app.post('/admin/resource-pages/:id/items/:itemId/move', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const pageId = Number.parseInt(req.params.id, 10);
+  const itemId = Number.parseInt(req.params.itemId, 10);
+  const direction = req.body.direction === 'down' ? 'down' : 'up';
+
+  const items = await getResourcePageItems(pageId);
+  const index = items.findIndex((item) => item.id === itemId);
+  const neighborIndex = direction === 'up' ? index - 1 : index + 1;
+
+  if (index !== -1 && neighborIndex >= 0 && neighborIndex < items.length) {
+    const current = items[index];
+    const neighbor = items[neighborIndex];
+    await db.prepare('UPDATE resource_page_items SET position = ? WHERE id = ?').run(neighbor.position, current.id);
+    await db.prepare('UPDATE resource_page_items SET position = ? WHERE id = ?').run(current.position, neighbor.id);
+  }
+
+  return res.redirect(`/resource-pages/${pageId}`);
 }));
 
 // ── Notifications ─────────────────────────────────────────────
