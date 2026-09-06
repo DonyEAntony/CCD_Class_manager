@@ -2,6 +2,13 @@ const db = require('./db');
 
 const requireAuth = (req, res, next) => {
   if (!req.isAuthenticated || !req.isAuthenticated()) {
+    // Remembered so POST /login and the OAuth callbacks (see app.js) can send the user
+    // back to whatever they actually asked for instead of always landing on /dashboard —
+    // only for GET requests, since replaying a POST after login would resubmit a form
+    // without its original data.
+    if (req.method === 'GET' && req.session) {
+      req.session.returnTo = req.originalUrl;
+    }
     return res.redirect('/login');
   }
   if (db.isDeletedAccount(req.user) || Number(req.user?.is_active) === 0) {
