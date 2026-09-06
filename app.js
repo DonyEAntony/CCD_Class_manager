@@ -3963,15 +3963,33 @@ app.get('/verify-email', asyncHandler(async (req, res) => {
   return res.redirect('/login');
 }));
 
+// Shared by every successful login path (local form + both OAuth callbacks below) — sends
+// the user back to whatever page requireAuth originally bounced them from (see
+// middleware.js), instead of always landing on /dashboard regardless of what they
+// actually asked for. Only trusts a same-origin path (req.session.returnTo is always set
+// from req.originalUrl, never user-supplied directly, but this guards against any future
+// caller that isn't as careful).
+const redirectAfterLogin = (req, res) => {
+  const returnTo = req.session?.returnTo;
+  delete req.session?.returnTo;
+  const isSafeRelativePath = typeof returnTo === 'string' && returnTo.startsWith('/') && !returnTo.startsWith('//');
+  return res.redirect(isSafeRelativePath ? returnTo : '/dashboard');
+};
+
 app.get('/login', (req, res) => res.render('login'));
-app.post(
-  '/login',
-  passport.authenticate('local', {
-    successRedirect: '/dashboard',
-    failureRedirect: '/login',
-    failureFlash: true,
-  }),
-);
+app.post('/login', (req, res, next) => {
+  passport.authenticate('local', (err, user, info) => {
+    if (err) return next(err);
+    if (!user) {
+      req.flash('error', info?.message || 'Invalid email or password.');
+      return res.redirect('/login');
+    }
+    req.logIn(user, { keepSessionInfo: true }, (loginErr) => {
+      if (loginErr) return next(loginErr);
+      return redirectAfterLogin(req, res);
+    });
+  })(req, res, next);
+});
 
 app.get('/forgot-password', (req, res) => res.render('forgot-password'));
 
@@ -4073,15 +4091,37 @@ app.get('/auth/google', (req, res, next) => {
   if (!process.env.GOOGLE_CLIENT_ID) return res.status(503).send('Google auth not configured.');
   return passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
 });
-app.get('/auth/google/callback',
-  passport.authenticate('google', { successRedirect: '/dashboard', failureRedirect: '/login', failureFlash: true }));
+app.get('/auth/google/callback', (req, res, next) => {
+  passport.authenticate('google', (err, user, info) => {
+    if (err) return next(err);
+    if (!user) {
+      req.flash('error', info?.message || 'Google sign-in failed.');
+      return res.redirect('/login');
+    }
+    req.logIn(user, { keepSessionInfo: true }, (loginErr) => {
+      if (loginErr) return next(loginErr);
+      return redirectAfterLogin(req, res);
+    });
+  })(req, res, next);
+});
 
 app.get('/auth/github', (req, res, next) => {
   if (!process.env.GITHUB_CLIENT_ID) return res.status(503).send('GitHub auth not configured.');
   return passport.authenticate('github', { scope: ['user:email'] })(req, res, next);
 });
-app.get('/auth/github/callback',
-  passport.authenticate('github', { successRedirect: '/dashboard', failureRedirect: '/login', failureFlash: true }));
+app.get('/auth/github/callback', (req, res, next) => {
+  passport.authenticate('github', (err, user, info) => {
+    if (err) return next(err);
+    if (!user) {
+      req.flash('error', info?.message || 'GitHub sign-in failed.');
+      return res.redirect('/login');
+    }
+    req.logIn(user, { keepSessionInfo: true }, (loginErr) => {
+      if (loginErr) return next(loginErr);
+      return redirectAfterLogin(req, res);
+    });
+  })(req, res, next);
+});
 
 app.get('/logout', (req, res, next) => {
   req.logout((err) => {
