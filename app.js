@@ -961,6 +961,12 @@ const translations = {
     pending_count_label: 'pending',
     section_col: 'Section',
     section_label_placeholder: 'e.g. A',
+    combine_with_label: 'Combine with',
+    combine_with_none_option: 'None',
+    combined_class_label: 'Combined Class',
+    combined_with_label: 'Combined with',
+    combined_class_roster_header: 'Combined Class Roster',
+    combined_class_roster_note: 'Both classes meet together — everyone is shown here, tagged by their own class. Attendance and tables above are still tracked separately per class.',
     my_classes_nav: 'My Classes',
     catechists_more_suffix: 'more',
     show_all_label: 'Show all',
@@ -2000,6 +2006,12 @@ const translations = {
     pending_count_label: 'pendiente(s)',
     section_col: 'Sección',
     section_label_placeholder: 'ej. A',
+    combine_with_label: 'Combinar con',
+    combine_with_none_option: 'Ninguna',
+    combined_class_label: 'Clase Combinada',
+    combined_with_label: 'Combinada con',
+    combined_class_roster_header: 'Lista de Clase Combinada',
+    combined_class_roster_note: 'Ambas clases se reúnen juntas — todos aparecen aquí, marcados con su propia clase. La asistencia y las mesas arriba se siguen registrando por separado para cada clase.',
     my_classes_nav: 'Mis Clases',
     catechists_more_suffix: 'más',
     show_all_label: 'Mostrar todos',
@@ -2321,7 +2333,8 @@ const getCcdClasses = async () => {
   const ccdClasses = await db.prepare(`
     SELECT classes.id, classes.grade_level, classes.class_time, classes.classroom,
            classes.section_label AS sectionLabel, classes.class_kind AS classKind,
-           classes.source_program_type AS sourceProgramType, classes.linked_class_id AS linkedClassId
+           classes.source_program_type AS sourceProgramType, classes.linked_class_id AS linkedClassId,
+           classes.combined_with_class_id AS combinedWithClassId
     FROM ccd_classes classes
     ORDER BY classes.grade_level ASC
   `).all();
@@ -2507,6 +2520,19 @@ const getClassRoster = (ccdClass, allStudentRegs, enrolledRegistrationIds, allAd
     if (!SACRAMENTAL_GRADE_LEVELS.has(ccdClass.grade_level)) return true;
     return reg.preferred_class_time === ccdClass.class_time || reg.preferred_class_time === getClassSlotValue(ccdClass);
   });
+};
+
+// Finds the other class this one is combined with (two sections meeting together in one
+// room), if any. Checked in both directions since either class in the pair can hold the
+// stored combined_with_class_id (see the db.js migration note) — an admin only has to set
+// it from whichever class's own config screen they're editing. Adult classes never
+// combine, so both sides must be children classes.
+const getCombinedPartnerClass = (ccdClass, allCcdClasses) => {
+  if (!ccdClass || ccdClass.classKind === 'adult') return null;
+  return allCcdClasses.find((c) =>
+    c.id !== ccdClass.id && c.classKind !== 'adult' &&
+    (c.id === ccdClass.combinedWithClassId || c.combinedWithClassId === ccdClass.id)
+  ) || null;
 };
 
 // Reverse lookup of getClassRoster's children-class matching rule: given one submitted
@@ -8090,9 +8116,19 @@ app.post('/admin/ccd-classes/:id/update', requireAuth, requireRole('admin'), asy
     }
   }
 
+  // Combining only makes sense between two children's classes — the target must exist
+  // and not be an adult class (OCIA has no grade/section identity to tag combined
+  // students with). An empty selection clears the link.
+  const rawCombinedWithClassId = Number.parseInt(req.body.combined_with_class_id, 10);
+  let combinedWithClassId = null;
+  if (Number.isInteger(rawCombinedWithClassId) && rawCombinedWithClassId !== classId) {
+    const targetClass = await db.prepare("SELECT id FROM ccd_classes WHERE id = ? AND class_kind <> 'adult'").get(rawCombinedWithClassId);
+    if (targetClass) combinedWithClassId = targetClass.id;
+  }
+
   await db.prepare(
-    'UPDATE ccd_classes SET section_label = ?, class_time = ?, classroom = ? WHERE id = ?'
-  ).run(sectionLabel || null, classTime || null, classroom || null, classId);
+    'UPDATE ccd_classes SET section_label = ?, class_time = ?, classroom = ?, combined_with_class_id = ? WHERE id = ?'
+  ).run(sectionLabel || null, classTime || null, classroom || null, combinedWithClassId, classId);
 
   await db.prepare('DELETE FROM ccd_class_catechists WHERE ccd_class_id = ?').run(classId);
   for (const catechistId of catechistIds) {
@@ -8337,7 +8373,35 @@ app.get('/admin/classes', requireAuth, requireRole('admin', 'catechist'), asyncH
     };
   }));
 
-  res.render('admin-classes', { classes, ccdGradeMeanings: CCD_GRADE_MEANINGS });
+  // Two classes marked as combined (see getCombinedPartnerClass) render as one card
+  // instead of two separate ones. Only combined when both sides are in this viewer's own
+  // visible list — a catechist who doesn't teach the partner class still sees their own
+  // class as a standalone card rather than one that references a class they can't open.
+  const classById = new Map(classes.map((c) => [c.id, c]));
+  const renderedIds = new Set();
+  const cards = [];
+  classes.forEach((ccdClass) => {
+    if (renderedIds.has(ccdClass.id)) return;
+    const partnerRef = getCombinedPartnerClass(ccdClass, allCcdClasses);
+    const partner = partnerRef ? classById.get(partnerRef.id) : null;
+    renderedIds.add(ccdClass.id);
+    if (partner) {
+      renderedIds.add(partner.id);
+      const members = [ccdClass, partner].sort((a, b) => a.id - b.id);
+      cards.push({
+        combined: true,
+        members,
+        primaryId: members[0].id,
+        studentCount: ccdClass.studentCount + partner.studentCount,
+        pendingCount: ccdClass.pendingCount + partner.pendingCount,
+        nextSessionDate: [ccdClass.nextSessionDate, partner.nextSessionDate].filter(Boolean).sort((a, b) => a - b)[0] || null,
+      });
+    } else {
+      cards.push({ combined: false, ccdClass });
+    }
+  });
+
+  res.render('admin-classes', { cards, ccdGradeMeanings: CCD_GRADE_MEANINGS });
 }));
 
 // OCIA and Family Faith Formation live here instead of the children's Classes list —
@@ -8500,6 +8564,20 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist', 'fa
 
   const linkedClass = ccdClass.linkedClassId ? allCcdClasses.find((c) => c.id === ccdClass.linkedClassId) : null;
 
+  // A combined class's roster is purely a read-only, side-by-side view — attendance and
+  // table assignments below stay scoped to this class's own real roster (ccd_class_id in
+  // those tables is this class's id, and mixing another class's students into it would
+  // silently misfile their attendance under the wrong class). It just lets whoever's in
+  // the room see everyone present at once, tagged by which class they actually belong to.
+  const combinedPartner = getCombinedPartnerClass(ccdClass, allCcdClasses);
+  const combinedRoster = combinedPartner
+    ? [
+        ...roster.map((r) => ({ ...r, sourceClassLabel: getCcdClassShortLabel(ccdClass) })),
+        ...getClassRoster(combinedPartner, activeStudentRegs, enrolledRegistrationIds, activeAdultRegs, activeFamilyFaithRegs, allCcdClasses)
+          .map((r) => ({ ...r, sourceClassLabel: getCcdClassShortLabel(combinedPartner) })),
+      ].sort((a, b) => (a.student_full_name || '').localeCompare(b.student_full_name || ''))
+    : null;
+
   res.render('admin-class-detail', {
     ccdClass,
     roster: rosterWithHistory,
@@ -8507,6 +8585,9 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist', 'fa
     ccdGradeMeanings: CCD_GRADE_MEANINGS,
     adultProgramLabels: ADULT_PROGRAM_LABELS,
     linkedClassLabel: linkedClass ? `${getCcdClassShortLabel(linkedClass)} — ${linkedClass.class_time || '—'}` : null,
+    combinedPartner,
+    combinedPartnerLabel: combinedPartner ? `${getCcdClassShortLabel(combinedPartner)} — ${combinedPartner.class_time || '—'}` : null,
+    combinedRoster,
     upcomingDates: upcomingDates.map((d) => {
       const value = formatSessionDateValue(d);
       const counts = countsByDate.get(value);

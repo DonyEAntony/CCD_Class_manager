@@ -743,6 +743,12 @@ const init = async () => {
     // that children's ccd_classes row. Meaningless for other adult programs (OCIA has no
     // paired children's class), so it stays NULL there.
     await ensureColumn('ccd_classes', 'linked_class_id', 'INT NULL');
+    // Two children's classes can be marked as meeting together (e.g. two small sections
+    // combined into one room for a joint session) — this points at that other ccd_classes
+    // row. Either class in the pair can hold the link; app.js's getCombinedPartnerClass
+    // checks both directions so an admin can set it from either class's own config. Adult
+    // classes never combine, so this stays NULL there.
+    await ensureColumn('ccd_classes', 'combined_with_class_id', 'INT NULL');
     // ccd_class_attendance.student_registration_id is really "roster member id" — for an
     // adult class it holds an adult_registrations.id instead, which the original FK
     // (scoped to student_registrations only) would reject. The column itself stays

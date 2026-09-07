@@ -382,6 +382,13 @@
                     <% if (availableCcdGradeMeanings[ccdClass.grade_level]) { %>
                       <div style="font-size:.78rem;color:var(--muted)"><%= availableCcdGradeMeanings[ccdClass.grade_level] %></div>
                     <% } %>
+                    <% const combinedPartnerRow = ccdClass.classKind !== 'adult'
+                      ? availableCcdClasses.find((other) => other.classKind !== 'adult' && other.id !== ccdClass.id
+                          && (other.id === ccdClass.combinedWithClassId || other.combinedWithClassId === ccdClass.id))
+                      : null; %>
+                    <% if (combinedPartnerRow) { %>
+                      <div style="font-size:.75rem;color:var(--muted)"><%= t('combined_with_label') %> <%= combinedPartnerRow.grade_level %><%= combinedPartnerRow.sectionLabel || '' %></div>
+                    <% } %>
                   </td>
                   <td><%= ccdClass.class_time || '—' %></td>
                   <td><%= ccdClass.classroom || '—' %></td>
@@ -449,6 +456,19 @@
                         <button class="btn btn-primary btn-sm" type="submit"><%= t('save') %></button>
                         <button type="button" class="btn btn-outline-secondary btn-sm ccd-class-edit-toggle" data-target="ccd-class-edit-<%= ccdClass.id %>"><%= t('cancel') %></button>
                       </div>
+                      <% if (ccdClass.classKind !== 'adult') { %>
+                        <div class="col-md-4 mt-2">
+                          <label class="form-label mb-1" style="font-size:.7rem"><%= t('combine_with_label') %></label>
+                          <select class="form-select form-select-sm" name="combined_with_class_id">
+                            <option value=""><%= t('combine_with_none_option') %></option>
+                            <% availableCcdClasses.filter((other) => other.classKind !== 'adult' && other.id !== ccdClass.id).forEach((other) => { %>
+                              <option value="<%= other.id %>" <%= Number(ccdClass.combinedWithClassId) === Number(other.id) ? 'selected' : '' %>>
+                                <%= t('grade') %> <%= other.grade_level %><%= other.sectionLabel || '' %><% if (other.class_time) { %> — <%= other.class_time %><% } %>
+                              </option>
+                            <% }) %>
+                          </select>
+                        </div>
+                      <% } %>
                     </form>
                   </td>
                 </tr>

@@ -68,6 +68,11 @@
       color: #7a5a1a;
       border-color: #f0d090;
     }
+    .class-card .class-badge.combined-badge {
+      background: var(--navy);
+      color: var(--white);
+      border-color: var(--navy);
+    }
   </style>
 </head>
 <body>
@@ -89,33 +94,58 @@
     </div>
   </div>
 
-  <% if (!classes || classes.length === 0) { %>
+  <% if (!cards || cards.length === 0) { %>
     <div class="page-card">
       <div class="p-4 text-center" style="color:var(--muted);font-size:.9rem"><em><%= t('no_classes_configured_yet') %></em></div>
     </div>
   <% } else { %>
     <div class="row g-3">
-      <% classes.forEach((ccdClass) => { %>
-        <div class="col-sm-6 col-lg-4">
-          <a href="/admin/classes/<%= ccdClass.id %>" class="class-card">
-            <div class="class-grade-eyebrow"><%= ccdClass.classKind === 'adult' ? t('adult_faith_formation_label') : `${t('grade')} ${ccdClass.grade_level}${ccdClass.sectionLabel || ''}` %></div>
-            <div class="class-title"><%= ccdGradeMeanings[ccdClass.grade_level] || ccdClass.grade_level %></div>
-            <div class="class-meta">
-              <% const cardCatechists = ccdClass.catechists || []; %>
-              <% const cardCatechistNames = cardCatechists.slice(0, 2).map((c) => c.name || c.email); %>
-              <%= cardCatechists.length ? cardCatechistNames.join(', ') : t('unassigned') %><% if (cardCatechists.length > 2) { %> +<%= cardCatechists.length - 2 %> <%= t('catechists_more_suffix') %><% } %> &middot; <%= ccdClass.class_time || '—' %><% if (ccdClass.classroom) { %>, <%= ccdClass.classroom %><% } %>
-            </div>
-            <div class="class-badges">
-              <span class="class-badge"><%= ccdClass.studentCount %> <%= ccdClass.studentCount === 1 ? t('student_count_singular') : t('student_count_plural') %></span>
-              <% if (ccdClass.pendingCount > 0) { %>
-                <span class="class-badge pending-badge"><%= ccdClass.pendingCount %> <%= t('pending_count_label') %></span>
-              <% } %>
-              <% if (ccdClass.nextSessionDate) { %>
-                <span class="class-badge next-badge"><%= t('next_label') %>: <%= ccdClass.nextSessionDate.toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric' }) %></span>
-              <% } %>
-            </div>
-          </a>
-        </div>
+      <% cards.forEach((card) => { %>
+        <% if (!card.combined) { %>
+          <% const ccdClass = card.ccdClass; %>
+          <div class="col-sm-6 col-lg-4">
+            <a href="/admin/classes/<%= ccdClass.id %>" class="class-card">
+              <div class="class-grade-eyebrow"><%= ccdClass.classKind === 'adult' ? t('adult_faith_formation_label') : `${t('grade')} ${ccdClass.grade_level}${ccdClass.sectionLabel || ''}` %></div>
+              <div class="class-title"><%= ccdGradeMeanings[ccdClass.grade_level] || ccdClass.grade_level %></div>
+              <div class="class-meta">
+                <% const cardCatechists = ccdClass.catechists || []; %>
+                <% const cardCatechistNames = cardCatechists.slice(0, 2).map((c) => c.name || c.email); %>
+                <%= cardCatechists.length ? cardCatechistNames.join(', ') : t('unassigned') %><% if (cardCatechists.length > 2) { %> +<%= cardCatechists.length - 2 %> <%= t('catechists_more_suffix') %><% } %> &middot; <%= ccdClass.class_time || '—' %><% if (ccdClass.classroom) { %>, <%= ccdClass.classroom %><% } %>
+              </div>
+              <div class="class-badges">
+                <span class="class-badge"><%= ccdClass.studentCount %> <%= ccdClass.studentCount === 1 ? t('student_count_singular') : t('student_count_plural') %></span>
+                <% if (ccdClass.pendingCount > 0) { %>
+                  <span class="class-badge pending-badge"><%= ccdClass.pendingCount %> <%= t('pending_count_label') %></span>
+                <% } %>
+                <% if (ccdClass.nextSessionDate) { %>
+                  <span class="class-badge next-badge"><%= t('next_label') %>: <%= ccdClass.nextSessionDate.toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric' }) %></span>
+                <% } %>
+              </div>
+            </a>
+          </div>
+        <% } else { %>
+          <div class="col-sm-6 col-lg-4">
+            <a href="/admin/classes/<%= card.primaryId %>" class="class-card">
+              <div class="class-grade-eyebrow"><%= card.members.map((m) => `${t('grade')} ${m.grade_level}${m.sectionLabel || ''}`).join(' + ') %></div>
+              <div class="class-title"><%= card.members.map((m) => ccdGradeMeanings[m.grade_level] || m.grade_level).join(' & ') %></div>
+              <div class="class-meta">
+                <% const combinedCatechists = card.members.flatMap((m) => m.catechists || []); %>
+                <% const combinedCatechistNames = combinedCatechists.slice(0, 2).map((c) => c.name || c.email); %>
+                <%= combinedCatechists.length ? combinedCatechistNames.join(', ') : t('unassigned') %><% if (combinedCatechists.length > 2) { %> +<%= combinedCatechists.length - 2 %> <%= t('catechists_more_suffix') %><% } %>
+              </div>
+              <div class="class-badges">
+                <span class="class-badge combined-badge">★ <%= t('combined_class_label') %></span>
+                <span class="class-badge"><%= card.studentCount %> <%= card.studentCount === 1 ? t('student_count_singular') : t('student_count_plural') %></span>
+                <% if (card.pendingCount > 0) { %>
+                  <span class="class-badge pending-badge"><%= card.pendingCount %> <%= t('pending_count_label') %></span>
+                <% } %>
+                <% if (card.nextSessionDate) { %>
+                  <span class="class-badge next-badge"><%= t('next_label') %>: <%= card.nextSessionDate.toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric' }) %></span>
+                <% } %>
+              </div>
+            </a>
+          </div>
+        <% } %>
       <% }) %>
     </div>
   <% } %>
