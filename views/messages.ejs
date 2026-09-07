@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="<%= lang %>">
+<head><%- include('_communication_head', { title: comm('Messages', 'Mensajes') }) %></head>
+<body>
+<%- include('_topbar') %>
+<main class="container py-4 app-shell mx-auto communication-page">
+  <div class="page-heading d-flex justify-content-between flex-wrap gap-3">
+    <div><h1><%= comm('Messages', 'Mensajes') %></h1>
+      <p class="sub"><%= comm('Stay in touch with your class team.', 'Manténgase en contacto con el equipo de su clase.') %></p></div>
+    <a href="/dashboard" class="btn btn-outline-secondary align-self-start"><%= t('back_to_dashboard') %></a>
+  </div>
+  <% if (success.length) { %><div role="status" class="alert alert-success"><%= success[0] %></div><% } %>
+  <% if (error.length) { %><div role="alert" class="alert alert-danger"><%= error[0] %></div><% } %>
+  <div class="row g-4">
+    <section class="col-lg-7" aria-labelledby="conversations-title">
+      <div class="page-card p-4">
+        <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
+          <h2 class="h4" id="conversations-title"><%= comm('Conversations', 'Conversaciones') %></h2>
+          <% if (selectedClass) { %><a href="/messages"><%= comm('All classes', 'Todas las clases') %></a><% } %>
+        </div>
+        <% if (!conversations.length) { %>
+          <p class="text-muted py-4"><%= comm('No conversations yet. Start one using the form, or check back for a reply from your class team.', 'Aún no hay conversaciones. Inicie una con el formulario o vuelva para ver una respuesta del equipo de su clase.') %></p>
+        <% } %>
+        <div class="conversation-list">
+        <% conversations.forEach((conversation) => { %>
+          <a class="conversation-link" href="/messages/<%= conversation.id %>">
+            <span class="d-flex justify-content-between gap-2"><strong><%= conversation.classLabel %></strong>
+              <% if (Number(conversation.unread)) { %><span class="badge bg-danger"><%= conversation.unread %> <%= comm('unread', 'sin leer') %></span><% } %>
+            </span>
+            <span><%= conversation.parent_name || comm('Family', 'Familia') %></span>
+            <span class="conversation-preview"><%= (conversation.preview || '').slice(0, 160) %></span>
+          </a>
+        <% }) %>
+        </div>
+      </div>
+    </section>
+    <div class="col-lg-5">
+      <section class="page-card p-4 mb-4" aria-labelledby="new-message-title">
+        <h2 class="h4" id="new-message-title"><%= comm('Send a message', 'Enviar un mensaje') %></h2>
+        <p class="small text-muted"><%= comm('Visible only to this family, the assigned class team, and parish administrators.', 'Visible solo para esta familia, el equipo asignado a la clase y los administradores de la parroquia.') %></p>
+        <% if (choices.length) { %>
+          <form method="post" action="/messages/new">
+            <input type="hidden" name="_csrf" value="<%= communicationCsrf %>">
+            <input type="hidden" name="submission_key" value="<%= submissionKey %>">
+            <label class="form-label" for="family-class"><%= comm('Class and family', 'Clase y familia') %></label>
+            <select class="form-select mb-3" id="family-class" name="family_class" required>
+              <option value=""><%= comm('Choose a conversation', 'Seleccione una conversación') %></option>
+              <% choices.forEach((choice) => { %><option value="<%= choice.value %>"><%= choice.label %></option><% }) %>
+            </select>
+            <label class="form-label" for="new-message"><%= comm('Message', 'Mensaje') %></label>
+            <textarea class="form-control mb-2" id="new-message" name="message" rows="5" maxlength="5000" required aria-describedby="message-limit"></textarea>
+            <p class="small text-muted" id="message-limit"><%= comm('Up to 5,000 characters. Replies stay in the app.', 'Hasta 5.000 caracteres. Las respuestas permanecen en la aplicación.') %></p>
+            <button class="btn btn-primary" type="submit"><%= comm('Send message', 'Enviar mensaje') %></button>
+          </form>
+        <% } else { %>
+          <p><%= comm('No class conversations are available for your account yet. Contact the parish office if you need help with a class assignment.', 'Todavía no hay conversaciones de clase disponibles para su cuenta. Comuníquese con la oficina parroquial si necesita ayuda con la asignación de una clase.') %></p>
+        <% } %>
+      </section>
+      <section class="page-card p-4" aria-labelledby="preferences-title">
+        <h2 class="h4" id="preferences-title"><%= comm('Email preferences', 'Preferencias de correo') %></h2>
+        <p class="small text-muted"><%= comm('Emails go to your account sign-in address. Messages remain available here even with email notifications off.', 'Los correos se envían a la dirección de su cuenta. Los mensajes siguen disponibles aquí aunque desactive las notificaciones por correo.') %></p>
+        <form method="post" action="/messages/preferences">
+          <input type="hidden" name="_csrf" value="<%= communicationCsrf %>">
+          <div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="reminder-emails" name="class_reminders" value="1" <%= Number(preferences.class_reminders) ? 'checked' : '' %>>
+            <label class="form-check-label" for="reminder-emails"><%= comm('Class reminder emails', 'Recordatorios de clase por correo') %></label></div>
+          <div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="message-emails" name="message_emails" value="1" <%= Number(preferences.message_emails) ? 'checked' : '' %>>
+            <label class="form-check-label" for="message-emails"><%= comm('Email me when a new message arrives', 'Avisarme por correo cuando llegue un mensaje') %></label></div>
+          <button class="btn btn-outline-primary" type="submit"><%= comm('Save preferences', 'Guardar preferencias') %></button>
+        </form>
+      </section>
+    </div>
+  </div>
+</main>
+</body>
+</html>

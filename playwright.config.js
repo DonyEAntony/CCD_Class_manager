@@ -6,6 +6,8 @@ const dbPath = path.join(__dirname, 'test-results', 'playwright.sqlite');
 
 module.exports = defineConfig({
   testDir: './tests',
+  // These use an isolated fixture app and their own configuration.
+  testIgnore: ['**/communications.test.js', '**/communications-ui.spec.js'],
   timeout: 30_000,
   expect: {
     timeout: 5_000,

@@ -6,6 +6,12 @@
   </a>
   <div class="site-topbar-actions">
     <% if (user) { %>
+      <a href="/messages" class="topbar-account-link">
+        <%= lang === 'es' ? 'Mensajes' : 'Messages' %>
+        <% if (typeof communicationUnread !== 'undefined' && communicationUnread > 0) { %>
+          <span class="badge bg-danger" aria-label="<%= lang === 'es' ? 'Mensajes sin leer' : 'Unread messages' %>"><%= communicationUnread %></span>
+        <% } %>
+      </a>
       <a href="/account" class="topbar-account-link" aria-label="<%= t('my_account') %>">
         <svg class="topbar-account-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
           <path d="M20 21a8 8 0 0 0-16 0"></path>
