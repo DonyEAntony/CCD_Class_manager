@@ -382,6 +382,26 @@
           </div>
         <% } %>
 
+        <% if (combinedPartner) { %>
+          <div class="ca-sidebar-card">
+            <div class="ca-sidebar-label-row">
+              <span class="ca-sidebar-label"><%= t('combined_class_roster_header') %></span>
+            </div>
+            <div style="font-weight:700;margin-bottom:.4rem"><%= t('combined_with_label') %> <%= combinedPartnerLabel %></div>
+            <div class="ca-hint" style="margin-bottom:.6rem"><%= t('combined_class_roster_note') %></div>
+            <div style="max-height:320px;overflow-y:auto">
+              <% combinedRoster.forEach((r) => { %>
+                <div class="ca-celebration-row">
+                  <div style="min-width:0">
+                    <div class="ca-celebration-name"><%= r.student_full_name %></div>
+                    <div class="ca-celebration-meta"><%= r.sourceClassLabel %></div>
+                  </div>
+                </div>
+              <% }) %>
+            </div>
+          </div>
+        <% } %>
+
         <div class="ca-sidebar-card">
           <div class="ca-sidebar-label-row">
             <span class="ca-sidebar-label"><%= t('class_teacher_label') %></span>
