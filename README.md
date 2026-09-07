@@ -51,6 +51,60 @@ Web app for **Saint Matthew Catholic Church Faith Formation**.
    ```
 5. Open `http://localhost:3000`
 
+## Class reminders and parent messaging
+
+- **Messages** in the top bar opens the family inbox. A family and class share one
+  conversation with message history and unread counts. Families can start a
+  conversation or reply; assigned catechists and parish administrators can respond.
+  Conversations are visible to the registering account, the current assigned class
+  team, and administrators. Other families and unassigned catechists cannot read them.
+- Open a class and choose **Conversations** to message its families, or **Reminders**
+  to configure reminder emails. Reminders are off for each class until enabled.
+  The default is **one day before class at 18:00 America/New_York**; choose one,
+  two, or seven days ahead and an hour. Only saved calendar dates marked **Class Day**
+  are included. The calendar's unsaved weekly fallback, retreats, rehearsals, and
+  Mass dates do not trigger reminders. Save actual class dates first.
+- Reminder recipients follow the active class roster and use the registering
+  account's sign-in email, once per account/class/date even with siblings.
+  Children's registrations must be admitted/enrolled or conditionally accepted.
+  Pending registrations can use conversations but do not receive reminders.
+  Existing adult/family class roster rules are also supported.
+- Parents can independently disable reminder emails and new-message emails under
+  **Messages → Email preferences**. In-app messages remain available. Email
+  notifications link to the conversation; replying to notification emails does
+  **not** import a reply into the app. The existing class broadcast email feature
+  continues to operate separately.
+
+The additive MySQL tables are created on normal startup by `db.init()`. Configure
+`SMTP_HOST`, `EMAIL_FROM`, the applicable SMTP credentials, and `APP_BASE_URL` for
+email delivery. Set `CLASS_REMINDER_TIMEZONE` to an IANA timezone if needed; it
+defaults to `America/New_York` and follows daylight-saving time. The Node app must
+remain running: its worker checks once per minute. A same-day restart catches up
+after the configured send hour; missed reminder days are skipped to avoid stale mail.
+Set `COMMUNICATION_WORKER_ENABLED=false` to pause all reminder and message email
+delivery while retaining in-app messaging. No external scheduler is required.
+
+Messages and their email jobs are saved in one database transaction. Database
+uniqueness prevents repeated form submissions and duplicate reminder queue entries;
+atomic leases prevent simultaneous workers from sending the same queued job.
+Failures retry with backoff, up to five attempts. Before sending, the worker checks
+current membership, recipient preferences and saved class dates again. Removing a
+class date prevents its pending reminder from being sent. The Reminders page shows
+recent delivery results; “Sent” means SMTP acceptance, not confirmed inbox delivery.
+SMTP cannot guarantee exactly-once delivery: a process crash after SMTP acceptance
+but before recording success can result in a repeated email on recovery.
+
+Run the isolated checks without a parish database or real email:
+
+```bash
+npm run test:communications
+npm run test:communications:ui
+```
+
+The UI checks launch a local fixture app with sample accounts and an in-memory
+store. They cover screens and routes; deployment still needs MySQL migration and
+SMTP verification in the target environment. No real emails are sent by these tests.
+
 ## Database
 - The app now uses **MySQL** via `mysql2`.
 - On startup it creates the configured database if it does not already exist.

@@ -989,6 +989,7 @@ const init = async () => {
       [legacyYear]
     );
 
+    await require('./communications-schema')(pool);
     await seedData();
   })();
 
@@ -1022,8 +1023,36 @@ const prepare = (sql) => ({
 // value only needs to change in one place.
 const isDeletedAccount = (user) => user?.account_status === 'deleted';
 
+// Keep conversation messages and their email notifications atomic.
+const transaction = async (handler) => {
+  await init();
+  const connection = await pool.getConnection();
+  const adapter = {
+    prepare: (sql) => ({
+      async get(...params) { const [rows] = await connection.execute(sql, params); return rows[0]; },
+      async all(...params) { const [rows] = await connection.execute(sql, params); return rows; },
+      async run(...params) {
+        const [result] = await connection.execute(sql, params);
+        return { changes: result.affectedRows || 0, lastInsertRowid: result.insertId || 0 };
+      },
+    }),
+  };
+  try {
+    await connection.beginTransaction();
+    const result = await handler(adapter);
+    await connection.commit();
+    return result;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
+
 module.exports = {
   init,
   prepare,
   isDeletedAccount,
+  transaction,
 };

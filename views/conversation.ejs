@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="<%= lang %>">
+<head><%- include('_communication_head', { title: comm('Conversation', 'Conversación') }) %></head>
+<body>
+<%- include('_topbar') %>
+<main class="container py-4 app-shell mx-auto communication-page">
+  <div class="page-heading">
+    <a href="/messages">← <%= comm('All conversations', 'Todas las conversaciones') %></a>
+    <h1 class="mt-3"><%= group.label %></h1>
+    <p class="sub"><%= conversation.parent_name || comm('Family', 'Familia') %></p>
+    <p class="small text-muted"><%= comm('Shared with this family, the current class team, and parish administrators.', 'Compartida con esta familia, el equipo actual de la clase y los administradores de la parroquia.') %></p>
+  </div>
+  <% if (success.length) { %><div role="status" class="alert alert-success"><%= success[0] %></div><% } %>
+  <section class="page-card p-4" aria-label="<%= comm('Message history', 'Historial de mensajes') %>">
+    <nav class="d-flex justify-content-between flex-wrap gap-3 mb-3">
+      <% if (olderCursor) { %><a href="/messages/<%= conversation.id %>?before=<%= olderCursor %>"><%= comm('Older messages', 'Mensajes anteriores') %></a><% } %>
+      <a href="/messages/<%= conversation.id %>"><%= comm('Refresh latest messages', 'Actualizar mensajes recientes') %></a>
+    </nav>
+    <% if (!messages.length) { %><p><%= comm('No messages to show.', 'No hay mensajes para mostrar.') %></p><% } %>
+    <% messages.forEach((message) => { %>
+      <article class="message-bubble <%= message.sender_id === user.id ? 'message-own' : '' %>">
+        <header class="d-flex justify-content-between flex-wrap gap-2 mb-2">
+          <strong><%= message.sender_name || comm('Parish member', 'Miembro de la parroquia') %><%= message.sender_id === user.id ? comm(' (you)', ' (usted)') : '' %></strong>
+          <time class="small text-muted" datetime="<%= new Date(message.created_at).toISOString() %>"><%= new Date(message.created_at).toLocaleString(lang === 'es' ? 'es-US' : 'en-US', { timeZone, dateStyle: 'medium', timeStyle: 'short' }) %></time>
+        </header>
+        <p class="message-body mb-0"><%= message.body %></p>
+      </article>
+    <% }) %>
+  </section>
+  <% if (canReply && !viewingOlder) { %>
+    <section class="page-card p-4 mt-4">
+      <h2 class="h4"><%= comm('Reply', 'Responder') %></h2>
+      <form method="post" action="/messages/<%= conversation.id %>">
+        <input type="hidden" name="_csrf" value="<%= communicationCsrf %>">
+        <input type="hidden" name="submission_key" value="<%= submissionKey %>">
+        <label class="form-label" for="reply"><%= comm('Your message', 'Su mensaje') %></label>
+        <textarea class="form-control mb-3" name="message" id="reply" rows="4" maxlength="5000" required></textarea>
+        <button class="btn btn-primary" type="submit"><%= comm('Send reply', 'Enviar respuesta') %></button>
+        <span class="small text-muted ms-2"><%= comm('Up to 5,000 characters.', 'Hasta 5.000 caracteres.') %></span>
+      </form>
+    </section>
+  <% } else if (!canReply) { %>
+    <p class="alert alert-secondary mt-4"><%= comm('This family is no longer on the active class roster. Previous messages are available to read.', 'Esta familia ya no está en la lista activa de la clase. Los mensajes anteriores están disponibles para leer.') %></p>
+  <% } %>
+</main>
+</body>
+</html>

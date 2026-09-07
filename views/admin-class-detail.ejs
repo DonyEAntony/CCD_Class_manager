@@ -193,6 +193,8 @@
         </div>
       </div>
       <div class="ca-header-actions">
+        <a href="/messages?class=<%= ccdClass.id %>" class="ca-btn"><%= lang === 'es' ? 'Conversaciones' : 'Conversations' %></a>
+        <a href="/messages/classes/<%= ccdClass.id %>/reminders" class="ca-btn"><%= lang === 'es' ? 'Recordatorios' : 'Reminders' %></a>
         <span class="ca-autosave-note"><%= t('autosave_note') %></span>
         <a href="/calendar/class/<%= ccdClass.id %>" class="ca-btn"><%= t('view_class_calendar_label') %></a>
       </div>

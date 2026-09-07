@@ -7,6 +7,8 @@
     "start": "node app.js",
     "dev": "node --watch app.js",
     "check": "node --check app.js",
+    "test:communications": "node --test tests/communications.test.js",
+    "test:communications:ui": "playwright test --config playwright.communications.config.js",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:ui": "playwright test --ui"

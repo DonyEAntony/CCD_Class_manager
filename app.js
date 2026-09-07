@@ -14,6 +14,8 @@ const { processScanDocument, verifyDocumentAiConfiguration } = require('./docume
 const { sendVerificationEmail, smtpLogConfig, verifyMailConfiguration, buildVerificationEmailContent, sendPasswordResetEmail, sendClassMessageEmail, sendCatechistInvitationEmail, sendTemporaryPasswordEmail } = require('./mailer');
 const { listTemplatesWithFields, renderTemplate } = require('./email-templates');
 const { requireAuth, requireRole } = require('./middleware');
+const { createCommunicationStore } = require('./communications-store');
+const { createCommunications } = require('./communications');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -3440,6 +3442,14 @@ app.use((req, res, next) => {
   res.locals.error = req.flash('error');
   res.locals.ADULT_PROGRAMS = getAdultPrograms(res.locals.t);
   next();
+});
+
+app.use((req, res, next) => {
+  res.locals.communicationUnread = 0;
+  if (!req.user || db.isDeletedAccount(req.user) || !Number(req.user.is_active)) return next();
+  communicationStore.unreadCount(req.user)
+    .then((count) => { res.locals.communicationUnread = count; next(); })
+    .catch(() => next());
 });
 
 // Powers the dismissible notification banners in _topbar.ejs, shown on every page a
@@ -9363,10 +9373,45 @@ app.post('/admin/altar-server/signups/:id/status', requireAuth, requireRole('adm
   return res.redirect('/admin/users');
 }));
 
+// Use the same computed rosters as class attendance. Account ownership (never an
+// email-address match) determines who may access a family's private conversation.
+const getCommunicationGroups = async () => {
+  const classes = await getCcdClasses();
+  const registrations = await db.prepare(`SELECT * FROM student_registrations
+    WHERE archived_at IS NULL AND status NOT IN ('cancelled', 'discontinued', 'completed', 'graduated')`).all();
+  const enrolled = await getEnrolledRegistrationIds();
+  const adults = (await getActiveAdultRegistrations()).filter((row) => !['cancelled', 'discontinued', 'completed', 'graduated'].includes(row.status));
+  const families = await getActiveFamilyFaithRegistrations();
+  const activeUsers = await communicationStore.users();
+  const usersById = new Map(activeUsers.map((user) => [user.id, user]));
+  return classes.map((ccdClass) => {
+    const roster = getClassRoster(ccdClass, registrations, enrolled, adults, families, classes);
+    const members = new Map();
+    for (const row of roster) {
+      const account = usersById.get(row.user_id);
+      if (!account) continue;
+      if (!members.has(account.id)) members.set(account.id, { id: account.id,
+        name: account.full_name || 'Family', members: [], remind: false });
+      const family = members.get(account.id);
+      family.members.push(row.student_full_name);
+      family.remind ||= ['admitted', 'conditionally_accepted'].includes(row.status);
+    }
+    return { id: ccdClass.id, label: `${getCcdClassShortLabel(ccdClass)}${ccdClass.class_time ? ` — ${ccdClass.class_time}` : ''}`,
+      time: ccdClass.class_time, room: ccdClass.classroom, families: [...members.values()],
+      teachers: ccdClass.catechists.map((teacher) => usersById.get(teacher.id))
+        .filter((teacher) => teacher && ['admin', 'catechist', 'family_faith_leader'].includes(teacher.role)) };
+  });
+};
+const communicationStore = createCommunicationStore(db);
+const communications = createCommunications({ store: communicationStore, getGroups: getCommunicationGroups,
+  sendEmail: sendClassMessageEmail, mailConfigured: () => Boolean(process.env.SMTP_HOST && process.env.EMAIL_FROM) });
+app.use('/messages', communications.router);
+
 db.init()
   .then(() => {
     app.listen(PORT, () => {
       console.log(`St Matthew CCD app running at http://localhost:${PORT}`);
+      communications.start();
     });
   })
   .catch((error) => {
