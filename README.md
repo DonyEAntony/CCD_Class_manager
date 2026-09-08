@@ -20,6 +20,42 @@ Web app for **Saint Matthew Catholic Church Faith Formation**.
   - $50 late fee after Aug 15, 2025
   - Registration blocked after Sept 8, 2025
 
+## Payment history
+
+Manual check, cash, and credit-card records append payment entries; they do not
+charge a card or replace an earlier payment. Receipts identify individual entries.
+Shared imported transactions are linked to their covered registrations and counted
+once. Retrying the same manual form submission does not create another entry.
+
+On first startup after this update, `payment-schema.js` creates the ledger and copies
+existing payment snapshots into opening entries. It also enables cents in the
+compatibility amount columns. Previously overwritten payments cannot be recovered.
+Verify the migration on a database copy before deployment. The integration check
+`node scripts/test-payment-ledger.cjs` requires permission to create and drop a
+uniquely named disposable database; it does not modify the parish database.
+Run isolated logic checks with `node --test tests/payment-ledger.test.js tests/dashboard-payments.test.js`.
+
+Family balances use the saved charge allocation for each registration year: the
+family registration fee belongs to one child, and each child's sacramental and
+late fees are added. Shared payments are deducted once. Missing amounts, conflicting
+registration charges, missing years, or payments spanning multiple years require
+office confirmation. Having multiple children alone does not require confirmation.
+
+### Full dashboard workflow tests
+
+The designated `u733721250_faithformtest` database supports the full application
+tests. `node scripts/setup-dashboard-e2e.cjs` creates a fresh set of sample accounts,
+classes and an imported payment; generated credentials stay in the ignored file
+`test-results/dashboard-e2e.json`. It preserves the earlier minimal payment-test
+tables under the `payment_fixture_` prefix when first installing the full schema.
+
+Start `node scripts/run-dashboard-e2e.cjs` in a separate terminal. It binds only to
+`127.0.0.1:3197` and disables email delivery and social login. Then run
+`node scripts/check-dashboard-e2e.cjs` to verify payment installments, receipt
+stability, parent balances, staff attendance and assignment restrictions. These
+tests write sample payments and attendance; rerun setup before repeating them to
+get fresh fixtures. The browser checks use Bootstrap files in `test-results`.
+
 ## Quick start
 1. Install dependencies:
    ```bash

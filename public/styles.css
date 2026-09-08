@@ -73,6 +73,34 @@ a:hover { color: var(--blue-sky); }
   width: 100%;
 }
 
+.dashboard-links { display: flex; flex-wrap: wrap; gap: .75rem 1.5rem; }
+.dashboard-review-counts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; }
+.dashboard-review-count { display: flex; flex-direction: column; padding: 1rem; border: 1px solid var(--border); border-radius: 8px; color: var(--ink-soft); }
+.dashboard-review-count:hover { background: var(--surface); }
+.dashboard-review-count strong { font-size: 1.75rem; color: var(--navy); }
+.dashboard-review-count span { font-size: .85rem; }
+.dashboard-review-row { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 1rem 0; border-top: 1px solid var(--border); }
+.dashboard-review-row > div { min-width: 0; overflow-wrap: anywhere; }
+tr[id^="registration-"]:target { outline: 2px solid var(--forest); outline-offset: -2px; scroll-margin-top: 1rem; }
+@media (max-width: 640px) { .dashboard-review-counts { grid-template-columns: 1fr; } }
+.dashboard-links a { text-decoration: underline; text-underline-offset: 4px; }
+.dashboard-account { position: relative; }
+.dashboard-account summary { cursor: pointer; padding: .5rem .75rem; border: 1px solid var(--border); border-radius: 8px; }
+.dashboard-account-menu { position: absolute; right: 0; z-index: 10; display: grid; gap: .75rem; width: min(290px, 85vw); padding: 1rem; background: var(--white); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 6px 20px var(--shadow); overflow-wrap: anywhere; }
+.dashboard-focus { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 2rem; padding: 1.75rem; background: var(--white); border: 1px solid var(--border); border-radius: 12px; }
+.dashboard-focus h2 { font-family: 'Inter', system-ui, sans-serif; font-size: 1.35rem; }
+.dashboard-focus p { color: var(--ink-soft); }
+.dashboard-focus .btn { margin: .25rem .25rem .25rem 0; }
+.dashboard-message-link { border-left: 1px solid var(--border); padding-left: 1.5rem; align-self: center; }
+.dashboard-message-link > a { display: inline-block; font-weight: 600; margin-bottom: .5rem; }
+@media (max-width: 640px) {
+  .dashboard-account-menu { left: 0; right: auto; }
+  .dashboard-focus { grid-template-columns: 1fr; padding: 1.25rem; gap: 1.25rem; }
+  .dashboard-message-link { border-left: 0; border-top: 1px solid var(--border); padding: 1rem 0 0; }
+  #dashboardTabs { flex-wrap: nowrap; overflow-x: auto; }
+  #dashboardTabs .nav-link { white-space: nowrap; }
+}
+
 /* ── Top Bar ───────────────────────────────────────────────── */
 .site-topbar {
   background: var(--navy);

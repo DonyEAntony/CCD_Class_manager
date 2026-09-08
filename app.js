@@ -16,6 +16,13 @@ const { listTemplatesWithFields, renderTemplate } = require('./email-templates')
 const { requireAuth, requireRole } = require('./middleware');
 const { createCommunicationStore } = require('./communications-store');
 const { createCommunications } = require('./communications');
+const { getDashboardReview } = require('./dashboard-review');
+const { getDashboardClasses } = require('./dashboard-classes');
+const { getFamilyNextClasses } = require('./dashboard-family');
+const { getDashboardPayments } = require('./dashboard-payments');
+const { getDashboardAttention } = require('./dashboard-attention');
+const { appendPayment, registrationPayments, importKey } = require('./payment-ledger');
+const { buildFamilyPaymentRows } = require('./family-payments');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -819,6 +826,7 @@ const translations = {
     payment_method_col: 'Method',
     payment_date_col: 'Date',
     payment_method_cash: 'Cash',
+    payment_method_check: 'Check',
     payment_method_credit_card: 'Credit Card',
     payment_method_imported: 'Imported',
     record_payment_label: 'Record a Payment',
@@ -1864,6 +1872,7 @@ const translations = {
     payment_method_col: 'Método',
     payment_date_col: 'Fecha',
     payment_method_cash: 'Efectivo',
+    payment_method_check: 'Cheque',
     payment_method_credit_card: 'Tarjeta de Crédito',
     payment_method_imported: 'Importado',
     record_payment_label: 'Registrar un Pago',
@@ -4225,22 +4234,6 @@ app.get('/dashboard', requireAuth, asyncHandler(async (req, res) => {
   // instead of a blanket view of every family's registrations.
   const studentRegs = await db.prepare('SELECT * FROM student_registrations WHERE user_id = ? AND archived_at IS NULL ORDER BY created_at DESC').all(req.user.id);
 
-  const feeBreakdown = studentRegs
-    .filter((reg) => String(reg.user_id) === String(req.user.id))
-    .map((reg) => {
-      const registrationFee = reg.registration_fee || 0;
-      const sacramentalFee = reg.sacramental_fee || 0;
-      const lateFee = reg.late_fee || 0;
-      return {
-        name: reg.student_full_name,
-        registrationFee,
-        sacramentalFee,
-        lateFee,
-        total: registrationFee + sacramentalFee + lateFee,
-      };
-    });
-  const totalFeesDue = feeBreakdown.reduce((sum, item) => sum + item.total, 0);
-
   const familyRegsRaw = await db.prepare('SELECT * FROM family_faith_registrations WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
 
   const adultRegs = await db.prepare('SELECT * FROM adult_registrations WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
@@ -4280,7 +4273,23 @@ app.get('/dashboard', requireAuth, asyncHandler(async (req, res) => {
   );
 
   const ADULT_PROGRAMS = getAdultPrograms(res.locals.t);
-  res.render('dashboard', { studentRegs, familyRegs, adultRegs, sponsorRegs, myStudents, myRegisteredChildren, ADULT_PROGRAMS, faithFormationSettings, resolveCcdGrade, feeBreakdown, totalFeesDue });
+  const today = formatSessionDateValue(new Date());
+  // Each of these is independent of the others, and every helper below already
+  // self-gates by role before doing any query work — running them concurrently
+  // instead of one `await` at a time cuts this route's latency to the slowest
+  // single call instead of their sum.
+  const [paymentLedger, adminReview, adminAttention, teachingClasses, familyNextClasses] = await Promise.all([
+    registrationPayments(db, req.user.id),
+    getDashboardReview(db, req.user),
+    getDashboardAttention(db, req.user, today),
+    getDashboardClasses({ user: req.user, classes: ccdClasses,
+      getSchedule: getClassSessionDates, formatDate: formatSessionDateValue,
+      label: getCcdClassShortLabel, today }),
+    getFamilyNextClasses({ user: req.user, children: myRegisteredChildren,
+      getSchedule: getClassSessionDates, formatDate: formatSessionDateValue, today }),
+  ]);
+  const dashboardPayments = getDashboardPayments(studentRegs, req.user.id, paymentLedger);
+  res.render('dashboard', { studentRegs, familyRegs, adultRegs, sponsorRegs, myStudents, myRegisteredChildren, ADULT_PROGRAMS, faithFormationSettings, resolveCcdGrade, adminReview, teachingClasses, familyNextClasses, dashboardPayments, adminAttention });
 }));
 
 app.get('/family-faith/visits/availability', requireAuth, asyncHandler(async (req, res) => {
@@ -6281,19 +6290,26 @@ app.get('/admin/students', requireAuth, requireRole('admin'), asyncHandler(async
     const key = s.parent_user_id || `solo-${s.id}`;
     (familyGroups[key] ||= []).push(s);
   });
+  // Scoped to the current roster's ids rather than the whole payment ledger —
+  // the ledger accumulates every payment ever recorded, and this route (like
+  // the registration/class-history lookups above) loads every student up
+  // front for in-memory filtering, so an unscoped query here would rescan the
+  // parish's entire payment history on every single page view.
+  const registrationIds = [...new Set(students.map((s) => s.source_registration_id).filter(Boolean))];
+  const paymentHistory = studentIds.length
+    ? await db.prepare(`SELECT p.*, s.id AS student_id, s.parent_user_id, s.student_full_name
+        FROM tuition_payments p JOIN tuition_payment_links l ON l.payment_id = p.id
+        JOIN students s ON s.id = l.student_id OR s.source_registration_id = l.registration_id
+        WHERE l.student_id IN (${studentIds.map(() => '?').join(',')})
+          ${registrationIds.length ? `OR l.registration_id IN (${registrationIds.map(() => '?').join(',')})` : ''}
+        ORDER BY p.paid_at DESC, p.id DESC`).all(...studentIds, ...registrationIds)
+    : [];
   students.forEach((s) => {
-    const key = s.parent_user_id || `solo-${s.id}`;
-    s.familyPayments = familyGroups[key].map((sibling) => ({
-      id: sibling.id,
-      studentFullName: sibling.student_full_name,
-      tuitionPaid: !!sibling.tuition_paid,
-      amount: sibling.tuition_amount_paid,
-      method: sibling.tuition_payment_method,
-      transactionId: sibling.tuition_transaction_id,
-      paidAt: sibling.tuition_paid_at,
-      isSelf: sibling.id === s.id,
-    }));
+    s.paymentSubmissionKey = crypto.randomUUID();
+    s.familyPayments = buildFamilyPaymentRows(
+      familyGroups[s.parent_user_id || `solo-${s.id}`], paymentHistory, s.id);
   });
+
 
   const totalCount = students.length;
 
@@ -6389,7 +6405,7 @@ app.post('/admin/students/:id/confirmation', requireAuth, requireRole('admin'), 
   return res.redirect('/admin/students');
 }));
 
-const TUITION_PAYMENT_METHODS = new Set(['cash', 'credit_card']);
+const TUITION_PAYMENT_METHODS = new Set(['cash', 'check', 'credit_card']);
 
 app.post('/admin/students/:id/payment', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   const student = await db.prepare('SELECT id, source_registration_id FROM students WHERE id = ?').get(req.params.id);
@@ -6397,35 +6413,35 @@ app.post('/admin/students/:id/payment', requireAuth, requireRole('admin'), async
     return res.status(404).send('Student not found.');
   }
 
-  const amount = parseTuitionImportAmount(req.body.amount);
+  const amountText = String(req.body.amount || '').trim();
+  const amount = /^\d+(?:\.\d{1,2})?$/.test(amountText) ? Number(amountText) : NaN;
+  const submissionKey = String(req.body.submission_key || '');
+  if (!/^[a-f0-9-]{36}$/i.test(submissionKey)) {
+    req.flash('error', 'Please reload the payment form and try again.');
+    return res.redirect('/admin/students');
+  }
   const method = typeof req.body.method === 'string' ? req.body.method.trim() : '';
-  if (!amount || amount <= 0 || !TUITION_PAYMENT_METHODS.has(method)) {
+  if (!Number.isFinite(amount) || amount <= 0 || amount > 9999999999.99 || !TUITION_PAYMENT_METHODS.has(method)) {
     req.flash('error', 'Enter a valid payment amount and method.');
     return res.redirect('/admin/students');
   }
 
-  const requestedDate = typeof req.body.payment_date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.body.payment_date.trim())
+  const requestedDate = typeof req.body.payment_date === 'string' && req.body.payment_date.trim()
     ? req.body.payment_date.trim()
     : new Date().toISOString().slice(0, 10);
-
-  await db.prepare(
-    `UPDATE students SET
-       tuition_paid = 1, tuition_paid_at = ?, tuition_paid_by = ?,
-       tuition_amount_paid = ?, tuition_transaction_id = NULL, tuition_payment_method = ?
-     WHERE id = ?`
-  ).run(requestedDate, req.user.id, amount, method, req.params.id);
-
-  if (student.source_registration_id) {
-    await db.prepare(
-      `UPDATE student_registrations SET
-         tuition_paid = 1, tuition_paid_at = ?, tuition_paid_by = ?,
-         tuition_amount_paid = ?, tuition_transaction_id = NULL, tuition_payment_method = ?
-       WHERE id = ?`
-    ).run(requestedDate, req.user.id, amount, method, student.source_registration_id);
+  const paymentDate = new Date(requestedDate + 'T00:00:00Z');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedDate) || Number.isNaN(paymentDate.getTime()) || paymentDate.toISOString().slice(0, 10) !== requestedDate) {
+    req.flash('error', 'Enter a valid payment date.');
+    return res.redirect('/admin/students');
   }
 
+  const payment = await appendPayment(db, {
+    key: 'manual:' + student.id + ':' + submissionKey, amount, date: requestedDate,
+    method, recordedBy: req.user.id,
+  }, [{ studentId: student.id, registrationId: student.source_registration_id }]);
+
   req.flash('success', res.locals.t('status_updated'));
-  return res.redirect(`/admin/students/${req.params.id}/receipt`);
+  return res.redirect(`/admin/students/${req.params.id}/receipt?payment=${payment.id}`);
 }));
 
 app.get('/admin/students/:id/receipt', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
@@ -6443,7 +6459,16 @@ app.get('/admin/students/:id/receipt', requireAuth, requireRole('admin'), asyncH
     WHERE s.id = ?
   `).get(req.params.id);
 
-  if (!student || !student.tuition_paid || !TUITION_PAYMENT_METHODS.has(student.tuition_payment_method)) {
+  const receiptPayment = await db.prepare(`SELECT p.* FROM tuition_payments p
+    WHERE p.id IN (SELECT l.payment_id FROM tuition_payment_links l LEFT JOIN students s ON s.id = ?
+      WHERE l.student_id = s.id OR l.registration_id = s.source_registration_id)
+    AND p.method IN ('cash', 'check', 'credit_card')
+    ${req.query.payment ? 'AND p.id = ?' : ''} ORDER BY p.id DESC LIMIT 1`)
+    .get(req.params.id, ...(req.query.payment ? [req.query.payment] : []));
+  if (student && receiptPayment) Object.assign(student, { tuition_paid: 1, tuition_amount_paid: receiptPayment.amount,
+    tuition_payment_method: receiptPayment.method, tuition_paid_at: receiptPayment.paid_at, tuition_paid_by: receiptPayment.recorded_by });
+  if (!receiptPayment) { req.flash('error', 'Payment receipt not found.'); return res.redirect('/admin/students'); }
+  if (!student) {
     req.flash('error', 'No manually-recorded payment found to generate a receipt for.');
     return res.redirect('/admin/students');
   }
@@ -6520,7 +6545,7 @@ const TUITION_IMPORT_COLUMNS = {
 
 const parseTuitionImportAmount = (value) => {
   const num = parseFloat(String(value ?? '').replace(/[^0-9.\-]/g, ''));
-  return Number.isFinite(num) ? Math.round(num) : null;
+  return Number.isFinite(num) ? Math.round(num * 100) / 100 : null;
 };
 
 const parseTuitionImportDate = (value) => {
@@ -6614,7 +6639,7 @@ const buildTuitionImportPreview = async (schoolYear, csvBuffer) => {
     // it means this exact payment was already imported — skip re-matching
     // it entirely rather than prompting the admin to review it again.
     const alreadyImported = transactionId
-      ? !!(await db.prepare('SELECT id FROM student_registrations WHERE tuition_transaction_id = ? LIMIT 1').get(transactionId))
+      ? !!(await db.prepare('SELECT id FROM tuition_payments WHERE transaction_id = ? LIMIT 1').get(transactionId))
       : false;
 
     const rawChildNames = get('childNames');
@@ -6760,7 +6785,7 @@ app.post('/admin/tuition-import/apply', requireAuth, requireRole('admin'), async
     // Re-check at apply time (not just what the preview saw) in case another
     // import already claimed this transaction ID in the meantime.
     if (row.raw.transactionId) {
-      const dupe = await db.prepare('SELECT id FROM student_registrations WHERE tuition_transaction_id = ? LIMIT 1').get(row.raw.transactionId);
+      const dupe = await db.prepare('SELECT id FROM tuition_payments WHERE transaction_id = ? LIMIT 1').get(row.raw.transactionId);
       if (dupe) {
         duplicatesSkipped++;
         continue;
@@ -6773,28 +6798,18 @@ app.post('/admin/tuition-import/apply', requireAuth, requireRole('admin'), async
       .map(Number)
       .filter((id) => allowedIds.has(id));
 
-    for (const registrationId of chosenIds) {
+    const targets = [];
+    for (const registrationId of new Set(chosenIds)) {
       const reg = await db.prepare('SELECT id, student_id FROM student_registrations WHERE id = ?').get(registrationId);
-      if (!reg) continue;
-
-      await db.prepare(
-        `UPDATE student_registrations SET
-           tuition_paid = 1, tuition_paid_at = ?, tuition_paid_by = ?,
-           tuition_amount_paid = ?, tuition_transaction_id = ?, tuition_payment_method = 'imported'
-         WHERE id = ?`
-      ).run(row.paidAtIso, req.user.id, row.amount, row.raw.transactionId || null, registrationId);
-
-      if (reg.student_id) {
-        await db.prepare(
-          `UPDATE students SET
-             tuition_paid = 1, tuition_paid_at = ?, tuition_paid_by = ?,
-             tuition_amount_paid = ?, tuition_transaction_id = ?, tuition_payment_method = 'imported'
-           WHERE id = ?`
-        ).run(row.paidAtIso, req.user.id, row.amount, row.raw.transactionId || null, reg.student_id);
-      }
-
-      registrationsUpdated++;
+      if (reg) targets.push({ registrationId: reg.id, studentId: reg.student_id });
     }
+    if (!targets.length) continue;
+    const key = row.raw.transactionId ? importKey(row.raw.transactionId)
+      : importKey(JSON.stringify([preview.schoolYear, row.raw, row.paidAtIso, row.amount]));
+    const recorded = await appendPayment(db, { key, amount: row.amount, date: row.paidAtIso,
+      method: 'imported', transactionId: row.raw.transactionId || null, recordedBy: req.user.id }, targets);
+    if (recorded.duplicate) duplicatesSkipped++;
+    else registrationsUpdated += targets.length;
   }
 
   delete req.session.tuitionImportPreview;
@@ -8745,7 +8760,7 @@ app.post('/admin/classes/:id/attendance', requireAuth, requireRole('admin', 'cat
     return res.status(400).json({ ok: false, error: 'Invalid request.' });
   }
 
-  if (req.user.role === 'catechist') {
+  if (req.user.role !== 'admin') {
     const ownedClass = await db.prepare(
       'SELECT 1 FROM ccd_class_catechists WHERE ccd_class_id = ? AND catechist_user_id = ?'
     ).get(classId, req.user.id);
@@ -8788,7 +8803,7 @@ app.post('/admin/classes/:id/tables/organize', requireAuth, requireRole('admin',
     return res.status(400).json({ ok: false, error: 'Invalid request.' });
   }
 
-  if (req.user.role === 'catechist') {
+  if (req.user.role !== 'admin') {
     const ownedClass = await db.prepare(
       'SELECT 1 FROM ccd_class_catechists WHERE ccd_class_id = ? AND catechist_user_id = ?'
     ).get(classId, req.user.id);
@@ -8797,9 +8812,7 @@ app.post('/admin/classes/:id/tables/organize', requireAuth, requireRole('admin',
     }
   }
 
-  // Not getOwnedCcdClass — that also requires a family_faith_leader to be a registered
-  // catechist on the class, which is stricter than the attendance route above (the same
-  // roles allowed into this route) enforces; a plain lookup keeps the two consistent.
+  // Assignment was verified above for all non-administrators.
   const allCcdClasses = await getCcdClasses();
   const ccdClass = allCcdClasses.find((c) => c.id === classId);
   if (!ccdClass) {
@@ -8863,7 +8876,7 @@ app.post('/admin/classes/:id/tables/assign', requireAuth, requireRole('admin', '
     return res.status(400).json({ ok: false, error: 'Invalid request.' });
   }
 
-  if (req.user.role === 'catechist') {
+  if (req.user.role !== 'admin') {
     const ownedClass = await db.prepare(
       'SELECT 1 FROM ccd_class_catechists WHERE ccd_class_id = ? AND catechist_user_id = ?'
     ).get(classId, req.user.id);
@@ -9490,7 +9503,7 @@ app.use('/messages', communications.router);
 
 db.init()
   .then(() => {
-    app.listen(PORT, () => {
+    app.listen(PORT, process.env.HOST || undefined, () => {
       console.log(`St Matthew CCD app running at http://localhost:${PORT}`);
       communications.start();
     });

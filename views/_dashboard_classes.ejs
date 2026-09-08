@@ -1,0 +1,30 @@
+<% const classText = (en, es) => lang === 'es' ? es : en; %>
+<section class="page-card mb-4" aria-labelledby="teaching-heading">
+  <div class="card-body">
+    <h2 class="h5" id="teaching-heading"><%= user.role === 'family_faith_leader' ? classText('My assigned sessions', 'Mis sesiones asignadas') : t('my_classes_nav') %></h2>
+    <% if (!teachingClasses.length) { %>
+      <p class="mb-0"><%= classText('No classes have been assigned to you yet. Contact the parish office if you are expecting an assignment.', 'Todavía no tienes clases asignadas. Comunícate con la oficina parroquial si esperas una asignación.') %></p>
+    <% } else { %>
+      <p class="small text-muted"><%= classText('Your assigned classes, with the next scheduled Class Day first.', 'Tus clases asignadas, con el próximo día de clase programado primero.') %></p>
+      <div class="row g-3">
+        <% teachingClasses.forEach((item) => { %>
+          <div class="col-md-6">
+            <article class="border rounded-3 p-3 h-100">
+              <h3 class="h5"><%= item.label %></h3>
+              <p class="small mb-2"><%= item.time || '' %><% if (item.room) { %> · <%= t('room') %> <%= item.room %><% } %></p>
+              <% if (item.nextDate) { %>
+                <p class="mb-3"><%= classText('Next class:', 'Próxima clase:') %> <strong><time datetime="<%= item.nextDate %>"><%= new Date(item.nextDate + 'T12:00:00').toLocaleDateString(lang === 'es' ? 'es-US' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) %></time></strong></p>
+              <% } else { %>
+                <p class="text-muted mb-3"><%= classText('No upcoming Class Day is scheduled.', 'No hay un próximo día de clase programado.') %></p>
+              <% } %>
+              <div class="d-flex flex-wrap gap-2">
+                <a class="btn btn-primary btn-sm" href="<%= item.href %>"><%= item.nextDate ? classText('Take attendance', 'Tomar asistencia') : classText('Open class', 'Abrir clase') %></a>
+                <a class="btn btn-outline-primary btn-sm" href="/calendar/class/<%= item.id %>"><%= t('calendar') %></a>
+              </div>
+            </article>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+  </div>
+</section>

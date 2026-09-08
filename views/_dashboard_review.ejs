@@ -1,0 +1,39 @@
+<%
+  const reviewText = (en, es) => lang === 'es' ? es : en;
+  const reviewLabels = {
+    child: reviewText('Child registrations to review', 'Inscripciones de niños por revisar'),
+    conditional: reviewText('Children needing follow-up', 'Niños que necesitan seguimiento'),
+    family: reviewText('Family Faith registrations to review', 'Inscripciones de fe en familia por revisar'),
+  };
+%>
+<section class="page-card mb-4 dashboard-review" aria-labelledby="review-heading">
+  <div class="card-body">
+    <h2 class="h5" id="review-heading"><%= reviewText('Registration review queue', 'Inscripciones pendientes de revisión') %></h2>
+    <p class="small text-muted"><%= reviewText('Child and Family Faith submissions in progress, plus conditionally accepted children. Archived child registrations are excluded.', 'Solicitudes de niños y de fe en familia en progreso, además de niños aceptados condicionalmente. Se excluyen las inscripciones de niños archivadas.') %></p>
+    <div class="dashboard-review-counts">
+      <% adminReview.groups.forEach((group) => { %>
+        <a href="<%= group.href %>" class="dashboard-review-count">
+          <strong><%= group.count %></strong>
+          <span><%= reviewLabels[group.key] %></span>
+        </a>
+      <% }) %>
+    </div>
+    <% if (!adminReview.total) { %>
+      <p class="mb-0 mt-3"><%= reviewText('No registrations are waiting in these queues.', 'No hay inscripciones pendientes en estas categorías.') %></p>
+    <% } else { %>
+      <h3 class="h6 mt-4"><%= reviewText('Oldest submissions first', 'Solicitudes más antiguas primero') %></h3>
+      <p class="small text-muted"><%= reviewText('Showing', 'Mostrando') %> <%= adminReview.items.length %> <%= reviewText('of', 'de') %> <%= adminReview.total %></p>
+      <ul class="list-unstyled mb-0">
+        <% adminReview.items.forEach((item) => { %>
+          <li class="dashboard-review-row">
+            <div>
+              <strong><%= item.name %></strong>
+              <div class="small text-muted"><%= reviewLabels[item.key] %></div>
+            </div>
+            <a class="btn btn-outline-primary btn-sm" href="<%= item.href %>" aria-label="<%= reviewText('Review', 'Revisar') %>: <%= item.name %>"><%= reviewText('Review', 'Revisar') %></a>
+          </li>
+        <% }) %>
+      </ul>
+    <% } %>
+  </div>
+</section>

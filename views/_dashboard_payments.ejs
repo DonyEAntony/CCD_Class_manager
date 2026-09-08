@@ -1,0 +1,38 @@
+<% const paymentText = (en, es) => lang === 'es' ? es : en;
+const money = value => new Intl.NumberFormat(lang === 'es' ? 'es-US' : 'en-US', { style: 'currency', currency: 'USD' }).format(value); %>
+<% if (dashboardPayments.rows.length) { %>
+<section class="page-card mb-3" aria-labelledby="payment-heading"><div class="card-body">
+  <h2 class="h5" id="payment-heading"><%= paymentText('Tuition and payments', 'Matrícula y pagos') %></h2>
+  <% if (dashboardPayments.ledger && dashboardPayments.totalRecorded !== null && dashboardPayments.payments.length) { %>
+    <p><%= paymentText('Total recorded payments:', 'Total de pagos registrados:') %> <strong><%= money(dashboardPayments.totalRecorded) %></strong></p>
+  <% } %>
+  <% if (dashboardPayments.balance !== null) { %>
+    <p><%= paymentText('Balance based on recorded fees and payments:', 'Saldo según las cuotas y los pagos registrados:') %> <strong><%= money(dashboardPayments.balance) %></strong></p>
+  <% } else { %>
+    <p><%= dashboardPayments.allMarkedPaid ? paymentText('The office has marked tuition paid for all listed children.', 'La oficina ha marcado la matrícula como pagada para todos los niños de la lista.') : paymentText('Please contact the office to confirm your family’s remaining balance.', 'Comunícate con la oficina para confirmar el saldo pendiente de tu familia.') %></p>
+  <% } %>
+  <% if (dashboardPayments.years && dashboardPayments.years.length > 1) { %>
+    <ul class="list-unstyled small">
+      <% dashboardPayments.years.forEach(year => { %>
+        <li><strong><%= year.year || paymentText('Year not recorded', 'Año sin registrar') %></strong>: <%= year.balance === null ? paymentText('Needs confirmation', 'Requiere confirmación') : money(year.balance) %></li>
+      <% }) %>
+    </ul>
+  <% } %>
+  <ul class="list-unstyled">
+    <% dashboardPayments.rows.forEach((row) => { %>
+      <li><strong><%= row.student_full_name %></strong> — <%= Number(row.tuition_paid) === 1 ? paymentText('Payment recorded', 'Pago registrado') : paymentText('No payment confirmed', 'Sin pago confirmado') %></li>
+    <% }) %>
+  </ul>
+  <% dashboardPayments.payments.forEach((payment) => { %>
+    <div class="border-top pt-2 mt-2">
+      <strong><%= payment.amount !== null && Number.isFinite(payment.amount) ? money(payment.amount) : paymentText('Amount not confirmed', 'Monto sin confirmar') %></strong>
+      <% if (payment.date) { %> · <%= payment.date instanceof Date ? payment.date.toISOString().slice(0, 10) : String(payment.date).slice(0, 10) %><% } %>
+      <div class="small"><%= payment.names.join(', ') %><% if (['cash', 'check', 'credit_card', 'imported'].includes(payment.method)) { %> · <%= t('payment_method_' + payment.method) %><% } %></div>
+    </div>
+  <% }) %>
+  <% if (dashboardPayments.payments.length) { %><p class="small text-muted mt-2"><%= paymentText('Recorded payment history. Shared payments are shown once. Older payments overwritten before history tracking began may not be available.', 'Historial de pagos registrados. Los pagos compartidos se muestran una sola vez. Es posible que no estén disponibles los pagos antiguos reemplazados antes de iniciar el historial.') %></p><% } %>
+  <% if (dashboardPayments.balance !== null && dashboardPayments.balance > 0) { %>
+    <a class="btn btn-primary mt-2" href="https://giving.myparishsoft.io/App/Form/5dd2d671-d113-4fb2-88d5-dced2fe8a5f3" target="_blank" rel="noreferrer"><%= t('pay_registration_fee_online') %></a>
+  <% } %>
+</div></section>
+<% } %>

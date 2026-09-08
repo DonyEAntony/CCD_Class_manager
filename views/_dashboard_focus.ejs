@@ -1,0 +1,39 @@
+<%
+  const focusText = (en, es) => lang === 'es' ? es : en;
+  const hasPersonalRegistrations = [studentRegs, familyRegs, adultRegs, sponsorRegs].some((rows) => rows && rows.length);
+  const unreadMessages = typeof communicationUnread === 'number' ? communicationUnread : 0;
+  const unfinishedRegistration = (studentRegs || []).find((r) => String(r.user_id) === String(user.id) && !r.archived_at && r.status === 'incomplete');
+  const canContinueRegistration = unfinishedRegistration && (faithFormationSettings && faithFormationSettings.faithFormationRegistrationOpen);
+%>
+<section class="dashboard-focus mb-4" aria-labelledby="dashboard-focus-title">
+  <div>
+    <p class="section-label"><%= focusText('Start here', 'Empieza aquí') %></p>
+    <% if (user.role === 'admin') { %>
+      <h2 id="dashboard-focus-title"><%= focusText('Manage your faith formation program', 'Administra tu programa de formación en la fe') %></h2>
+      <p><%= focusText('Review submissions, then organize classes and rosters.', 'Revisa las solicitudes y organiza las clases y sus listas.') %></p>
+      <a class="btn btn-primary" href="/admin/registrations"><%= focusText('Review registrations', 'Revisar inscripciones') %></a>
+      <a class="btn btn-outline-primary" href="/admin/classes"><%= t('classes_nav') %></a>
+    <% } else if (user.role === 'catechist') { %>
+      <h2 id="dashboard-focus-title"><%= focusText('Ready for your next class?', '¿Todo listo para tu próxima clase?') %></h2>
+      <p><%= focusText('Open your class to take attendance, see your students, and contact families.', 'Abre tu clase para tomar asistencia, ver a tus estudiantes y contactar a las familias.') %></p>
+      <a class="btn btn-primary" href="/admin/classes"><%= t('my_classes_nav') %></a>
+    <% } else if (user.role === 'family_faith_leader') { %>
+      <h2 id="dashboard-focus-title"><%= focusText('Accompany parents in their faith journey', 'Acompaña a los padres en su camino de fe') %></h2>
+      <p><%= focusText('Facilitate your assigned parent sessions and accompany families through visits.', 'Facilita las sesiones de padres que tienes asignadas y acompaña a las familias mediante visitas.') %></p>
+      <a class="btn btn-primary" href="/admin/adult-classes"><%= focusText('My assigned sessions', 'Mis sesiones asignadas') %></a>
+      <a class="btn btn-outline-primary" href="/family-faith/visits/availability"><%= t('manage_visit_availability') %></a>
+    <% } else if (canContinueRegistration) { %>
+      <h2 id="dashboard-focus-title"><%= focusText('Finish your registration', 'Completa tu inscripción') %></h2>
+      <p><%= focusText('Continue the unfinished registration for', 'Continúa la inscripción pendiente de') %> <strong><%= unfinishedRegistration.student_full_name %></strong>.</p>
+      <a class="btn btn-primary" href="/registration/children/edit/<%= unfinishedRegistration.id %>"><%= t('finish_registration_button') %></a>
+    <% } else { %>
+      <h2 id="dashboard-focus-title"><%= hasPersonalRegistrations ? focusText('Your family at a glance', 'Tu familia de un vistazo') : focusText('Welcome to faith formation', 'Bienvenidos a la formación en la fe') %></h2>
+      <p><%= hasPersonalRegistrations ? focusText('Check your registration updates and class details below.', 'Consulta las novedades de tus inscripciones y los detalles de tus clases a continuación.') : focusText('Choose a program to begin your first registration.', 'Elige un programa para comenzar tu primera inscripción.') %></p>
+      <button class="btn btn-primary" type="button" data-dashboard-tab="<%= hasPersonalRegistrations ? 'my-registrations-tab' : 'new-registration-tab' %>"><%= hasPersonalRegistrations ? t('view_my_registrations') : t('new_registration_heading') %></button>
+    <% } %>
+  </div>
+  <div class="dashboard-message-link">
+    <a href="/messages"><%= focusText('Messages', 'Mensajes') %><% if (unreadMessages > 0) { %> <span class="badge bg-primary"><%= unreadMessages %> <%= focusText('unread', 'sin leer') %></span><% } %> &rarr;</a>
+    <p class="small mb-0"><%= focusText('Stay in touch with your parish and families.', 'Mantente en contacto con tu parroquia y las familias.') %></p>
+  </div>
+</section>

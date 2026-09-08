@@ -388,7 +388,11 @@
                             <% familyPaymentsRows.forEach((payment) => { %>
                               <tr<% if (payment.isSelf) { %> style="font-weight:600"<% } %>>
                                 <td><%= payment.studentFullName %></td>
-                                <td><% if (payment.tuitionPaid && payment.amount != null) { %>$<%= payment.amount %><% } else { %><span style="color:var(--muted)">&mdash;</span><% } %></td>
+                                <td><% if (payment.noHistory) { %>
+                                  <span class="text-muted"><%= payment.tuitionPaid
+                                    ? (lang === 'es' ? 'Marcado como pagado; sin historial' : 'Marked paid; no payment history')
+                                    : (lang === 'es' ? 'Sin pago registrado' : 'No payment recorded') %></span>
+                                <% } else if (payment.tuitionPaid && payment.amount != null) { %>$<%= payment.amount %><% } else { %><span style="color:var(--muted)">&mdash;</span><% } %></td>
                                 <td>
                                   <% if (payment.method) { %>
                                     <%= t('payment_method_' + payment.method) %>
@@ -398,8 +402,8 @@
                                 </td>
                                 <td style="color:var(--muted)"><%= payment.paidAt ? formatDateOnly(payment.paidAt) : '—' %></td>
                                 <td>
-                                  <% if (payment.tuitionPaid && (payment.method === 'cash' || payment.method === 'credit_card')) { %>
-                                    <a href="/admin/students/<%= payment.id %>/receipt" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary"><%= t('view_receipt_label') %></a>
+                                  <% if (payment.paymentId && payment.tuitionPaid && ['cash', 'check', 'credit_card'].includes(payment.method)) { %>
+                                    <a href="/admin/students/<%= payment.id %>/receipt?payment=<%= payment.paymentId %>" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary"><%= t('view_receipt_label') %></a>
                                   <% } %>
                                 </td>
                               </tr>
@@ -408,16 +412,19 @@
                         </table>
                       </div>
                     <% } %>
+                    <p class="small text-muted"><%= lang === 'es' ? 'Registra un pago ya recibido. Cada pago agrega una entrada al historial y conserva los pagos anteriores. No se realiza un cargo a la tarjeta.' : 'Record a payment already received. Each payment adds a history entry and preserves previous payments. It does not charge a card.' %></p>
                     <form method="post" action="/admin/students/<%= r.id %>/payment" class="d-flex flex-wrap align-items-end gap-2">
+                      <input type="hidden" name="submission_key" value="<%= r.paymentSubmissionKey %>">
                       <div>
                         <label class="form-label mb-1" style="font-size:.75rem"><%= t('payment_amount_col') %></label>
-                        <input type="number" min="0" step="1" class="form-control form-control-sm" style="max-width:130px" name="amount" placeholder="<%= t('payment_amount_placeholder') %>" required>
+                        <input type="number" min="0" step="0.01" class="form-control form-control-sm" style="max-width:130px" name="amount" placeholder="<%= t('payment_amount_placeholder') %>" required>
                       </div>
                       <div>
                         <label class="form-label mb-1" style="font-size:.75rem"><%= t('payment_method_col') %></label>
                         <select class="form-select form-select-sm" style="max-width:150px" name="method" required>
                           <option value="" disabled selected><%= t('select_payment_method') %></option>
                           <option value="cash"><%= t('payment_method_cash') %></option>
+                          <option value="check"><%= t('payment_method_check') %></option>
                           <option value="credit_card"><%= t('payment_method_credit_card') %></option>
                         </select>
                       </div>
@@ -478,6 +485,10 @@
 </script>
 <script>
   (function () {
+    if (/^#student-detail-\d+$/.test(location.hash)) {
+      var detail = document.getElementById(location.hash.slice(1));
+      if (detail) { detail.classList.remove('d-none'); detail.scrollIntoView(); }
+    }
     document.querySelectorAll('.student-details-toggle').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var target = document.getElementById(btn.getAttribute('data-target'));
