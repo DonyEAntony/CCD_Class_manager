@@ -5,161 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title><%= ccdGradeMeanings[ccdClass.grade_level] || adultProgramLabels[ccdClass.grade_level] || ccdClass.grade_level %> &mdash; <%= t('app_title') %></title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Caprasimo&family=Figtree:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
-  <style>
-    /* Tokens are namespaced (--ca-*) and scoped to .ca-page so they never collide
-       with the app's own --navy/--gold theme used by the topbar/nav above it. */
-    .ca-page {
-      --ca-bg: #f5ead8;
-      --ca-surface: #f9f4ed;
-      --ca-surface-2: #eee7db;
-      --ca-text: #201e1d;
-      --ca-accent: #c67139;
-      --ca-accent-100: #fff2eb;
-      --ca-accent-200: #ffe1d0;
-      --ca-accent-400: #f6a06b;
-      --ca-accent-600: #b2622d;
-      --ca-accent-700: #8c491a;
-      --ca-accent-800: #643312;
-      --ca-accent2: #7a8a5e;
-      --ca-accent2-200: #e1eecc;
-      --ca-accent2-300: #ccdbb2;
-      --ca-accent2-500: #8fa073;
-      --ca-accent2-800: #3d472b;
-      --ca-neutral-300: #dcd3c4;
-      --ca-neutral-400: #c0b6a5;
-      --ca-neutral-600: #82796a;
-      --ca-neutral-700: #645c50;
-      --ca-divider: rgba(32, 30, 29, .16);
-      --ca-font-heading: "Caprasimo", Georgia, serif;
-      --ca-font-body: "Figtree", system-ui, sans-serif;
-      --ca-radius-lg: 28px;
-      --ca-radius-md: 16px;
-      --ca-shadow-sm: 0 1px 2px rgba(46, 43, 37, .14);
 
-      background: var(--ca-bg);
-      color: var(--ca-text);
-      font-family: var(--ca-font-body);
-      border-radius: 12px;
-      padding: 1.25rem;
-    }
-    .ca-page h1, .ca-page h2, .ca-page h3 { font-family: var(--ca-font-heading); font-weight: 400; margin: 0; }
-    .ca-page a { color: var(--ca-accent-700); text-decoration: none; }
-    .ca-page a:hover { color: var(--ca-accent); text-decoration: underline; }
-
-    .ca-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; padding: 14px 20px; background: var(--ca-surface); border-radius: var(--ca-radius-lg); margin-bottom: 1.1rem; }
-    .ca-header-left { display: flex; align-items: center; gap: 14px; }
-    .ca-back-btn { width: 38px; height: 38px; border-radius: 999px; border: 1px solid var(--ca-divider); background: transparent; display: grid; place-items: center; color: var(--ca-text); flex: none; }
-    .ca-back-btn:hover { background: var(--ca-surface-2); }
-    .ca-eyebrow { font: 600 10.5px var(--ca-font-body); letter-spacing: .12em; text-transform: uppercase; color: var(--ca-accent-700); }
-    .ca-title { font-size: 24px; margin-top: 2px; line-height: 1.15; }
-    .ca-header-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-    .ca-btn { display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; border: 1px solid var(--ca-divider); background: transparent; padding: 9px 18px; font: 400 14px var(--ca-font-heading); color: var(--ca-text); cursor: pointer; }
-    .ca-btn:hover { background: var(--ca-surface-2); text-decoration: none; color: var(--ca-text); }
-    .ca-autosave-note { font-size: 11.5px; color: var(--ca-neutral-600); }
-
-    .ca-stats-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 14px 20px; background: var(--ca-surface); border-radius: var(--ca-radius-lg); margin-bottom: 1rem; }
-    .ca-stat { display: flex; align-items: baseline; gap: 8px; }
-    .ca-stat-num { font-family: var(--ca-font-heading); font-size: 21px; }
-    .ca-stat-label { font-size: 13px; color: var(--ca-neutral-700); }
-    .ca-stat-divider { width: 1px; height: 22px; background: var(--ca-divider); }
-    .ca-mark-all-btn { display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; border: 1px solid var(--ca-accent2-300); background: var(--ca-accent2-200); color: var(--ca-accent2-800); padding: 8px 16px; font: 600 12.5px var(--ca-font-body); cursor: pointer; }
-    .ca-mark-all-btn:hover { background: var(--ca-accent2-300); }
-    .ca-clear-btn { border-radius: 999px; border: 1px solid var(--ca-divider); background: transparent; color: var(--ca-neutral-700); padding: 8px 16px; font: 600 12.5px var(--ca-font-body); cursor: pointer; }
-    .ca-clear-btn:hover { background: var(--ca-surface-2); }
-
-    .ca-roster-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 4px; margin-bottom: .75rem; flex-wrap: wrap; }
-    .ca-roster-toggle { display: flex; align-items: center; gap: 9px; font: 600 11px var(--ca-font-body); letter-spacing: .1em; text-transform: uppercase; color: var(--ca-neutral-600); cursor: pointer; }
-    .ca-roster-toggle input { width: 17px; height: 17px; accent-color: var(--ca-accent); border-radius: 6px; }
-    .ca-roster-actions { display: flex; align-items: center; gap: 16px; font-size: 12.5px; flex-wrap: wrap; }
-    .ca-roster-actions .muted { color: var(--ca-neutral-600); }
-    .ca-group-toggle { display: flex; align-items: center; gap: 6px; font: 400 12.5px var(--ca-font-body); color: var(--ca-neutral-700); cursor: pointer; }
-    .ca-group-toggle input { width: 14px; height: 14px; accent-color: var(--ca-accent); }
-    .ca-table-group-heading { font: 700 11px var(--ca-font-body); letter-spacing: .1em; text-transform: uppercase; color: var(--ca-accent-700); padding: 14px 4px 6px; }
-    .ca-table-group-heading:first-child { padding-top: 0; }
-
-    .ca-roster-card { display: grid; grid-template-columns: 26px 44px 1fr auto auto; gap: 16px; align-items: center; padding: 14px 20px; background: var(--ca-surface); border-radius: var(--ca-radius-lg); box-shadow: var(--ca-shadow-sm); margin-bottom: 10px; }
-    .ca-roster-card input[type="checkbox"] { width: 17px; height: 17px; accent-color: var(--ca-accent); }
-    .ca-avatar { width: 44px; height: 44px; border-radius: 999px; display: grid; place-items: center; font-family: var(--ca-font-heading); font-size: 14px; flex: none; }
-    .ca-avatar.tone-a { background: var(--ca-accent-200); color: var(--ca-accent-800); }
-    .ca-avatar.tone-b { background: var(--ca-accent2-200); color: var(--ca-accent2-800); }
-    .ca-roster-name-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-    .ca-roster-name { font: 700 16px var(--ca-font-body); }
-    .ca-roster-age { font: 500 12.5px var(--ca-font-body); color: var(--ca-neutral-600); }
-    .ca-badge { border-radius: 999px; padding: 2px 10px; font: 600 10px var(--ca-font-body); letter-spacing: .08em; text-transform: uppercase; }
-    .ca-badge-warn { background: var(--ca-accent-200); color: var(--ca-accent-800); }
-    .ca-badge-info { background: var(--ca-accent2-200); color: var(--ca-accent2-800); }
-    .ca-roster-contact { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 3px; font: 400 12.5px var(--ca-font-body); color: var(--ca-neutral-700); }
-    .ca-roster-contact a { color: inherit; }
-    .ca-roster-note { font-size: 12px; color: var(--ca-neutral-600); font-style: italic; margin-top: 4px; }
-    .ca-history { display: flex; align-items: center; gap: 7px; margin-top: 9px; flex-wrap: wrap; }
-    .ca-history-label { font: 600 9.5px var(--ca-font-body); letter-spacing: .1em; text-transform: uppercase; color: var(--ca-neutral-600); margin-right: 2px; }
-    .ca-history-dot { width: 13px; height: 13px; border-radius: 999px; flex: none; box-sizing: border-box; }
-    .ca-history-dot.present { background: var(--ca-accent2-500); }
-    .ca-history-dot.absent { border: 2px solid var(--ca-accent-600); }
-    .ca-history-dot.none { border: 1.5px dashed var(--ca-neutral-400); }
-    .ca-history-caption { font: 400 11.5px var(--ca-font-body); color: var(--ca-neutral-600); margin-left: 4px; }
-    .ca-attendance-toggle { display: flex; gap: 6px; padding: 4px; background: var(--ca-bg); border-radius: 999px; }
-    .ca-attendance-btn { border-radius: 999px; border: none; background: transparent; color: var(--ca-neutral-700); padding: 8px 14px; font: 600 12.5px var(--ca-font-body); cursor: pointer; }
-    .ca-attendance-btn:hover { background: var(--ca-surface-2); }
-    .ca-attendance-btn.present-btn.active { background: var(--ca-accent2-500); color: #fff; }
-    .ca-attendance-btn.absent-btn.active { background: var(--ca-accent-600); color: #fff; }
-    .ca-table-select-wrap { display: flex; flex-direction: column; align-items: center; gap: 3px; }
-    .ca-table-select-label { font: 600 9.5px var(--ca-font-body); letter-spacing: .1em; text-transform: uppercase; color: var(--ca-neutral-600); }
-    .ca-table-select { width: 92px; font-size: 12.5px; padding: 4px 8px; border-radius: 999px; border: 1px solid var(--ca-divider); background: var(--ca-bg); color: var(--ca-text); }
-
-    .ca-composer { background: var(--ca-surface); border-radius: var(--ca-radius-lg); padding: 24px 26px; box-shadow: var(--ca-shadow-sm); margin-top: .35rem; }
-    .ca-composer-title { font-size: 19px; }
-    .ca-quick-templates { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
-    .ca-quick-btn { border-radius: 999px; border: 1px solid var(--ca-divider); background: transparent; color: var(--ca-neutral-700); padding: 7px 14px; font: 600 12px var(--ca-font-body); cursor: pointer; }
-    .ca-quick-btn:hover { background: var(--ca-surface-2); }
-    .ca-field-label { font: 600 10.5px var(--ca-font-body); letter-spacing: .1em; text-transform: uppercase; color: var(--ca-neutral-600); display: block; margin-bottom: 5px; }
-    .ca-composer .form-control { border: 1px solid var(--ca-neutral-300); background: var(--ca-surface); border-radius: 999px; padding: 10px 16px; font: 400 14px var(--ca-font-body); color: var(--ca-text); }
-    .ca-composer textarea.form-control { border-radius: var(--ca-radius-md); resize: vertical; }
-    .ca-composer input[type="file"].form-control { border-radius: var(--ca-radius-md); padding: 8px 14px; }
-    .ca-checkbox-row { display: flex; align-items: center; gap: 9px; font: 400 12.5px var(--ca-font-body); color: var(--ca-neutral-700); margin-top: 10px; }
-    .ca-checkbox-row input { width: 16px; height: 16px; accent-color: var(--ca-accent); }
-    .ca-hint { font-size: 11.5px; color: var(--ca-neutral-600); margin-top: 4px; }
-    .ca-send-btn { border-radius: 999px; border: none; background: var(--ca-accent); color: var(--ca-accent-100); padding: 10px 24px; font: 400 15px var(--ca-font-heading); cursor: pointer; }
-    .ca-send-btn:hover { background: var(--ca-accent-600); color: var(--ca-accent-100); }
-
-    .ca-sidebar-card { background: var(--ca-surface); border-radius: var(--ca-radius-lg); padding: 20px 22px; margin-bottom: 16px; }
-    .ca-sidebar-label-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: .6rem; }
-    .ca-sidebar-label { font: 600 10.5px var(--ca-font-body); letter-spacing: .12em; text-transform: uppercase; color: var(--ca-neutral-600); }
-    .ca-schedule-list { max-height: 280px; overflow-y: auto; }
-    .ca-schedule-row-wrap { margin-bottom: 4px; }
-    .ca-schedule-row { display: flex; align-items: center; gap: 8px; }
-    .ca-schedule-row a { flex: 1 1 auto; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 999px; color: var(--ca-text); font-size: 13.5px; font-weight: 600; min-width: 0; }
-    .ca-schedule-row a:hover { background: var(--ca-surface-2); text-decoration: none; }
-    .ca-schedule-row a.selected { background: var(--ca-accent); color: var(--ca-accent-100); }
-    .ca-schedule-row a.selected:hover { background: var(--ca-accent); }
-    .ca-schedule-row a .ca-present-count { font: 400 11.5px var(--ca-font-body); opacity: .85; }
-    .ca-schedule-remove-btn { flex: none; width: 26px; height: 26px; border-radius: 999px; border: 1px solid var(--ca-divider); background: transparent; color: var(--ca-neutral-600); font-size: .75rem; line-height: 1; cursor: pointer; }
-    .ca-schedule-remove-btn:hover { border-color: var(--ca-accent-600); color: var(--ca-accent-600); }
-    .ca-teacher-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
-    .ca-teacher-row + .ca-teacher-row { margin-top: .6rem; }
-    .ca-teacher-role-select { margin-top: 5px; font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--ca-divider); background: var(--ca-bg); color: var(--ca-text); }
-    .ca-celebration-list { display: flex; flex-direction: column; gap: 10px; margin-top: .6rem; }
-    .ca-celebration-row { display: flex; align-items: flex-start; gap: 10px; }
-    .ca-celebration-icon { font-size: 18px; line-height: 1.4; flex: none; }
-    .ca-celebration-name { font: 700 13.5px var(--ca-font-body); }
-    .ca-celebration-meta { font-size: 12px; color: var(--ca-neutral-600); }
-    .ca-teacher-contact { display: flex; gap: 8px; margin-top: 4px; }
-    .ca-teacher-contact a { width: 30px; height: 30px; border-radius: 999px; border: 1px solid var(--ca-divider); display: flex; align-items: center; justify-content: center; }
-    .ca-assign-row { display: flex; gap: 6px; margin-top: .7rem; padding-top: .6rem; border-top: 1px solid var(--ca-divider); }
-    .ca-ytd-card { background: var(--ca-accent-200); border-radius: var(--ca-radius-lg); padding: 20px 22px; }
-    .ca-ytd-num { font-family: var(--ca-font-heading); font-size: 32px; color: var(--ca-accent-800); line-height: 1; }
-    .ca-ytd-bar { display: flex; gap: 4px; margin-top: 14px; }
-    .ca-ytd-bar span { flex: 1; height: 8px; border-radius: 999px; }
-    .ca-ytd-note { font: 400 12.5px/1.6 var(--ca-font-body); color: var(--ca-accent-800); margin-top: 12px; }
-
-    @media (max-width: 900px) {
-      .ca-roster-card { grid-template-columns: 22px 40px 1fr; }
-      .ca-attendance-toggle { grid-column: 1 / -1; justify-self: start; }
-      .ca-table-select-wrap { grid-column: 1 / -1; justify-self: start; align-items: flex-start; }
-    }
-  </style>
 </head>
 <body>
 <%- include('_topbar') %>
@@ -196,7 +43,7 @@
         <a href="/messages?class=<%= ccdClass.id %>" class="ca-btn"><%= lang === 'es' ? 'Conversaciones' : 'Conversations' %></a>
         <a href="/messages/classes/<%= ccdClass.id %>/reminders" class="ca-btn"><%= lang === 'es' ? 'Recordatorios' : 'Reminders' %></a>
         <span class="ca-autosave-note"><%= t('autosave_note') %></span>
-        <a href="/calendar/class/<%= ccdClass.id %>" class="ca-btn"><%= t('view_class_calendar_label') %></a>
+        <%- include('_more_actions', { actions: [{ href: '/calendar/class/' + ccdClass.id, label: t('view_class_calendar_label') }] }) %>
       </div>
     </div>
 
@@ -213,7 +60,10 @@
             <div style="flex:1"></div>
             <% if (selectedDate) { %>
               <button type="button" class="ca-mark-all-btn" id="mark-all-present-btn"><%= t('mark_all_present_button') %></button>
-              <button type="button" class="ca-clear-btn" id="clear-attendance-btn"><%= t('clear_button') %></button>
+              <div class="dropdown">
+                <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><%= t('more_actions') %></button>
+                <ul class="dropdown-menu dropdown-menu-end"><li><button type="button" class="dropdown-item text-danger" id="clear-attendance-btn"><%= t('clear_button') %></button></li></ul>
+              </div>
             <% } %>
           </div>
         <% } %>

@@ -31,7 +31,8 @@ async function appendPayment(db, entry, targets) {
       await tx.prepare(`INSERT INTO tuition_payment_links (payment_id, target_key, registration_id, student_id) VALUES (?, ?, ?, ?)`)
         .run(payment.id, target.registrationId ? `registration:${target.registrationId}` : `student:${target.studentId}`, target.registrationId || null, target.studentId || null);
       const total = await tx.prepare(`SELECT SUM(p.amount) AS total, COUNT(*) AS payment_count,
-          SUM(p.amount IS NULL) AS unknown_count FROM tuition_payments p WHERE p.id IN
+          SUM(p.amount IS NULL) AS unknown_count FROM tuition_payments p WHERE NOT EXISTS
+        (SELECT 1 FROM tuition_payment_voids v WHERE v.payment_id = p.id) AND p.id IN
         (SELECT l.payment_id FROM tuition_payment_links l WHERE ${target.registrationId ? 'l.registration_id' : 'l.student_id'} = ?)`)
         .get(target.registrationId || target.studentId);
       for (const [table, id] of [['student_registrations', target.registrationId], ['students', target.studentId]]) {
@@ -75,7 +76,8 @@ async function registrationPayments(db, userId = null) {
     LEFT JOIN student_registrations r ON r.id = l.registration_id
     LEFT JOIN students s ON s.id = l.student_id
     LEFT JOIN student_registrations r2 ON r2.id = s.source_registration_id
-    WHERE COALESCE(r.id, r2.id) IS NOT NULL AND COALESCE(r.archived_at, r2.archived_at) IS NULL
+    WHERE NOT EXISTS (SELECT 1 FROM tuition_payment_voids v WHERE v.payment_id = p.id)
+      AND COALESCE(r.id, r2.id) IS NOT NULL AND COALESCE(r.archived_at, r2.archived_at) IS NULL
       ${userId === null ? '' : 'AND COALESCE(r.user_id, r2.user_id) = ?'}
     ORDER BY p.paid_at DESC, p.id DESC`).all(...(userId === null ? [] : [userId]));
 }

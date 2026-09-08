@@ -402,7 +402,21 @@
                                 </td>
                                 <td style="color:var(--muted)"><%= payment.paidAt ? formatDateOnly(payment.paidAt) : '—' %></td>
                                 <td>
-                                  <% if (payment.paymentId && payment.tuitionPaid && ['cash', 'check', 'credit_card'].includes(payment.method)) { %>
+                                  <% if (payment.recordedAt) { %>
+                                    <div class="small text-muted"><%= lang === 'es' ? 'Registrado' : 'Recorded' %>: <%= payment.recordedBy || '—' %> · <%= formatDateOnly(payment.recordedAt) %></div>
+                                  <% } %>
+                                  <% if (payment.voidedAt) { %>
+                                    <div class="small text-danger"><%= lang === 'es' ? 'Anulado' : 'Voided' %>: <%= payment.voidReason %> · <%= payment.voidedBy || '—' %> · <%= formatDateOnly(payment.voidedAt) %></div>
+                                  <% } else if (payment.paymentId) { %>
+                                    <details class="mt-1"><summary><%= lang === 'es' ? 'Anular pago' : 'Void payment' %></summary>
+                                      <form method="post" action="/admin/payments/<%= payment.paymentId %>/void">
+                                        <p class="small"><%= lang === 'es' ? 'Afecta a todos los niños vinculados. No emite un reembolso.' : 'Affects all linked children. This does not issue a refund.' %></p>
+                                        <label class="small"><%= lang === 'es' ? 'Motivo' : 'Reason' %><input class="form-control form-control-sm" name="reason" maxlength="500" required></label>
+                                        <button class="btn btn-sm btn-outline-danger" type="submit"><%= lang === 'es' ? 'Anular pago' : 'Void payment' %></button>
+                                      </form>
+                                    </details>
+                                  <% } %>
+                                  <% if (!payment.voidedAt && payment.paymentId && payment.tuitionPaid && ['cash', 'check', 'credit_card'].includes(payment.method)) { %>
                                     <a href="/admin/students/<%= payment.id %>/receipt?payment=<%= payment.paymentId %>" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary"><%= t('view_receipt_label') %></a>
                                   <% } %>
                                 </td>
@@ -432,7 +446,7 @@
                         <label class="form-label mb-1" style="font-size:.75rem"><%= t('payment_date_col') %></label>
                         <input type="date" class="form-control form-control-sm" style="max-width:150px" name="payment_date" value="<%= new Date().toISOString().slice(0, 10) %>">
                       </div>
-                      <button type="submit" class="btn btn-sm btn-outline-primary"><%= t('record_payment_label') %></button>
+                      <button type="submit" class="btn btn-sm btn-primary"><%= t('record_payment_label') %></button>
                     </form>
                   </div>
                 </div>

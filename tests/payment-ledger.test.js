@@ -2,6 +2,68 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { appendPayment, importKey } = require('../payment-ledger');
 const { getDashboardPayments } = require('../dashboard-payments');
+const { voidPayment } = require('../payment-void');
+const { exceptionKey, resolveException } = require('../payment-exceptions');
+
+test('exception identity stays stable across repeated uploads with an unknown date', () => {
+  const row = { raw: { transactionId: '', createdAt: '' }, amount: 25, paidAtIso: '2026-01-01' };
+  assert.equal(exceptionKey('2026-2027', row), exceptionKey('2026-2027', { ...row, paidAtIso: '2026-02-01' }));
+  assert.equal(exceptionKey('2026-2027', { ...row, raw: { transactionId: 'abc' } }), importKey('abc'));
+});
+
+test('review requires a note and closing records actor without adding a payment', async () => {
+  await assert.rejects(resolveException({}, 1, { action: 'close', note: ' ' }, 9), /note/);
+  const writes = [];
+  const db = { transaction: async fn => fn({ prepare: sql => ({
+    get: async () => ({ id: 1 }),
+    run: async (...args) => writes.push({ sql, args }),
+  }) }) };
+  await resolveException(db, 1, { action: 'close', note: 'Confirmed duplicate against receipt 42' }, 9);
+  assert.equal(writes.length, 1);
+  assert.match(writes[0].sql, /^UPDATE tuition_payment_exceptions/);
+  assert.deepEqual(writes[0].args, [9, 'close: Confirmed duplicate against receipt 42', 1]);
+});
+
+test('review rejects cross-family matches before payment mutation', async () => {
+  let writes = 0;
+  const db = { transaction: async fn => fn({ prepare: sql => ({
+    get: async id => sql.includes('tuition_payment_exceptions')
+      ? { payload: JSON.stringify({ raw: {} }), school_year: '2026-2027' }
+      : { id, user_id: id, student_id: null },
+    run: async () => { writes++; },
+  }) }) };
+  await assert.rejects(resolveException(db, 1, { action: 'match', note: 'Verified', registration_ids: [1, 2] }, 9), /one family/);
+  assert.equal(writes, 0);
+});
+
+test('void requires a reason before opening a transaction', async () => {
+  await assert.rejects(voidPayment({ transaction() { throw Error('Unexpected transaction'); } }, 1, '  ', 1), /reason/);
+});
+
+test('void preserves payment, records actor once, and refreshes all shared targets', async () => {
+  const audit = [];
+  const updates = [];
+  const db = { transaction: async fn => fn({ prepare(sql) { return {
+    all: async () => {
+      if (sql.startsWith('SELECT registration_id')) return [{ registration_id: 1 }, { registration_id: 2 }];
+      if (sql.startsWith('SELECT id FROM students')) return [{ id: 11 }, { id: 12 }];
+      if (sql.startsWith('SELECT p.*')) return [];
+      throw Error(sql);
+    },
+    get: async () => sql.includes('FROM tuition_payment_voids') ? audit[0] : { id: 1 },
+    run: async (...args) => {
+      if (sql.startsWith('INSERT INTO tuition_payment_voids')) audit.push(args);
+      else if (sql.startsWith('UPDATE students') || sql.startsWith('UPDATE student_registrations')) updates.push(args);
+      else throw Error('Unexpected mutation: ' + sql);
+    },
+  }; } }) };
+  await voidPayment(db, 9, ' Duplicate import ', 3);
+  await voidPayment(db, 9, 'retry', 3);
+  assert.deepEqual(audit, [[9, 'Duplicate import', 3]]);
+  assert.equal(updates.length, 4);
+  assert.deepEqual(updates.map(args => args.at(-1)), [1, 2, 11, 12]);
+  assert.ok(updates.every(args => args[0] === 0 && args[1] === 0 && args[4] === null));
+});
 
 function fixture() {
   const state = { entries: [], links: [], totals: [], snapshots: [] };

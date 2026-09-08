@@ -12,6 +12,7 @@
 <%- include('_topbar') %>
 <%- include('_admin_nav') %>
 <main class="container py-4 app-shell mx-auto">
+  <a href="/admin/payment-review"><%= lang === 'es' ? 'Revisar pagos pendientes' : 'Review unresolved payments' %></a>
 
   <% if (success.length) { %><div class="alert alert-success mb-3"><%= success[0] %></div><% } %>
   <% if (error.length) { %><div class="alert alert-danger mb-3"><%= error[0] %></div><% } %>

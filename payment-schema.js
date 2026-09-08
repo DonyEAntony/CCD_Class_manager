@@ -25,6 +25,23 @@ module.exports = async function paymentSchema(pool) {
     PRIMARY KEY (payment_id, target_key),
     INDEX payment_registration (registration_id), INDEX payment_student (student_id)
   )`);
+  await connection.query(`CREATE TABLE IF NOT EXISTS tuition_payment_voids (
+    payment_id INT NOT NULL PRIMARY KEY,
+    reason VARCHAR(500) NOT NULL,
+    recorded_by INT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`);
+  await connection.query(`CREATE TABLE IF NOT EXISTS tuition_payment_exceptions (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    entry_key VARCHAR(100) NOT NULL UNIQUE,
+    school_year VARCHAR(20) NOT NULL,
+    payload LONGTEXT NOT NULL,
+    category VARCHAR(30) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    resolved_at DATETIME NULL,
+    resolved_by INT NULL,
+    resolution_note VARCHAR(1000) NULL
+  )`);
   // Mark the one-time snapshot migration separately: later snapshot updates must
   // never be re-imported as extra historical payments on application restart.
   const [done] = await connection.query("SELECT setting_value FROM app_settings WHERE setting_key = 'payment_ledger_migrated'");

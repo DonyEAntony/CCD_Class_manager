@@ -10,6 +10,7 @@
       </ul>
     </details>
   <% } %>
-  <a class="btn btn-outline-primary" href="/admin/students?status=all"><%= attentionText('Record a manual payment', 'Registrar un pago manual') %></a>
+  <a class="btn btn-primary" href="/admin/payment-review"><%= attentionText('Review imported payments', 'Revisar pagos importados') %></a>
+  <%- include('_more_actions', { actions: [{ href: '/admin/students?status=all', label: attentionText('Record a manual payment', 'Registrar un pago manual') }] }) %>
   <p class="small text-muted mt-2 mb-0"><%= attentionText('Open a student’s details to record a check, cash, or credit card payment already received. This records a payment; it does not charge a card.', 'Abre los detalles de un estudiante para registrar un pago ya recibido por cheque, efectivo o tarjeta de crédito. No se realiza un cargo a la tarjeta.') %></p>
 </div></section>

@@ -276,6 +276,7 @@
                   <td style="font-size:.8rem;color:var(--muted)"><%= r.archived_at ? (typeof r.archived_at === 'string' ? r.archived_at.slice(0, 16).replace('T', ' ') : r.archived_at.toISOString().slice(0, 16).replace('T', ' ')) : '—' %></td>
                 <% } %>
                 <td class="text-end">
+                  <a class="btn btn-sm btn-outline-primary mb-1" href="/registration/children/edit/<%= r.id %>"><%= lang === 'es' ? 'Revisar inscripción' : 'Review registration' %></a>
                   <div class="dropdown">
                     <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown" data-bs-strategy="fixed" aria-expanded="false" aria-label="<%= t('more_actions') %>">&#8942;</button>
                     <ul class="dropdown-menu dropdown-menu-end">

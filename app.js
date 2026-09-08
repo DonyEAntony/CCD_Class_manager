@@ -22,6 +22,8 @@ const { getFamilyNextClasses } = require('./dashboard-family');
 const { getDashboardPayments } = require('./dashboard-payments');
 const { getDashboardAttention } = require('./dashboard-attention');
 const { appendPayment, registrationPayments, importKey } = require('./payment-ledger');
+const { voidPayment } = require('./payment-void');
+const { exceptionKey, saveException, resolveException } = require('./payment-exceptions');
 const { buildFamilyPaymentRows } = require('./family-payments');
 
 const app = express();
@@ -3473,6 +3475,7 @@ app.use((req, res, next) => {
   res.locals.t = (key) => translations[lang][key] || translations.en[key] || humanizeTranslationKey(key);
   res.locals.isDeletedAccount = db.isDeletedAccount;
   res.locals.user = req.user;
+  res.locals.currentPath = req.path;
   res.locals.success = req.flash('success');
   res.locals.error = req.flash('error');
   res.locals.ADULT_PROGRAMS = getAdultPrograms(res.locals.t);
@@ -5334,6 +5337,16 @@ app.post('/registration/children/:id/status', requireAuth, requireRole('admin'),
   // Year", updates) the persistent student record, so a student's identity and history
   // survive across years instead of getting a new row every time they re-register.
   if (requestedStatus === 'admitted') {
+    // Older snapshots may combine a cumulative amount with one payment's details.
+    // Do not carry that misleading combination into the admitted student record.
+    const paymentSummary = await db.prepare(`SELECT COUNT(DISTINCT payment_id) AS payment_count
+      FROM tuition_payment_links WHERE registration_id = ?`).get(reg.id);
+    if (Number(paymentSummary.payment_count) > 1) {
+      reg.tuition_paid_at = null;
+      reg.tuition_paid_by = null;
+      reg.tuition_payment_method = null;
+      reg.tuition_transaction_id = null;
+    }
     if (reg.student_id) {
       await db.prepare(
         `UPDATE students SET
@@ -6297,8 +6310,13 @@ app.get('/admin/students', requireAuth, requireRole('admin'), asyncHandler(async
   // parish's entire payment history on every single page view.
   const registrationIds = [...new Set(students.map((s) => s.source_registration_id).filter(Boolean))];
   const paymentHistory = studentIds.length
-    ? await db.prepare(`SELECT p.*, s.id AS student_id, s.parent_user_id, s.student_full_name
+    ? await db.prepare(`SELECT p.*, v.reason AS void_reason, v.created_at AS voided_at,
+        vu.full_name AS voided_by_name, u.full_name AS recorded_by_name,
+        s.id AS student_id, s.parent_user_id, s.student_full_name
         FROM tuition_payments p JOIN tuition_payment_links l ON l.payment_id = p.id
+        LEFT JOIN tuition_payment_voids v ON v.payment_id = p.id
+        LEFT JOIN users vu ON vu.id = v.recorded_by
+        LEFT JOIN users u ON u.id = p.recorded_by
         JOIN students s ON s.id = l.student_id OR s.source_registration_id = l.registration_id
         WHERE l.student_id IN (${studentIds.map(() => '?').join(',')})
           ${registrationIds.length ? `OR l.registration_id IN (${registrationIds.map(() => '?').join(',')})` : ''}
@@ -6444,6 +6462,16 @@ app.post('/admin/students/:id/payment', requireAuth, requireRole('admin'), async
   return res.redirect(`/admin/students/${req.params.id}/receipt?payment=${payment.id}`);
 }));
 
+app.post('/admin/payments/:id/void', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  if (!req.body.reason || !req.body.reason.trim() || req.body.reason.trim().length > 500) {
+    req.flash('error', 'A reason of 1–500 characters is required.');
+    return res.redirect('/admin/students');
+  }
+  await voidPayment(db, req.params.id, req.body.reason, req.user.id);
+  req.flash('success', 'Payment voided for all linked children. Record a new payment if a replacement is needed.');
+  res.redirect('/admin/students');
+}));
+
 app.get('/admin/students/:id/receipt', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   const student = await db.prepare(`
     SELECT
@@ -6462,6 +6490,7 @@ app.get('/admin/students/:id/receipt', requireAuth, requireRole('admin'), asyncH
   const receiptPayment = await db.prepare(`SELECT p.* FROM tuition_payments p
     WHERE p.id IN (SELECT l.payment_id FROM tuition_payment_links l LEFT JOIN students s ON s.id = ?
       WHERE l.student_id = s.id OR l.registration_id = s.source_registration_id)
+    AND NOT EXISTS (SELECT 1 FROM tuition_payment_voids v WHERE v.payment_id = p.id)
     AND p.method IN ('cash', 'check', 'credit_card')
     ${req.query.payment ? 'AND p.id = ?' : ''} ORDER BY p.id DESC LIMIT 1`)
     .get(req.params.id, ...(req.query.payment ? [req.query.payment] : []));
@@ -6733,6 +6762,25 @@ const buildTuitionImportPreview = async (schoolYear, csvBuffer) => {
   return rows;
 };
 
+app.get('/admin/payment-review', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const items = await db.prepare(`SELECT e.*, u.full_name AS resolver FROM tuition_payment_exceptions e
+    LEFT JOIN users u ON u.id = e.resolved_by ORDER BY e.resolved_at IS NULL DESC, e.created_at DESC`).all();
+  const registrations = await db.prepare(`SELECT id, user_id, school_year, student_full_name, parent_name
+    FROM student_registrations WHERE archived_at IS NULL AND status <> 'cancelled'
+    ORDER BY school_year DESC, parent_name, student_full_name`).all();
+  res.render('admin-payment-review', { items: items.map(item => ({ ...item, row: JSON.parse(item.payload) })), registrations });
+}));
+
+app.post('/admin/payment-review/:id', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  try {
+    await resolveException(db, req.params.id, req.body, req.user.id);
+    req.flash('success', 'Payment review resolved.');
+  } catch (error) {
+    req.flash('error', error.message);
+  }
+  res.redirect('/admin/payment-review');
+}));
+
 app.get('/admin/tuition-import', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   const faithFormationSettings = await getFaithFormationSettings();
   res.render('admin-tuition-import', {
@@ -6780,13 +6828,18 @@ app.post('/admin/tuition-import/apply', requireAuth, requireRole('admin'), async
   let registrationsUpdated = 0;
   let duplicatesSkipped = 0;
   for (const row of preview.rows) {
-    if (!row.isAccepted || row.alreadyImported || skippedRows.has(row.rowIndex)) continue;
+    if (!row.isAccepted) continue;
+    if (row.alreadyImported || skippedRows.has(row.rowIndex)) {
+      await saveException(db, preview.schoolYear, row, row.alreadyImported ? 'duplicate' : 'skipped');
+      continue;
+    }
 
     // Re-check at apply time (not just what the preview saw) in case another
     // import already claimed this transaction ID in the meantime.
     if (row.raw.transactionId) {
       const dupe = await db.prepare('SELECT id FROM tuition_payments WHERE transaction_id = ? LIMIT 1').get(row.raw.transactionId);
       if (dupe) {
+        await saveException(db, preview.schoolYear, row, 'duplicate');
         duplicatesSkipped++;
         continue;
       }
@@ -6803,9 +6856,11 @@ app.post('/admin/tuition-import/apply', requireAuth, requireRole('admin'), async
       const reg = await db.prepare('SELECT id, student_id FROM student_registrations WHERE id = ?').get(registrationId);
       if (reg) targets.push({ registrationId: reg.id, studentId: reg.student_id });
     }
-    if (!targets.length) continue;
-    const key = row.raw.transactionId ? importKey(row.raw.transactionId)
-      : importKey(JSON.stringify([preview.schoolYear, row.raw, row.paidAtIso, row.amount]));
+    if (!targets.length || !Number.isFinite(Number(row.amount)) || Number(row.amount) <= 0) {
+      await saveException(db, preview.schoolYear, row, !targets.length ? 'unmatched' : 'amount');
+      continue;
+    }
+    const key = exceptionKey(preview.schoolYear, row);
     const recorded = await appendPayment(db, { key, amount: row.amount, date: row.paidAtIso,
       method: 'imported', transactionId: row.raw.transactionId || null, recordedBy: req.user.id }, targets);
     if (recorded.duplicate) duplicatesSkipped++;
@@ -6815,6 +6870,7 @@ app.post('/admin/tuition-import/apply', requireAuth, requireRole('admin'), async
   delete req.session.tuitionImportPreview;
 
   const summaryParts = [`Tuition payments applied to ${registrationsUpdated} registration${registrationsUpdated === 1 ? '' : 's'}.`];
+  summaryParts.push('Skipped, unmatched, and duplicate accepted rows are saved in Payment review.');
   if (duplicatesSkipped) {
     summaryParts.push(`Skipped ${duplicatesSkipped} row${duplicatesSkipped === 1 ? '' : 's'} already imported.`);
   }

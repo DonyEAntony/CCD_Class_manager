@@ -11,6 +11,9 @@ function buildFamilyPaymentRows(family, history, currentStudentId) {
     if (!entries.has(key)) entries.set(key, {
       id: payment.student_id, paymentId: payment.id, tuitionPaid: true,
       amount: payment.amount, method: payment.method, paidAt: payment.paid_at,
+      voidedAt: payment.voided_at, voidReason: payment.void_reason,
+      voidedBy: payment.voided_by_name, recordedBy: payment.recorded_by_name,
+      recordedAt: payment.created_at,
       names: new Set(), isSelf: false,
     });
     const entry = entries.get(key);
