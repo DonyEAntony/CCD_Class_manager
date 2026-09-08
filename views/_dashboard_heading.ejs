@@ -1,0 +1,22 @@
+<% const dashboardText = (en, es) => lang === 'es' ? es : en; %>
+<header class="page-heading d-flex flex-wrap justify-content-between align-items-start gap-3">
+  <div>
+    <h1><%= t('dashboard') %></h1>
+    <p class="sub mb-0"><%= dashboardText('Your classes, registrations, and next steps in one place.', 'Tus clases, inscripciones y próximos pasos en un solo lugar.') %></p>
+  </div>
+  <details class="dashboard-account">
+    <summary><%= t('my_account') %></summary>
+    <div class="dashboard-account-menu">
+      <span class="small text-muted"><%= user.email %></span>
+      <a href="/account"><%= t('my_account') %></a>
+      <a href="/account/uploads"><%= t('my_uploads') %></a>
+      <% if (user.provider === 'local') { %><a href="/account/password"><%= t('change_password') %></a><% } %>
+      <a href="/logout"><%= t('logout') %></a>
+    </div>
+  </details>
+</header>
+<nav class="dashboard-links mb-4" aria-label="<%= dashboardText('Helpful links', 'Enlaces útiles') %>">
+  <a href="/calendar"><%= t('calendar') %></a>
+  <a href="/resources"><%= t('resources_nav') %></a>
+  <a href="/resource-pages"><%= t('resource_pages_nav') %></a>
+</nav>

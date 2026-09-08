@@ -996,6 +996,7 @@ const init = async () => {
     );
 
     await require('./communications-schema')(pool);
+    await require('./payment-schema')(pool);
     await seedData();
   })();
 

@@ -1,0 +1,15 @@
+<% const attentionText = (en, es) => lang === 'es' ? es : en; %>
+<section class="page-card mb-4" aria-labelledby="attention-heading"><div class="card-body">
+  <h2 class="h5" id="attention-heading"><%= attentionText('Payments and schedules to check', 'Pagos y horarios por revisar') %></h2>
+  <p class="small text-muted"><%= attentionText('Expand a category to review its records. Balance confirmation does not necessarily mean money is owed.', 'Abre una categoría para revisar sus registros. Confirmar un saldo no significa necesariamente que haya una deuda.') %></p>
+  <% for (const [key, title] of [['balances', attentionText('Family balances to confirm', 'Saldos familiares por confirmar')], ['amounts', attentionText('Payment amounts to confirm', 'Montos de pagos por confirmar')], ['sessions', attentionText('Assigned classes without a future Class Day', 'Clases asignadas sin un próximo día de clase')]]) { %>
+    <details class="border-top py-3">
+      <summary><strong><%= adminAttention[key].length %></strong> · <%= title %></summary>
+      <ul class="list-unstyled mt-2 mb-0">
+        <% adminAttention[key].forEach(item => { %><li class="py-1"><a href="<%= item.href %>"><%= item.name %> &rarr;</a></li><% }) %>
+      </ul>
+    </details>
+  <% } %>
+  <a class="btn btn-outline-primary" href="/admin/students?status=all"><%= attentionText('Record a manual payment', 'Registrar un pago manual') %></a>
+  <p class="small text-muted mt-2 mb-0"><%= attentionText('Open a student’s details to record a check, cash, or credit card payment already received. This records a payment; it does not charge a card.', 'Abre los detalles de un estudiante para registrar un pago ya recibido por cheque, efectivo o tarjeta de crédito. No se realiza un cargo a la tarjeta.') %></p>
+</div></section>

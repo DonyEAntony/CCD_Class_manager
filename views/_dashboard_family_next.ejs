@@ -1,0 +1,24 @@
+<% const nextText = (en, es) => lang === 'es' ? es : en; %>
+<section class="page-card mb-4" aria-labelledby="family-next-heading">
+  <div class="card-body">
+    <h2 class="h5" id="family-next-heading"><%= nextText('Your family’s next class day', 'El próximo día de clase de tu familia') %></h2>
+    <% if (!familyNextClasses.date) { %>
+      <p class="mb-0"><%= nextText('No upcoming Class Day has been saved for your children’s classes. Check the class calendars below or contact the parish office.', 'No hay un próximo día de clase guardado para las clases de tus hijos. Consulta los calendarios de las clases a continuación o comunícate con la oficina parroquial.') %></p>
+    <% } else { %>
+      <p class="fs-5"><time datetime="<%= familyNextClasses.date %>"><%= new Date(familyNextClasses.date + 'T12:00:00').toLocaleDateString(lang === 'es' ? 'es-US' : 'en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) %></time></p>
+      <% familyNextClasses.classes.forEach((item) => { %>
+        <div class="dashboard-review-row">
+          <div>
+            <strong><%= item.children.map((child) => child.name).join(', ') %></strong>
+            <div><%= item.label %></div>
+            <div class="small"><%= item.time || nextText('Time not set', 'Horario sin confirmar') %><% if (item.room) { %> · <%= t('room') %> <%= item.room %><% } %></div>
+            <% item.children.filter((child) => child.conditional).forEach((child) => { %>
+              <div class="small text-muted"><%= child.name %>: <%= t('conditionally_accepted') %></div>
+            <% }) %>
+          </div>
+          <a class="btn btn-outline-primary btn-sm" href="/calendar/class/<%= item.id %>" aria-label="<%= t('calendar') %>: <%= item.label %>"><%= t('calendar') %></a>
+        </div>
+      <% }) %>
+    <% } %>
+  </div>
+</section>
