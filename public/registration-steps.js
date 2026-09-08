@@ -58,7 +58,12 @@ window.initRegistrationSteps = ({ form, syncRequired, requiredFields, childIndex
       const list = document.createElement('dl');
       section.querySelectorAll('input,select,textarea').forEach(field => {
         if (!field.name || field.type === 'hidden' || field.disabled || field.closest('.d-none')) return;
-        const label = field.closest('.col-md-4,.col-md-6,.col-12,.mt-3')?.querySelector('.form-label');
+        // The label is always a direct sibling of its field inside the same wrapper
+        // element, regardless of which grid/column class that wrapper happens to use —
+        // walking up to the nearest ancestor that has a form-label was missing wrapper
+        // classes (.col-md-3/.col-md-9 among others) and could pick up an unrelated
+        // field's label instead.
+        const label = field.parentElement?.querySelector(':scope > .form-label');
         const term = document.createElement('dt'); term.textContent = label?.textContent || field.name.replaceAll('_',' ');
         const value = document.createElement('dd');
         value.textContent = field.type === 'file' ? ([...field.files].map(f => f.name).join(', ') || text('No new file selected; existing files are retained.', 'Sin archivo nuevo; se conservan archivos existentes.')) : field.type === 'checkbox' ? (field.checked ? text('Yes','Sí') : 'No') : field.tagName === 'SELECT' ? (field.selectedOptions[0]?.textContent || '—') : (field.value || '—');
@@ -99,13 +104,17 @@ window.initRegistrationSteps = ({ form, syncRequired, requiredFields, childIndex
       let direction = form.querySelector('[name="wizard_direction"]');
       if (!direction) { direction = document.createElement('input'); direction.type = 'hidden'; direction.name = 'wizard_direction'; form.append(direction); }
       direction.value = 'previous';
-      show(3);
+      // Going back to fix an earlier child shouldn't require THIS child's own sections
+      // to be complete first — that's the whole point of being able to step back. The
+      // capturing submit listener below skips its full-section validation for this
+      // direction; the server still enforces its own minimum (name/gender/DOB) before
+      // saving the row.
       form.requestSubmit(submit);
-      // An invalid field keeps the user here with all entered data and files intact.
-      if (!submit.disabled) direction.value = '';
     });
   }
   form.addEventListener('submit', event => {
+    const direction = form.querySelector('[name="wizard_direction"]');
+    if (direction && direction.value === 'previous') return;
     if(step !== 3) { event.preventDefault(); event.stopImmediatePropagation(); advance(); return; }
     for(let index=familyAvailable?0:1;index<3;index++) {
       show(index);

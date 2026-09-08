@@ -1,12 +1,15 @@
 .adoration-hero {
       background:
-        radial-gradient(circle at top right, rgba(232, 184, 75, 0.22), transparent 32%),
-        linear-gradient(135deg, var(--navy) 0%, #203761 58%, #345691 100%);
-      color: #fff;
-      border-radius: 18px;
+        radial-gradient(circle at top right, rgba(212, 175, 55, 0.22), transparent 32%),
+        linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 58%, var(--forest) 100%);
+      color: var(--white);
+      border-radius: var(--radius-card);
       padding: 2rem;
       position: relative;
       overflow: hidden;
+    }
+    .adoration-hero h1 {
+      color: var(--white);
     }
     .adoration-hero p:last-child {
       margin-bottom: 0;

@@ -19,5 +19,8 @@
 <dt class="col-sm-4"><%= text('Fees', 'Tarifas') %></dt><dd class="col-sm-8">$<%= (Number(row.registration_fee || 0)+Number(row.sacramental_fee || 0)+Number(row.late_fee || 0)).toFixed(2) %></dd>
 </dl></section><% }) %>
 <p class="fw-semibold"><%= text('Total family fees', 'Tarifas familiares totales') %>: $<%= rows.reduce((sum,row)=>sum+Number(row.registration_fee||0)+Number(row.sacramental_fee||0)+Number(row.late_fee||0),0).toFixed(2) %></p>
-<form method="post" action="/registration/children/submit-family"><button class="btn btn-primary" type="submit"><%= text('Submit family registration', 'Enviar inscripción familiar') %></button> <a class="btn btn-outline-secondary" href="/dashboard"><%= text('Finish later', 'Terminar después') %></a></form>
+<form method="post" action="/registration/children/submit-family">
+<input type="hidden" name="group_ids" value="<%= group.ids.join(',') %>">
+<input type="hidden" name="total" value="<%= group.total %>">
+<button class="btn btn-primary" type="submit"><%= text('Submit family registration', 'Enviar inscripción familiar') %></button> <a class="btn btn-outline-secondary" href="/dashboard"><%= text('Finish later', 'Terminar después') %></a></form>
 </main></body></html>

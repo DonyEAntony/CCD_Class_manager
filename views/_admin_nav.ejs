@@ -1,12 +1,19 @@
 <%
 const label = (en, es) => lang === 'es' ? es : en;
 const active = href => typeof currentPath === 'string' && (currentPath === href || currentPath.startsWith(href + '/'));
-const groups = [
-[label('Registrations','Inscripciones'), [['/admin/registrations',label('Registrations','Inscripciones')],['/admin/students',t('students_nav')]]],
-[label('Classes','Clases'), [['/admin/classes',t('classes_nav')],['/admin/adult-classes',t('adult_events_nav')],['/family-faith/visits/availability',t('manage_visit_availability')]]],
-[label('People','Personas'), [['/admin/users',t('user_administration')],['/admin/catechists',t('manage_catechists_nav')]]],
-[label('More','Más'), [['/resources',t('manage_resources_nav')],['/resource-pages',t('manage_resource_pages_nav')],['/admin/notifications',t('manage_notifications_nav')],['/admin/tuition-import',t('tuition_import_nav')],['/admin/payment-review',label('Payment review','Revisión de pagos')],['/admin/scan-registration',t('scan_legacy_form')],['/admin/health/mail',t('mail_health')],['/admin/health/document-ai',t('document_ai_health')]]]
+// A link's 3rd element is the roles allowed to see it; omitted means every authenticated
+// role (the route itself has no requireRole, e.g. Resources/Resource Pages, which degrade
+// to a filtered view for non-admins rather than needing to be hidden). Groups that end up
+// with no visible links for the current role are dropped entirely.
+const rawGroups = [
+[label('Registrations','Inscripciones'), [['/admin/registrations',label('Registrations','Inscripciones'),['admin']],['/admin/students',t('students_nav'),['admin']]]],
+[label('Classes','Clases'), [['/admin/classes',t('classes_nav'),['admin','catechist']],['/admin/adult-classes',t('adult_events_nav'),['admin','catechist','family_faith_leader']],['/family-faith/visits/availability',t('manage_visit_availability'),['admin','family_faith_leader']]]],
+[label('People','Personas'), [['/admin/users',t('user_administration'),['admin']],['/admin/catechists',t('manage_catechists_nav'),['admin']]]],
+[label('More','Más'), [['/resources',t('manage_resources_nav')],['/resource-pages',t('manage_resource_pages_nav')],['/admin/notifications',t('manage_notifications_nav'),['admin']],['/admin/tuition-import',t('tuition_import_nav'),['admin']],['/admin/payment-review',label('Payment review','Revisión de pagos'),['admin']],['/admin/scan-registration',t('scan_legacy_form'),['admin']],['/admin/health/mail',t('mail_health'),['admin']],['/admin/health/document-ai',t('document_ai_health'),['admin']]]]
 ];
+const groups = rawGroups
+  .map(([title, links]) => [title, links.filter(([, , roles]) => !roles || roles.includes(user.role))])
+  .filter(([, links]) => links.length);
 %>
 <nav class="admin-nav" aria-label="<%= label('Administration','Administración') %>">
 <button type="button" class="admin-nav-toggle" aria-expanded="false" aria-controls="admin-nav-links">☰ <%= t('admin_nav_menu_label') %></button>

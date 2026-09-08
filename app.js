@@ -3427,6 +3427,13 @@ app.locals.error = [];
 app.locals.certificateUploadPaths = parseUploadPaths;
 app.locals.uploadHref = uploadHref;
 app.locals.uploadFileName = uploadFileName;
+// A date-only column (mysql2 hands back a Date object) rendered as plain YYYY-MM-DD,
+// with no time/zone conversion — available to every view so a template doesn't need
+// its own local copy (admin-students.ejs still keeps its own, which simply shadows this).
+app.locals.formatDateOnly = (value) => {
+  if (!value) return '';
+  return typeof value === 'string' ? value.slice(0, 10) : value.toISOString().slice(0, 10);
+};
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(uploadDir));
@@ -5081,7 +5088,7 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
             registration_fee = ?, sacramental_fee = ?, late_fee = ?,
             baptism_certificate_path = COALESCE(?, baptism_certificate_path),
             first_communion_certificate_path = COALESCE(?, first_communion_certificate_path),
-            status = ?
+            status = CASE WHEN status IN ('in_progress', 'conditionally_accepted', 'admitted') THEN status ELSE 'incomplete' END
           WHERE id = ? AND (user_id = ? OR ? = 1)
         `).run(
           `${req.body.primary_contact_first_name || ''} ${req.body.primary_contact_last_name || ''}`,
@@ -5102,7 +5109,6 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
           orNull(req.body.disabilities_comments), orNull(req.body.parent_signature), orNull(req.body.email),
           rowRegistrationFee, fees.sacramentalFee, fees.lateFee,
           baptismCert, communionCert,
-          'incomplete',
           existingRowId, req.user.id, isAdmin ? 1 : 0
         );
         thisRowId = existingRowId;
@@ -5166,12 +5172,16 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
 
       const groupIdsAfter = existingRowId ? priorGroupIds : [...priorGroupIds, thisRowId];
 
-      req.session.registrationReview = { ids: groupIdsAfter, total: totalChildren, ownerId: registrationOwnerUserId };
       if (req.body.wizard_direction === 'previous' && studentIndex > 1) {
         req.flash('success', 'Child information saved.');
         return res.redirect(`/registration/children?stage=student&index=${studentIndex - 1}&groupIds=${groupIdsAfter.join(',')}&total=${totalChildren}`);
       }
-      if (isLastStage) return res.redirect('/registration/children/review');
+      // groupIds/total carry the family group the same way every other wizard step
+      // does — through the URL/hidden fields, re-validated against the DB on read —
+      // rather than through session memory, so a lost session (tab closed, expired,
+      // switched device) doesn't strand the family at the review step with no way
+      // back in. See GET/POST /registration/children/review below.
+      if (isLastStage) return res.redirect(`/registration/children/review?groupIds=${groupIdsAfter.join(',')}&total=${totalChildren}`);
 
       return res.redirect(`/registration/children?stage=student&index=${studentIndex + 1}&groupIds=${groupIdsAfter.join(',')}&total=${totalChildren}`);
     }
@@ -5274,37 +5284,46 @@ app.post(
   handleChildrenRegistration
 );
 
+// groupIds/total are read from the URL/form here, the same way every other wizard step
+// carries its family group — not from session memory. A registration_id-based ownership
+// check (querying the actual rows rather than trusting a client-supplied owner id) means
+// this page, and the final submit below, stay reachable from a fresh session, a bookmark,
+// or the dashboard's "Finish registration" link even after the original session is gone.
 app.get('/registration/children/review', requireAuth, asyncHandler(async (req, res) => {
-  const group = req.session.registrationReview;
-  if (!group || !group.ids.length || group.ids.length !== group.total) return res.redirect('/registration/children');
-  const rows = await db.prepare(`SELECT * FROM student_registrations WHERE id IN (${group.ids.map(() => '?').join(',')})
-    AND user_id = ? AND archived_at IS NULL`).all(...group.ids, group.ownerId);
-  if ((req.user.role !== 'admin' && group.ownerId !== req.user.id) || rows.length !== group.total) return res.sendStatus(403);
-  rows.sort((a,b) => group.ids.indexOf(a.id) - group.ids.indexOf(b.id));
-  res.render('registration-family-review', { rows, group });
+  const groupIds = `${req.query.groupIds || ''}`.split(',').map((s) => s.trim()).filter(Boolean).map(Number);
+  const total = Number.parseInt(req.query.total, 10) || groupIds.length;
+  if (!groupIds.length || groupIds.length !== total) return res.redirect('/registration/children');
+  const rows = await db.prepare(`SELECT * FROM student_registrations WHERE id IN (${groupIds.map(() => '?').join(',')})
+    AND archived_at IS NULL`).all(...groupIds);
+  if (rows.length !== total || (req.user.role !== 'admin' && rows.some((row) => row.user_id !== req.user.id))) return res.sendStatus(403);
+  rows.sort((a,b) => groupIds.indexOf(a.id) - groupIds.indexOf(b.id));
+  res.render('registration-family-review', { rows, group: { ids: groupIds, total, ownerId: rows[0].user_id } });
 }));
 
 app.post('/registration/children/submit-family', requireAuth, asyncHandler(async (req, res) => {
-  const group = req.session.registrationReview;
-  if (!group || !group.ids.length || group.ids.length !== group.total) return res.redirect('/registration/children');
-  if (req.user.role !== 'admin' && group.ownerId !== req.user.id) return res.sendStatus(403);
+  const groupIds = `${req.body.group_ids || ''}`.split(',').map((s) => s.trim()).filter(Boolean).map(Number);
+  const total = Number.parseInt(req.body.total, 10) || groupIds.length;
+  if (!groupIds.length || groupIds.length !== total) return res.redirect('/registration/children');
+  const ownerRows = await db.prepare(`SELECT DISTINCT user_id FROM student_registrations
+    WHERE id IN (${groupIds.map(() => '?').join(',')}) AND archived_at IS NULL`).all(...groupIds);
+  if (req.user.role !== 'admin' && (ownerRows.length !== 1 || ownerRows[0].user_id !== req.user.id)) return res.sendStatus(403);
+  const ownerId = ownerRows[0]?.user_id;
   const rows = await db.transaction(async tx => {
-    const rows = await tx.prepare(`SELECT * FROM student_registrations WHERE id IN (${group.ids.map(() => '?').join(',')})
-      AND user_id = ? AND archived_at IS NULL FOR UPDATE`).all(...group.ids, group.ownerId);
-    if (rows.length !== group.total || rows.some(row => !['incomplete', 'in_progress'].includes(row.status))) return null;
-    await tx.prepare(`UPDATE student_registrations SET status = 'in_progress' WHERE id IN (${group.ids.map(() => '?').join(',')})
-      AND user_id = ?`).run(...group.ids, group.ownerId);
+    const rows = await tx.prepare(`SELECT * FROM student_registrations WHERE id IN (${groupIds.map(() => '?').join(',')})
+      AND user_id = ? AND archived_at IS NULL FOR UPDATE`).all(...groupIds, ownerId);
+    if (rows.length !== total || rows.some(row => !['incomplete', 'in_progress'].includes(row.status))) return null;
+    await tx.prepare(`UPDATE student_registrations SET status = 'in_progress' WHERE id IN (${groupIds.map(() => '?').join(',')})
+      AND user_id = ?`).run(...groupIds, ownerId);
     return rows;
   });
   if (!rows) { req.flash('error', 'These registrations changed. Review them from your dashboard.'); return res.redirect('/dashboard'); }
   for (const row of rows) {
     const names = row.student_full_name.split(' ');
-    await autoEnrollFamilyFaithFormation({ userId: group.ownerId, schoolYear: row.school_year,
+    await autoEnrollFamilyFaithFormation({ userId: ownerId, schoolYear: row.school_year,
       sacramentalYear: row.sacramental_year, childFirstName: names[0], childLastName: names.slice(1).join(' '), childDob: row.student_dob,
       parentFirstName: row.primary_contact_first_name, parentLastName: row.primary_contact_last_name,
       parentEmail: row.primary_contact_email, parentPhone: row.primary_contact_phone });
   }
-  delete req.session.registrationReview;
   req.flash('success', 'Family registration submitted. You can review your registrations on the dashboard.');
   res.redirect('/dashboard');
 }));
@@ -5342,8 +5361,12 @@ app.post('/registration/children/:id/status', requireAuth, requireRole('admin'),
   if (requestedStatus === 'admitted') {
     // Older snapshots may combine a cumulative amount with one payment's details.
     // Do not carry that misleading combination into the admitted student record.
+    // Voided payments are excluded — payment-ledger.js/payment-void.js already do the
+    // same when recomputing this registration's own totals, so a voided-then-replaced
+    // payment (now unambiguously a single active payment) shouldn't count as two here.
     const paymentSummary = await db.prepare(`SELECT COUNT(DISTINCT payment_id) AS payment_count
-      FROM tuition_payment_links WHERE registration_id = ?`).get(reg.id);
+      FROM tuition_payment_links l WHERE l.registration_id = ?
+      AND NOT EXISTS (SELECT 1 FROM tuition_payment_voids v WHERE v.payment_id = l.payment_id)`).get(reg.id);
     if (Number(paymentSummary.payment_count) > 1) {
       reg.tuition_paid_at = null;
       reg.tuition_paid_by = null;
@@ -5409,6 +5432,23 @@ app.get('/registration/children/edit/:id', requireAuth, asyncHandler(async (req,
   const isStaff = req.user.role === 'admin';
   const reg = await db.prepare('SELECT * FROM student_registrations WHERE id = ? AND (user_id = ? OR ? = 1)').get(req.params.id, req.user.id, isStaff ? 1 : 0);
   if (!reg) return res.status(404).send('Registration not found.');
+
+  // A non-staff parent's registration only ever sits at 'incomplete' mid-wizard, before
+  // the family-level review+submit step — the single-registration edit form below can
+  // never advance it past that (see the wizard vs. single-edit branch split in
+  // handleChildrenRegistration). Route back into the review flow instead, reconstructing
+  // the family group from every other incomplete sibling for the same parent/year, so a
+  // parent who lost their session (closed the tab, session expired) isn't stuck forever
+  // with no way to finish.
+  if (!isStaff && reg.status === 'incomplete') {
+    const siblings = await db.prepare(
+      `SELECT id FROM student_registrations WHERE user_id = ? AND school_year = ? AND status = 'incomplete' AND archived_at IS NULL ORDER BY id ASC`
+    ).all(reg.user_id, reg.school_year);
+    if (siblings.length) {
+      const groupIds = siblings.map((s) => s.id);
+      return res.redirect(`/registration/children/review?groupIds=${groupIds.join(',')}&total=${groupIds.length}`);
+    }
+  }
 
   // Parse address back to city, state, zip
   const addressParts = reg.city_state_zip ? reg.city_state_zip.split(', ') : ['', '', ''];

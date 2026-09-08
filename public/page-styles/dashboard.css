@@ -34,12 +34,12 @@
     .program-card .prog-desc {
       font-size: 0.82rem; color: var(--muted); line-height: 1.5; margin: 0;
     }
-    .prog-children .prog-icon { background: rgba(26,39,68,0.08); color: var(--navy); }
-    .prog-family   .prog-icon { background: rgba(59,115,87,0.12); color: var(--forest); }
-    .prog-ocia     .prog-icon { background: rgba(26,39,68,0.08); color: var(--navy); }
-    .prog-baptism  .prog-icon { background: rgba(74,127,193,0.12); color: var(--blue-sky); }
-    .prog-confirm  .prog-icon { background: rgba(200,146,42,0.12); color: var(--gold); }
-    .prog-sponsor  .prog-icon { background: rgba(26,39,68,0.08); color: var(--navy-soft); }
+    .prog-children .prog-icon { background: rgba(29,49,49,0.08); color: var(--navy); }
+    .prog-family   .prog-icon { background: rgba(47,107,63,0.12); color: var(--forest); }
+    .prog-ocia     .prog-icon { background: rgba(29,49,49,0.08); color: var(--navy); }
+    .prog-baptism  .prog-icon { background: rgba(63,107,108,0.12); color: var(--blue-sky); }
+    .prog-confirm  .prog-icon { background: rgba(212,175,55,0.12); color: var(--gold); }
+    .prog-sponsor  .prog-icon { background: rgba(63,107,108,0.08); color: var(--navy-soft); }
     .section-label {
       font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
       letter-spacing: 0.1em; color: var(--muted); margin-bottom: 0.75rem;

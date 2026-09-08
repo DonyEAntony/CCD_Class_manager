@@ -3,8 +3,15 @@ const exceptionKey = (year, row) => row.raw.transactionId ? importKey(row.raw.tr
   : importKey(JSON.stringify([year, row.raw, row.amount]));
 
 async function saveException(db, year, row, category) {
+  // A re-import of the same still-unresolved exception (same entry_key) should refresh
+  // its stored payload/category with whatever the corrected re-upload now says, instead
+  // of leaving the queue showing stale original data forever. Once an admin has resolved
+  // it, though, leave the historical payload alone — the resolution note was written
+  // against that snapshot.
   await db.prepare(`INSERT INTO tuition_payment_exceptions (entry_key, school_year, payload, category)
-    VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE entry_key = VALUES(entry_key)`)
+    VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE
+      payload = IF(resolved_at IS NULL, VALUES(payload), payload),
+      category = IF(resolved_at IS NULL, VALUES(category), category)`)
     .run(exceptionKey(year, row), year, JSON.stringify(row), category);
 }
 
