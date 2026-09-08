@@ -3593,9 +3593,12 @@ const calculateFees = (familyCount, gradeLevel, registrationDateStr, schoolYear,
     : grade.includes('2') ? 25 : grade.includes('confirmation') ? 50 : 0;
   const registrationDate = registrationDateStr ? new Date(registrationDateStr) : new Date();
   const startYear = parseFaithFormationStartYear(schoolYear);
-  const classesBegin = new Date(`${startYear}-09-08T00:00:00`);
+  // Classes begin Sept 8 — registration stays open through that whole day and closes
+  // starting Sept 9, so the cutoff moment is the start of the day AFTER, not the start
+  // of Sept 8 itself (which would close registration a full day early).
+  const registrationCutoff = new Date(`${startYear}-09-09T00:00:00`);
   const lateFee = 0;
-  return { registrationFee, sacramentalFee, lateFee, afterStart: registrationDate >= classesBegin };
+  return { registrationFee, sacramentalFee, lateFee, afterStart: registrationDate >= registrationCutoff };
 };
 
 const EUCHARISTIC_ADORATION_SLOT_MINUTES = 60;
