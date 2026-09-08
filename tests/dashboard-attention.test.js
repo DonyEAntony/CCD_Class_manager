@@ -6,7 +6,8 @@ test('attention queues scope admin access and link missing payments to student d
   assert.equal(await getDashboardAttention({ prepare() { throw Error('Query'); } }, { role: 'catechist' }), null);
   const result = await getDashboardAttention(db, { role: 'admin' }, '2026-09-07');
   assert.equal(result.balances.length, 1);
-  assert.equal(result.amounts[0].href, '/admin/students?status=all#student-detail-3');
+  assert.equal(result.amounts[0].href, '/admin/payments/7/correct');
+  assert.equal(result.amounts[0].paymentId, 7);
   assert.equal(result.sessions[0].href, '/admin/classes/4');
 });
 test('manual check and card entry updates both linked records and opens a receipt', async () => {

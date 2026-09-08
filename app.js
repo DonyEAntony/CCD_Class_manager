@@ -23,6 +23,7 @@ const { getDashboardPayments } = require('./dashboard-payments');
 const { getDashboardAttention } = require('./dashboard-attention');
 const { appendPayment, registrationPayments, importKey } = require('./payment-ledger');
 const { voidPayment } = require('./payment-void');
+const { correctPaymentAmount, PaymentCorrectionError } = require('./payment-correction');
 const { exceptionKey, saveException, resolveException } = require('./payment-exceptions');
 const { buildFamilyPaymentRows } = require('./family-payments');
 
@@ -6506,6 +6507,26 @@ app.post('/admin/students/:id/payment', requireAuth, requireRole('admin'), async
 
   req.flash('success', res.locals.t('status_updated'));
   return res.redirect(`/admin/students/${req.params.id}/receipt?payment=${payment.id}`);
+}));
+
+app.get('/admin/payments/:id/correct', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const payment = await db.prepare(`SELECT p.*, v.created_at AS voided_at FROM tuition_payments p
+    LEFT JOIN tuition_payment_voids v ON v.payment_id = p.id WHERE p.id = ?`).get(req.params.id);
+  if (!payment) return res.sendStatus(404);
+  const corrections = await db.prepare(`SELECT c.*, u.full_name AS actor_name FROM tuition_payment_corrections c
+    LEFT JOIN users u ON u.id = c.recorded_by WHERE c.payment_id = ? ORDER BY c.id DESC`).all(payment.id);
+  res.render('admin-payment-correction', { payment, corrections });
+}));
+
+app.post('/admin/payments/:id/correct', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  try {
+    const result = await correctPaymentAmount(db, req.params.id, req.body, req.user.id);
+    req.flash('success', result.unchanged ? 'The payment already has that amount.' : 'Payment amount corrected. Linked balances have been recalculated.');
+  } catch (error) {
+    if (!(error instanceof PaymentCorrectionError)) throw error;
+    req.flash('error', error.message);
+  }
+  res.redirect(`/admin/payments/${encodeURIComponent(req.params.id)}/correct`);
 }));
 
 app.post('/admin/payments/:id/void', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {

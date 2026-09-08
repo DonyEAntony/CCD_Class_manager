@@ -350,7 +350,7 @@
                           <tbody>
                             <% familyPaymentsRows.forEach((payment) => { %>
                               <tr<% if (payment.isSelf) { %> style="font-weight:600"<% } %>>
-                                <td><%= payment.studentFullName %></td>
+                                <td><%= payment.studentFullName %><% if (payment.paymentId) { %><div class="small text-muted">#<%= payment.paymentId %></div><% } %></td>
                                 <td><% if (payment.noHistory) { %>
                                   <span class="text-muted"><%= payment.tuitionPaid
                                     ? (lang === 'es' ? 'Marcado como pagado; sin historial' : 'Marked paid; no payment history')
@@ -371,6 +371,7 @@
                                   <% if (payment.voidedAt) { %>
                                     <div class="small text-danger"><%= lang === 'es' ? 'Anulado' : 'Voided' %>: <%= payment.voidReason %> · <%= payment.voidedBy || '—' %> · <%= formatDateOnly(payment.voidedAt) %></div>
                                   <% } else if (payment.paymentId) { %>
+                                    <a href="/admin/payments/<%= payment.paymentId %>/correct" class="small"><%= lang === 'es' ? 'Corregir monto / historial' : 'Correct amount / history' %></a>
                                     <details class="mt-1"><summary><%= lang === 'es' ? 'Anular pago' : 'Void payment' %></summary>
                                       <form method="post" action="/admin/payments/<%= payment.paymentId %>/void">
                                         <p class="small"><%= lang === 'es' ? 'Afecta a todos los niños vinculados. No emite un reembolso.' : 'Affects all linked children. This does not issue a refund.' %></p>

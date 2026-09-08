@@ -1,6 +1,6 @@
 <%
 const label = (en, es) => lang === 'es' ? es : en;
-const active = href => typeof currentPath === 'string' && (currentPath === href || currentPath.startsWith(href + '/'));
+const active = href => typeof currentPath === 'string' && (currentPath === href || currentPath.startsWith(href + '/') || (href === '/admin/payment-review' && currentPath.startsWith('/admin/payments/')));
 // A link's 3rd element is the roles allowed to see it; omitted means every authenticated
 // role (the route itself has no requireRole, e.g. Resources/Resource Pages, which degrade
 // to a filtered view for non-admins rather than needing to be hidden). Groups that end up

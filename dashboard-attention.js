@@ -9,7 +9,7 @@ async function getDashboardAttention(db, user, today) {
   for (const id of new Set(registrations.map(row => row.user_id))) {
     const summary = getDashboardPayments(registrations, id, ledger);
     if (!summary.rows.length) continue;
-    if (summary.balance === null) balances.push({ name: summary.rows.map(row => row.student_full_name).join(', '), href: link(summary.rows[0]) });
+    if (summary.balance === null) balances.push({ name: summary.rows.map(row => row.student_full_name).join(', '), href: link(summary.rows[0]), issues: summary.issues, totalRecorded: summary.totalRecorded });
     for (const payment of summary.payments.filter(item => item.amount === null)) {
       // Match by registration id, not name — two active registrations for the
       // same family can share a student_full_name (a renewal that wasn't
@@ -17,7 +17,7 @@ async function getDashboardAttention(db, user, today) {
       // link the wrong sibling or find nothing at all.
       const row = summary.rows.find(row => payment.registrationIds.has(String(row.id)));
       if (!row) continue;
-      amounts.push({ name: payment.names.join(', '), href: link(row) });
+      amounts.push({ name: payment.names.join(', '), href: `/admin/payments/${payment.id}/correct`, paymentId: payment.id, date: payment.date, method: payment.method });
     }
   }
   const sessions = await db.prepare(`SELECT c.id, c.grade_level, c.class_time FROM ccd_classes c

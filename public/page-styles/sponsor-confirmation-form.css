@@ -352,3 +352,24 @@
         padding: 1rem;
       }
     }
+/* Sponsor form uses the same quiet surfaces and primary action as other forms. */
+.sponsor-confirmation-shell { --holy-sky: var(--navy); --holy-sky-soft: var(--navy-soft); --holy-gold: var(--gold); --holy-cream: var(--off-white); --holy-shadow: var(--shadow-card); }
+.sponsor-confirmation-shell::before, .sponsor-hero::before, .sponsor-hero::after, .sponsor-highlight::after { display:none; }
+.sponsor-hero { background: var(--white); color: var(--ink-soft); border:1px solid var(--border); border-radius:var(--radius-card); padding:var(--space-panel); }
+.sponsor-hero h1 { color:var(--navy); font-size:clamp(1.5rem,3vw,2rem); }
+.sponsor-hero p, .sponsor-kicker { color:var(--muted); }
+.sponsor-chip { color:var(--ink-soft); background:var(--surface); border-color:var(--border); }
+.sponsor-hero-grid { grid-template-columns:minmax(0,1fr); }
+.holy-spirit-panel { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-card); max-width:280px; }
+.sponsor-form-card, .sponsor-form-grid fieldset, .sponsor-highlight, .sponsor-guidance, .sponsor-certificate-block { background:var(--white); border:1px solid var(--border); border-radius:var(--radius-card); box-shadow:var(--shadow-card); }
+.sponsor-form-grid legend, .sponsor-guidance h3, .sponsor-highlight-title { font-family:var(--font-ui); color:var(--navy); }
+.sponsor-form-grid .form-control, .btn-spirit-primary, .btn-spirit-outline { border-radius:var(--radius-control); font-family:var(--font-ui); }
+.btn-spirit-primary { background:var(--navy); color:var(--white); border:1px solid var(--navy); box-shadow:none; }
+.btn-spirit-primary:hover { background:var(--navy-mid); color:var(--white); }
+.sponsor-highlight p, .sponsor-highlight .form-text, .sponsor-highlight .form-check-label { color:var(--ink-soft); }
+
+.sponsor-hero { box-shadow:var(--shadow-card); }
+.sponsor-hero-grid { grid-template-columns:minmax(0,1fr) 180px; }
+.holy-spirit-panel { padding:.75rem; min-height:0; width:180px; }
+.holy-spirit-panel img { max-height:160px; width:100%; object-fit:contain; }
+@media(max-width:600px) { .sponsor-hero-grid { grid-template-columns:minmax(0,1fr); } .holy-spirit-panel { width:120px; } .holy-spirit-panel img { max-height:100px; } }

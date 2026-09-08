@@ -1,5 +1,20 @@
 # Dashboard and payment-history release
 
+## Correct an existing payment amount
+
+Deploy `payment-correction.js`, `payment-maintenance.js`, the updated void service,
+schema, app, attention helper, and `admin-payment-correction.ejs` together.
+Startup creates `tuition_payment_corrections` on already-migrated databases.
+Admins can correct amounts from Payment amounts to confirm or student payment history.
+The change records old/new amounts, actor, time, and reason, and refreshes linked
+snapshots in one transaction. Voided entries cannot be corrected; stale edits are
+rejected. A repeated identical correction adds no audit entry or payment.
+If a separate manual payment was already entered for the same transaction, review
+and void that duplicate; correcting the original does not remove other payments.
+
+Verified through the admin form in the designated test database: correcting a NULL
+amount preserves the payment ID, records the audit, and removes its amount warning.
+
 ## Registration review update
 
 Deploy `public/registration-steps.js`, both registration templates (including the
