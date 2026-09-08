@@ -5102,7 +5102,7 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
           orNull(req.body.disabilities_comments), orNull(req.body.parent_signature), orNull(req.body.email),
           rowRegistrationFee, fees.sacramentalFee, fees.lateFee,
           baptismCert, communionCert,
-          isLastStage ? 'in_progress' : 'incomplete',
+          'incomplete',
           existingRowId, req.user.id, isAdmin ? 1 : 0
         );
         thisRowId = existingRowId;
@@ -5158,7 +5158,7 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
           orNull(req.body.disabilities_comments), orNull(req.body.parent_signature), orNull(req.body.email),
           rowRegistrationFee, fees.sacramentalFee, fees.lateFee,
           baptismCert, communionCert,
-          isLastStage ? 'in_progress' : 'incomplete',
+          'incomplete',
           linkedStudentId,
         );
         thisRowId = result.lastInsertRowid;
@@ -5166,44 +5166,12 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
 
       const groupIdsAfter = existingRowId ? priorGroupIds : [...priorGroupIds, thisRowId];
 
-      const enrolledInFamilyFaith = !!SACRAMENT_NEED_BY_SACRAMENTAL_YEAR[req.body.sacramental_year];
-      await autoEnrollFamilyFaithFormation({
-        userId: registrationOwnerUserId,
-        schoolYear: faithFormationSettings.schoolYear,
-        sacramentalYear: req.body.sacramental_year || null,
-        childFirstName: firstName,
-        childLastName: lastName,
-        childDob: dob,
-        parentFirstName: orNull(req.body.primary_contact_first_name),
-        parentLastName: orNull(req.body.primary_contact_last_name),
-        parentEmail: orNull(req.body.primary_contact_email),
-        parentPhone: orNull(req.body.primary_contact_phone),
-      });
-
-      if (isLastStage) {
-        if (groupIdsAfter.length) {
-          const placeholders = groupIdsAfter.map(() => '?').join(', ');
-          await db.prepare(
-            `UPDATE student_registrations SET status = 'in_progress' WHERE id IN (${placeholders}) AND (user_id = ? OR ? = 1)`
-          ).run(...groupIdsAfter, registrationOwnerUserId, isAdmin ? 1 : 0);
-        }
-        const totalsRow = await db.prepare(
-          `SELECT SUM(registration_fee + sacramental_fee + late_fee) AS total FROM student_registrations WHERE id IN (${groupIdsAfter.map(() => '?').join(', ')})`
-        ).get(...groupIdsAfter);
-        const totalFeesCharged = totalsRow?.total || 0;
-        const familyFaithNote = enrolledInFamilyFaith
-          ? ' Your family has also been enrolled in Family Faith Formation — visit your dashboard to schedule your family visit.'
-          : '';
-        const registeredNameRows = groupIdsAfter.length
-          ? await db.prepare(
-              `SELECT student_full_name FROM student_registrations WHERE id IN (${groupIdsAfter.map(() => '?').join(', ')}) ORDER BY id ASC`
-            ).all(...groupIdsAfter)
-          : [];
-        const registeredNames = registeredNameRows.map((row) => row.student_full_name).filter(Boolean).join(', ');
-        const namesNote = registeredNames ? ` for ${registeredNames}` : '';
-        req.flash('success', `Registration submitted${namesNote}! Total fees: $${totalFeesCharged}.${familyFaithNote} You can review or update any details from your dashboard at any time.`);
-        return res.redirect('/dashboard');
+      req.session.registrationReview = { ids: groupIdsAfter, total: totalChildren, ownerId: registrationOwnerUserId };
+      if (req.body.wizard_direction === 'previous' && studentIndex > 1) {
+        req.flash('success', 'Child information saved.');
+        return res.redirect(`/registration/children?stage=student&index=${studentIndex - 1}&groupIds=${groupIdsAfter.join(',')}&total=${totalChildren}`);
       }
+      if (isLastStage) return res.redirect('/registration/children/review');
 
       return res.redirect(`/registration/children?stage=student&index=${studentIndex + 1}&groupIds=${groupIdsAfter.join(',')}&total=${totalChildren}`);
     }
@@ -5305,6 +5273,41 @@ app.post(
   normalizeCertificateUploads,
   handleChildrenRegistration
 );
+
+app.get('/registration/children/review', requireAuth, asyncHandler(async (req, res) => {
+  const group = req.session.registrationReview;
+  if (!group || !group.ids.length || group.ids.length !== group.total) return res.redirect('/registration/children');
+  const rows = await db.prepare(`SELECT * FROM student_registrations WHERE id IN (${group.ids.map(() => '?').join(',')})
+    AND user_id = ? AND archived_at IS NULL`).all(...group.ids, group.ownerId);
+  if ((req.user.role !== 'admin' && group.ownerId !== req.user.id) || rows.length !== group.total) return res.sendStatus(403);
+  rows.sort((a,b) => group.ids.indexOf(a.id) - group.ids.indexOf(b.id));
+  res.render('registration-family-review', { rows, group });
+}));
+
+app.post('/registration/children/submit-family', requireAuth, asyncHandler(async (req, res) => {
+  const group = req.session.registrationReview;
+  if (!group || !group.ids.length || group.ids.length !== group.total) return res.redirect('/registration/children');
+  if (req.user.role !== 'admin' && group.ownerId !== req.user.id) return res.sendStatus(403);
+  const rows = await db.transaction(async tx => {
+    const rows = await tx.prepare(`SELECT * FROM student_registrations WHERE id IN (${group.ids.map(() => '?').join(',')})
+      AND user_id = ? AND archived_at IS NULL FOR UPDATE`).all(...group.ids, group.ownerId);
+    if (rows.length !== group.total || rows.some(row => !['incomplete', 'in_progress'].includes(row.status))) return null;
+    await tx.prepare(`UPDATE student_registrations SET status = 'in_progress' WHERE id IN (${group.ids.map(() => '?').join(',')})
+      AND user_id = ?`).run(...group.ids, group.ownerId);
+    return rows;
+  });
+  if (!rows) { req.flash('error', 'These registrations changed. Review them from your dashboard.'); return res.redirect('/dashboard'); }
+  for (const row of rows) {
+    const names = row.student_full_name.split(' ');
+    await autoEnrollFamilyFaithFormation({ userId: group.ownerId, schoolYear: row.school_year,
+      sacramentalYear: row.sacramental_year, childFirstName: names[0], childLastName: names.slice(1).join(' '), childDob: row.student_dob,
+      parentFirstName: row.primary_contact_first_name, parentLastName: row.primary_contact_last_name,
+      parentEmail: row.primary_contact_email, parentPhone: row.primary_contact_phone });
+  }
+  delete req.session.registrationReview;
+  req.flash('success', 'Family registration submitted. You can review your registrations on the dashboard.');
+  res.redirect('/dashboard');
+}));
 
 app.post('/registration/children/:id/status', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   const defaultRedirect = `/registration/children/edit/${req.params.id}`;

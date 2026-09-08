@@ -1,5 +1,18 @@
 # Dashboard and payment-history release
 
+## Registration review update
+
+Deploy `public/registration-steps.js`, both registration templates (including the
+new `registration-family-review.ejs`), and `app.js` together. Wizard saves now keep
+children incomplete until the explicit family submission. Existing registrations
+are not migrated. The family review context uses the current authenticated session.
+Keep the session active to resume that same family review; saved children remain
+available on the dashboard if the session expires.
+
+Verified with two synthetic children in the designated test database: draft saves,
+save-and-return to the previous child, family review, and final status transition.
+Browser checks cover step validation, retained field/file values, and review edits.
+
 ## Persistent payment review
 
 Deploy `payment-exceptions.js` and `views/admin-payment-review.ejs` with the updated

@@ -5,6 +5,9 @@
    classic gold accents, warm cream surfaces. */
 :root {
   --font-ui: 'Inter', system-ui, sans-serif;
+  --status-success-bg: #e4eee7;
+  --status-success-text: #254d30;
+  --status-warning-text: #705019;
   --font-display: 'Playfair Display', Georgia, serif;
   --radius-control: .5rem;
   --radius-card: .75rem;

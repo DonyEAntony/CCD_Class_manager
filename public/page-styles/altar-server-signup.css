@@ -1,0 +1,19 @@
+.altar-hero {
+      background:
+        radial-gradient(circle at top right, rgba(200,146,42,0.22), transparent 32%),
+        linear-gradient(135deg, var(--navy) 0%, #203761 58%, #345691 100%);
+      color: #fff;
+      border-radius: 18px;
+      padding: 2rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .altar-hero p:last-child { margin-bottom: 0; }
+    .info-note {
+      background: var(--gold-pale);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.1rem;
+      color: var(--status-warning-text);
+      font-size: 0.9rem;
+    }
