@@ -1,0 +1,105 @@
+.year-title-bar {
+      background: var(--surface);
+      border-radius: 4px;
+      padding: 0.9rem 1.3rem;
+      margin-bottom: 1rem;
+    }
+    .year-title-bar h1 {
+      margin: 0;
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: var(--navy);
+    }
+    .year-title-bar p {
+      margin: 0;
+      font-weight: 700;
+      color: var(--navy);
+    }
+    .year-legend {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 1.2rem;
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-bottom: 1rem;
+    }
+    .year-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .year-legend-swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 2px;
+      background: var(--status-success-bg);
+      border: 1px solid var(--forest);
+    }
+    .year-legend-swatch.off-weekday {
+      background: var(--surface);
+      border: 1px solid var(--border);
+    }
+    .year-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 1.1rem;
+    }
+    .year-month-title {
+      background: var(--surface);
+      color: var(--navy);
+      font-weight: 700;
+      font-size: 0.85rem;
+      padding: 0.2rem 0.4rem;
+      border: 1px solid var(--navy);
+      border-bottom: none;
+    }
+    .year-month-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+    .year-month-table th {
+      background: var(--navy);
+      color: var(--white);
+      font-size: 0.62rem;
+      font-weight: 700;
+      text-align: center;
+      padding: 0.2rem 0;
+      border: 1px solid var(--navy);
+    }
+    .year-month-table td {
+      border: 1px solid var(--navy);
+      text-align: center;
+      font-size: 0.66rem;
+      color: var(--ink);
+      padding: 0.28rem 0;
+      height: 1.4em;
+    }
+    .year-month-table td.has-class {
+      background: var(--status-success-bg);
+      font-weight: 700;
+    }
+    .year-month-table td.off-weekday {
+      background: var(--surface);
+      color: var(--muted);
+    }
+
+    @media print {
+      @page { size: A4 portrait; margin: 10mm; }
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .no-print, .site-topbar { display: none !important; }
+      .year-title-bar { padding: 3mm 4mm; margin-bottom: 3mm; }
+      .year-title-bar h1 { font-size: 5mm; }
+      .year-title-bar p { font-size: 3mm; }
+      .year-legend { font-size: 2.6mm; margin-bottom: 3mm; }
+      .year-legend-swatch { width: 3mm; height: 3mm; }
+      .year-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 4mm;
+        page-break-inside: avoid;
+      }
+      .year-month-title { font-size: 2.6mm; padding: 0.8mm 1mm; }
+      .year-month-table th { font-size: 2mm; padding: 0.5mm 0; }
+      .year-month-table td { font-size: 2.2mm; padding: 0.8mm 0; height: auto; }
+    }
