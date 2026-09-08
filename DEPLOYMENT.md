@@ -1,5 +1,39 @@
 # Dashboard and payment-history release
 
+## Registration review update
+
+Deploy `public/registration-steps.js`, both registration templates (including the
+new `registration-family-review.ejs`), and `app.js` together. Wizard saves now keep
+children incomplete until the explicit family submission. Existing registrations
+are not migrated. The family review context uses the current authenticated session.
+Keep the session active to resume that same family review; saved children remain
+available on the dashboard if the session expires.
+
+Verified with two synthetic children in the designated test database: draft saves,
+save-and-return to the previous child, family review, and final status transition.
+Browser checks cover step validation, retained field/file values, and review edits.
+
+## Persistent payment review
+
+Deploy `payment-exceptions.js` and `views/admin-payment-review.ejs` with the updated
+app, schema, import page, and dashboard partial. Startup adds the exceptions table.
+Applying an import saves accepted skipped, unmatched, duplicate, and invalid-amount
+rows for later review. Upload previews alone do not save anything. Older discarded
+rows cannot be recovered without uploading their source export again.
+Matching and resolution are transactional, and matching uses the ledger's unique
+entry key to prevent a second payment. Closing with a note does not change balances.
+
+## Payment corrections update
+
+Deploy `payment-void.js` with the updated payment modules, app, and admin template.
+Startup creates the additive `tuition_payment_voids` audit table even on databases
+whose opening ledger migration is complete. Stop older app instances before enabling
+voids: older versions do not exclude voided entries from balances.
+Admins can void a payment with a required reason, then record a replacement using
+Record payment. A shared payment is voided for every linked child. This is an
+accounting correction only; it does not refund a check or card transaction.
+The original entry and void actor/time/reason remain visible in admin history.
+
 ## Verified
 
 - Payment snapshot migration and restart idempotency in the designated test database.

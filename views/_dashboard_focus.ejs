@@ -12,7 +12,7 @@
       <h2 id="dashboard-focus-title"><%= focusText('Manage your faith formation program', 'Administra tu programa de formación en la fe') %></h2>
       <p><%= focusText('Review submissions, then organize classes and rosters.', 'Revisa las solicitudes y organiza las clases y sus listas.') %></p>
       <a class="btn btn-primary" href="/admin/registrations"><%= focusText('Review registrations', 'Revisar inscripciones') %></a>
-      <a class="btn btn-outline-primary" href="/admin/classes"><%= t('classes_nav') %></a>
+      <%- include('_more_actions', { actions: [{ href: '/admin/classes', label: t('classes_nav') }] }) %>
     <% } else if (user.role === 'catechist') { %>
       <h2 id="dashboard-focus-title"><%= focusText('Ready for your next class?', '¿Todo listo para tu próxima clase?') %></h2>
       <p><%= focusText('Open your class to take attendance, see your students, and contact families.', 'Abre tu clase para tomar asistencia, ver a tus estudiantes y contactar a las familias.') %></p>
@@ -21,7 +21,7 @@
       <h2 id="dashboard-focus-title"><%= focusText('Accompany parents in their faith journey', 'Acompaña a los padres en su camino de fe') %></h2>
       <p><%= focusText('Facilitate your assigned parent sessions and accompany families through visits.', 'Facilita las sesiones de padres que tienes asignadas y acompaña a las familias mediante visitas.') %></p>
       <a class="btn btn-primary" href="/admin/adult-classes"><%= focusText('My assigned sessions', 'Mis sesiones asignadas') %></a>
-      <a class="btn btn-outline-primary" href="/family-faith/visits/availability"><%= t('manage_visit_availability') %></a>
+      <%- include('_more_actions', { actions: [{ href: '/family-faith/visits/availability', label: t('manage_visit_availability') }] }) %>
     <% } else if (canContinueRegistration) { %>
       <h2 id="dashboard-focus-title"><%= focusText('Finish your registration', 'Completa tu inscripción') %></h2>
       <p><%= focusText('Continue the unfinished registration for', 'Continúa la inscripción pendiente de') %> <strong><%= unfinishedRegistration.student_full_name %></strong>.</p>

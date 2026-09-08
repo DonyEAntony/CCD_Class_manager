@@ -19,7 +19,7 @@
               <% } %>
               <div class="d-flex flex-wrap gap-2">
                 <a class="btn btn-primary btn-sm" href="<%= item.href %>"><%= item.nextDate ? classText('Take attendance', 'Tomar asistencia') : classText('Open class', 'Abrir clase') %></a>
-                <a class="btn btn-outline-primary btn-sm" href="/calendar/class/<%= item.id %>"><%= t('calendar') %></a>
+                <%- include('_more_actions', { actions: [{ href: '/calendar/class/' + item.id, label: t('calendar') }] }) %>
               </div>
             </article>
           </div>

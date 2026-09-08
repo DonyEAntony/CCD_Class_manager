@@ -1,0 +1,6 @@
+<div class="dropdown d-inline-block">
+  <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false"><%= t('more_actions') %></button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <% actions.forEach(action => { %><li><a class="dropdown-item" href="<%= action.href %>"><%= action.label %></a></li><% }) %>
+  </ul>
+</div>

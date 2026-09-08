@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="<%= lang %>"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Payment review</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"><link rel="stylesheet" href="/styles.css"></head>
+<body><%- include('_topbar') %><%- include('_admin_nav') %>
+<main class="container py-4 app-shell mx-auto">
+<% const text = (en, es) => lang === 'es' ? es : en; %>
+<h1><%= text('Payment review', 'Revisión de pagos') %></h1>
+<p><%= text('Review accepted import rows that were skipped, unmatched, or already recorded. Closing an item does not change a payment or confirm a family balance.', 'Revise pagos aceptados omitidos, sin coincidencia o ya registrados. Cerrar un caso no cambia un pago ni confirma un saldo familiar.') %></p>
+<a href="/dashboard"><%= text('Dashboard and balance checks', 'Panel y revisión de saldos') %></a> · <a href="/admin/tuition-import"><%= t('tuition_import_header') %></a>
+<% for (const message of success) { %><div class="alert alert-success"><%= message %></div><% } %>
+<% for (const message of error) { %><div class="alert alert-danger"><%= message %></div><% } %>
+<h2 class="h5 mt-3"><%= items.filter(i => !i.resolved_at).length %> <%= text('unresolved', 'pendientes') %></h2>
+<% for (const item of items) { %>
+<details class="card my-3 p-3">
+<summary><strong><%= item.row.raw.childNames || item.row.raw.billingName || item.row.raw.parentEmail || '—' %></strong> · <%= item.school_year %> · <%= item.resolved_at ? text('Resolved', 'Resuelto') : ({duplicate: text('Possible duplicate', 'Posible duplicado'), skipped: text('Skipped', 'Omitido'), unmatched: text('Unmatched', 'Sin coincidencia'), amount: text('Confirm amount', 'Confirmar monto')})[item.category] %></summary>
+<p class="mt-2"><%= item.row.raw.parentEmail || item.row.raw.billingEmail %> · <%= item.row.raw.transactionId || text('No transaction ID', 'Sin ID de transacción') %><br>
+<%= text('Export amount/date', 'Monto/fecha exportados') %>: <%= item.row.amount ?? '—' %> · <%= item.row.raw.createdAt || '—' %></p>
+<% if (item.resolved_at) { %><p><%= item.resolution_note %> · <%= item.resolver || '—' %> · <%= formatDateOnly(item.resolved_at) %></p>
+<% } else { %>
+<form method="post" action="/admin/payment-review/<%= item.id %>">
+<label class="form-label d-block"><%= text('Resolution', 'Resolución') %>
+<select name="action" class="form-select"><option value="close"><%= text('Close with note (no payment added)', 'Cerrar con nota (sin agregar pago)') %></option><option value="match"><%= text('Match and record payment', 'Asignar y registrar pago') %></option></select></label>
+<p class="small text-muted"><%= text('To record a payment, select only children from the same family and confirm the amount and actual payment date.', 'Para registrar un pago, seleccione niños de una sola familia y confirme el monto y la fecha real.') %></p>
+<label class="form-label d-block"><%= text('Covered registrations', 'Inscripciones cubiertas') %>
+<select name="registration_ids" multiple class="form-select" size="5">
+<% for (const reg of registrations.filter(r => r.school_year === item.school_year)) { %><option value="<%= reg.id %>"><%= reg.student_full_name %> — <%= reg.parent_name %> (#<%= reg.user_id %>)</option><% } %>
+</select></label>
+<label class="form-label"><%= text('Confirmed amount', 'Monto confirmado') %><input type="number" name="amount" min="0.01" step="0.01" value="<%= item.row.amount ?? '' %>" class="form-control"></label>
+<label class="form-label"><%= text('Actual payment date', 'Fecha real del pago') %><input type="date" name="paid_at" class="form-control"></label>
+<label class="form-label d-block"><%= text('Resolution note (required)', 'Nota de resolución (obligatoria)') %><textarea name="note" required maxlength="1000" class="form-control"></textarea></label>
+<button class="btn btn-primary"><%= text('Resolve item', 'Resolver caso') %></button>
+</form><% } %></details><% } %>
+</main></body></html>

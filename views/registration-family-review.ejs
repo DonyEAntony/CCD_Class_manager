@@ -1,0 +1,26 @@
+<!doctype html><html lang="<%= lang %>"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title><%= lang === 'es' ? 'Revisión familiar' : 'Family review' %></title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"><link rel="stylesheet" href="/styles.css"></head>
+<body><%- include('_topbar') %><main class="container app-shell py-4">
+<% const text = (en, es) => lang === 'es' ? es : en; %>
+<p class="small"><%= text('Family → Children → Documents → Review', 'Familia → Niños → Documentos → Revisión') %></p>
+<h1><%= text('Review your family registration', 'Revise la inscripción de su familia') %></h1>
+<p><%= text('Your children are saved as drafts. Check every child below before submitting the family registration.', 'Los niños están guardados como borradores. Revise cada niño antes de enviar la inscripción familiar.') %></p>
+<% rows.forEach((row,index) => { %><section class="page-card p-4 mb-3">
+<div class="d-flex justify-content-between gap-2 flex-wrap"><h2 class="h5"><%= row.student_full_name %></h2><a href="/registration/children?stage=student&index=<%= index+1 %>&groupIds=<%= group.ids.join(',') %>&total=<%= group.total %>"><%= text('Edit', 'Editar') %></a></div>
+<dl class="row mb-0">
+<dt class="col-sm-4"><%= text('Family contact', 'Contacto familiar') %></dt><dd class="col-sm-8"><%= row.parent_name || [row.primary_contact_first_name,row.primary_contact_last_name].filter(Boolean).join(' ') %> · <%= row.primary_contact_email %> · <%= row.primary_contact_phone %></dd>
+<dt class="col-sm-4"><%= text('Address', 'Dirección') %></dt><dd class="col-sm-8"><%= row.address || '—' %> · <%= row.city_state_zip || '—' %></dd>
+<dt class="col-sm-4"><%= text('Date of birth', 'Fecha de nacimiento') %></dt><dd class="col-sm-8"><%= row.student_dob ? formatDateOnly(row.student_dob) : '—' %></dd>
+<dt class="col-sm-4"><%= text('Grade / sacramental year', 'Grado / año sacramental') %></dt><dd class="col-sm-8"><%= row.ccd_grade_level || '—' %> · <%= row.sacramental_year || '—' %></dd>
+<dt class="col-sm-4"><%= text('Preferred class time', 'Horario preferido') %></dt><dd class="col-sm-8"><%= row.preferred_class_time || '—' %></dd>
+<dt class="col-sm-4"><%= text('Comments / support needs', 'Comentarios / necesidades de apoyo') %></dt><dd class="col-sm-8"><%= row.disabilities_comments || '—' %></dd>
+<% for (const [field,label] of [['baptism_certificate_path',text('Baptism certificate','Certificado de bautismo')],['first_communion_certificate_path',text('Communion certificate','Certificado de comunión')]]) { %>
+<dt class="col-sm-4"><%= label %></dt><dd class="col-sm-8"><%= certificateUploadPaths(row[field]).length ? text('Uploaded','Cargado') : text('Not uploaded — contact the office if required for this child.','No cargado — contacte a la oficina si es obligatorio para este niño.') %></dd><% } %>
+<dt class="col-sm-4"><%= text('Fees', 'Tarifas') %></dt><dd class="col-sm-8">$<%= (Number(row.registration_fee || 0)+Number(row.sacramental_fee || 0)+Number(row.late_fee || 0)).toFixed(2) %></dd>
+</dl></section><% }) %>
+<p class="fw-semibold"><%= text('Total family fees', 'Tarifas familiares totales') %>: $<%= rows.reduce((sum,row)=>sum+Number(row.registration_fee||0)+Number(row.sacramental_fee||0)+Number(row.late_fee||0),0).toFixed(2) %></p>
+<form method="post" action="/registration/children/submit-family">
+<input type="hidden" name="group_ids" value="<%= group.ids.join(',') %>">
+<input type="hidden" name="total" value="<%= group.total %>">
+<button class="btn btn-primary" type="submit"><%= text('Submit family registration', 'Enviar inscripción familiar') %></button> <a class="btn btn-outline-secondary" href="/dashboard"><%= text('Finish later', 'Terminar después') %></a></form>
+</main></body></html>

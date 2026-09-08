@@ -7,57 +7,11 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
-  <style>
-    .program-card {
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      background: var(--white);
-      padding: 1.4rem 1.25rem 1.25rem;
-      text-decoration: none;
-      display: block;
-      transition: box-shadow 0.18s, transform 0.18s, border-color 0.18s;
-      height: 100%;
-    }
-    .program-card:hover {
-      box-shadow: 0 6px 24px var(--shadow-md);
-      transform: translateY(-2px);
-      border-color: var(--blue-sky);
-      text-decoration: none;
-    }
-    .program-card .prog-icon {
-      width: 42px; height: 42px;
-      border-radius: 8px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 1.2rem;
-      margin-bottom: 0.85rem;
-    }
-    .program-card .prog-title {
-      font-family: 'Playfair Display', Georgia, serif;
-      font-size: 1.05rem; font-weight: 600;
-      color: var(--navy); margin-bottom: 0.15rem;
-    }
-    .program-card .prog-subtitle {
-      font-size: 0.75rem; color: var(--blue-sky);
-      font-weight: 600; text-transform: uppercase;
-      letter-spacing: 0.05em; margin-bottom: 0.5rem;
-    }
-    .program-card .prog-desc {
-      font-size: 0.82rem; color: var(--muted); line-height: 1.5; margin: 0;
-    }
-    .prog-children .prog-icon { background: rgba(26,39,68,0.08); color: var(--navy); }
-    .prog-family   .prog-icon { background: rgba(59,115,87,0.12); color: var(--forest); }
-    .prog-ocia     .prog-icon { background: rgba(26,39,68,0.08); color: var(--navy); }
-    .prog-baptism  .prog-icon { background: rgba(74,127,193,0.12); color: var(--blue-sky); }
-    .prog-confirm  .prog-icon { background: rgba(200,146,42,0.12); color: var(--gold); }
-    .prog-sponsor  .prog-icon { background: rgba(26,39,68,0.08); color: var(--navy-soft); }
-    .section-label {
-      font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
-      letter-spacing: 0.1em; color: var(--muted); margin-bottom: 0.75rem;
-    }
-  </style>
+  <link rel="stylesheet" href="/page-styles/dashboard.css">
 </head>
 <body>
 <%- include('_topbar') %>
+<% if (user && user.role === 'admin') { %><%- include('_admin_nav') %><% } %>
 <% const uploadHrefForView = typeof uploadHref === 'function' ? uploadHref : ((filePath) => filePath ? `/${String(filePath).replace(/\\/g, '/')}` : ''); %>
 <% const uploadFileNameForView = typeof uploadFileName === 'function' ? uploadFileName : ((filePath) => filePath ? String(filePath).replace(/\\/g, '/').split('/').pop() : ''); %>
 <% const uploadPathsForView = typeof certificateUploadPaths === 'function' ? certificateUploadPaths : ((value) => value ? [value] : []); %>
@@ -119,7 +73,7 @@
       </div>
       <div class="d-flex flex-wrap gap-2">
         <% myIncompleteStudentRegs.forEach((r) => { %>
-          <a class="btn btn-warning btn-sm <%= canOpenFaithFormation ? '' : 'disabled' %>" href="<%= canOpenFaithFormation ? ('/registration/children/edit/' + r.id) : '#' %>">
+          <a class="btn btn-outline-primary btn-sm <%= canOpenFaithFormation ? '' : 'disabled' %>" href="<%= canOpenFaithFormation ? ('/registration/children/edit/' + r.id) : '#' %>">
             <%= t('finish_registration_button') %><%= myIncompleteStudentRegs.length > 1 ? ': ' + r.student_full_name : '' %>
           </a>
         <% }) %>
@@ -173,7 +127,7 @@
                 <% } %>
                 <div class="mt-3 d-flex flex-wrap gap-2">
                   <a class="btn btn-sm btn-outline-primary" href="/registration/children/edit/<%= r.id %>"><%= t('edit_registration_button') %></a>
-                  <% if (cls) { %><a class="btn btn-sm btn-outline-secondary" href="/calendar/class/<%= cls.id %>"><%= t('view_class_calendar_label') %></a><% } %>
+                  <% if (cls) { %><%- include('_more_actions', { actions: [{ href: '/calendar/class/' + cls.id, label: t('view_class_calendar_label') }] }) %><% } %>
                 </div>
               </div>
             </div>

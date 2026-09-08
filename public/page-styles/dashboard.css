@@ -1,0 +1,46 @@
+.program-card {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--white);
+      padding: 1.4rem 1.25rem 1.25rem;
+      text-decoration: none;
+      display: block;
+      transition: box-shadow 0.18s, transform 0.18s, border-color 0.18s;
+      height: 100%;
+    }
+    .program-card:hover {
+      box-shadow: 0 6px 24px var(--shadow-md);
+      transform: translateY(-2px);
+      border-color: var(--blue-sky);
+      text-decoration: none;
+    }
+    .program-card .prog-icon {
+      width: 42px; height: 42px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem;
+      margin-bottom: 0.85rem;
+    }
+    .program-card .prog-title {
+      font-family: var(--font-ui);
+      font-size: 1.05rem; font-weight: 600;
+      color: var(--navy); margin-bottom: 0.15rem;
+    }
+    .program-card .prog-subtitle {
+      font-size: 0.75rem; color: var(--blue-sky);
+      font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.05em; margin-bottom: 0.5rem;
+    }
+    .program-card .prog-desc {
+      font-size: 0.82rem; color: var(--muted); line-height: 1.5; margin: 0;
+    }
+    .prog-children .prog-icon { background: rgba(29,49,49,0.08); color: var(--navy); }
+    .prog-family   .prog-icon { background: rgba(47,107,63,0.12); color: var(--forest); }
+    .prog-ocia     .prog-icon { background: rgba(29,49,49,0.08); color: var(--navy); }
+    .prog-baptism  .prog-icon { background: rgba(63,107,108,0.12); color: var(--blue-sky); }
+    .prog-confirm  .prog-icon { background: rgba(212,175,55,0.12); color: var(--gold); }
+    .prog-sponsor  .prog-icon { background: rgba(63,107,108,0.08); color: var(--navy-soft); }
+    .section-label {
+      font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.1em; color: var(--muted); margin-bottom: 0.75rem;
+    }

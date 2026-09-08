@@ -1,0 +1,106 @@
+.conference-hero {
+      position: relative;
+      overflow: hidden;
+      border-radius: var(--radius-card);
+      padding: 2rem;
+      background:
+        linear-gradient(135deg, rgba(29,49,49,0.96), rgba(36,64,63,0.92)),
+        radial-gradient(circle at top right, rgba(242,195,107,0.24), transparent 45%);
+      color: var(--white);
+    }
+    .conference-hero h1 {
+      color: var(--white);
+      margin-bottom: 0.35rem;
+    }
+    .conference-eyebrow {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--gold-light);
+      margin-bottom: 0.75rem;
+    }
+    .conference-date {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: var(--radius-control);
+      padding: 0.35rem 0.8rem;
+      font-size: 0.84rem;
+      color: rgba(255,255,255,0.86);
+      background: rgba(255,255,255,0.08);
+      margin-bottom: 1rem;
+    }
+    .conference-subtitle {
+      max-width: 700px;
+      color: rgba(255,255,255,0.82);
+      font-size: 0.98rem;
+      margin-bottom: 1.25rem;
+    }
+    .conference-stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 0.85rem;
+      margin-top: 1.25rem;
+    }
+    .conference-stat {
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 12px;
+      padding: 0.9rem 1rem;
+      background: rgba(255,255,255,0.08);
+    }
+    .conference-stat strong {
+      display: block;
+      color: var(--white);
+      font-size: 1rem;
+      margin-bottom: 0.1rem;
+    }
+    .conference-stat span {
+      color: rgba(255,255,255,0.72);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .conference-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: grid;
+      gap: 0.7rem;
+    }
+    .conference-list li {
+      padding-left: 1.25rem;
+      position: relative;
+    }
+    .conference-list li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0.65rem;
+      width: 0.5rem;
+      height: 0.5rem;
+      border-radius: 50%;
+      background: var(--gold);
+      box-shadow: 0 0 0 4px rgba(242,195,107,0.18);
+    }
+    .itinerary-item + .itinerary-item {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+    }
+    .itinerary-day {
+      font-size: 0.73rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--blue-sky);
+      margin-bottom: 0.35rem;
+    }
+    .cta-panel {
+      background: linear-gradient(180deg, var(--gold-pale), var(--off-white));
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.4rem;
+    }

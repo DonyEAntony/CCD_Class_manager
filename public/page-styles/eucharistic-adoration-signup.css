@@ -1,0 +1,24 @@
+.adoration-hero {
+      background:
+        radial-gradient(circle at top right, rgba(212, 175, 55, 0.22), transparent 32%),
+        linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 58%, var(--forest) 100%);
+      color: var(--white);
+      border-radius: var(--radius-card);
+      padding: 2rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .adoration-hero h1 {
+      color: var(--white);
+    }
+    .adoration-hero p:last-child {
+      margin-bottom: 0;
+    }
+    .slot-note {
+      background: var(--gold-pale);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.1rem;
+      color: var(--status-warning-text);
+      font-size: 0.9rem;
+    }
