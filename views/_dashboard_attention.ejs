@@ -1,4 +1,13 @@
 <% const attentionText = (en, es) => lang === 'es' ? es : en; %>
+<% const balanceReasons = {
+  missing_year: attentionText('Registration year is missing.', 'Falta el año de inscripción.'),
+  missing_charges: attentionText('Registration fees have not been entered.', 'No se han registrado las tarifas.'),
+  invalid_charges: attentionText('A saved fee needs correction.', 'Una tarifa guardada necesita corrección.'),
+  conflicting_registration_charges: attentionText('Multiple registration fees in the same year need confirmation.', 'Hay varias tarifas de inscripción en el mismo año por confirmar.'),
+  missing_payment_history: attentionText('A child is marked paid without linked payment history.', 'Un niño está marcado como pagado sin historial vinculado.'),
+  payment_spans_years: attentionText('A payment is linked to more than one school year.', 'Un pago está vinculado a más de un año escolar.'),
+  unknown_payment_amount: attentionText('An older payment has an unknown amount. A new payment does not correct that entry.', 'Un pago anterior tiene un monto desconocido. Un pago nuevo no corrige esa entrada.'),
+}; %>
 <section class="page-card mb-4" aria-labelledby="attention-heading"><div class="card-body">
   <h2 class="h5" id="attention-heading"><%= attentionText('Payments and schedules to check', 'Pagos y horarios por revisar') %></h2>
   <p class="small text-muted"><%= attentionText('Expand a category to review its records. Balance confirmation does not necessarily mean money is owed.', 'Abre una categoría para revisar sus registros. Confirmar un saldo no significa necesariamente que haya una deuda.') %></p>
@@ -6,7 +15,16 @@
     <details class="border-top py-3">
       <summary><strong><%= adminAttention[key].length %></strong> · <%= title %></summary>
       <ul class="list-unstyled mt-2 mb-0">
-        <% adminAttention[key].forEach(item => { %><li class="py-1"><a href="<%= item.href %>"><%= item.name %> &rarr;</a></li><% }) %>
+        <% adminAttention[key].forEach(item => { %><li class="py-1"><a href="<%= item.href %>"><%= item.name %> &rarr;</a>
+          <% if (key === 'balances') { %>
+            <% if (item.totalRecorded != null) { %><div class="small"><%= attentionText('Recorded payments:', 'Pagos registrados:') %> $<%= Number(item.totalRecorded).toFixed(2) %></div><% } %>
+            <% (item.issues || []).forEach(issue => { %><div class="small text-muted"><%= balanceReasons[issue] || issue %></div><% }) %>
+          <% } %>
+          <% if (key === 'amounts') { %>
+            <div class="small text-muted"><%= attentionText('Payment entry', 'Entrada de pago') %> #<%= item.paymentId %><% if (item.date) { %> · <%= formatDateOnly(item.date) %><% } %><% if (item.method) { %> · <%= t('payment_method_' + item.method) %><% } %></div>
+            <div class="small text-muted"><%= attentionText('Open this entry to confirm its amount without adding another payment. If you already entered a duplicate manually, review that duplicate before counting both.', 'Abra esta entrada para confirmar el monto sin agregar otro pago. Si ya registró un duplicado manualmente, revíselo antes de contar ambos.') %></div>
+          <% } %>
+        </li><% }) %>
       </ul>
     </details>
   <% } %>

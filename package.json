@@ -7,7 +7,7 @@
     "start": "node app.js",
     "dev": "node --watch app.js",
     "preview:dashboard": "node scripts/dashboard-preview.cjs",
-    "test:dashboard": "node --test tests/dashboard-attention.test.js tests/dashboard-classes.test.js tests/dashboard-family.test.js tests/dashboard-payments.test.js tests/dashboard-review.test.js tests/payment-ledger.test.js",
+    "test:dashboard": "node --test tests/dashboard-attention.test.js tests/dashboard-classes.test.js tests/dashboard-family.test.js tests/dashboard-payments.test.js tests/dashboard-review.test.js tests/payment-ledger.test.js tests/payment-attention-resolution.test.js",
     "check": "node --check app.js",
     "test:communications": "node --test tests/communications.test.js",
     "test:communications:ui": "playwright test --config playwright.communications.config.js",
