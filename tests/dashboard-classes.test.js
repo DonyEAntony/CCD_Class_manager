@@ -2,6 +2,28 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { getDashboardClasses } = require('../dashboard-classes');
 
+test('class messages accept selected combined-class students and exclude unrelated rosters', () => {
+  const fs = require('fs');
+  const vm = require('vm');
+  const source = fs.readFileSync(require.resolve('../app'), 'utf8');
+  const partnerStart = source.indexOf('const getCombinedPartnerClass =');
+  const partnerEnd = source.indexOf('\n};', partnerStart) + 3;
+  const selectionStart = source.indexOf('    const messageClasses =');
+  const selectionEnd = source.indexOf('\n\n', selectionStart);
+  for (const reverse of [false, true]) {
+    const classes = [{ id: 7 }, { id: 8 }, { id: 9 }];
+    classes[reverse ? 1 : 0].combinedWithClassId = reverse ? 7 : 8;
+    const result = vm.runInNewContext(`${source.slice(partnerStart, partnerEnd)}
+      ${source.slice(selectionStart, selectionEnd)}
+      selectedStudents.map(row => row.id);`, {
+      ccdClass: classes[0], ccdClasses: classes, selectedIds: new Set([70, 80, 90]),
+      activeStudentRegs: [], enrolledRegistrationIds: new Set(), activeAdultRegs: [], activeFamilyFaithRegs: [],
+      getClassRoster: c => [{ id: c.id * 10 }, { id: c.id * 10 + 1 }],
+    });
+    assert.deepEqual(Array.from(result), [70, 80]);
+  }
+});
+
 const options = {
   user: { id: 7, role: 'catechist' }, today: '2026-09-07', formatDate: value => value,
   label: item => item.grade_level,

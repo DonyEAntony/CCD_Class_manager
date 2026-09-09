@@ -19,6 +19,8 @@
   </div>
 <% } %>
 <main class="container-fluid py-4" style="max-width:1400px">
+  <% const partnerMessageRoster = partnerRoster || []; %>
+  <% const messageRosterCount = roster.length + partnerMessageRoster.length; %>
 
   <% if (success.length) { %><div class="alert alert-success mb-3"><%= success[0] %></div><% } %>
   <% if (error.length) { %><div class="alert alert-danger mb-3"><%= error[0] %></div><% } %>
@@ -68,14 +70,14 @@
           </div>
         <% } %>
 
-        <% if (roster.length) { %>
+        <% if (messageRosterCount) { %>
           <div class="ca-roster-header">
             <label class="ca-roster-toggle">
               <input type="checkbox" id="roster-select-all-toggle" checked>
-              <%= t('roster_label') %> &mdash; <%= roster.length %>
+              <%= t('roster_label') %> &mdash; <%= messageRosterCount %>
               <%= ccdClass.sourceProgramType === 'family_faith'
                 ? (roster.length === 1 ? t('family_count_singular') : t('family_count_plural'))
-                : (roster.length === 1 ? t('student_count_singular') : t('student_count_plural')) %>
+                : (messageRosterCount === 1 ? t('student_count_singular') : t('student_count_plural')) %>
             </label>
             <div class="ca-roster-actions">
               <button type="button" class="ca-mark-all-btn" id="organize-tables-btn"><%= t('organize_by_table_button') %></button>
@@ -91,7 +93,7 @@
           </div>
         <% } %>
 
-        <% if (!roster.length) { %>
+        <% if (!messageRosterCount) { %>
           <div class="ca-sidebar-card text-center" style="color:var(--ca-neutral-600)"><em><%= t('no_students_in_class') %></em></div>
         <% } else { %>
           <form id="class-message-form" method="post" action="/admin/classes/<%= ccdClass.id %>/message" enctype="multipart/form-data">
@@ -146,6 +148,19 @@
               </div>
             </div>
           <% }) %>
+
+          <% if (partnerMessageRoster.length) { %>
+            <section class="ca-sidebar-card" aria-labelledby="partner-message-title">
+              <h2 class="h5" id="partner-message-title"><%= t('combined_with_label') %> <%= combinedPartnerLabel %></h2>
+              <p class="ca-hint"><%= lang === 'es' ? 'Seleccione estudiantes de la clase combinada para incluirlos en el mensaje.' : 'Select students from the combined class to include in your message.' %></p>
+              <% partnerMessageRoster.forEach((r) => { %>
+                <label class="d-flex align-items-center gap-2 py-2" for="msg-check-<%= r.id %>">
+                  <input type="checkbox" class="message-recipient-checkbox" name="student_registration_ids" value="<%= r.id %>" id="msg-check-<%= r.id %>" data-email="<%= r.primary_contact_email || '' %>">
+                  <span><%= r.student_full_name %> <small class="text-muted">(<%= r.sourceClassLabel %>)</small></span>
+                </label>
+              <% }) %>
+            </section>
+          <% } %>
 
           <div class="ca-composer">
             <div class="ca-composer-title"><%= t('send_message_label') %></div>
