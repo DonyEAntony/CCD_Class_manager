@@ -19,8 +19,6 @@
   </div>
 <% } %>
 <main class="container-fluid py-4" style="max-width:1400px">
-  <% const partnerMessageRoster = partnerRoster || []; %>
-  <% const messageRosterCount = roster.length + partnerMessageRoster.length; %>
 
   <% if (success.length) { %><div class="alert alert-success mb-3"><%= success[0] %></div><% } %>
   <% if (error.length) { %><div class="alert alert-danger mb-3"><%= error[0] %></div><% } %>
@@ -70,14 +68,14 @@
           </div>
         <% } %>
 
-        <% if (messageRosterCount) { %>
+        <% if (roster.length) { %>
           <div class="ca-roster-header">
             <label class="ca-roster-toggle">
               <input type="checkbox" id="roster-select-all-toggle" checked>
-              <%= t('roster_label') %> &mdash; <%= messageRosterCount %>
+              <%= t('roster_label') %> &mdash; <%= roster.length %>
               <%= ccdClass.sourceProgramType === 'family_faith'
                 ? (roster.length === 1 ? t('family_count_singular') : t('family_count_plural'))
-                : (messageRosterCount === 1 ? t('student_count_singular') : t('student_count_plural')) %>
+                : (roster.length === 1 ? t('student_count_singular') : t('student_count_plural')) %>
             </label>
             <div class="ca-roster-actions">
               <button type="button" class="ca-mark-all-btn" id="organize-tables-btn"><%= t('organize_by_table_button') %></button>
@@ -93,7 +91,7 @@
           </div>
         <% } %>
 
-        <% if (!messageRosterCount) { %>
+        <% if (!roster.length) { %>
           <div class="ca-sidebar-card text-center" style="color:var(--ca-neutral-600)"><em><%= t('no_students_in_class') %></em></div>
         <% } else { %>
           <form id="class-message-form" method="post" action="/admin/classes/<%= ccdClass.id %>/message" enctype="multipart/form-data">
@@ -109,7 +107,7 @@
               <div class="ca-avatar <%= index % 2 === 0 ? 'tone-a' : 'tone-b' %>"><%= initials %></div>
               <div style="min-width:0">
                 <div class="ca-roster-name-row">
-                  <span class="ca-roster-name"><%= r.student_full_name %></span>
+                  <span class="ca-roster-name"><%= r.student_full_name %><% if (r.sourceClassLabel) { %> <small class="text-muted">(<%= r.sourceClassLabel %>)</small><% } %></span>
                   <% if (r.age !== null && r.age !== undefined) { %><span class="ca-roster-age"><%= r.age %> <%= t('years_old_label') %></span><% } %>
                   <% if (isPendingAcceptance(r)) { %><span class="ca-badge ca-badge-warn"><%= t('pending_acceptance_label') %></span><% } %>
                   <% if (r.baptismCertPending) { %><span class="ca-badge ca-badge-warn"><%= t('baptism_cert_pending_badge') %></span><% } %>
@@ -148,19 +146,6 @@
               </div>
             </div>
           <% }) %>
-
-          <% if (partnerMessageRoster.length) { %>
-            <section class="ca-sidebar-card" aria-labelledby="partner-message-title">
-              <h2 class="h5" id="partner-message-title"><%= t('combined_with_label') %> <%= combinedPartnerLabel %></h2>
-              <p class="ca-hint"><%= lang === 'es' ? 'Seleccione estudiantes de la clase combinada para incluirlos en el mensaje.' : 'Select students from the combined class to include in your message.' %></p>
-              <% partnerMessageRoster.forEach((r) => { %>
-                <label class="d-flex align-items-center gap-2 py-2" for="msg-check-<%= r.id %>">
-                  <input type="checkbox" class="message-recipient-checkbox" name="student_registration_ids" value="<%= r.id %>" id="msg-check-<%= r.id %>" data-email="<%= r.primary_contact_email || '' %>">
-                  <span><%= r.student_full_name %> <small class="text-muted">(<%= r.sourceClassLabel %>)</small></span>
-                </label>
-              <% }) %>
-            </section>
-          <% } %>
 
           <div class="ca-composer">
             <div class="ca-composer-title"><%= t('send_message_label') %></div>
@@ -250,20 +235,15 @@
         <% if (combinedPartner) { %>
           <div class="ca-sidebar-card">
             <div class="ca-sidebar-label-row">
-              <span class="ca-sidebar-label"><%= t('combined_class_roster_header') %></span>
+              <span class="ca-sidebar-label"><%= t('combined_with_label') %></span>
             </div>
-            <div style="font-weight:700;margin-bottom:.4rem"><%= t('combined_with_label') %> <%= combinedPartnerLabel %></div>
+            <div style="font-weight:700;margin-bottom:.6rem"><%= combinedPartnerLabel %></div>
             <div class="ca-hint" style="margin-bottom:.6rem"><%= t('combined_class_roster_note') %></div>
-            <div style="max-height:320px;overflow-y:auto">
-              <% combinedRoster.forEach((r) => { %>
-                <div class="ca-celebration-row">
-                  <div style="min-width:0">
-                    <div class="ca-celebration-name"><%= r.student_full_name %></div>
-                    <div class="ca-celebration-meta"><%= r.sourceClassLabel %></div>
-                  </div>
-                </div>
-              <% }) %>
-            </div>
+            <% if (user.role === 'admin') { %>
+              <form method="post" action="/admin/classes/<%= ccdClass.id %>/uncombine" onsubmit="return confirm('<%= t('confirm_end_combination') %>');">
+                <button class="btn btn-sm btn-outline-secondary w-100" type="submit"><%= t('end_combination_button') %></button>
+              </form>
+            <% } %>
           </div>
         <% } %>
 
