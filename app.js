@@ -877,6 +877,7 @@ const translations = {
     program_registrations_tab: 'Program Registrations',
     sponsor_ministry_signups_tab: 'Sponsor & Ministry Signups',
     registration_closed_notice: 'Registration is currently closed. Contact the parish office or wait for an admin to open this year.',
+    children_registration_deadline_passed_notice: 'Faith Formation registration for children is closed for the year — classes began Sept. 8, %s. Contact the parish office with questions.',
     confirmation_sponsor_form_title: 'Confirmation Sponsor Form',
     student_sponsor_subtitle: 'Student / Sponsor',
     sponsor_form_desc: 'Enter and save sponsor confirmation information, including sponsor address and signatures.',
@@ -1924,6 +1925,7 @@ const translations = {
     program_registrations_tab: 'Inscripciones de Programas',
     sponsor_ministry_signups_tab: 'Inscripciones de Padrinos y Ministerios',
     registration_closed_notice: 'La inscripción está actualmente cerrada. Comuníquese con la oficina parroquial o espere a que un administrador abra este año.',
+    children_registration_deadline_passed_notice: 'La inscripción de Formación en la Fe para niños está cerrada por este año — las clases comenzaron el 8 de septiembre de %s. Comuníquese con la oficina parroquial si tiene preguntas.',
     confirmation_sponsor_form_title: 'Formulario de Padrino de Confirmación',
     student_sponsor_subtitle: 'Estudiante / Padrino',
     sponsor_form_desc: 'Ingrese y guarde la información de confirmación del padrino, incluyendo dirección y firmas.',
@@ -4316,7 +4318,12 @@ app.get('/dashboard', requireAuth, asyncHandler(async (req, res) => {
       getSchedule: getClassSessionDates, formatDate: formatSessionDateValue, today }),
   ]);
   const dashboardPayments = getDashboardPayments(studentRegs, req.user.id, paymentLedger);
-  res.render('dashboard', { studentRegs, familyRegs, adultRegs, sponsorRegs, myStudents, myRegisteredChildren, ADULT_PROGRAMS, faithFormationSettings, resolveCcdGrade, adminReview, teachingClasses, familyNextClasses, dashboardPayments, adminAttention });
+  // Children's Faith Formation registration closes for the year once classes begin —
+  // same cutoff GET/POST /registration/children enforce (see calculateFees) — surfaced
+  // here too so the dashboard card itself reads as closed instead of only failing later.
+  const childrenRegistrationDeadlinePassed = calculateFees(1, null, null, faithFormationSettings.schoolYear, null).afterStart;
+
+  res.render('dashboard', { studentRegs, familyRegs, adultRegs, sponsorRegs, myStudents, myRegisteredChildren, ADULT_PROGRAMS, faithFormationSettings, childrenRegistrationDeadlinePassed, resolveCcdGrade, adminReview, teachingClasses, familyNextClasses, dashboardPayments, adminAttention });
 }));
 
 app.get('/family-faith/visits/availability', requireAuth, asyncHandler(async (req, res) => {
@@ -4611,6 +4618,14 @@ app.get('/registration/children', requireAuth, asyncHandler(async (req, res) => 
   const faithFormationSettings = await requireRegistrationAccess(req, res, 'faith_formation');
   if (!faithFormationSettings) return;
   const today = new Date().toISOString().slice(0, 10);
+
+  // Same cutoff handleChildrenRegistration enforces on submit, checked here too so a
+  // parent past the deadline is turned away before filling out the form instead of
+  // after — the wizard can span several stages before that POST-time check would fire.
+  if (req.user.role !== 'admin' && calculateFees(1, null, null, faithFormationSettings.schoolYear, null).afterStart) {
+    req.flash('error', res.locals.t('children_registration_deadline_passed_notice').replace('%s', parseFaithFormationStartYear(faithFormationSettings.schoolYear)));
+    return res.redirect('/dashboard');
+  }
 
   const stage = req.query.stage === 'student' ? 'student' : 'intro';
   const totalChildren = Number.parseInt(req.query.total, 10) || null;
@@ -5012,7 +5027,7 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
       const stageRedirect = `/registration/children?stage=student&index=${studentIndex}&groupIds=${priorGroupIds.join(',')}&total=${totalChildren}`;
 
       const fees = calculateFees(totalChildren, null, null, faithFormationSettings.schoolYear, req.body.sacramental_year);
-      if (fees.afterStart) {
+      if (fees.afterStart && !isAdmin) {
         req.flash('error', `Registration closed: no registrations accepted after classes begin on Sept. 8, ${parseFaithFormationStartYear(faithFormationSettings.schoolYear)}.`);
         return res.redirect('/registration/children');
       }
@@ -5205,7 +5220,7 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
 
     // ── Admin editing a single existing registration (outside the wizard) ──
     const fees = calculateFees(1, req.body.ccd_grade_level, null, faithFormationSettings.schoolYear, req.body.sacramental_year);
-    if (fees.afterStart) {
+    if (fees.afterStart && !isAdmin) {
       req.flash('error', `Registration closed: no registrations accepted after classes begin on Sept. 8, ${parseFaithFormationStartYear(faithFormationSettings.schoolYear)}.`);
       return res.redirect('/registration/children');
     }
@@ -5447,6 +5462,15 @@ app.get('/registration/children/edit/:id', requireAuth, asyncHandler(async (req,
   const faithFormationSettings = await requireRegistrationAccess(req, res, 'faith_formation');
   if (!faithFormationSettings) return;
   const isStaff = req.user.role === 'admin';
+
+  // Same early turn-away as GET /registration/children (see the comment there) — a
+  // parent editing their own registration past the deadline would otherwise fill out
+  // the whole form before hitting the same check at submit time.
+  if (!isStaff && calculateFees(1, null, null, faithFormationSettings.schoolYear, null).afterStart) {
+    req.flash('error', res.locals.t('children_registration_deadline_passed_notice').replace('%s', parseFaithFormationStartYear(faithFormationSettings.schoolYear)));
+    return res.redirect('/dashboard');
+  }
+
   const reg = await db.prepare('SELECT * FROM student_registrations WHERE id = ? AND (user_id = ? OR ? = 1)').get(req.params.id, req.user.id, isStaff ? 1 : 0);
   if (!reg) return res.status(404).send('Registration not found.');
 

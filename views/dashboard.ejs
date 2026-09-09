@@ -19,7 +19,7 @@
 
   <% if (success.length) { %><div class="alert alert-success mb-3"><%= success[0] %></div><% } %>
   <% if (error.length) { %><div class="alert alert-danger mb-3"><%= error[0] %></div><% } %>
-  <% const canOpenFaithFormation = user.role === 'admin' || user.role === 'catechist' || (faithFormationSettings && faithFormationSettings.faithFormationRegistrationOpen); %>
+  <% const canOpenFaithFormation = user.role === 'admin' || (!childrenRegistrationDeadlinePassed && (user.role === 'catechist' || (faithFormationSettings && faithFormationSettings.faithFormationRegistrationOpen))); %>
   <% const canOpenSponsorForm = user.role === 'admin' || user.role === 'catechist' || (faithFormationSettings && faithFormationSettings.sponsorFormRegistrationOpen); %>
 
   <%- include('_dashboard_heading') %>
@@ -126,7 +126,11 @@
                   </div>
                 <% } %>
                 <div class="mt-3 d-flex flex-wrap gap-2">
-                  <a class="btn btn-sm btn-outline-primary" href="/registration/children/edit/<%= r.id %>"><%= t('edit_registration_button') %></a>
+                  <% if (canOpenFaithFormation) { %>
+                    <a class="btn btn-sm btn-outline-primary" href="/registration/children/edit/<%= r.id %>"><%= t('edit_registration_button') %></a>
+                  <% } else { %>
+                    <button class="btn btn-sm btn-outline-secondary" type="button" disabled><%= t('closed_status') %></button>
+                  <% } %>
                   <% if (cls) { %><%- include('_more_actions', { actions: [{ href: '/calendar/class/' + cls.id, label: t('view_class_calendar_label') }] }) %><% } %>
                 </div>
               </div>
@@ -188,7 +192,11 @@
                 <div class="prog-icon">🎓</div>
                 <div class="prog-title"><%= t('prog_children_title') %></div>
                 <div class="prog-subtitle"><%= faithFormationSettings && faithFormationSettings.schoolYear ? `${t('school_year')} ${faithFormationSettings.schoolYear}` : t('prog_children_subtitle') %></div>
-                <p class="prog-desc"><%= canOpenFaithFormation ? t('prog_children_desc') : t('registration_closed_notice') %></p>
+                <p class="prog-desc"><%= canOpenFaithFormation
+                  ? t('prog_children_desc')
+                  : (childrenRegistrationDeadlinePassed
+                    ? t('children_registration_deadline_passed_notice').replace('%s', (faithFormationSettings && faithFormationSettings.schoolYear || '').split('-')[0])
+                    : t('registration_closed_notice')) %></p>
               </a>
             </div>
             <% if (user.role === 'admin') { %>
