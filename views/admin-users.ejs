@@ -329,9 +329,10 @@
     </div>
   </div>
 
-  <div class="page-card mt-4">
+  <div class="page-card mt-4" id="class-management">
     <div class="card-header"><h2 class="h5 mb-0"><%= t('catechist_assignments_header') %></h2></div>
     <div class="card-body">
+      <p class="small"><%= lang === 'es' ? 'Para combinar dos clases de niños, pulse Editar en una clase, elija Combinar con y guarde.' : 'To combine two children’s classes, choose Edit on a class, select Combine with, and save.' %></p>
       <% const availableCcdGradeMeanings = (typeof ccdGradeMeanings !== 'undefined' && ccdGradeMeanings) ? ccdGradeMeanings : {}; %>
       <p class="text-muted mb-3" style="font-size:.85rem">
         <%= t('preferred_class_time_notice') %>
@@ -1142,5 +1143,23 @@
   }());
 </script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+(() => {
+  const openClassManagement = () => {
+    if (location.hash !== '#class-management') return;
+    const tab = document.getElementById('settings-tab');
+    const target = document.getElementById('class-management');
+    if (!tab || !target || !window.bootstrap) return;
+    const scroll = () => target.scrollIntoView({ block: 'start' });
+    if (tab.classList.contains('active')) scroll();
+    else {
+      tab.addEventListener('shown.bs.tab', scroll, { once: true });
+      bootstrap.Tab.getOrCreateInstance(tab).show();
+    }
+  };
+  window.addEventListener('hashchange', openClassManagement);
+  openClassManagement();
+})();
+</script>
 </body>
 </html>
