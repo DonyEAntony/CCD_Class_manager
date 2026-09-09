@@ -8708,11 +8708,14 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist', 'fa
   // silently misfile their attendance under the wrong class). It just lets whoever's in
   // the room see everyone present at once, tagged by which class they actually belong to.
   const combinedPartner = getCombinedPartnerClass(ccdClass, allCcdClasses);
+  const partnerRoster = combinedPartner
+    ? getClassRoster(combinedPartner, activeStudentRegs, enrolledRegistrationIds, activeAdultRegs, activeFamilyFaithRegs, allCcdClasses)
+        .map((r) => ({ ...r, sourceClassLabel: getCcdClassShortLabel(combinedPartner) }))
+    : [];
   const combinedRoster = combinedPartner
     ? [
         ...roster.map((r) => ({ ...r, sourceClassLabel: getCcdClassShortLabel(ccdClass) })),
-        ...getClassRoster(combinedPartner, activeStudentRegs, enrolledRegistrationIds, activeAdultRegs, activeFamilyFaithRegs, allCcdClasses)
-          .map((r) => ({ ...r, sourceClassLabel: getCcdClassShortLabel(combinedPartner) })),
+        ...partnerRoster,
       ].sort((a, b) => (a.student_full_name || '').localeCompare(b.student_full_name || ''))
     : null;
 
@@ -8726,6 +8729,7 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist', 'fa
     combinedPartner,
     combinedPartnerLabel: combinedPartner ? `${getCcdClassShortLabel(combinedPartner)} — ${combinedPartner.class_time || '—'}` : null,
     combinedRoster,
+    partnerRoster,
     upcomingDates: upcomingDates.map((d) => {
       const value = formatSessionDateValue(d);
       const counts = countsByDate.get(value);
@@ -9202,7 +9206,10 @@ app.post('/admin/classes/:id/message', requireAuth, requireRole('admin', 'catech
     const enrolledRegistrationIds = await getEnrolledRegistrationIds();
     const activeAdultRegs = await getActiveAdultRegistrations();
     const activeFamilyFaithRegs = await getActiveFamilyFaithRegistrations();
-    const selectedStudents = getClassRoster(ccdClass, activeStudentRegs, enrolledRegistrationIds, activeAdultRegs, activeFamilyFaithRegs, ccdClasses).filter((r) => selectedIds.has(r.id));
+    const messageClasses = [ccdClass, getCombinedPartnerClass(ccdClass, ccdClasses)].filter(Boolean);
+    const selectedStudents = messageClasses.flatMap((messageClass) =>
+      getClassRoster(messageClass, activeStudentRegs, enrolledRegistrationIds, activeAdultRegs, activeFamilyFaithRegs, ccdClasses)
+    ).filter((r) => selectedIds.has(r.id));
 
     // Dedupe by parent email so siblings selected in the same class don't get a duplicate copy.
     const recipientsByEmail = new Map();

@@ -26,6 +26,9 @@
       <h1><%= t('classes_header') %></h1>
       <p class="sub mb-0"><%= t('classes_subtitle') %></p>
     </div>
+    <% if (user.role === 'admin') { %>
+      <a class="btn btn-outline-secondary" href="/admin/users#class-management"><%= lang === 'es' ? 'Vincular / combinar clases' : 'Link / combine classes' %></a>
+    <% } %>
   </div>
 
   <% if (!cards || cards.length === 0) { %>
