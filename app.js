@@ -976,8 +976,9 @@ const translations = {
     combine_with_none_option: 'None',
     combined_class_label: 'Combined Class',
     combined_with_label: 'Combined with',
-    combined_class_roster_header: 'Combined Class Roster',
-    combined_class_roster_note: 'Both classes meet together — everyone is shown here, tagged by their own class. Attendance and tables above are still tracked separately per class.',
+    combined_class_roster_note: 'Both classes meet together as one roster below — attendance, tables, and messages are shared while combined.',
+    end_combination_button: 'End combination',
+    confirm_end_combination: 'End this combination? Each class goes back to showing only its own roster — this can be redone anytime from Combine with in Settings.',
     my_classes_nav: 'My Classes',
     catechists_more_suffix: 'more',
     show_all_label: 'Show all',
@@ -2022,8 +2023,9 @@ const translations = {
     combine_with_none_option: 'Ninguna',
     combined_class_label: 'Clase Combinada',
     combined_with_label: 'Combinada con',
-    combined_class_roster_header: 'Lista de Clase Combinada',
-    combined_class_roster_note: 'Ambas clases se reúnen juntas — todos aparecen aquí, marcados con su propia clase. La asistencia y las mesas arriba se siguen registrando por separado para cada clase.',
+    combined_class_roster_note: 'Ambas clases se reúnen juntas como una sola lista abajo — la asistencia, las mesas y los mensajes se comparten mientras estén combinadas.',
+    end_combination_button: 'Finalizar combinación',
+    confirm_end_combination: '¿Finalizar esta combinación? Cada clase volverá a mostrar solo su propia lista — puede rehacerse en cualquier momento desde Combinar con en Configuración.',
     my_classes_nav: 'Mis Clases',
     catechists_more_suffix: 'más',
     show_all_label: 'Mostrar todos',
@@ -2544,6 +2546,17 @@ const getCombinedPartnerClass = (ccdClass, allCcdClasses) => {
   return allCcdClasses.find((c) =>
     c.id !== ccdClass.id && c.classKind !== 'adult' &&
     (c.id === ccdClass.combinedWithClassId || c.combinedWithClassId === ccdClass.id)
+  ) || null;
+};
+
+// Resolves which of a class or its combined partner actually rosters a given
+// registration id, so a write triggered from either side's page lands under the
+// student's real owning class (ccd_class_id) rather than the page you happened to be on.
+const resolveCombinedRosterOwner = (studentRegistrationId, ccdClass, combinedPartner, activeStudentRegs, enrolledRegistrationIds, activeAdultRegs, activeFamilyFaithRegs, allCcdClasses) => {
+  const candidates = [ccdClass, combinedPartner].filter(Boolean);
+  return candidates.find((c) =>
+    getClassRoster(c, activeStudentRegs, enrolledRegistrationIds, activeAdultRegs, activeFamilyFaithRegs, allCcdClasses)
+      .some((r) => r.id === studentRegistrationId)
   ) || null;
 };
 
@@ -8597,8 +8610,26 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist', 'fa
   const activeAdultRegs = await getActiveAdultRegistrations();
   const activeFamilyFaithRegs = await getActiveFamilyFaithRegistrations();
   const allCcdClasses = await getCcdClasses();
-  const roster = getClassRoster(ccdClass, activeStudentRegs, enrolledRegistrationIds, activeAdultRegs, activeFamilyFaithRegs, allCcdClasses)
-    .sort((a, b) => (a.student_full_name || '').localeCompare(b.student_full_name || ''));
+  const ownRoster = getClassRoster(ccdClass, activeStudentRegs, enrolledRegistrationIds, activeAdultRegs, activeFamilyFaithRegs, allCcdClasses);
+
+  // A combined class (two sections meeting together in one room) merges its partner's
+  // roster into this class's own for every roster-driven feature below — attendance,
+  // tables, and messaging all treat the pair as one shared classroom. Each row still
+  // carries its real owning class id (sourceClassId) so writes land under the correct
+  // class and nothing gets misfiled if the combination is later undone.
+  const combinedPartner = getCombinedPartnerClass(ccdClass, allCcdClasses);
+  const partnerRoster = combinedPartner
+    ? getClassRoster(combinedPartner, activeStudentRegs, enrolledRegistrationIds, activeAdultRegs, activeFamilyFaithRegs, allCcdClasses)
+        .map((r) => ({ ...r, sourceClassId: combinedPartner.id, sourceClassLabel: getCcdClassShortLabel(combinedPartner) }))
+    : [];
+  const roster = [
+    ...ownRoster.map((r) => ({ ...r, sourceClassId: classId, sourceClassLabel: null })),
+    ...partnerRoster,
+  ].sort((a, b) => (a.student_full_name || '').localeCompare(b.student_full_name || ''));
+  const classIdsInScope = combinedPartner ? [classId, combinedPartner.id] : [classId];
+  const classIdsPlaceholder = classIdsInScope.map(() => '?').join(',');
+  const gradeLevelBySourceClassId = new Map([[classId, ccdClass.grade_level]]);
+  if (combinedPartner) gradeLevelBySourceClassId.set(combinedPartner.id, combinedPartner.grade_level);
 
   const storedSchedule = await getClassSessionDates(classId);
   const hasStoredSchedule = storedSchedule.length > 0;
@@ -8615,8 +8646,8 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist', 'fa
 
   const attendanceRows = selectedDate
     ? await db.prepare(
-        'SELECT student_registration_id, status FROM ccd_class_attendance WHERE ccd_class_id = ? AND session_date = ?'
-      ).all(classId, selectedDate)
+        `SELECT student_registration_id, status FROM ccd_class_attendance WHERE ccd_class_id IN (${classIdsPlaceholder}) AND session_date = ?`
+      ).all(...classIdsInScope, selectedDate)
     : [];
   const attendanceByStudent = {};
   attendanceRows.forEach((row) => { attendanceByStudent[row.student_registration_id] = row.status; });
@@ -8627,8 +8658,8 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist', 'fa
   // Table/seating assignments persist per class (not per session, unlike attendance) —
   // whatever was last organized or manually adjusted stays put week to week.
   const tableRows = await db.prepare(
-    'SELECT student_registration_id, table_number FROM ccd_class_table_assignments WHERE ccd_class_id = ?'
-  ).all(classId);
+    `SELECT student_registration_id, table_number FROM ccd_class_table_assignments WHERE ccd_class_id IN (${classIdsPlaceholder})`
+  ).all(...classIdsInScope);
   const tableByStudent = {};
   tableRows.forEach((row) => { tableByStudent[row.student_registration_id] = row.table_number; });
   const faithFormationSettings = await getFaithFormationSettings();
@@ -8649,8 +8680,8 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist', 'fa
   // and the year-to-date rate below, all derived from real ccd_class_attendance rows
   // rather than invented compliance fields.
   const allAttendanceRows = await db.prepare(
-    'SELECT student_registration_id, session_date, status FROM ccd_class_attendance WHERE ccd_class_id = ?'
-  ).all(classId);
+    `SELECT student_registration_id, session_date, status FROM ccd_class_attendance WHERE ccd_class_id IN (${classIdsPlaceholder})`
+  ).all(...classIdsInScope);
   const attendanceByStudentDate = new Map();
   const countsByDate = new Map();
   allAttendanceRows.forEach((row) => {
@@ -8674,7 +8705,7 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist', 'fa
       ...r,
       age: calculateAge(r.student_dob),
       absenceCount: absentTotal,
-      baptismCertPending: SACRAMENTAL_GRADE_LEVELS.has(ccdClass.grade_level) && !r.baptism_certificate_path,
+      baptismCertPending: SACRAMENTAL_GRADE_LEVELS.has(gradeLevelBySourceClassId.get(r.sourceClassId)) && !r.baptism_certificate_path,
       isAltarServer: !!r.is_altar_server,
       attendanceRatePercent: pastSessionDates.length ? Math.round((presentTotal / pastSessionDates.length) * 100) : null,
       history: historyDates.map((d) => ({ date: d, status: attendanceByStudentDate.get(`${r.id}|${d}`) || null })),
@@ -8702,23 +8733,6 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist', 'fa
 
   const linkedClass = ccdClass.linkedClassId ? allCcdClasses.find((c) => c.id === ccdClass.linkedClassId) : null;
 
-  // A combined class's roster is purely a read-only, side-by-side view — attendance and
-  // table assignments below stay scoped to this class's own real roster (ccd_class_id in
-  // those tables is this class's id, and mixing another class's students into it would
-  // silently misfile their attendance under the wrong class). It just lets whoever's in
-  // the room see everyone present at once, tagged by which class they actually belong to.
-  const combinedPartner = getCombinedPartnerClass(ccdClass, allCcdClasses);
-  const partnerRoster = combinedPartner
-    ? getClassRoster(combinedPartner, activeStudentRegs, enrolledRegistrationIds, activeAdultRegs, activeFamilyFaithRegs, allCcdClasses)
-        .map((r) => ({ ...r, sourceClassLabel: getCcdClassShortLabel(combinedPartner) }))
-    : [];
-  const combinedRoster = combinedPartner
-    ? [
-        ...roster.map((r) => ({ ...r, sourceClassLabel: getCcdClassShortLabel(ccdClass) })),
-        ...partnerRoster,
-      ].sort((a, b) => (a.student_full_name || '').localeCompare(b.student_full_name || ''))
-    : null;
-
   res.render('admin-class-detail', {
     ccdClass,
     roster: rosterWithHistory,
@@ -8728,8 +8742,6 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist', 'fa
     linkedClassLabel: linkedClass ? `${getCcdClassShortLabel(linkedClass)} — ${linkedClass.class_time || '—'}` : null,
     combinedPartner,
     combinedPartnerLabel: combinedPartner ? `${getCcdClassShortLabel(combinedPartner)} — ${combinedPartner.class_time || '—'}` : null,
-    combinedRoster,
-    partnerRoster,
     upcomingDates: upcomingDates.map((d) => {
       const value = formatSessionDateValue(d);
       const counts = countsByDate.get(value);
@@ -8755,6 +8767,21 @@ app.get('/admin/classes/:id', requireAuth, requireRole('admin', 'catechist', 'fa
     lowAttendanceStudents,
     upcomingCelebrations,
   });
+}));
+
+// Ends a combination once a term concludes. combined_with_class_id can be stored on
+// either side of the pair (see getCombinedPartnerClass), so this clears whichever row
+// actually holds it — no historical attendance/table data needs to move, since every
+// row was already written under each student's real owning class while combined.
+app.post('/admin/classes/:id/uncombine', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const classId = Number.parseInt(req.params.id, 10);
+  if (!Number.isInteger(classId)) {
+    req.flash('error', 'Invalid class.');
+    return res.redirect('/admin/classes');
+  }
+  await db.prepare('UPDATE ccd_classes SET combined_with_class_id = NULL WHERE id = ? OR combined_with_class_id = ?').run(classId, classId);
+  req.flash('success', 'Classes are no longer combined.');
+  return res.redirect(`/admin/classes/${classId}`);
 }));
 
 // Optional label for an assigned teacher — the two roles Family Faith Formation
@@ -8896,21 +8923,46 @@ app.post('/admin/classes/:id/attendance', requireAuth, requireRole('admin', 'cat
     }
   }
 
+  // A combined class shares its whole roster with its partner (see getCombinedPartnerClass)
+  // — a student toggled from either side's page may actually belong to the partner class,
+  // so resolve their real owning class and write the attendance row there instead of
+  // blindly filing it under classId, which would misattribute it once uncombined.
+  const allCcdClasses = await getCcdClasses();
+  const ccdClass = allCcdClasses.find((c) => c.id === classId);
+  if (!ccdClass) {
+    return res.status(404).json({ ok: false, error: 'Class not found.' });
+  }
+  const combinedPartner = getCombinedPartnerClass(ccdClass, allCcdClasses);
+  let ownerClassId = classId;
+  if (combinedPartner) {
+    const activeStudentRegs = await db.prepare('SELECT * FROM student_registrations WHERE archived_at IS NULL').all();
+    const enrolledRegistrationIds = await getEnrolledRegistrationIds();
+    const activeAdultRegs = await getActiveAdultRegistrations();
+    const activeFamilyFaithRegs = await getActiveFamilyFaithRegistrations();
+    const ownerClass = resolveCombinedRosterOwner(studentRegistrationId, ccdClass, combinedPartner, activeStudentRegs, enrolledRegistrationIds, activeAdultRegs, activeFamilyFaithRegs, allCcdClasses);
+    if (!ownerClass) {
+      return res.status(400).json({ ok: false, error: 'Student not found in this class.' });
+    }
+    ownerClassId = ownerClass.id;
+  }
+
   if (status === 'present' || status === 'absent') {
     await db.prepare(`
       INSERT INTO ccd_class_attendance (ccd_class_id, student_registration_id, session_date, status, marked_by)
       VALUES (?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE status = VALUES(status), marked_by = VALUES(marked_by)
-    `).run(classId, studentRegistrationId, sessionDate, status, req.user.id);
+    `).run(ownerClassId, studentRegistrationId, sessionDate, status, req.user.id);
   } else {
     await db.prepare(
       'DELETE FROM ccd_class_attendance WHERE ccd_class_id = ? AND student_registration_id = ? AND session_date = ?'
-    ).run(classId, studentRegistrationId, sessionDate);
+    ).run(ownerClassId, studentRegistrationId, sessionDate);
   }
 
+  const classIdsInScope = combinedPartner ? [classId, combinedPartner.id] : [classId];
+  const classIdsPlaceholder = classIdsInScope.map(() => '?').join(',');
   const attendanceRows = await db.prepare(
-    'SELECT status FROM ccd_class_attendance WHERE ccd_class_id = ? AND session_date = ?'
-  ).all(classId, sessionDate);
+    `SELECT status FROM ccd_class_attendance WHERE ccd_class_id IN (${classIdsPlaceholder}) AND session_date = ?`
+  ).all(...classIdsInScope, sessionDate);
   const presentCount = attendanceRows.filter((row) => row.status === 'present').length;
   const absentCount = attendanceRows.filter((row) => row.status === 'absent').length;
 
@@ -8950,7 +9002,18 @@ app.post('/admin/classes/:id/tables/organize', requireAuth, requireRole('admin',
   const enrolledRegistrationIds = await getEnrolledRegistrationIds();
   const activeAdultRegs = await getActiveAdultRegistrations();
   const activeFamilyFaithRegs = await getActiveFamilyFaithRegistrations();
-  const roster = getClassRoster(ccdClass, activeStudentRegs, enrolledRegistrationIds, activeAdultRegs, activeFamilyFaithRegs, allCcdClasses);
+  // Organizing tables re-seats the whole shared room at once when combined — everyone
+  // present gets grouped by age together, then each assignment is written back under its
+  // own real class id (see resolveCombinedRosterOwner) so neither side's data is misfiled.
+  const combinedPartner = getCombinedPartnerClass(ccdClass, allCcdClasses);
+  const roster = [
+    ...getClassRoster(ccdClass, activeStudentRegs, enrolledRegistrationIds, activeAdultRegs, activeFamilyFaithRegs, allCcdClasses)
+      .map((r) => ({ ...r, ownerClassId: classId })),
+    ...(combinedPartner
+      ? getClassRoster(combinedPartner, activeStudentRegs, enrolledRegistrationIds, activeAdultRegs, activeFamilyFaithRegs, allCcdClasses)
+          .map((r) => ({ ...r, ownerClassId: combinedPartner.id }))
+      : []),
+  ];
 
   if (!roster.length) {
     return res.json({ ok: true, assignments: [] });
@@ -8974,17 +9037,19 @@ app.post('/admin/classes/:id/tables/organize', requireAuth, requireRole('admin',
     // differ by more than one instead of dumping every leftover student onto the last one.
     const size = baseSize + (table <= remainder ? 1 : 0);
     for (let i = 0; i < size; i += 1) {
-      assignments.push({ studentRegistrationId: sorted[cursor].id, tableNumber: table });
+      assignments.push({ studentRegistrationId: sorted[cursor].id, tableNumber: table, ownerClassId: sorted[cursor].ownerClassId });
       cursor += 1;
     }
   }
 
-  await db.prepare('DELETE FROM ccd_class_table_assignments WHERE ccd_class_id = ?').run(classId);
+  const classIdsInScope = combinedPartner ? [classId, combinedPartner.id] : [classId];
+  const classIdsPlaceholder = classIdsInScope.map(() => '?').join(',');
+  await db.prepare(`DELETE FROM ccd_class_table_assignments WHERE ccd_class_id IN (${classIdsPlaceholder})`).run(...classIdsInScope);
   for (const a of assignments) {
     await db.prepare(`
       INSERT INTO ccd_class_table_assignments (ccd_class_id, student_registration_id, table_number)
       VALUES (?, ?, ?)
-    `).run(classId, a.studentRegistrationId, a.tableNumber);
+    `).run(a.ownerClassId, a.studentRegistrationId, a.tableNumber);
   }
 
   return res.json({ ok: true, assignments, tableCount: effectiveTableCount });
@@ -9012,16 +9077,37 @@ app.post('/admin/classes/:id/tables/assign', requireAuth, requireRole('admin', '
     }
   }
 
+  // See resolveCombinedRosterOwner: a manually re-seated student may belong to the
+  // combined partner class, so the assignment must land under their real owning class.
+  const allCcdClasses = await getCcdClasses();
+  const ccdClass = allCcdClasses.find((c) => c.id === classId);
+  if (!ccdClass) {
+    return res.status(404).json({ ok: false, error: 'Class not found.' });
+  }
+  const combinedPartner = getCombinedPartnerClass(ccdClass, allCcdClasses);
+  let ownerClassId = classId;
+  if (combinedPartner) {
+    const activeStudentRegs = await db.prepare('SELECT * FROM student_registrations WHERE archived_at IS NULL').all();
+    const enrolledRegistrationIds = await getEnrolledRegistrationIds();
+    const activeAdultRegs = await getActiveAdultRegistrations();
+    const activeFamilyFaithRegs = await getActiveFamilyFaithRegistrations();
+    const ownerClass = resolveCombinedRosterOwner(studentRegistrationId, ccdClass, combinedPartner, activeStudentRegs, enrolledRegistrationIds, activeAdultRegs, activeFamilyFaithRegs, allCcdClasses);
+    if (!ownerClass) {
+      return res.status(400).json({ ok: false, error: 'Student not found in this class.' });
+    }
+    ownerClassId = ownerClass.id;
+  }
+
   if (tableNumber === null) {
     await db.prepare(
       'DELETE FROM ccd_class_table_assignments WHERE ccd_class_id = ? AND student_registration_id = ?'
-    ).run(classId, studentRegistrationId);
+    ).run(ownerClassId, studentRegistrationId);
   } else {
     await db.prepare(`
       INSERT INTO ccd_class_table_assignments (ccd_class_id, student_registration_id, table_number)
       VALUES (?, ?, ?)
       ON DUPLICATE KEY UPDATE table_number = VALUES(table_number)
-    `).run(classId, studentRegistrationId, tableNumber);
+    `).run(ownerClassId, studentRegistrationId, tableNumber);
   }
 
   return res.json({ ok: true, tableNumber });
