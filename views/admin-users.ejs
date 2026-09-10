@@ -14,6 +14,7 @@
 <main class="container py-4 app-shell mx-auto">
   <% const availableCcdClasses = Array.isArray(typeof ccdClasses === 'undefined' ? null : ccdClasses) ? ccdClasses : []; %>
   <% const availableCatechists = Array.isArray(typeof catechists === 'undefined' ? null : catechists) ? catechists : []; %>
+  <% const availableFamilyFaithLeaders = Array.isArray(typeof familyFaithLeaders === 'undefined' ? null : familyFaithLeaders) ? familyFaithLeaders : []; %>
   <% const availableEventDefinitions = Array.isArray(typeof eventDefinitions === 'undefined' ? null : eventDefinitions) ? eventDefinitions : []; %>
   <% const availableManagedEvents = Array.isArray(typeof managedEvents === 'undefined' ? null : managedEvents) ? managedEvents : []; %>
   <% const selectableRegistrationYears = Array.isArray(typeof registrationYearOptions === 'undefined' ? null : registrationYearOptions) ? registrationYearOptions : []; %>
@@ -438,11 +439,18 @@
                       <div class="col-md-3">
                         <label class="form-label mb-1" style="font-size:.7rem"><%= t('assigned_catechist_col') %></label>
                         <% const assignedCatechistIds = new Set((ccdClass.catechists || []).map((c) => Number(c.id))); %>
-                        <% if (!availableCatechists.length) { %>
+                        <% // Adult classes (OCIA, Family Faith Formation, etc.) are the ones a family faith
+                           // leader actually facilitates — include them alongside catechists for those rows
+                           // only, so this list matches the pool the class-detail page's own Assign button
+                           // already offers (see assignableCatechistPool in the GET /admin/classes/:id route). %>
+                        <% const rowAssignablePeople = ccdClass.classKind === 'adult'
+                          ? [...availableCatechists, ...availableFamilyFaithLeaders]
+                          : availableCatechists; %>
+                        <% if (!rowAssignablePeople.length) { %>
                           <div style="font-size:.8rem;color:var(--muted)"><%= t('unassigned') %></div>
                         <% } else { %>
                           <div class="border rounded p-2" style="max-height:110px;overflow-y:auto;background:var(--white)">
-                            <% availableCatechists.forEach((catechist) => { %>
+                            <% rowAssignablePeople.forEach((catechist) => { %>
                               <div class="form-check">
                                 <input class="form-check-input" type="checkbox" name="catechist_user_ids" value="<%= catechist.id %>" id="catechist-<%= ccdClass.id %>-<%= catechist.id %>" <%= assignedCatechistIds.has(Number(catechist.id)) ? 'checked' : '' %>>
                                 <label class="form-check-label" style="font-size:.82rem" for="catechist-<%= ccdClass.id %>-<%= catechist.id %>">
