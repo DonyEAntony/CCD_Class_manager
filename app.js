@@ -6999,6 +6999,7 @@ app.get('/admin/users', requireAuth, requireRole('admin'), asyncHandler(async (r
   const adorationAvailableDates = await getAvailableAdorationDates({ includePast: true });
   const ccdClasses = await getCcdClasses();
   const catechists = await getCatechists();
+  const familyFaithLeaders = await getFamilyFaithLeaders();
   const eventDefinitions = await getFaithFormationEventDefinitions();
   // event_date comes back from mysql2 as a Date object, not a string — rendering it
   // directly in the table (or pre-filling the edit form's <input type="date">) would show
@@ -7027,6 +7028,7 @@ app.get('/admin/users', requireAuth, requireRole('admin'), asyncHandler(async (r
     ccdClasses,
     ccdGradeMeanings: CCD_GRADE_MEANINGS,
     catechists,
+    familyFaithLeaders,
     eventDefinitions,
     managedEvents,
     faithFormationSettings,
@@ -8282,11 +8284,14 @@ app.post('/admin/ccd-classes/:id/update', requireAuth, requireRole('admin'), asy
   }
 
   if (catechistIds.length) {
+    // Matches the role set the class-detail page's own Assign button already accepts
+    // (see POST /admin/classes/:id/catechists/add) — family faith leaders facilitate
+    // adult classes the same way catechists teach children's ones.
     const validCatechists = await db.prepare(
-      `SELECT id FROM users WHERE role = 'catechist' AND COALESCE(account_status, 'active') <> 'deleted' AND id IN (${catechistIds.map(() => '?').join(',')})`
+      `SELECT id FROM users WHERE role IN ('catechist', 'family_faith_leader') AND COALESCE(account_status, 'active') <> 'deleted' AND id IN (${catechistIds.map(() => '?').join(',')})`
     ).all(...catechistIds);
     if (validCatechists.length !== catechistIds.length) {
-      req.flash('error', 'One or more selected users is not a catechist.');
+      req.flash('error', 'One or more selected users is not a catechist or family faith leader.');
       return res.redirect('/admin/users');
     }
   }
