@@ -181,6 +181,8 @@
                       <%= catechist.full_name || catechist.email %>
                       <% if (catechist.role === 'family_faith_leader') { %>
                         <span class="badge bg-secondary-subtle text-secondary-emphasis" style="font-size:.7rem;font-weight:600"><%= t('family_faith_leader') %></span>
+                      <% } else if (catechist.role === 'admin') { %>
+                        <span class="badge bg-secondary-subtle text-secondary-emphasis" style="font-size:.7rem;font-weight:600"><%= t('role_admin') %></span>
                       <% } %>
                     </div>
                     <div style="font-size:.82rem;color:var(--muted)">
