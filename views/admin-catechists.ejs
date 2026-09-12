@@ -177,7 +177,12 @@
               <% catechists.forEach((catechist) => { %>
                 <tr>
                   <td>
-                    <div style="font-weight:600"><%= catechist.full_name || catechist.email %></div>
+                    <div style="font-weight:600">
+                      <%= catechist.full_name || catechist.email %>
+                      <% if (catechist.role === 'family_faith_leader') { %>
+                        <span class="badge bg-secondary-subtle text-secondary-emphasis" style="font-size:.7rem;font-weight:600"><%= t('family_faith_leader') %></span>
+                      <% } %>
+                    </div>
                     <div style="font-size:.82rem;color:var(--muted)">
                       <%= catechist.email %><% if (catechist.phone) { %> &middot; <%= catechist.phone %><% } %>
                     </div>
