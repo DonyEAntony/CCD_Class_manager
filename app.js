@@ -4647,7 +4647,13 @@ app.get('/registration/children', requireAuth, asyncHandler(async (req, res) => 
   let currentRegistrationId = null;
   let prefillStudentId = null;
 
-  if (stage === 'student' && groupIds.length) {
+  // Family fields (including primary_contact_religion) prefill from groupIds[0] whenever
+  // groupIds are present — not just on the student stage. Without this, a parent who left
+  // the wizard mid-registration and came back to the family/intro stage (e.g. via a saved
+  // link, or browser back/forward) saw every family field, religion included, rendered
+  // blank even though it had already been saved on their first child's row — nothing was
+  // actually lost, the stage just never looked it up.
+  if (groupIds.length && (stage === 'student' || stage === 'intro')) {
     parentInfo = await db.prepare(
       'SELECT * FROM student_registrations WHERE id = ? AND user_id = ?'
     ).get(groupIds[0], req.user.id);
@@ -4659,11 +4665,16 @@ app.get('/registration/children', requireAuth, asyncHandler(async (req, res) => 
       parentInfo.zip = addressParts[1] ? addressParts[1].split(' ')[1] : '';
     }
 
-    if (studentIndex <= groupIds.length) {
+    if (stage === 'student' && studentIndex <= groupIds.length) {
       studentPrefill = await db.prepare(
         'SELECT * FROM student_registrations WHERE id = ? AND user_id = ?'
       ).get(groupIds[studentIndex - 1], req.user.id);
       currentRegistrationId = studentPrefill ? studentPrefill.id : null;
+    } else if (stage === 'intro') {
+      // Editing the family stage of an existing group must update the anchor
+      // registration (groupIds[0]) it prefilled from, not silently create a new one —
+      // the form's hidden registration_id field reads this.
+      currentRegistrationId = parentInfo ? parentInfo.id : null;
     }
   } else if (stage === 'intro' && !groupIds.length && req.query.prefillStudentId) {
     // A parent starting a brand-new registration from one of their persistent student

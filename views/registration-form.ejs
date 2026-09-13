@@ -781,6 +781,13 @@
           }
           selectEl.appendChild(opt);
         });
+        // Nothing to actually choose between when there's only one section for this
+        // sacramental year — auto-select it instead of leaving the placeholder active and
+        // making the family pick the single option that's already there for them.
+        if (!matched && options.length === 1) {
+          selectEl.options[1].selected = true;
+          matched = options[0];
+        }
         placeholder.selected = !matched;
         return matched;
       };

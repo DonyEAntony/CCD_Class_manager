@@ -5,6 +5,7 @@
 <p class="small"><%= text('Family → Children → Documents → Review', 'Familia → Niños → Documentos → Revisión') %></p>
 <h1><%= text('Review your family registration', 'Revise la inscripción de su familia') %></h1>
 <p><%= text('Your children are saved as drafts. Check every child below before submitting the family registration.', 'Los niños están guardados como borradores. Revise cada niño antes de enviar la inscripción familiar.') %></p>
+<p><a href="/registration/children?stage=intro&groupIds=<%= group.ids.join(',') %>&total=<%= group.total %>"><%= text('Edit family contact info', 'Editar información de contacto familiar') %></a></p>
 <% rows.forEach((row,index) => { %><section class="page-card p-4 mb-3">
 <div class="d-flex justify-content-between gap-2 flex-wrap"><h2 class="h5"><%= row.student_full_name %></h2><a href="/registration/children?stage=student&index=<%= index+1 %>&groupIds=<%= group.ids.join(',') %>&total=<%= group.total %>"><%= text('Edit', 'Editar') %></a></div>
 <dl class="row mb-0">
