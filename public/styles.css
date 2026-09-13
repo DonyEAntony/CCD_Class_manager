@@ -1084,6 +1084,10 @@ legend {
     .ca-quick-templates { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
     .ca-quick-btn { border-radius: var(--radius-control); border: 1px solid var(--ca-divider); background: transparent; color: var(--ca-neutral-700); padding: 7px 14px; font: 600 12px var(--ca-font-body); cursor: pointer; }
     .ca-quick-btn:hover { background: var(--ca-surface-2); }
+    .ca-icon-picker { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+    .ca-icon-picker-label { font-size: 11px; color: var(--ca-neutral-600); margin-right: 2px; }
+    .ca-icon-btn { border-radius: var(--radius-control); border: 1px solid var(--ca-divider); background: transparent; padding: 4px 9px; font-size: 15px; line-height: 1; cursor: pointer; min-height: auto; }
+    .ca-icon-btn:hover { background: var(--ca-surface-2); }
     .ca-field-label { font: 600 10.5px var(--ca-font-body); letter-spacing: .1em; text-transform: uppercase; color: var(--ca-neutral-600); display: block; margin-bottom: 5px; }
     .ca-composer .form-control { border: 1px solid var(--ca-neutral-300); background: var(--ca-surface); border-radius: var(--radius-control); padding: 10px 16px; font: 400 14px var(--ca-font-body); color: var(--ca-text); }
     .ca-composer textarea.form-control { border-radius: var(--ca-radius-md); resize: vertical; }
