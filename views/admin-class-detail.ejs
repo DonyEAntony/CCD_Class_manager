@@ -87,6 +87,7 @@
               <span class="muted" id="recipient-count-label"></span>
               <a href="#" id="copy-all-emails"><%= t('copy_all_emails_label') %></a>
               <span id="copy-all-emails-feedback" class="muted"></span>
+              <button type="button" class="ca-send-btn" data-bs-toggle="modal" data-bs-target="#composeMessageModal"><%= t('send_message_label') %></button>
             </div>
           </div>
         <% } %>
@@ -147,52 +148,63 @@
             </div>
           <% }) %>
 
-          <div class="ca-composer">
-            <div class="ca-composer-title"><%= t('send_message_label') %></div>
-            <div class="ca-quick-templates">
-              <button type="button" class="ca-quick-btn" data-tpl-subject="<%= t('quick_template_absence_subject') %>" data-tpl-body="<%= t('quick_template_absence_body') %>"><%= t('quick_template_absence_label') %></button>
-              <button type="button" class="ca-quick-btn" data-tpl-subject="<%= t('quick_template_documents_subject') %>" data-tpl-body="<%= t('quick_template_documents_body') %>"><%= t('quick_template_documents_label') %></button>
-              <button type="button" class="ca-quick-btn" data-tpl-subject="<%= t('quick_template_reminder_subject') %>" data-tpl-body="<%= t('quick_template_reminder_body') %>"><%= t('quick_template_reminder_label') %></button>
-            </div>
-            <div class="row g-3 mt-1">
-              <div class="col-md-6">
-                <label class="ca-field-label"><%= t('subject_label') %></label>
-                <input class="form-control" type="text" name="subject" id="composer-subject" placeholder="<%= t('subject_placeholder') %>">
-                <div class="ca-icon-picker">
-                  <span class="ca-icon-picker-label"><%= t('subject_icon_picker_label') %></span>
-                  <% ['📅', '🔔', '📢', '✝️', '⛪', '🙏', '🎉', '⭐'].forEach((icon) => { %>
-                    <button type="button" class="ca-icon-btn" data-icon="<%= icon %>" aria-label="<%= icon %>"><%= icon %></button>
-                  <% }) %>
+          <div class="modal fade" id="composeMessageModal" tabindex="-1" aria-labelledby="composeMessageModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h2 class="modal-title h5" id="composeMessageModalLabel"><%= t('send_message_label') %></h2>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="<%= t('close') %>"></button>
+                </div>
+                <div class="modal-body">
+                  <div class="ca-quick-templates">
+                    <button type="button" class="ca-quick-btn" data-tpl-subject="<%= t('quick_template_absence_subject') %>" data-tpl-body="<%= t('quick_template_absence_body') %>"><%= t('quick_template_absence_label') %></button>
+                    <button type="button" class="ca-quick-btn" data-tpl-subject="<%= t('quick_template_documents_subject') %>" data-tpl-body="<%= t('quick_template_documents_body') %>"><%= t('quick_template_documents_label') %></button>
+                    <button type="button" class="ca-quick-btn" data-tpl-subject="<%= t('quick_template_reminder_subject') %>" data-tpl-body="<%= t('quick_template_reminder_body') %>"><%= t('quick_template_reminder_label') %></button>
+                  </div>
+                  <div class="row g-3 mt-1">
+                    <div class="col-md-6">
+                      <label class="ca-field-label"><%= t('subject_label') %></label>
+                      <input class="form-control" type="text" name="subject" id="composer-subject" placeholder="<%= t('subject_placeholder') %>">
+                      <div class="ca-icon-picker">
+                        <span class="ca-icon-picker-label"><%= t('subject_icon_picker_label') %></span>
+                        <% ['📅', '🔔', '📢', '✝️', '⛪', '🙏', '🎉', '⭐'].forEach((icon) => { %>
+                          <button type="button" class="ca-icon-btn" data-icon="<%= icon %>" aria-label="<%= icon %>"><%= icon %></button>
+                        <% }) %>
+                      </div>
+                    </div>
+                    <div class="col-md-6">
+                      <% const teacherCcEmailsByLower = new Map(); %>
+                      <% (ccdClass.catechists || []).forEach((c) => { if (c.email) teacherCcEmailsByLower.set(c.email.toLowerCase(), c.email); }); %>
+                      <label class="ca-field-label"><%= t('cc_email_label') %></label>
+                      <input class="form-control" type="text" name="cc_email" value="<%= Array.from(teacherCcEmailsByLower.values()).join(', ') %>" placeholder="<%= t('cc_email_placeholder') %>">
+                    </div>
+                  </div>
+                  <div class="mt-3">
+                    <label class="ca-field-label"><%= t('message_label') %></label>
+                    <textarea class="form-control" name="message" id="composer-message" rows="4" required placeholder="<%= t('message_placeholder') %>"></textarea>
+                  </div>
+                  <div class="mt-3">
+                    <label class="ca-field-label"><%= t('attachments_label') %></label>
+                    <input class="form-control" type="file" name="attachments" multiple>
+                    <div class="ca-hint"><%= t('attachments_hint') %></div>
+                  </div>
+                  <label class="ca-checkbox-row">
+                    <input type="checkbox" name="send_mode" value="bcc" id="send-mode-bcc">
+                    <%= t('send_as_bcc_label') %>
+                  </label>
+                  <div class="ca-hint" style="margin-left:25px"><%= t('send_as_bcc_hint') %></div>
+                  <label class="ca-checkbox-row">
+                    <input type="checkbox" name="send_as_html" id="send-as-html">
+                    <%= t('send_as_html_label') %>
+                  </label>
+                  <div class="ca-hint" style="margin-left:25px"><%= t('send_as_html_hint') %></div>
+                </div>
+                <div class="modal-footer">
+                  <span class="muted me-auto" id="recipient-count-label-modal"></span>
+                  <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal"><%= t('cancel') %></button>
+                  <button class="ca-send-btn" type="submit"><%= t('send_message_button') %></button>
                 </div>
               </div>
-              <div class="col-md-6">
-                <% const teacherCcEmailsByLower = new Map(); %>
-                <% (ccdClass.catechists || []).forEach((c) => { if (c.email) teacherCcEmailsByLower.set(c.email.toLowerCase(), c.email); }); %>
-                <label class="ca-field-label"><%= t('cc_email_label') %></label>
-                <input class="form-control" type="text" name="cc_email" value="<%= Array.from(teacherCcEmailsByLower.values()).join(', ') %>" placeholder="<%= t('cc_email_placeholder') %>">
-              </div>
-            </div>
-            <div class="mt-3">
-              <label class="ca-field-label"><%= t('message_label') %></label>
-              <textarea class="form-control" name="message" id="composer-message" rows="4" required placeholder="<%= t('message_placeholder') %>"></textarea>
-            </div>
-            <div class="mt-3">
-              <label class="ca-field-label"><%= t('attachments_label') %></label>
-              <input class="form-control" type="file" name="attachments" multiple>
-              <div class="ca-hint"><%= t('attachments_hint') %></div>
-            </div>
-            <label class="ca-checkbox-row">
-              <input type="checkbox" name="send_mode" value="bcc" id="send-mode-bcc">
-              <%= t('send_as_bcc_label') %>
-            </label>
-            <div class="ca-hint" style="margin-left:25px"><%= t('send_as_bcc_hint') %></div>
-            <label class="ca-checkbox-row">
-              <input type="checkbox" name="send_as_html" id="send-as-html">
-              <%= t('send_as_html_label') %>
-            </label>
-            <div class="ca-hint" style="margin-left:25px"><%= t('send_as_html_hint') %></div>
-            <div class="d-flex justify-content-end mt-3">
-              <button class="ca-send-btn" type="submit"><%= t('send_message_button') %></button>
             </div>
           </div>
           </form>
@@ -657,6 +669,7 @@
   (function () {
     const checkboxes = Array.from(document.querySelectorAll('.message-recipient-checkbox'));
     const countLabel = document.getElementById('recipient-count-label');
+    const modalCountLabel = document.getElementById('recipient-count-label-modal');
     const masterToggle = document.getElementById('roster-select-all-toggle');
     const copyAllEmailsBtn = document.getElementById('copy-all-emails');
     const copyFeedback = document.getElementById('copy-all-emails-feedback');
@@ -697,7 +710,9 @@
     const updateCount = () => {
       const checkedCount = checkboxes.filter((cb) => cb.checked).length;
       const noun = checkedCount === 1 ? studentSingularLabel : studentPluralLabel;
-      countLabel.textContent = checkedCount + ' ' + noun + ' ' + selectedSuffixLabel;
+      const countText = checkedCount + ' ' + noun + ' ' + selectedSuffixLabel;
+      countLabel.textContent = countText;
+      if (modalCountLabel) modalCountLabel.textContent = countText;
       if (bccCheckbox) bccCheckbox.checked = checkedCount > 1;
       if (masterToggle) masterToggle.checked = checkedCount === checkboxes.length;
     };
