@@ -102,7 +102,7 @@
             <% const currentTable = tableByStudent[r.id] || ''; %>
             <div class="ca-roster-card" data-student-row="<%= r.id %>" data-original-index="<%= index %>">
               <div>
-                <input type="checkbox" class="message-recipient-checkbox" name="student_registration_ids" value="<%= r.id %>" id="msg-check-<%= r.id %>" data-email="<%= r.primary_contact_email || '' %>" checked>
+                <input type="checkbox" class="message-recipient-checkbox" name="student_registration_ids" value="<%= r.id %>" id="msg-check-<%= r.id %>" data-email="<%= [r.primary_contact_email, r.email].filter(Boolean).join(',') %>" checked>
               </div>
               <div class="ca-avatar <%= index % 2 === 0 ? 'tone-a' : 'tone-b' %>"><%= initials %></div>
               <div style="min-width:0">
@@ -674,8 +674,10 @@
         const emailsByLower = new Map();
         checkboxes.forEach((cb) => {
           if (!cb.checked) return;
-          const email = (cb.dataset.email || '').trim();
-          if (email) emailsByLower.set(email.toLowerCase(), email);
+          (cb.dataset.email || '').split(',').forEach((raw) => {
+            const email = raw.trim();
+            if (email) emailsByLower.set(email.toLowerCase(), email);
+          });
         });
         const emailList = Array.from(emailsByLower.values()).join(', ');
         if (!emailList) {
