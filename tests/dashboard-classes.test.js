@@ -42,9 +42,47 @@ test('class message recipients include a registration\'s secondary email, not ju
     // Neither set — contributes nothing.
     { primary_contact_email: '', email: '' },
   ];
-  const result = vm.runInNewContext(`${source.slice(start, end)}\nArray.from(recipientsByEmail.values()).sort();`, { selectedStudents });
+  const result = vm.runInNewContext(`${source.slice(start, end)}\nArray.from(recipientsByEmail.values()).sort();`, {
+    selectedStudents, includeAccountEmail: false, accountEmailByUserId: new Map(),
+  });
   assert.deepEqual(Array.from(result), [
     'SAME@example.test', 'adult@example.test', 'onlysecondary@example.test', 'primaryA@example.test', 'secondaryA@example.test',
+  ]);
+});
+
+test('class message recipients add the registering account\'s email only when that option is on', () => {
+  const fs = require('fs');
+  const vm = require('vm');
+  const source = fs.readFileSync(require.resolve('../app'), 'utf8');
+  const start = source.indexOf('    const recipientsByEmail = new Map();');
+  const end = source.indexOf('\n\n', start);
+  const selectedStudents = [
+    // Account email differs from both contact fields — only picked up when opted in.
+    { user_id: 1, primary_contact_email: 'contact@example.test', email: '' },
+    // Account email happens to equal the primary contact — collapses to one entry.
+    { user_id: 2, primary_contact_email: 'same-as-account@example.test', email: '' },
+    // No contact email at all, but the account has one — this student is only reachable
+    // when the option is on.
+    { user_id: 3, primary_contact_email: '', email: '' },
+    // No matching users row for this id at all — no crash, no phantom entry.
+    { user_id: 999, primary_contact_email: 'orphan@example.test', email: '' },
+  ];
+  const accountEmailByUserId = new Map([
+    [1, 'account1@example.test'],
+    [2, 'same-as-account@example.test'],
+    [3, 'account3@example.test'],
+  ]);
+
+  const off = vm.runInNewContext(`${source.slice(start, end)}\nArray.from(recipientsByEmail.values()).sort();`, {
+    selectedStudents, includeAccountEmail: false, accountEmailByUserId,
+  });
+  assert.deepEqual(Array.from(off), ['contact@example.test', 'orphan@example.test', 'same-as-account@example.test']);
+
+  const on = vm.runInNewContext(`${source.slice(start, end)}\nArray.from(recipientsByEmail.values()).sort();`, {
+    selectedStudents, includeAccountEmail: true, accountEmailByUserId,
+  });
+  assert.deepEqual(Array.from(on), [
+    'account1@example.test', 'account3@example.test', 'contact@example.test', 'orphan@example.test', 'same-as-account@example.test',
   ]);
 });
 
