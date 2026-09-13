@@ -24,6 +24,30 @@ test('class messages accept selected combined-class students and exclude unrelat
   }
 });
 
+test('class message recipients include a registration\'s secondary email, not just its primary contact', () => {
+  const fs = require('fs');
+  const vm = require('vm');
+  const source = fs.readFileSync(require.resolve('../app'), 'utf8');
+  const start = source.indexOf('    const recipientsByEmail = new Map();');
+  const end = source.indexOf('\n\n', start);
+  const selectedStudents = [
+    // Both fields set, genuinely different addresses — both should be recipients.
+    { primary_contact_email: 'primaryA@example.test', email: 'secondaryA@example.test' },
+    // Both fields set but they're the same address (any-case) — one recipient, not two.
+    { primary_contact_email: 'same@example.test', email: 'SAME@example.test' },
+    // Only the secondary field is set — still a recipient (previously dropped entirely).
+    { primary_contact_email: '', email: 'onlysecondary@example.test' },
+    // Adult/family-faith roster rows never set r.email at all — no crash, no phantom entry.
+    { primary_contact_email: 'adult@example.test' },
+    // Neither set — contributes nothing.
+    { primary_contact_email: '', email: '' },
+  ];
+  const result = vm.runInNewContext(`${source.slice(start, end)}\nArray.from(recipientsByEmail.values()).sort();`, { selectedStudents });
+  assert.deepEqual(Array.from(result), [
+    'SAME@example.test', 'adult@example.test', 'onlysecondary@example.test', 'primaryA@example.test', 'secondaryA@example.test',
+  ]);
+});
+
 test('resolveCombinedRosterOwner attributes attendance/table writes to the student\'s real class', () => {
   const fs = require('fs');
   const vm = require('vm');

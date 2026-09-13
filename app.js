@@ -9346,11 +9346,19 @@ app.post('/admin/classes/:id/message', requireAuth, requireRole('admin', 'catech
       getClassRoster(messageClass, activeStudentRegs, enrolledRegistrationIds, activeAdultRegs, activeFamilyFaithRegs, ccdClasses)
     ).filter((r) => selectedIds.has(r.id));
 
-    // Dedupe by parent email so siblings selected in the same class don't get a duplicate copy.
+    // Dedupe by email so siblings selected in the same class don't get a duplicate copy,
+    // and so a registration's primary_contact_email and its separate (optional) email
+    // field — the same primary contact's second address, not a different person's —
+    // collapse into one entry each if they happen to match. Only children's registrations
+    // carry that second field; adult and family-faith roster rows
+    // (mapAdultRegistrationToRosterRow / mapFamilyFaithRegistrationToRosterRow) don't set
+    // r.email, so this is a no-op there.
     const recipientsByEmail = new Map();
     selectedStudents.forEach((r) => {
-      const email = (r.primary_contact_email || '').trim();
-      if (email) recipientsByEmail.set(email.toLowerCase(), email);
+      [r.primary_contact_email, r.email].forEach((rawEmail) => {
+        const email = (rawEmail || '').trim();
+        if (email) recipientsByEmail.set(email.toLowerCase(), email);
+      });
     });
 
     if (!recipientsByEmail.size) {
@@ -9394,9 +9402,10 @@ app.post('/admin/classes/:id/message', requireAuth, requireRole('admin', 'catech
 
     // Selected-count minus unique-recipient-count isn't the same as "missing an email" —
     // siblings sharing one parent email collapse into a single recipient too, which isn't
-    // a problem worth reporting. Only students with no email at all are actually missing one.
+    // a problem worth reporting. Only students with neither email field set are actually
+    // missing one (see the primary_contact_email/email dual lookup above).
     const missingEmailNames = selectedStudents
-      .filter((r) => !(r.primary_contact_email || '').trim())
+      .filter((r) => !(r.primary_contact_email || '').trim() && !(r.email || '').trim())
       .map((r) => r.student_full_name)
       .filter(Boolean);
     if (sentCount === 0) {
