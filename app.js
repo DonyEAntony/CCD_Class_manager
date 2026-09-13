@@ -1017,6 +1017,8 @@ const translations = {
     send_as_bcc_hint: 'Sends a single email addressed to you with every family Bcc\'d, so recipients can\'t see each other\'s addresses. Leave unchecked to send each family its own copy.',
     send_as_html_label: 'Send as HTML',
     send_as_html_hint: 'Treats the message box as HTML source (tables, styles, images) instead of plain text — paste a full HTML email body. Unsafe tags are stripped before sending.',
+    include_account_email_label: 'Also email the registering account',
+    include_account_email_hint: 'Includes the login email of whoever submitted the registration, in addition to the contact email(s) on file — useful when a parent registered with a different address than the one they listed as contact.',
     message_label: 'Message',
     message_placeholder: 'Type your message to parents here...',
     attachments_label: 'Attachments (optional)',
@@ -2068,6 +2070,8 @@ const translations = {
     send_as_bcc_hint: 'Envía un único correo dirigido a usted con cada familia en Cco, para que los destinatarios no vean las direcciones de los demás. Déjelo sin marcar para enviar a cada familia su propia copia.',
     send_as_html_label: 'Enviar como HTML',
     send_as_html_hint: 'Trata el cuadro de mensaje como código HTML (tablas, estilos, imágenes) en vez de texto plano — pegue el cuerpo completo de un correo HTML. Las etiquetas no seguras se eliminan antes de enviar.',
+    include_account_email_label: 'Incluir también el correo de la cuenta que registró',
+    include_account_email_hint: 'Incluye el correo de inicio de sesión de quien envió la inscripción, además del/los correo(s) de contacto registrados — útil cuando un padre se registró con una dirección distinta a la que indicó como contacto.',
     message_label: 'Mensaje',
     message_placeholder: 'Escriba su mensaje para los padres aquí...',
     attachments_label: 'Archivos adjuntos (opcional)',
@@ -9346,16 +9350,37 @@ app.post('/admin/classes/:id/message', requireAuth, requireRole('admin', 'catech
       getClassRoster(messageClass, activeStudentRegs, enrolledRegistrationIds, activeAdultRegs, activeFamilyFaithRegs, ccdClasses)
     ).filter((r) => selectedIds.has(r.id));
 
+    // Optional third address: the login email of whoever actually submitted the
+    // registration (student_registrations.user_id / adult_registrations.user_id /
+    // family_faith_registrations.user_id, all already carried onto every roster row by
+    // getClassRoster's mapping functions) — often the same as primary_contact_email, but
+    // a parent can register with one account while listing a different contact address,
+    // so this is opt-in rather than always-on like the primary/secondary pair below.
+    const includeAccountEmail = req.body.include_account_email === 'on';
+    const accountEmailByUserId = new Map();
+    if (includeAccountEmail) {
+      const userIds = [...new Set(selectedStudents.map((r) => r.user_id).filter(Boolean))];
+      if (userIds.length) {
+        const accountRows = await db.prepare(
+          `SELECT id, email FROM users WHERE id IN (${userIds.map(() => '?').join(',')})`
+        ).all(...userIds);
+        accountRows.forEach((u) => accountEmailByUserId.set(u.id, u.email));
+      }
+    }
+
     // Dedupe by email so siblings selected in the same class don't get a duplicate copy,
-    // and so a registration's primary_contact_email and its separate (optional) email
-    // field — the same primary contact's second address, not a different person's —
-    // collapse into one entry each if they happen to match. Only children's registrations
-    // carry that second field; adult and family-faith roster rows
-    // (mapAdultRegistrationToRosterRow / mapFamilyFaithRegistrationToRosterRow) don't set
-    // r.email, so this is a no-op there.
+    // and so a registration's primary_contact_email, its separate (optional) email field
+    // — the same primary contact's second address, not a different person's — and (when
+    // opted in above) its registering account's email collapse into one entry each if
+    // they happen to match. Only children's registrations carry the second email field;
+    // adult and family-faith roster rows (mapAdultRegistrationToRosterRow /
+    // mapFamilyFaithRegistrationToRosterRow) don't set r.email, so that part is a no-op
+    // there.
     const recipientsByEmail = new Map();
     selectedStudents.forEach((r) => {
-      [r.primary_contact_email, r.email].forEach((rawEmail) => {
+      const candidates = [r.primary_contact_email, r.email];
+      if (includeAccountEmail) candidates.push(accountEmailByUserId.get(r.user_id));
+      candidates.forEach((rawEmail) => {
         const email = (rawEmail || '').trim();
         if (email) recipientsByEmail.set(email.toLowerCase(), email);
       });
@@ -9402,10 +9427,11 @@ app.post('/admin/classes/:id/message', requireAuth, requireRole('admin', 'catech
 
     // Selected-count minus unique-recipient-count isn't the same as "missing an email" —
     // siblings sharing one parent email collapse into a single recipient too, which isn't
-    // a problem worth reporting. Only students with neither email field set are actually
-    // missing one (see the primary_contact_email/email dual lookup above).
+    // a problem worth reporting. Only students with none of the eligible email sources
+    // set are actually missing one (see the recipient dedup above).
     const missingEmailNames = selectedStudents
-      .filter((r) => !(r.primary_contact_email || '').trim() && !(r.email || '').trim())
+      .filter((r) => !(r.primary_contact_email || '').trim() && !(r.email || '').trim()
+        && !(includeAccountEmail && (accountEmailByUserId.get(r.user_id) || '').trim()))
       .map((r) => r.student_full_name)
       .filter(Boolean);
     if (sentCount === 0) {
