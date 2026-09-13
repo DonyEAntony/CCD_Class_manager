@@ -8340,9 +8340,12 @@ const getOwnedCcdClass = async (req, classId) => {
 };
 
 app.get('/admin/catechists', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  // The Discipleship Team roster covers everyone who leads formation — catechists
+  // teaching children's classes, family faith leaders facilitating adult sessions, and
+  // admins — not just the 'catechist' role literally.
   const catechists = await db.prepare(`
-    SELECT id, full_name, email, phone FROM users
-    WHERE role = 'catechist' AND COALESCE(account_status, 'active') <> 'deleted'
+    SELECT id, full_name, email, phone, role FROM users
+    WHERE role IN ('catechist', 'family_faith_leader', 'admin') AND COALESCE(account_status, 'active') <> 'deleted'
     ORDER BY COALESCE(NULLIF(full_name, ''), email) ASC
   `).all();
 
@@ -8431,7 +8434,7 @@ app.post('/admin/catechists/email-preview', requireAuth, requireRole('admin'), a
 // already reads fine outside a class context, so no separate template is needed).
 app.post('/admin/catechists/:id/message', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   const catechist = await db.prepare(
-    `SELECT id, full_name, email FROM users WHERE id = ? AND role = 'catechist'`
+    `SELECT id, full_name, email FROM users WHERE id = ? AND role IN ('catechist', 'family_faith_leader', 'admin')`
   ).get(req.params.id);
   if (!catechist || !catechist.email) {
     req.flash('error', res.locals.t('catechist_not_found'));
