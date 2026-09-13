@@ -827,6 +827,11 @@ const init = async () => {
     await ensureColumn('student_registrations', 'child_place_of_birth_country', 'TEXT');
     await ensureColumn('student_registrations', 'sacramental_year', 'VARCHAR(30) NULL');
     await ensureColumn('student_registrations', 'preferred_class_time', 'VARCHAR(100) NULL');
+    // Stable reference alongside the free-text label above — matching sacramental-grade
+    // roster membership on this id (see getClassRoster in app.js) instead of comparing
+    // preferred_class_time against a class's current text means renaming a class's time
+    // or room no longer silently drops existing registrants off its roster.
+    await ensureColumn('student_registrations', 'ccd_class_id', 'INT NULL');
     await ensureColumn('student_registrations', 'non_sacramental_grade', 'VARCHAR(10) NULL');
     await ensureColumn('student_registrations', 'not_baptized', 'TINYINT(1) NOT NULL DEFAULT 0');
     await ensureColumn('student_registrations', 'archived_at', 'DATETIME NULL');
@@ -846,6 +851,7 @@ const init = async () => {
     await ensureColumn('student_registrations', 'is_altar_server', 'TINYINT(1) NOT NULL DEFAULT 0');
     await ensureColumn('student_registrations', 'altar_server_training_date_id', 'INT NULL');
     await ensureColumn('students', 'preferred_class_time', 'VARCHAR(100) NULL');
+    await ensureColumn('students', 'ccd_class_id', 'INT NULL');
     await ensureColumn('students', 'baptism_certificate_path', 'TEXT');
     await ensureColumn('students', 'first_communion_certificate_path', 'TEXT');
     await ensureColumn('students', 'disabilities_comments', 'TEXT');
@@ -868,6 +874,65 @@ const init = async () => {
     await ensureColumn('students', 'confirmation_received_by', 'INT NULL');
     await ensureColumn('students', 'is_altar_server', 'TINYINT(1) NOT NULL DEFAULT 0');
     await ensureColumn('students', 'altar_server_training_date_id', 'INT NULL');
+
+    // One-time backfill: resolve ccd_class_id from the existing free-text
+    // preferred_class_time for any sacramental-grade row that predates this column,
+    // using the exact same class_time / class_time+classroom matching getClassRoster
+    // relies on today (see app.js). Guarded by `ccd_class_id IS NULL`, so this is a
+    // no-op on every startup after the first pass — the last place in the app that
+    // ever needs to trust that copied string; every new registration from here on
+    // submits a real id directly (handleChildrenRegistration in app.js).
+    try {
+      const SACRAMENTAL_GRADES = ['1', '2', '8', '9'];
+      const [classRows] = await pool.query(
+        `SELECT id, grade_level, class_time, classroom FROM ccd_classes WHERE grade_level IN (?, ?, ?, ?)`,
+        SACRAMENTAL_GRADES
+      );
+      const classSlotValue = (c) => (c.classroom ? `${c.class_time} — ${c.classroom}` : c.class_time);
+      const classesByGrade = new Map();
+      classRows.forEach((c) => {
+        if (!classesByGrade.has(c.grade_level)) classesByGrade.set(c.grade_level, []);
+        classesByGrade.get(c.grade_level).push(c);
+      });
+
+      // student_registrations: grade comes from sacramental_year, mirroring app.js's
+      // resolveCcdGrade (never the legacy ccd_grade_level column, which the wizard never
+      // populates).
+      const SACRAMENTAL_YEAR_GRADE = {
+        first_year_communion: '1', second_year_communion: '2',
+        first_year_confirmation: '8', second_year_confirmation: '9',
+      };
+      const [regRows] = await pool.query(
+        `SELECT id, sacramental_year, preferred_class_time FROM student_registrations
+         WHERE ccd_class_id IS NULL AND archived_at IS NULL AND sacramental_year IN (?, ?, ?, ?)`,
+        Object.keys(SACRAMENTAL_YEAR_GRADE)
+      );
+      for (const reg of regRows) {
+        const grade = SACRAMENTAL_YEAR_GRADE[reg.sacramental_year];
+        const candidates = classesByGrade.get(grade) || [];
+        const match = candidates.find((c) => reg.preferred_class_time === c.class_time || reg.preferred_class_time === classSlotValue(c));
+        if (match) {
+          await pool.query('UPDATE student_registrations SET ccd_class_id = ? WHERE id = ?', [match.id, reg.id]);
+        }
+      }
+
+      // students: carries its own grade_level column directly, no sacramental_year
+      // mapping needed.
+      const [studentRows] = await pool.query(
+        `SELECT id, grade_level, preferred_class_time FROM students WHERE ccd_class_id IS NULL AND grade_level IN (?, ?, ?, ?)`,
+        SACRAMENTAL_GRADES
+      );
+      for (const s of studentRows) {
+        const candidates = classesByGrade.get(s.grade_level) || [];
+        const match = candidates.find((c) => s.preferred_class_time === c.class_time || s.preferred_class_time === classSlotValue(c));
+        if (match) {
+          await pool.query('UPDATE students SET ccd_class_id = ? WHERE id = ?', [match.id, s.id]);
+        }
+      }
+    } catch (error) {
+      console.warn('[migration] Skipped ccd_class_id backfill', error?.message || error);
+    }
+
     await ensureColumn('sponsor_confirmations', 'is_st_matthew_parishioner', 'TINYINT(1) NOT NULL DEFAULT 0');
     await ensureColumn('sponsor_confirmations', 'sponsor_certificate_path', 'TEXT');
     await ensureColumn('sponsor_confirmations', 'admin_verified', 'TINYINT(1) NOT NULL DEFAULT 0');

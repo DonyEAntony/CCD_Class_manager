@@ -2544,6 +2544,13 @@ const getClassRoster = (ccdClass, allStudentRegs, enrolledRegistrationIds, allAd
     if (resolveCcdGrade(reg) !== ccdClass.grade_level) return false;
     if (reg.status === 'admitted' && !enrolledRegistrationIds.has(reg.id)) return false;
     if (!SACRAMENTAL_GRADE_LEVELS.has(ccdClass.grade_level)) return true;
+    // ccd_class_id is a real foreign key set directly by the registration form (see
+    // handleChildrenRegistration) and wins outright once present — it can't go stale the
+    // way the free-text fallback below can if a class's time/room is edited later (see
+    // the ccd_class_id backfill note in db.js). Only rows that predate this column (never
+    // backfilled, or their matching class was since deleted) fall through to the old
+    // string comparison.
+    if (reg.ccd_class_id != null) return reg.ccd_class_id === ccdClass.id;
     return reg.preferred_class_time === ccdClass.class_time || reg.preferred_class_time === getClassSlotValue(ccdClass);
   });
 };
@@ -2582,6 +2589,7 @@ const findClassForStudentReg = (reg, ccdClasses) => {
     if (c.classKind === 'adult') return false;
     if (c.grade_level !== gradeLevel) return false;
     if (!SACRAMENTAL_GRADE_LEVELS.has(c.grade_level)) return true;
+    if (reg.ccd_class_id != null) return reg.ccd_class_id === c.id;
     return reg.preferred_class_time === c.class_time || reg.preferred_class_time === getClassSlotValue(c);
   }) || null;
 };
@@ -2824,7 +2832,7 @@ const getVisibleNotificationsForUser = async (user) => {
 // (unchanged), ready for whenever they're registered again for the next year.
 const rolloverEnrolledStudentsForSchoolYear = async (schoolYear) => {
   const rows = await db.prepare(`
-    SELECT sr.id AS registration_id, s.id AS student_id, s.grade_level, s.preferred_class_time
+    SELECT sr.id AS registration_id, s.id AS student_id, s.grade_level, s.preferred_class_time, s.ccd_class_id
     FROM student_registrations sr
     JOIN students s ON s.id = sr.student_id
     WHERE sr.school_year = ? AND sr.status = 'admitted' AND sr.archived_at IS NULL AND s.student_status = 'enrolled'
@@ -2838,6 +2846,7 @@ const rolloverEnrolledStudentsForSchoolYear = async (schoolYear) => {
     const matchedClass = ccdClasses.find((c) => {
       if (c.grade_level !== row.grade_level) return false;
       if (!SACRAMENTAL_GRADE_LEVELS.has(c.grade_level)) return true;
+      if (row.ccd_class_id != null) return row.ccd_class_id === c.id;
       return row.preferred_class_time === c.class_time || row.preferred_class_time === getClassSlotValue(c);
     });
 
@@ -4647,7 +4656,13 @@ app.get('/registration/children', requireAuth, asyncHandler(async (req, res) => 
   let currentRegistrationId = null;
   let prefillStudentId = null;
 
-  if (stage === 'student' && groupIds.length) {
+  // Family fields (including primary_contact_religion) prefill from groupIds[0] whenever
+  // groupIds are present — not just on the student stage. Without this, a parent who left
+  // the wizard mid-registration and came back to the family/intro stage (e.g. via a saved
+  // link, or browser back/forward) saw every family field, religion included, rendered
+  // blank even though it had already been saved on their first child's row — nothing was
+  // actually lost, the stage just never looked it up.
+  if (groupIds.length && (stage === 'student' || stage === 'intro')) {
     parentInfo = await db.prepare(
       'SELECT * FROM student_registrations WHERE id = ? AND user_id = ?'
     ).get(groupIds[0], req.user.id);
@@ -4659,11 +4674,16 @@ app.get('/registration/children', requireAuth, asyncHandler(async (req, res) => 
       parentInfo.zip = addressParts[1] ? addressParts[1].split(' ')[1] : '';
     }
 
-    if (studentIndex <= groupIds.length) {
+    if (stage === 'student' && studentIndex <= groupIds.length) {
       studentPrefill = await db.prepare(
         'SELECT * FROM student_registrations WHERE id = ? AND user_id = ?'
       ).get(groupIds[studentIndex - 1], req.user.id);
       currentRegistrationId = studentPrefill ? studentPrefill.id : null;
+    } else if (stage === 'intro') {
+      // Editing the family stage of an existing group must update the anchor
+      // registration (groupIds[0]) it prefilled from, not silently create a new one —
+      // the form's hidden registration_id field reads this.
+      currentRegistrationId = parentInfo ? parentInfo.id : null;
     }
   } else if (stage === 'intro' && !groupIds.length && req.query.prefillStudentId) {
     // A parent starting a brand-new registration from one of their persistent student
@@ -5026,6 +5046,21 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
     const baptismCertFiles = getPublicUploadPaths(req.files?.baptism_certificate);
     const communionCertFiles = getPublicUploadPaths(req.files?.first_communion_certificate);
 
+    // A submitted preferred_class_id is client-controllable, so it's only trusted once
+    // it names a real ccd_classes row for this registration's own resolved grade —
+    // anything else (stale, tampered, or simply absent) falls back to null, matching
+    // today's behavior before this column existed. See getClassRoster for how this id
+    // then takes priority over the free-text preferred_class_time at read time.
+    const resolvePreferredClassId = async (sacramentalYear, nonSacramentalGrade, gradeLevel) => {
+      const rawClassId = Number.parseInt(req.body.preferred_class_id, 10);
+      if (!Number.isInteger(rawClassId)) return null;
+      const resolvedGrade = resolveCcdGrade({ sacramental_year: sacramentalYear, non_sacramental_grade: nonSacramentalGrade, ccd_grade_level: gradeLevel });
+      if (!resolvedGrade) return null;
+      const allCcdClasses = await getCcdClasses();
+      const matchedClass = allCcdClasses.find((c) => c.id === rawClassId && c.grade_level === resolvedGrade);
+      return matchedClass ? matchedClass.id : null;
+    };
+
     const totalChildren = Number.parseInt(req.body.total_children, 10);
     const isWizardSubmission = Number.isInteger(totalChildren) && totalChildren > 0;
 
@@ -5064,6 +5099,7 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
       const city = (req.body.child_place_of_birth_city || '').trim();
       const country = (req.body.child_place_of_birth_country || '').trim();
       const placeOfBirthLegacy = [city, country].filter(Boolean).join(', ') || null;
+      const resolvedClassId = await resolvePreferredClassId(req.body.sacramental_year, req.body.non_sacramental_grade, null);
 
       const rowRegistrationFee = studentIndex === 1 ? fees.registrationFee : 0;
       const existingRowId = req.body.registration_id ? Number(req.body.registration_id) : null;
@@ -5125,7 +5161,7 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
             school_attending = ?, school_grade_level = ?,
             baptism_date = ?, baptism_church = ?,
             first_communion_date = ?, first_communion_church = ?, not_baptized = ?,
-            sacramental_year = ?, preferred_class_time = ?, non_sacramental_grade = ?,
+            sacramental_year = ?, preferred_class_time = ?, ccd_class_id = ?, non_sacramental_grade = ?,
             disabilities_comments = ?, parent_signature = ?, email = ?,
             registration_fee = ?, sacramental_fee = ?, late_fee = ?,
             baptism_certificate_path = COALESCE(?, baptism_certificate_path),
@@ -5147,7 +5183,7 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
           orNull(req.body.school_attending), orNull(req.body.school_grade_level),
           req.body.not_baptized ? null : orNull(req.body.baptism_date), req.body.not_baptized ? null : orNull(req.body.baptism_church),
           req.body.not_baptized ? null : orNull(req.body.first_communion_date), req.body.not_baptized ? null : orNull(req.body.first_communion_church), req.body.not_baptized ? 1 : 0,
-          req.body.sacramental_year || null, req.body.preferred_class_time || null, orNull(req.body.non_sacramental_grade),
+          req.body.sacramental_year || null, req.body.preferred_class_time || null, resolvedClassId, orNull(req.body.non_sacramental_grade),
           orNull(req.body.disabilities_comments), orNull(req.body.parent_signature), orNull(req.body.email),
           rowRegistrationFee, fees.sacramentalFee, fees.lateFee,
           baptismCert, communionCert,
@@ -5182,10 +5218,10 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
             student_dob, child_place_of_birth, child_place_of_birth_city, child_place_of_birth_country,
             school_attending, school_grade_level,
             baptism_date, baptism_church, first_communion_date, first_communion_church, not_baptized,
-            sacramental_year, preferred_class_time, non_sacramental_grade,
+            sacramental_year, preferred_class_time, ccd_class_id, non_sacramental_grade,
             disabilities_comments, parent_signature, email, registration_fee, sacramental_fee, late_fee,
             baptism_certificate_path, first_communion_certificate_path, status, student_id
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
           registrationOwnerUserId, faithFormationSettings.schoolYear,
           `${req.body.primary_contact_first_name || ''} ${req.body.primary_contact_last_name || ''}`,
@@ -5202,7 +5238,7 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
           orNull(req.body.school_attending), orNull(req.body.school_grade_level),
           req.body.not_baptized ? null : orNull(req.body.baptism_date), req.body.not_baptized ? null : orNull(req.body.baptism_church),
           req.body.not_baptized ? null : orNull(req.body.first_communion_date), req.body.not_baptized ? null : orNull(req.body.first_communion_church), req.body.not_baptized ? 1 : 0,
-          req.body.sacramental_year || null, req.body.preferred_class_time || null, orNull(req.body.non_sacramental_grade),
+          req.body.sacramental_year || null, req.body.preferred_class_time || null, resolvedClassId, orNull(req.body.non_sacramental_grade),
           orNull(req.body.disabilities_comments), orNull(req.body.parent_signature), orNull(req.body.email),
           rowRegistrationFee, fees.sacramentalFee, fees.lateFee,
           baptismCert, communionCert,
@@ -5257,6 +5293,7 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
     const city = (req.body.child_place_of_birth_city || '').trim();
     const country = (req.body.child_place_of_birth_country || '').trim();
     const placeOfBirthLegacy = [city, country].filter(Boolean).join(', ') || null;
+    const resolvedClassId = await resolvePreferredClassId(req.body.sacramental_year, req.body.non_sacramental_grade, req.body.ccd_grade_level);
 
     await db.prepare(`
       UPDATE student_registrations SET
@@ -5272,7 +5309,7 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
         school_attending = ?, school_grade_level = ?,
         baptism_date = ?, baptism_church = ?,
         first_communion_date = ?, first_communion_church = ?, not_baptized = ?,
-        sacramental_year = ?, preferred_class_time = ?, non_sacramental_grade = ?,
+        sacramental_year = ?, preferred_class_time = ?, ccd_class_id = ?, non_sacramental_grade = ?,
         disabilities_comments = ?, parent_signature = ?, email = ?,
         registration_fee = ?, sacramental_fee = ?, late_fee = ?,
         baptism_certificate_path = COALESCE(?, baptism_certificate_path),
@@ -5294,7 +5331,7 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
       orNull(req.body.school_attending), orNull(req.body.school_grade_level),
       req.body.not_baptized ? null : orNull(req.body.baptism_date), req.body.not_baptized ? null : orNull(req.body.baptism_church),
       req.body.not_baptized ? null : orNull(req.body.first_communion_date), req.body.not_baptized ? null : orNull(req.body.first_communion_church), req.body.not_baptized ? 1 : 0,
-      req.body.sacramental_year || null, req.body.preferred_class_time || null, orNull(req.body.non_sacramental_grade),
+      req.body.sacramental_year || null, req.body.preferred_class_time || null, resolvedClassId, orNull(req.body.non_sacramental_grade),
       orNull(req.body.disabilities_comments), orNull(req.body.parent_signature), orNull(req.body.email),
       fees.registrationFee, fees.sacramentalFee, fees.lateFee,
       baptismCert, communionCert, nextStatus,
@@ -5418,7 +5455,7 @@ app.post('/registration/children/:id/status', requireAuth, requireRole('admin'),
     if (reg.student_id) {
       await db.prepare(
         `UPDATE students SET
-           student_full_name = ?, student_dob = ?, student_gender = ?, grade_level = ?, preferred_class_time = ?,
+           student_full_name = ?, student_dob = ?, student_gender = ?, grade_level = ?, preferred_class_time = ?, ccd_class_id = ?,
            parent_name = ?, primary_contact_email = ?, primary_contact_phone = ?,
            baptism_certificate_path = ?, first_communion_certificate_path = ?, disabilities_comments = ?,
            certificates_verified = ?, certificates_verified_at = ?, certificates_verified_by = ?,
@@ -5428,7 +5465,7 @@ app.post('/registration/children/:id/status', requireAuth, requireRole('admin'),
            student_status = 'enrolled', source_registration_id = ?
          WHERE id = ?`
       ).run(
-        reg.student_full_name, reg.student_dob, reg.student_gender, resolveCcdGrade(reg), reg.preferred_class_time,
+        reg.student_full_name, reg.student_dob, reg.student_gender, resolveCcdGrade(reg), reg.preferred_class_time, reg.ccd_class_id,
         reg.parent_name, reg.primary_contact_email, reg.primary_contact_phone,
         reg.baptism_certificate_path, reg.first_communion_certificate_path, reg.disabilities_comments,
         reg.certificates_verified, reg.certificates_verified_at, reg.certificates_verified_by,
@@ -5440,7 +5477,7 @@ app.post('/registration/children/:id/status', requireAuth, requireRole('admin'),
     } else {
       const created = await db.prepare(
         `INSERT INTO students (
-           student_full_name, student_dob, student_gender, grade_level, preferred_class_time,
+           student_full_name, student_dob, student_gender, grade_level, preferred_class_time, ccd_class_id,
            parent_user_id, parent_name, primary_contact_email, primary_contact_phone,
            baptism_certificate_path, first_communion_certificate_path, disabilities_comments,
            certificates_verified, certificates_verified_at, certificates_verified_by,
@@ -5448,9 +5485,9 @@ app.post('/registration/children/:id/status', requireAuth, requireRole('admin'),
            tuition_amount_paid, tuition_transaction_id, tuition_payment_method,
            parent_contacted, parent_contacted_at, parent_contacted_by,
            student_status, source_registration_id
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'enrolled', ?)`
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'enrolled', ?)`
       ).run(
-        reg.student_full_name, reg.student_dob, reg.student_gender, resolveCcdGrade(reg), reg.preferred_class_time,
+        reg.student_full_name, reg.student_dob, reg.student_gender, resolveCcdGrade(reg), reg.preferred_class_time, reg.ccd_class_id,
         reg.user_id, reg.parent_name, reg.primary_contact_email, reg.primary_contact_phone,
         reg.baptism_certificate_path, reg.first_communion_certificate_path, reg.disabilities_comments,
         reg.certificates_verified, reg.certificates_verified_at, reg.certificates_verified_by,

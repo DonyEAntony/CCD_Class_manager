@@ -111,6 +111,38 @@ test('resolveCombinedRosterOwner attributes attendance/table writes to the stude
   assert.equal(resolveCombinedRosterOwner(80, classA, null), null);
 });
 
+test('getClassRoster prefers ccd_class_id over a possibly-stale preferred_class_time label', () => {
+  const fs = require('fs');
+  const vm = require('vm');
+  const source = fs.readFileSync(require.resolve('../app'), 'utf8');
+  const start = source.indexOf('const getClassRoster = (ccdClass');
+  const end = source.indexOf('\n};', start) + 3;
+  const getClassRoster = vm.runInNewContext(`${source.slice(start, end)}\ngetClassRoster;`, {
+    resolveCcdGrade: (reg) => reg.grade_level,
+    SACRAMENTAL_GRADE_LEVELS: new Set(['9']),
+    getClassSlotValue: (c) => (c.classroom ? `${c.class_time} — ${c.classroom}` : c.class_time),
+  });
+
+  const ccdClass = { id: 42, grade_level: '9', class_time: 'Sunday 10am', classroom: 'Room B' };
+  const enrolledRegistrationIds = new Set([1, 2, 3]);
+
+  // Renaming a class's time/room after students registered used to silently drop them
+  // from the roster (the original bug). Once ccd_class_id is set it wins outright, so a
+  // stale preferred_class_time no longer matters.
+  const idMatch = { id: 1, grade_level: '9', status: 'admitted', ccd_class_id: 42, preferred_class_time: 'Sunday 9am (old room)' };
+  assert.deepEqual(getClassRoster(ccdClass, [idMatch], enrolledRegistrationIds), [idMatch]);
+
+  // Rows that predate the ccd_class_id column (never backfilled) keep matching by the
+  // old string comparison — no regression for them.
+  const stringMatch = { id: 2, grade_level: '9', status: 'admitted', ccd_class_id: null, preferred_class_time: 'Sunday 10am — Room B' };
+  assert.deepEqual(getClassRoster(ccdClass, [stringMatch], enrolledRegistrationIds), [stringMatch]);
+
+  // ccd_class_id pointing at a different class wins outright even if the stale string
+  // happens to still match this class's current text.
+  const idElsewhere = { id: 3, grade_level: '9', status: 'admitted', ccd_class_id: 99, preferred_class_time: 'Sunday 10am — Room B' };
+  assert.deepEqual(getClassRoster(ccdClass, [idElsewhere], enrolledRegistrationIds), []);
+});
+
 const options = {
   user: { id: 7, role: 'catechist' }, today: '2026-09-07', formatDate: value => value,
   label: item => item.grade_level,

@@ -409,12 +409,13 @@
               <legend><%= t('sacramental_preparation_legend') %></legend>
               <% const regSacramentalYear = studentSource ? (studentSource.sacramental_year || '') : ''; %>
               <% const regPreferredClassTime = studentSource ? (studentSource.preferred_class_time || '') : ''; %>
+              <% const regPreferredClassId = studentSource && studentSource.ccd_class_id ? studentSource.ccd_class_id : ''; %>
               <% const prefillSacrament = regSacramentalYear.indexOf('confirmation') !== -1 ? 'confirmation' : (regSacramentalYear.indexOf('communion') !== -1 ? 'communion' : ''); %>
               <% const prefillYear = regSacramentalYear.indexOf('first_year') === 0 ? 'first' : (regSacramentalYear.indexOf('second_year') === 0 ? 'second' : ''); %>
               <% const prefillCategory = regSacramentalYear ? 'sacramental' : (studentSource ? 'non_sacramental' : ''); %>
               <% const classesByGrade = {}; availableCcdClasses.forEach((c) => {
                 if (!classesByGrade[c.grade_level]) classesByGrade[c.grade_level] = [];
-                classesByGrade[c.grade_level].push({ time: c.class_time || 'TBD', room: c.classroom || '' });
+                classesByGrade[c.grade_level].push({ id: c.id, time: c.class_time || 'TBD', room: c.classroom || '' });
               }); %>
               <% const gradeSlotValue = (slot) => (slot.room ? `${slot.time} — ${slot.room}` : slot.time); %>
               <div class="row g-3">
@@ -502,8 +503,8 @@
                   <select class="form-select communion-class-time-select"></select>
                   <div class="form-text communion-class-time-empty d-none"><%= t('not_yet_scheduled') %></div>
                   <script type="application/json" class="communion-class-time-data"><%- JSON.stringify({
-                    first: (classesByGrade['1'] || []).map((slot) => gradeSlotValue(slot)),
-                    second: (classesByGrade['2'] || []).map((slot) => gradeSlotValue(slot)),
+                    first: (classesByGrade['1'] || []).map((slot) => ({ value: gradeSlotValue(slot), id: slot.id })),
+                    second: (classesByGrade['2'] || []).map((slot) => ({ value: gradeSlotValue(slot), id: slot.id })),
                   }) %></script>
                 </div>
                 <div class="col-md-6 d-none confirmation-class-time-wrap">
@@ -511,12 +512,13 @@
                   <select class="form-select confirmation-class-time-select"></select>
                   <div class="form-text confirmation-class-time-empty d-none"><%= t('not_yet_scheduled') %></div>
                   <script type="application/json" class="confirmation-class-time-data"><%- JSON.stringify({
-                    first: (classesByGrade['8'] || []).map((slot) => gradeSlotValue(slot)),
-                    second: (classesByGrade['9'] || []).map((slot) => gradeSlotValue(slot)),
+                    first: (classesByGrade['8'] || []).map((slot) => ({ value: gradeSlotValue(slot), id: slot.id })),
+                    second: (classesByGrade['9'] || []).map((slot) => ({ value: gradeSlotValue(slot), id: slot.id })),
                   }) %></script>
                 </div>
                 <input type="hidden" name="sacramental_year" class="sacramental-year-hidden" value="<%= regSacramentalYear %>">
                 <input type="hidden" name="preferred_class_time" class="preferred-class-time-hidden" value="<%= regPreferredClassTime %>">
+                <input type="hidden" name="preferred_class_id" class="preferred-class-id-hidden" value="<%= regPreferredClassId %>">
               </div>
             </fieldset>
 
@@ -749,6 +751,7 @@
       const communionSlots = JSON.parse(sacFieldset.querySelector('.communion-class-time-data').textContent || '{}');
       const confirmationSlots = JSON.parse(sacFieldset.querySelector('.confirmation-class-time-data').textContent || '{}');
       const classTimeHidden = sacFieldset.querySelector('.preferred-class-time-hidden');
+      const classIdHidden = sacFieldset.querySelector('.preferred-class-id-hidden');
       const sacramentalYearHidden = sacFieldset.querySelector('.sacramental-year-hidden');
 
       const getChecked = (radios) => {
@@ -756,12 +759,18 @@
         return found ? found.value : '';
       };
 
-      const populateClassTimeSelect = (selectEl, emptyEl, options, prefillValue) => {
+      // options is now [{ value, id }] — id is the real ccd_classes row this option
+      // represents, carried on the <option> via a data attribute so a change/auto-select
+      // can set the hidden preferred_class_id alongside the existing text hidden field.
+      // Matching prefillValue against the same class's ccd_classes.id, not just its old
+      // text, keeps this correct even if that class's own time/room text changed since
+      // the value was last saved (see the ccd_class_id migration note in db.js).
+      const populateClassTimeSelect = (selectEl, emptyEl, options, prefillValue, prefillId) => {
         selectEl.innerHTML = '';
         if (!options.length) {
           selectEl.classList.add('d-none');
           emptyEl.classList.remove('d-none');
-          return '';
+          return { value: '', id: '' };
         }
         selectEl.classList.remove('d-none');
         emptyEl.classList.add('d-none');
@@ -770,18 +779,27 @@
         placeholder.disabled = true;
         placeholder.textContent = '<%= t('select_placeholder') %>';
         selectEl.appendChild(placeholder);
-        let matched = '';
-        options.forEach((optionValue) => {
+        let matched = { value: '', id: '' };
+        options.forEach((option) => {
           const opt = document.createElement('option');
-          opt.value = optionValue;
-          opt.textContent = optionValue;
-          if (optionValue === prefillValue) {
+          opt.value = option.value;
+          opt.textContent = option.value;
+          opt.dataset.classId = option.id;
+          const isPriorMatch = prefillId ? String(option.id) === String(prefillId) : option.value === prefillValue;
+          if (isPriorMatch) {
             opt.selected = true;
-            matched = optionValue;
+            matched = { value: option.value, id: option.id };
           }
           selectEl.appendChild(opt);
         });
-        placeholder.selected = !matched;
+        // Nothing to actually choose between when there's only one section for this
+        // sacramental year — auto-select it instead of leaving the placeholder active and
+        // making the family pick the single option that's already there for them.
+        if (!matched.value && options.length === 1) {
+          selectEl.options[1].selected = true;
+          matched = { value: options[0].value, id: options[0].id };
+        }
+        placeholder.selected = !matched.value;
         return matched;
       };
 
@@ -805,15 +823,17 @@
         confirmationWrap.classList.toggle('d-none', sacrament !== 'confirmation' || !year);
 
         const currentClassTime = classTimeHidden.value;
+        const currentClassId = classIdHidden.value;
+        let matched = { value: '', id: '' };
         if (sacrament === 'communion' && year) {
           const options = year === 'first' ? communionSlots.first : communionSlots.second;
-          classTimeHidden.value = populateClassTimeSelect(communionSelect, communionEmpty, options || [], currentClassTime);
+          matched = populateClassTimeSelect(communionSelect, communionEmpty, options || [], currentClassTime, currentClassId);
         } else if (sacrament === 'confirmation' && year) {
           const options = year === 'first' ? confirmationSlots.first : confirmationSlots.second;
-          classTimeHidden.value = populateClassTimeSelect(confirmationSelect, confirmationEmpty, options || [], currentClassTime);
-        } else {
-          classTimeHidden.value = '';
+          matched = populateClassTimeSelect(confirmationSelect, confirmationEmpty, options || [], currentClassTime, currentClassId);
         }
+        classTimeHidden.value = matched.value;
+        classIdHidden.value = matched.id;
         syncRequiredByVisibility();
       };
 
@@ -854,8 +874,14 @@
           updateSacUI();
         });
       }
-      communionSelect.addEventListener('change', () => { classTimeHidden.value = communionSelect.value; });
-      confirmationSelect.addEventListener('change', () => { classTimeHidden.value = confirmationSelect.value; });
+      communionSelect.addEventListener('change', () => {
+        classTimeHidden.value = communionSelect.value;
+        classIdHidden.value = communionSelect.selectedOptions[0] ? (communionSelect.selectedOptions[0].dataset.classId || '') : '';
+      });
+      confirmationSelect.addEventListener('change', () => {
+        classTimeHidden.value = confirmationSelect.value;
+        classIdHidden.value = confirmationSelect.selectedOptions[0] ? (confirmationSelect.selectedOptions[0].dataset.classId || '') : '';
+      });
 
       // A child who has never been baptized can only start Sacramental Preparation
       // from the very beginning: First Year of Holy Communion (under 9) or First
