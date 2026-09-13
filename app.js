@@ -11,7 +11,7 @@ const passport = require('./auth');
 const db = require('./db');
 const MySqlSessionStore = require('./session-store');
 const { processScanDocument, verifyDocumentAiConfiguration } = require('./document-ai');
-const { sendVerificationEmail, smtpLogConfig, verifyMailConfiguration, buildVerificationEmailContent, sendPasswordResetEmail, sendClassMessageEmail, sendCatechistInvitationEmail, sendTemporaryPasswordEmail } = require('./mailer');
+const { sendVerificationEmail, smtpLogConfig, verifyMailConfiguration, buildVerificationEmailContent, sendPasswordResetEmail, sendClassMessageEmail, sendCatechistInvitationEmail, sendTemporaryPasswordEmail, buildClassMessageEmailContent, wrapBrandedEmailHtml } = require('./mailer');
 const { listTemplatesWithFields, renderTemplate, sanitizeEmailHtml } = require('./email-templates');
 const { requireAuth, requireRole } = require('./middleware');
 const { createCommunicationStore } = require('./communications-store');
@@ -9455,6 +9455,31 @@ app.post('/admin/classes/:id/message', requireAuth, requireRole('admin', 'catech
   } finally {
     cleanupAttachments();
   }
+}));
+
+// Renders exactly what the compose dialog's message box would actually send — the
+// sanitized HTML body as-is when "Send as HTML" is checked (matching sendClassMessageEmail's
+// html param, which is used verbatim, never re-wrapped), or the plain-text message wrapped
+// in the same branded shell a normal send gets otherwise. Target of the dialog's "Preview"
+// button (formtarget="_blank"/an iframe), same pattern as POST /admin/catechists/email-preview.
+// No roster/recipient/attachment handling since this never actually sends anything.
+app.post('/admin/classes/:id/message-preview', requireAuth, requireRole('admin', 'catechist', 'family_faith_leader'), asyncHandler(async (req, res) => {
+  const message = typeof req.body.message === 'string' ? req.body.message.trim() : '';
+  const subject = typeof req.body.subject === 'string' ? req.body.subject.trim() : '';
+  const sendAsHtml = req.body.send_as_html === 'on';
+
+  if (!message) {
+    res.set('Content-Type', 'text/html; charset=utf-8');
+    return res.status(400).send('<p style="font-family:Arial,sans-serif;padding:20px;color:#6f7a75;">Nothing to preview yet — enter a message first.</p>');
+  }
+
+  const senderName = req.user.full_name || req.user.email;
+  const html = sendAsHtml
+    ? sanitizeEmailHtml(message)
+    : wrapBrandedEmailHtml(buildClassMessageEmailContent({ subject, message, senderName }).html);
+
+  res.set('Content-Type', 'text/html; charset=utf-8');
+  return res.send(html);
 }));
 
 app.post('/admin/events', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
