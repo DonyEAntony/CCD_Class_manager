@@ -158,6 +158,12 @@
               <div class="col-md-6">
                 <label class="ca-field-label"><%= t('subject_label') %></label>
                 <input class="form-control" type="text" name="subject" id="composer-subject" placeholder="<%= t('subject_placeholder') %>">
+                <div class="ca-icon-picker">
+                  <span class="ca-icon-picker-label"><%= t('subject_icon_picker_label') %></span>
+                  <% ['📅', '🔔', '📢', '✝️', '⛪', '🙏', '🎉', '⭐'].forEach((icon) => { %>
+                    <button type="button" class="ca-icon-btn" data-icon="<%= icon %>" aria-label="<%= icon %>"><%= icon %></button>
+                  <% }) %>
+                </div>
               </div>
               <div class="col-md-6">
                 <% const teacherCcEmailsByLower = new Map(); %>
@@ -627,6 +633,23 @@
       btn.addEventListener('click', () => {
         if (subjectInput) subjectInput.value = btn.getAttribute('data-tpl-subject') || '';
         if (messageInput) messageInput.value = btn.getAttribute('data-tpl-body') || '';
+      });
+    });
+  }());
+
+  (function () {
+    const subjectInput = document.getElementById('composer-subject');
+    if (!subjectInput) return;
+    document.querySelectorAll('.ca-icon-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const icon = btn.getAttribute('data-icon') || '';
+        const start = subjectInput.selectionStart ?? subjectInput.value.length;
+        const end = subjectInput.selectionEnd ?? subjectInput.value.length;
+        const insert = icon + ' ';
+        subjectInput.value = subjectInput.value.slice(0, start) + insert + subjectInput.value.slice(end);
+        const cursor = start + insert.length;
+        subjectInput.focus();
+        subjectInput.setSelectionRange(cursor, cursor);
       });
     });
   }());
