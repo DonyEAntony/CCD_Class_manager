@@ -9348,10 +9348,11 @@ app.post('/admin/classes/:id/message', requireAuth, requireRole('admin', 'catech
 
     // Dedupe by email so siblings selected in the same class don't get a duplicate copy,
     // and so a registration's primary_contact_email and its separate (optional) email
-    // field — often a second parent/guardian's address — collapse into one entry each if
-    // they happen to match. Only children's registrations carry that second field; adult
-    // and family-faith roster rows (mapAdultRegistrationToRosterRow /
-    // mapFamilyFaithRegistrationToRosterRow) don't set r.email, so this is a no-op there.
+    // field — the same primary contact's second address, not a different person's —
+    // collapse into one entry each if they happen to match. Only children's registrations
+    // carry that second field; adult and family-faith roster rows
+    // (mapAdultRegistrationToRosterRow / mapFamilyFaithRegistrationToRosterRow) don't set
+    // r.email, so this is a no-op there.
     const recipientsByEmail = new Map();
     selectedStudents.forEach((r) => {
       [r.primary_contact_email, r.email].forEach((rawEmail) => {

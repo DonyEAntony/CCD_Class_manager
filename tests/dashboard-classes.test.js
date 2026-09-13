@@ -32,7 +32,7 @@ test('class message recipients include a registration\'s secondary email, not ju
   const end = source.indexOf('\n\n', start);
   const selectedStudents = [
     // Both fields set, genuinely different addresses — both should be recipients.
-    { primary_contact_email: 'MomA@example.test', email: 'dada@example.test' },
+    { primary_contact_email: 'primaryA@example.test', email: 'secondaryA@example.test' },
     // Both fields set but they're the same address (any-case) — one recipient, not two.
     { primary_contact_email: 'same@example.test', email: 'SAME@example.test' },
     // Only the secondary field is set — still a recipient (previously dropped entirely).
@@ -44,7 +44,7 @@ test('class message recipients include a registration\'s secondary email, not ju
   ];
   const result = vm.runInNewContext(`${source.slice(start, end)}\nArray.from(recipientsByEmail.values()).sort();`, { selectedStudents });
   assert.deepEqual(Array.from(result), [
-    'MomA@example.test', 'SAME@example.test', 'adult@example.test', 'dada@example.test', 'onlysecondary@example.test',
+    'SAME@example.test', 'adult@example.test', 'onlysecondary@example.test', 'primaryA@example.test', 'secondaryA@example.test',
   ]);
 });
 
