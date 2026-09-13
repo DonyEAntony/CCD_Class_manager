@@ -12,7 +12,7 @@ const db = require('./db');
 const MySqlSessionStore = require('./session-store');
 const { processScanDocument, verifyDocumentAiConfiguration } = require('./document-ai');
 const { sendVerificationEmail, smtpLogConfig, verifyMailConfiguration, buildVerificationEmailContent, sendPasswordResetEmail, sendClassMessageEmail, sendCatechistInvitationEmail, sendTemporaryPasswordEmail } = require('./mailer');
-const { listTemplatesWithFields, renderTemplate } = require('./email-templates');
+const { listTemplatesWithFields, renderTemplate, sanitizeEmailHtml } = require('./email-templates');
 const { requireAuth, requireRole } = require('./middleware');
 const { createCommunicationStore } = require('./communications-store');
 const { createCommunications } = require('./communications');
@@ -1014,6 +1014,8 @@ const translations = {
     cc_email_placeholder: 'you@example.com',
     send_as_bcc_label: 'Send as one email (Bcc all recipients)',
     send_as_bcc_hint: 'Sends a single email addressed to you with every family Bcc\'d, so recipients can\'t see each other\'s addresses. Leave unchecked to send each family its own copy.',
+    send_as_html_label: 'Send as HTML',
+    send_as_html_hint: 'Treats the message box as HTML source (tables, styles, images) instead of plain text — paste a full HTML email body. Unsafe tags are stripped before sending.',
     message_label: 'Message',
     message_placeholder: 'Type your message to parents here...',
     attachments_label: 'Attachments (optional)',
@@ -2062,6 +2064,8 @@ const translations = {
     cc_email_placeholder: 'tu@ejemplo.com',
     send_as_bcc_label: 'Enviar como un solo correo (Cco a todos los destinatarios)',
     send_as_bcc_hint: 'Envía un único correo dirigido a usted con cada familia en Cco, para que los destinatarios no vean las direcciones de los demás. Déjelo sin marcar para enviar a cada familia su propia copia.',
+    send_as_html_label: 'Enviar como HTML',
+    send_as_html_hint: 'Trata el cuadro de mensaje como código HTML (tablas, estilos, imágenes) en vez de texto plano — pegue el cuerpo completo de un correo HTML. Las etiquetas no seguras se eliminan antes de enviar.',
     message_label: 'Mensaje',
     message_placeholder: 'Escriba su mensaje para los padres aquí...',
     attachments_label: 'Archivos adjuntos (opcional)',
@@ -9299,6 +9303,17 @@ app.post('/admin/classes/:id/message', requireAuth, requireRole('admin', 'catech
       return res.redirect(`/admin/classes/${classId}`);
     }
 
+    // "Send as HTML" treats the same box as a full bulletproof-email body (the
+    // table-based, inline-styled markup the other templates in this app use) instead of
+    // plain text. Sanitized before use — see sanitizeEmailHtml — since it's about to
+    // reach every recipient's inbox regardless of who composed it.
+    const sendAsHtml = req.body.send_as_html === 'on';
+    const sanitizedHtml = sendAsHtml ? sanitizeEmailHtml(message).trim() : '';
+    if (sendAsHtml && !sanitizedHtml) {
+      req.flash('error', 'The HTML message was empty after removing unsafe content.');
+      return res.redirect(`/admin/classes/${classId}`);
+    }
+
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const rawCcInput = (typeof req.body.cc_email === 'string' ? req.body.cc_email : '').trim();
     const ccEmails = rawCcInput
@@ -9354,6 +9369,7 @@ app.post('/admin/classes/:id/message', requireAuth, requireRole('admin', 'catech
         bcc: bccList.join(', '),
         subject,
         message,
+        html: sendAsHtml ? sanitizedHtml : undefined,
         senderName,
         cc: ccList,
         replyTo,
@@ -9369,7 +9385,7 @@ app.post('/admin/classes/:id/message', requireAuth, requireRole('admin', 'catech
       }
     } else {
       for (const email of recipientsByEmail.values()) {
-        const result = await sendClassMessageEmail({ to: email, subject, message, senderName, cc: ccList, replyTo, attachments });
+        const result = await sendClassMessageEmail({ to: email, subject, message, html: sendAsHtml ? sanitizedHtml : undefined, senderName, cc: ccList, replyTo, attachments });
         if (result.delivered) sentCount += 1;
       }
     }

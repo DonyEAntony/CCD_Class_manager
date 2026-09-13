@@ -140,6 +140,38 @@ const sanitizeParagraphHtml = (html) => sanitizeHtml(html || '', {
   },
 });
 
+// Lets a sender paste a full "bulletproof email" body (the table-based, inline-styled
+// markup every template in this file already uses) into the class-message composer's
+// HTML mode, instead of being limited to the plain-text/simple-paragraph path. Same
+// reasoning as sanitizeParagraphHtml above — admin-authored or not, it's about to reach
+// every recipient's inbox, so it goes through an allowlist rather than being trusted
+// as-is. The allowlist is wide enough for real table layouts and images (unlike the
+// narrow prose-only one above) but still drops <script>/<style>/event handlers and
+// anything not on an http(s)/mailto scheme.
+const EMAIL_HTML_ALLOWED_TAGS = [
+  'table', 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th',
+  'div', 'p', 'span', 'br', 'hr',
+  'strong', 'b', 'em', 'i', 'u', 'small', 'blockquote',
+  'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+  'ul', 'ol', 'li', 'a', 'img',
+];
+const sanitizeEmailHtml = (html) => sanitizeHtml(html || '', {
+  allowedTags: EMAIL_HTML_ALLOWED_TAGS,
+  allowedAttributes: {
+    '*': ['style', 'align', 'valign', 'width', 'height'],
+    table: ['role', 'cellpadding', 'cellspacing', 'border'],
+    td: ['colspan', 'rowspan', 'bgcolor'],
+    th: ['colspan', 'rowspan', 'bgcolor'],
+    a: ['href', 'target', 'rel'],
+    img: ['src', 'alt'],
+  },
+  allowedSchemes: ['http', 'https', 'mailto'],
+  allowedSchemesByTag: { img: ['http', 'https'] },
+  transformTags: {
+    a: sanitizeHtml.simpleTransform('a', { target: '_blank', rel: 'noopener noreferrer' }, true),
+  },
+});
+
 // The notice body is a sender-chosen number of paragraphs (the composer lets them add
 // or remove rows freely, numbered "Paragraph 1", "Paragraph 2", ... with no per-row
 // prompt text), so it's a repeated block like the action items rather than a fixed
@@ -187,4 +219,5 @@ const renderTemplate = (id, valuesByToken, options) => {
 
 module.exports = {
   TEMPLATES, getTemplate, loadTemplateHtml, listTemplatesWithFields, extractPlaceholders, renderTemplate,
+  sanitizeEmailHtml,
 };
