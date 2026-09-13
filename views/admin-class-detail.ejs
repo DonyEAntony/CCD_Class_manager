@@ -203,9 +203,14 @@
                     <%= t('include_account_email_label') %>
                   </label>
                   <div class="ca-hint" style="margin-left:25px"><%= t('include_account_email_hint') %></div>
+                  <div class="mt-3 d-none" id="message-preview-panel">
+                    <label class="ca-field-label"><%= t('staff_broadcast_preview_heading') %></label>
+                    <iframe id="message-preview-frame" title="<%= t('staff_broadcast_preview_heading') %>" style="width:100%;min-height:360px;border:1px solid var(--ca-divider);border-radius:6px;background:#fff"></iframe>
+                  </div>
                 </div>
                 <div class="modal-footer">
                   <span class="muted me-auto" id="recipient-count-label-modal"></span>
+                  <button type="button" class="btn btn-outline-secondary" id="message-preview-toggle"><%= t('staff_broadcast_preview_button') %></button>
                   <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal"><%= t('cancel') %></button>
                   <button class="ca-send-btn" type="submit"><%= t('send_message_button') %></button>
                 </div>
@@ -669,6 +674,54 @@
         subjectInput.setSelectionRange(cursor, cursor);
       });
     });
+  }());
+
+  (function () {
+    const classId = <%- JSON.stringify(ccdClass.id) %>;
+    const toggleBtn = document.getElementById('message-preview-toggle');
+    const panel = document.getElementById('message-preview-panel');
+    const frame = document.getElementById('message-preview-frame');
+    if (!toggleBtn || !panel || !frame) return;
+    const subjectInput = document.getElementById('composer-subject');
+    const messageInput = document.getElementById('composer-message');
+    const htmlCheckbox = document.getElementById('send-as-html');
+
+    const isOpen = () => !panel.classList.contains('d-none');
+
+    function debounce(fn, wait) {
+      let timer;
+      return (...args) => {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn(...args), wait);
+      };
+    }
+
+    const refreshPreview = () => {
+      if (!isOpen()) return;
+      const params = new URLSearchParams({
+        subject: subjectInput ? subjectInput.value : '',
+        message: messageInput ? messageInput.value : '',
+        send_as_html: htmlCheckbox && htmlCheckbox.checked ? 'on' : '',
+      });
+      fetch('/admin/classes/' + classId + '/message-preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params,
+      })
+        .then((r) => r.text())
+        .then((html) => { frame.srcdoc = html; })
+        .catch(() => { /* a transient preview miss isn't worth surfacing here */ });
+    };
+
+    toggleBtn.addEventListener('click', () => {
+      panel.classList.toggle('d-none');
+      if (isOpen()) refreshPreview();
+    });
+
+    const debouncedRefresh = debounce(refreshPreview, 400);
+    if (subjectInput) subjectInput.addEventListener('input', debouncedRefresh);
+    if (messageInput) messageInput.addEventListener('input', debouncedRefresh);
+    if (htmlCheckbox) htmlCheckbox.addEventListener('change', refreshPreview);
   }());
 
   (function () {
