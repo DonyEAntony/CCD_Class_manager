@@ -33,7 +33,7 @@
       width: 14px;
       height: 14px;
       border-radius: 2px;
-      background: var(--status-success-bg);
+      background: var(--forest);
       border: 1px solid var(--forest);
     }
     .year-legend-swatch.off-weekday {
@@ -77,7 +77,8 @@
       height: 1.4em;
     }
     .year-month-table td.has-class {
-      background: var(--status-success-bg);
+      background: var(--forest);
+      color: var(--white);
       font-weight: 700;
     }
     .year-month-table td.off-weekday {
