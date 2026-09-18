@@ -189,6 +189,45 @@ const buildClassMessageEmailContent = ({ subject, message, senderName }) => ({
   `,
 });
 
+// Heads-up to the office that someone offered to volunteer with the Discipleship Team.
+// Takes already-translated label strings so this stays free of the app's dictionaries.
+// Marital status is deliberately not a parameter: it's the one sensitive answer on the
+// form, so it stays in the admin page rather than travelling by email.
+const buildVolunteerNotificationEmailContent = ({
+  fullName, email, phone, roles = [], availability = [], experience = [], experienceDetails, growth = [], notes, adminUrl,
+}) => {
+  const multiline = (value) => escapeHtml(value).replace(/\n/g, '<br>');
+  const rows = [
+    ['Name', escapeHtml(fullName)],
+    ['Email', `<a href="mailto:${escapeHtml(email)}" style="color:${BRAND.navy};">${escapeHtml(email)}</a>`],
+    ['Phone', escapeHtml(phone)],
+    ['Would like to help with', roles.length ? escapeHtml(roles.join(', ')) : ''],
+    ['Availability', availability.length ? escapeHtml(availability.join(', ')) : ''],
+    ['Prior experience', experience.length ? escapeHtml(experience.join(', ')) : ''],
+    ['Experience details', experienceDetails ? multiline(experienceDetails) : ''],
+    ['Wants to grow in', growth.length ? escapeHtml(growth.join(', ')) : ''],
+    ['Notes', notes ? multiline(notes) : ''],
+  ].filter(([, value]) => value);
+
+  const rowsHtml = rows.map(([label, value]) => `
+      <tr>
+        <td style="padding:6px 12px 6px 0;vertical-align:top;color:${BRAND.muted};font-size:13px;white-space:nowrap;">${label}</td>
+        <td style="padding:6px 0;vertical-align:top;font-size:14px;">${value}</td>
+      </tr>`).join('');
+
+  return {
+    // Whitespace is collapsed so a crafted name can't put a line break in the subject.
+    subject: `New Discipleship Team volunteer: ${String(fullName).replace(/\s+/g, ' ').trim()}`,
+    html: wrapBrandedEmailHtml(`
+      <p style="margin:0 0 16px;">Someone has offered to volunteer with the Discipleship Team.</p>
+      <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;">${rowsHtml}
+      </table>
+      <p style="margin:16px 0 0;font-size:13px;color:${BRAND.muted};">Replying to this email goes straight to ${escapeHtml(fullName)}. Their full answers are on the Discipleship Team page.</p>
+      ${adminUrl ? emailButton(escapeHtml(adminUrl), 'View volunteer sign-ups') : ''}
+    `),
+  };
+};
+
 // A rough plain-text fallback for emails whose HTML body is a fully pre-built template
 // (see the `html` param on sendClassMessageEmail below) rather than one wrapped from a
 // simple message string, for mail clients that render text/plain instead of text/html.
@@ -481,6 +520,7 @@ const sendCatechistInvitationEmail = async ({ to, activationUrl, fullName }) => 
 module.exports = {
   hasSmtpConfig, sendVerificationEmail, resolvedFrom, smtpLogConfig, verifyMailConfiguration, buildVerificationEmailContent,
   sendPasswordResetEmail, buildPasswordResetEmailContent, sendClassMessageEmail, buildClassMessageEmailContent,
+  buildVolunteerNotificationEmailContent,
   sendCatechistInvitationEmail, buildCatechistInvitationEmailContent,
   sendTemporaryPasswordEmail, buildTemporaryPasswordEmailContent,
   wrapBrandedEmailHtml, emailButton,

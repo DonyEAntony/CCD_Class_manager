@@ -21,6 +21,8 @@
       <p class="sub mb-0"><%= t('admin_catechists_subtitle') %></p>
     </div>
     <div class="d-flex gap-2">
+      <% const newVolunteerCount = volunteerSignups.filter((volunteer) => volunteer.status === 'new').length; %>
+      <a class="btn btn-outline-secondary" href="#volunteer-signups"><%= t('volunteer_admin_header') %><% if (newVolunteerCount) { %> <span class="badge text-bg-primary"><%= newVolunteerCount %> <%= t('volunteer_new_count') %></span><% } %></a>
       <a class="btn btn-outline-secondary" href="/resources"><%= t('manage_resources_nav') %></a>
       <a class="btn btn-outline-secondary" href="/admin/notifications"><%= t('manage_notifications_nav') %></a>
     </div>
@@ -218,6 +220,81 @@
                       <div class="col-12 col-md-2">
                         <button class="btn btn-primary w-100" type="submit"><%= t('catechist_message_send_button') %></button>
                       </div>
+                    </form>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+  </div>
+
+  <div class="page-card mt-4" id="volunteer-signups">
+    <div class="card-header">
+      <h2 class="h5 mb-1"><%= t('volunteer_admin_header') %></h2>
+      <p class="mb-0" style="font-size:.85rem;color:var(--muted)"><%= t('volunteer_admin_desc') %></p>
+    </div>
+    <div class="card-body p-0">
+      <% if (!volunteerSignups.length) { %>
+        <div class="p-4 text-center" style="color:var(--muted);font-size:.9rem"><em><%= t('volunteer_admin_empty') %></em></div>
+      <% } else { %>
+        <div class="table-responsive">
+          <table class="table mb-0 align-top">
+            <thead>
+              <tr>
+                <th><%= t('volunteer_col_volunteer') %></th>
+                <th><%= t('volunteer_col_help') %></th>
+                <th><%= t('volunteer_col_experience') %></th>
+                <th><%= t('volunteer_col_growth') %></th>
+                <th><%= t('status') %></th>
+              </tr>
+            </thead>
+            <tbody>
+              <% volunteerSignups.forEach((volunteer) => { %>
+                <tr>
+                  <td style="min-width:200px">
+                    <div style="font-weight:600"><%= volunteer.full_name %></div>
+                    <div style="font-size:.82rem"><a href="mailto:<%= volunteer.email %>"><%= volunteer.email %></a></div>
+                    <div style="font-size:.82rem;color:var(--muted)"><%= volunteer.phone %></div>
+                    <div style="font-size:.78rem;color:var(--muted)"><%= formatDateOnly(volunteer.created_at) %></div>
+                  </td>
+                  <td style="font-size:.85rem;min-width:180px">
+                    <%= volunteer.roleList.map((slug) => t('volunteer_role_' + slug)).join(', ') %>
+                    <% if (volunteer.availabilityList.length) { %>
+                      <div style="font-size:.8rem;color:var(--muted)"><%= volunteer.availabilityList.map((slug) => t('volunteer_availability_' + slug)).join(', ') %></div>
+                    <% } %>
+                  </td>
+                  <td style="font-size:.85rem;min-width:220px">
+                    <div><strong><%= t('volunteer_label_marital') %>:</strong> <%= t('volunteer_marital_' + volunteer.marital_status) %></div>
+                    <% if (volunteer.experienceList.length) { %>
+                      <div><%= volunteer.experienceList.map((slug) => t('volunteer_experience_' + slug)).join(', ') %></div>
+                    <% } %>
+                    <% if (volunteer.experience_details) { %>
+                      <div style="font-size:.8rem;color:var(--muted);white-space:pre-line"><%= volunteer.experience_details %></div>
+                    <% } %>
+                  </td>
+                  <td style="font-size:.85rem;min-width:200px">
+                    <% if (volunteer.growthList.length) { %>
+                      <div><%= volunteer.growthList.map((slug) => t('volunteer_growth_' + slug)).join(', ') %></div>
+                    <% } %>
+                    <% if (volunteer.notes) { %>
+                      <div style="font-size:.8rem;color:var(--muted);white-space:pre-line"><%= volunteer.notes %></div>
+                    <% } %>
+                    <% if (!volunteer.growthList.length && !volunteer.notes) { %>&mdash;<% } %>
+                  </td>
+                  <td style="min-width:190px">
+                    <form class="d-flex gap-1 align-items-center mb-1" method="post" action="/admin/discipleship-volunteers/<%= volunteer.id %>/status">
+                      <select class="form-select form-select-sm" style="min-width:7.5rem" name="status" aria-label="<%= t('status') %>">
+                        <% volunteerStatuses.forEach((status) => { %>
+                          <option value="<%= status %>" <%= volunteer.status === status ? 'selected' : '' %>><%= t('volunteer_status_' + status) %></option>
+                        <% }) %>
+                      </select>
+                      <button class="btn btn-sm btn-outline-primary" type="submit"><%= t('volunteer_update') %></button>
+                    </form>
+                    <form method="post" action="/admin/discipleship-volunteers/<%= volunteer.id %>/delete" onsubmit="return confirm('<%= t('confirm_remove_volunteer') %>');">
+                      <button class="btn btn-sm btn-outline-danger" type="submit"><%= t('remove') %></button>
                     </form>
                   </td>
                 </tr>

@@ -11,7 +11,7 @@ const passport = require('./auth');
 const db = require('./db');
 const MySqlSessionStore = require('./session-store');
 const { processScanDocument, verifyDocumentAiConfiguration } = require('./document-ai');
-const { sendVerificationEmail, smtpLogConfig, verifyMailConfiguration, buildVerificationEmailContent, sendPasswordResetEmail, sendClassMessageEmail, sendCatechistInvitationEmail, sendTemporaryPasswordEmail, buildClassMessageEmailContent, wrapBrandedEmailHtml } = require('./mailer');
+const { sendVerificationEmail, smtpLogConfig, verifyMailConfiguration, buildVerificationEmailContent, sendPasswordResetEmail, sendClassMessageEmail, sendCatechistInvitationEmail, sendTemporaryPasswordEmail, buildClassMessageEmailContent, buildVolunteerNotificationEmailContent, wrapBrandedEmailHtml } = require('./mailer');
 const { listTemplatesWithFields, renderTemplate, sanitizeEmailHtml } = require('./email-templates');
 const { requireAuth, requireRole } = require('./middleware');
 const { createCommunicationStore } = require('./communications-store');
@@ -26,6 +26,17 @@ const { voidPayment } = require('./payment-void');
 const { correctPaymentAmount, PaymentCorrectionError } = require('./payment-correction');
 const { exceptionKey, saveException, resolveException } = require('./payment-exceptions');
 const { buildFamilyPaymentRows } = require('./family-payments');
+const {
+  VOLUNTEER_ROLES,
+  VOLUNTEER_AVAILABILITY,
+  VOLUNTEER_GROWTH_AREAS,
+  VOLUNTEER_EXPERIENCE_TYPES,
+  VOLUNTEER_MARITAL_STATUSES,
+  VOLUNTEER_STATUSES,
+  parseVolunteerSignup,
+  getVolunteerNotificationRecipients,
+  splitList,
+} = require('./discipleship-volunteers');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -885,6 +896,91 @@ const translations = {
     altar_server_signup_title: 'Altar Server Signup',
     ministry_subtitle: 'Ministry',
     altar_server_signup_desc: 'Sign up your child to serve at the altar at Saint Matthew Catholic Church. Training provided.',
+    volunteer_signup_title: 'Discipleship Team Volunteer',
+    volunteer_signup_desc: 'Help with faith formation and grow in your own discipleship.',
+    volunteer_page_title: 'Discipleship Team Volunteer Sign-up',
+    volunteer_eyebrow: 'Faith Formation Ministry',
+    volunteer_hero_title: 'Join the Discipleship Team',
+    volunteer_hero_body: 'Help form the next generation in the faith, and grow in your own discipleship along the way. Tell us a little about yourself and how you would like to serve.',
+    volunteer_form_header: 'Volunteer Interest Form',
+    volunteer_section_about: 'About You',
+    volunteer_label_marital: 'Marital Status',
+    volunteer_marital_placeholder: 'Select one',
+    volunteer_marital_help: 'Shared in confidence with the Discipleship Team to help discern where you can best serve.',
+    volunteer_marital_single: 'Single (never married)',
+    volunteer_marital_married_church: 'Married in the Catholic Church',
+    volunteer_marital_married_civil: 'Married outside the Catholic Church',
+    volunteer_marital_separated: 'Separated',
+    volunteer_marital_divorced: 'Divorced',
+    volunteer_marital_divorced_annulled: 'Divorced, with a Church annulment',
+    volunteer_marital_widowed: 'Widowed',
+    volunteer_marital_prefer_to_discuss: 'I would prefer to discuss this with the office',
+    volunteer_section_serve: 'How Would You Like to Help?',
+    volunteer_serve_help: 'Choose all that interest you.',
+    volunteer_role_catechist: 'Catechist',
+    volunteer_role_catechist_desc: 'Lead a children\'s or youth faith formation class.',
+    volunteer_role_classroom_assistant: 'Classroom assistant',
+    volunteer_role_classroom_assistant_desc: 'Support a catechist and help the class run smoothly.',
+    volunteer_role_family_faith_leader: 'Family faith leader',
+    volunteer_role_family_faith_leader_desc: 'Facilitate family and adult faith formation sessions.',
+    volunteer_role_sacramental_prep: 'Sacramental preparation',
+    volunteer_role_sacramental_prep_desc: 'Help families prepare for First Reconciliation, First Communion, or Confirmation.',
+    volunteer_role_events_hospitality: 'Events and hospitality',
+    volunteer_role_events_hospitality_desc: 'Welcome families and help with gatherings, retreats, and parish events.',
+    volunteer_role_not_sure: 'Not sure yet',
+    volunteer_role_not_sure_desc: 'I would like to talk about where I might fit.',
+    volunteer_label_availability: 'When are you generally available?',
+    volunteer_availability_sunday: 'Sundays',
+    volunteer_availability_weekday_daytime: 'Weekday daytime',
+    volunteer_availability_weekday_evening: 'Weekday evenings',
+    volunteer_availability_special_events: 'Special events only',
+    volunteer_section_experience: 'Your Faith Formation Experience',
+    volunteer_experience_help: 'Have you served in any of these before? Choose all that apply.',
+    volunteer_experience_family_catechesis: 'Family catechesis',
+    volunteer_experience_good_shepherd: 'Catechesis of the Good Shepherd',
+    volunteer_experience_classroom_catechist: 'Parish classroom faith formation (CCD / religious education)',
+    volunteer_experience_youth_ministry: 'Youth ministry',
+    volunteer_experience_adult_formation: 'Adult faith formation or RCIA',
+    volunteer_experience_none: 'No prior experience — I am new to faith formation',
+    volunteer_label_experience_details: 'Tell us more',
+    volunteer_experience_details_placeholder: 'Where you served, for how long, and any training (for example, your Good Shepherd training level).',
+    volunteer_section_growth: 'Your Own Discipleship',
+    volunteer_growth_help: 'Serving is also a way to grow. What would you like to grow in? (optional)',
+    volunteer_growth_scripture: 'Understanding Scripture',
+    volunteer_growth_catholic_faith: 'Knowing the Catholic faith more deeply',
+    volunteer_growth_prayer: 'Prayer and spiritual life',
+    volunteer_growth_evangelization: 'Sharing my faith with others',
+    volunteer_growth_fellowship: 'Fellowship with other disciples',
+    volunteer_label_notes: 'Anything else we should know?',
+    volunteer_submit: 'Submit Interest Form',
+    volunteer_back_home: 'Back to Home',
+    volunteer_next_header: 'What Happens Next',
+    volunteer_next_body: 'A member of the Discipleship Team will contact you to talk about where you might serve and how we can support your own formation. Submitting this form is not a commitment.',
+    volunteer_safe_env_note: 'Volunteers who work with children complete the parish\'s Safe Environment requirements before serving.',
+    volunteer_thanks: 'Thank you! We have received your interest in the Discipleship Team and will be in touch soon.',
+    volunteer_err_required: 'Please enter your name, email, and phone.',
+    volunteer_err_email: 'Please enter a valid email address.',
+    volunteer_err_phone: 'Invalid phone format. Use XXX-XXX-XXXX, XXX.XXX.XXXX, or XXX XXX XXXX.',
+    volunteer_err_marital: 'Please select your marital status.',
+    volunteer_err_roles: 'Please choose at least one way you would like to help.',
+    volunteer_err_experience: 'Please tell us about your prior experience, or choose "No prior experience."',
+    volunteer_admin_header: 'Volunteer Sign-ups',
+    volunteer_admin_desc: 'People who have offered to help with faith formation. Follow up with them using the contact details shown.',
+    volunteer_admin_empty: 'No volunteer sign-ups yet.',
+    volunteer_new_count: 'new',
+    volunteer_col_volunteer: 'Volunteer',
+    volunteer_col_help: 'Would Like to Help With',
+    volunteer_col_experience: 'Experience',
+    volunteer_col_growth: 'Wants to Grow In',
+    volunteer_status_new: 'New',
+    volunteer_status_contacted: 'Contacted',
+    volunteer_status_serving: 'Serving',
+    volunteer_status_inactive: 'Inactive',
+    volunteer_update: 'Update',
+    confirm_remove_volunteer: 'Remove this volunteer sign-up?',
+    volunteer_status_updated: 'Volunteer status updated.',
+    volunteer_removed: 'Volunteer sign-up removed.',
+    volunteer_invalid: 'Invalid volunteer sign-up.',
     required_field: 'This field is required.',
     classes_nav: 'Classes',
     classes_header: 'Classes',
@@ -1938,6 +2034,91 @@ const translations = {
     altar_server_signup_title: 'Inscripción de Monaguillo',
     ministry_subtitle: 'Ministerio',
     altar_server_signup_desc: 'Inscriba a su hijo para servir en el altar en la Iglesia Católica Saint Matthew. Se proporciona entrenamiento.',
+    volunteer_signup_title: 'Voluntario del Equipo de Discipulado',
+    volunteer_signup_desc: 'Ayude con la formación en la fe y crezca en su propio discipulado.',
+    volunteer_page_title: 'Inscripción de Voluntarios del Equipo de Discipulado',
+    volunteer_eyebrow: 'Ministerio de Formación en la Fe',
+    volunteer_hero_title: 'Únase al Equipo de Discipulado',
+    volunteer_hero_body: 'Ayude a formar en la fe a la próxima generación y crezca en su propio discipulado. Cuéntenos un poco sobre usted y cómo le gustaría servir.',
+    volunteer_form_header: 'Formulario de Interés para Voluntarios',
+    volunteer_section_about: 'Sobre Usted',
+    volunteer_label_marital: 'Estado Civil',
+    volunteer_marital_placeholder: 'Seleccione uno',
+    volunteer_marital_help: 'Se comparte de forma confidencial con el Equipo de Discipulado para ayudar a discernir dónde puede servir mejor.',
+    volunteer_marital_single: 'Soltero/a (nunca casado/a)',
+    volunteer_marital_married_church: 'Casado/a por la Iglesia Católica',
+    volunteer_marital_married_civil: 'Casado/a fuera de la Iglesia Católica',
+    volunteer_marital_separated: 'Separado/a',
+    volunteer_marital_divorced: 'Divorciado/a',
+    volunteer_marital_divorced_annulled: 'Divorciado/a, con anulación eclesiástica',
+    volunteer_marital_widowed: 'Viudo/a',
+    volunteer_marital_prefer_to_discuss: 'Prefiero hablarlo con la oficina',
+    volunteer_section_serve: '¿Cómo le gustaría ayudar?',
+    volunteer_serve_help: 'Elija todas las que le interesen.',
+    volunteer_role_catechist: 'Catequista',
+    volunteer_role_catechist_desc: 'Dirigir una clase de formación en la fe para niños o jóvenes.',
+    volunteer_role_classroom_assistant: 'Asistente de clase',
+    volunteer_role_classroom_assistant_desc: 'Apoyar a un catequista y ayudar a que la clase funcione bien.',
+    volunteer_role_family_faith_leader: 'Líder de fe familiar',
+    volunteer_role_family_faith_leader_desc: 'Facilitar sesiones de formación en la fe para familias y adultos.',
+    volunteer_role_sacramental_prep: 'Preparación sacramental',
+    volunteer_role_sacramental_prep_desc: 'Ayudar a las familias a prepararse para la Primera Reconciliación, la Primera Comunión o la Confirmación.',
+    volunteer_role_events_hospitality: 'Eventos y hospitalidad',
+    volunteer_role_events_hospitality_desc: 'Recibir a las familias y ayudar en reuniones, retiros y eventos parroquiales.',
+    volunteer_role_not_sure: 'Aún no estoy seguro/a',
+    volunteer_role_not_sure_desc: 'Me gustaría conversar sobre dónde podría servir.',
+    volunteer_label_availability: '¿Cuándo está disponible generalmente?',
+    volunteer_availability_sunday: 'Domingos',
+    volunteer_availability_weekday_daytime: 'Días de semana, de día',
+    volunteer_availability_weekday_evening: 'Días de semana, por la noche',
+    volunteer_availability_special_events: 'Solo eventos especiales',
+    volunteer_section_experience: 'Su Experiencia en Formación en la Fe',
+    volunteer_experience_help: '¿Ha servido antes en alguno de estos? Elija todos los que apliquen.',
+    volunteer_experience_family_catechesis: 'Catequesis familiar',
+    volunteer_experience_good_shepherd: 'Catequesis del Buen Pastor',
+    volunteer_experience_classroom_catechist: 'Formación en la fe en clase parroquial (CCD / educación religiosa)',
+    volunteer_experience_youth_ministry: 'Ministerio juvenil',
+    volunteer_experience_adult_formation: 'Formación en la fe para adultos o RICA',
+    volunteer_experience_none: 'Sin experiencia previa — soy nuevo/a en la formación en la fe',
+    volunteer_label_experience_details: 'Cuéntenos más',
+    volunteer_experience_details_placeholder: 'Dónde sirvió, por cuánto tiempo y qué capacitación recibió (por ejemplo, su nivel de formación del Buen Pastor).',
+    volunteer_section_growth: 'Su Propio Discipulado',
+    volunteer_growth_help: 'Servir también es una forma de crecer. ¿En qué le gustaría crecer? (opcional)',
+    volunteer_growth_scripture: 'Comprender la Sagrada Escritura',
+    volunteer_growth_catholic_faith: 'Conocer más a fondo la fe católica',
+    volunteer_growth_prayer: 'La oración y la vida espiritual',
+    volunteer_growth_evangelization: 'Compartir mi fe con otros',
+    volunteer_growth_fellowship: 'Comunidad con otros discípulos',
+    volunteer_label_notes: '¿Algo más que debamos saber?',
+    volunteer_submit: 'Enviar Formulario de Interés',
+    volunteer_back_home: 'Volver al Inicio',
+    volunteer_next_header: 'Qué Sigue',
+    volunteer_next_body: 'Un miembro del Equipo de Discipulado se comunicará con usted para conversar sobre dónde podría servir y cómo podemos apoyar su propia formación. Enviar este formulario no es un compromiso.',
+    volunteer_safe_env_note: 'Los voluntarios que trabajan con niños completan los requisitos de Ambiente Seguro de la parroquia antes de servir.',
+    volunteer_thanks: '¡Gracias! Hemos recibido su interés en el Equipo de Discipulado y nos comunicaremos pronto.',
+    volunteer_err_required: 'Por favor ingrese su nombre, correo electrónico y teléfono.',
+    volunteer_err_email: 'Por favor ingrese un correo electrónico válido.',
+    volunteer_err_phone: 'Formato de teléfono inválido. Use XXX-XXX-XXXX, XXX.XXX.XXXX o XXX XXX XXXX.',
+    volunteer_err_marital: 'Por favor seleccione su estado civil.',
+    volunteer_err_roles: 'Por favor elija al menos una forma en la que le gustaría ayudar.',
+    volunteer_err_experience: 'Por favor cuéntenos sobre su experiencia previa, o elija "Sin experiencia previa".',
+    volunteer_admin_header: 'Inscripciones de Voluntarios',
+    volunteer_admin_desc: 'Personas que se han ofrecido a ayudar con la formación en la fe. Comuníquese con ellas usando los datos de contacto mostrados.',
+    volunteer_admin_empty: 'Aún no hay inscripciones de voluntarios.',
+    volunteer_new_count: 'nuevas',
+    volunteer_col_volunteer: 'Voluntario',
+    volunteer_col_help: 'Le Gustaría Ayudar Con',
+    volunteer_col_experience: 'Experiencia',
+    volunteer_col_growth: 'Quiere Crecer En',
+    volunteer_status_new: 'Nuevo',
+    volunteer_status_contacted: 'Contactado',
+    volunteer_status_serving: 'Sirviendo',
+    volunteer_status_inactive: 'Inactivo',
+    volunteer_update: 'Actualizar',
+    confirm_remove_volunteer: '¿Eliminar esta inscripción de voluntario?',
+    volunteer_status_updated: 'Estado del voluntario actualizado.',
+    volunteer_removed: 'Inscripción de voluntario eliminada.',
+    volunteer_invalid: 'Inscripción de voluntario inválida.',
     required_field: 'Este campo es obligatorio.',
     classes_nav: 'Clases',
     classes_header: 'Clases',
@@ -3905,6 +4086,102 @@ app.post('/eucharistic-adoration', asyncHandler(async (req, res) => {
 
   req.flash('success', `Your Eucharistic Adoration signup is confirmed for ${selectedDate.label} at ${selectedSlot.label}.`);
   return res.redirect('/eucharistic-adoration');
+}));
+
+// ── Discipleship Team volunteer sign-up ──────────────────────
+// Public like the adoration form: prospective volunteers often have no account yet.
+// A signed-in visitor gets their details prefilled and the record linked to their account.
+
+// Field names the form posts, rebuilt from the parsed values so a failed submission
+// re-renders from clean data rather than the raw request body.
+const volunteerFormData = (values) => ({
+  full_name: values.fullName,
+  email: values.email,
+  phone: values.phone,
+  marital_status: values.maritalStatus,
+  roles: values.roles,
+  availability: values.availability,
+  experience_types: values.experienceTypes,
+  experience_details: values.experienceDetails,
+  growth_areas: values.growthAreas,
+  notes: values.notes,
+});
+
+const renderVolunteerForm = (req, res, { formData = {}, errors = [], status = 200 } = {}) => {
+  const prefill = req.user ? { full_name: req.user.full_name || '', email: req.user.email || '', phone: req.user.phone || '' } : {};
+  res.status(status).render('discipleship-volunteer-signup', {
+    formData: { ...prefill, ...formData },
+    error: errors.map((key) => res.locals.t(key)),
+    volunteerOptions: {
+      maritalStatuses: VOLUNTEER_MARITAL_STATUSES,
+      roles: VOLUNTEER_ROLES,
+      availability: VOLUNTEER_AVAILABILITY,
+      experienceTypes: VOLUNTEER_EXPERIENCE_TYPES,
+      growthAreas: VOLUNTEER_GROWTH_AREAS,
+    },
+  });
+};
+
+// Tells the office about a new sign-up. Fire-and-forget: the sign-up is already saved, so
+// a slow or failing mail server must neither delay the family's confirmation nor turn a
+// successful submission into an error — failures are only logged.
+const notifyVolunteerSignup = (req, values) => {
+  const recipients = getVolunteerNotificationRecipients(process.env);
+  if (!recipients.length) {
+    console.warn('[mail] Volunteer sign-up notification skipped: set VOLUNTEER_NOTIFY_EMAIL (or ADMIN_EMAIL)');
+    return;
+  }
+  // Office staff read the notification in English regardless of the visitor's language.
+  const labels = (prefix, slugs) => slugs.map((slug) => translations.en[`${prefix}${slug}`] || slug);
+  const { subject, html } = buildVolunteerNotificationEmailContent({
+    fullName: values.fullName,
+    email: values.email,
+    phone: values.phone,
+    roles: labels('volunteer_role_', values.roles),
+    availability: labels('volunteer_availability_', values.availability),
+    experience: labels('volunteer_experience_', values.experienceTypes),
+    experienceDetails: values.experienceDetails,
+    growth: labels('volunteer_growth_', values.growthAreas),
+    notes: values.notes,
+    adminUrl: `${getBaseUrl(req)}/admin/catechists#volunteer-signups`,
+  });
+  sendClassMessageEmail({ to: recipients.join(', '), subject, html, replyTo: values.email })
+    .catch((error) => console.error('[mail] Volunteer sign-up notification failed', error && error.message));
+};
+
+app.get('/discipleship-volunteer', (req, res) => renderVolunteerForm(req, res));
+
+app.post('/discipleship-volunteer', asyncHandler(async (req, res) => {
+  const { spam, values, errors } = parseVolunteerSignup(req.body);
+
+  if (errors.length) {
+    return renderVolunteerForm(req, res, { formData: volunteerFormData(values), errors, status: 400 });
+  }
+
+  // A bot that filled the hidden field gets the same thank-you, and nothing is stored.
+  if (!spam) {
+    await db.prepare(`
+      INSERT INTO discipleship_volunteer_signups
+        (user_id, full_name, email, phone, marital_status, roles, availability, experience_types, experience_details, growth_areas, notes)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      req.user ? req.user.id : null,
+      values.fullName,
+      values.email,
+      values.phone,
+      values.maritalStatus,
+      values.roles.join(','),
+      values.availability.join(',') || null,
+      values.experienceTypes.join(','),
+      values.experienceDetails || null,
+      values.growthAreas.join(',') || null,
+      values.notes || null,
+    );
+    notifyVolunteerSignup(req, values);
+  }
+
+  req.flash('success', res.locals.t('volunteer_thanks'));
+  return res.redirect('/discipleship-volunteer');
 }));
 
 app.get('/signup', (req, res) => res.render('signup'));
@@ -8405,13 +8682,52 @@ app.get('/admin/catechists', requireAuth, requireRole('admin'), asyncHandler(asy
     });
   });
 
+  // Unreviewed sign-ups first, then newest.
+  const volunteerRows = await db.prepare(`
+    SELECT id, user_id, full_name, email, phone, marital_status, roles, availability,
+           experience_types, experience_details, growth_areas, notes, status, created_at
+    FROM discipleship_volunteer_signups
+    ORDER BY (status = 'new') DESC, created_at DESC, id DESC
+  `).all();
+
   res.render('admin-catechists', {
     catechists: catechists.map((c) => ({
       ...c,
       classLabels: (classesByCatechist.get(c.id) || []).map(getCcdClassShortLabel),
     })),
     templates: listTemplatesWithFields(),
+    volunteerSignups: volunteerRows.map((row) => ({
+      ...row,
+      roleList: splitList(row.roles, VOLUNTEER_ROLES),
+      experienceList: splitList(row.experience_types, VOLUNTEER_EXPERIENCE_TYPES),
+      growthList: splitList(row.growth_areas, VOLUNTEER_GROWTH_AREAS),
+      availabilityList: splitList(row.availability, VOLUNTEER_AVAILABILITY),
+    })),
+    volunteerStatuses: VOLUNTEER_STATUSES,
   });
+}));
+
+app.post('/admin/discipleship-volunteers/:id/status', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const signupId = Number.parseInt(req.params.id, 10);
+  const status = typeof req.body.status === 'string' ? req.body.status.trim() : '';
+  if (!Number.isInteger(signupId) || signupId <= 0 || !VOLUNTEER_STATUSES.includes(status)) {
+    req.flash('error', res.locals.t('volunteer_invalid'));
+    return res.redirect('/admin/catechists#volunteer-signups');
+  }
+  await db.prepare('UPDATE discipleship_volunteer_signups SET status = ? WHERE id = ?').run(status, signupId);
+  req.flash('success', res.locals.t('volunteer_status_updated'));
+  return res.redirect('/admin/catechists#volunteer-signups');
+}));
+
+app.post('/admin/discipleship-volunteers/:id/delete', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const signupId = Number.parseInt(req.params.id, 10);
+  if (!Number.isInteger(signupId) || signupId <= 0) {
+    req.flash('error', res.locals.t('volunteer_invalid'));
+    return res.redirect('/admin/catechists#volunteer-signups');
+  }
+  await db.prepare('DELETE FROM discipleship_volunteer_signups WHERE id = ?').run(signupId);
+  req.flash('success', res.locals.t('volunteer_removed'));
+  return res.redirect('/admin/catechists#volunteer-signups');
 }));
 
 // Reads the submitted `field_<id>` inputs for a template's placeholders back into a
