@@ -1,0 +1,52 @@
+.volunteer-hero {
+  background:
+    radial-gradient(circle at top right, rgba(212, 175, 55, 0.22), transparent 32%),
+    linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 58%, var(--forest) 100%);
+  color: var(--white);
+  border-radius: var(--radius-card);
+  padding: 2rem;
+  position: relative;
+  overflow: hidden;
+}
+.volunteer-hero h1 {
+  color: var(--white);
+  margin-bottom: 0.6rem;
+}
+.volunteer-hero .eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.72);
+}
+.volunteer-hero p:last-child {
+  margin-bottom: 0;
+  max-width: 640px;
+  color: rgba(255, 255, 255, 0.82);
+}
+.volunteer-note {
+  background: var(--gold-pale);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.1rem;
+  color: var(--status-warning-text);
+  font-size: 0.9rem;
+}
+.volunteer-hint {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-bottom: 0.6rem;
+}
+.volunteer-option-desc {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+/* Bot trap: off-screen rather than display:none, which some bots skip. */
+.volunteer-hp {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}

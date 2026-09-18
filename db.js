@@ -998,6 +998,28 @@ const init = async () => {
       )
     `);
 
+    // Multi-select answers (roles, availability, experience_types, growth_areas) are
+    // comma-separated slugs — see discipleship-volunteers.js for the allowed values.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS discipleship_volunteer_signups (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NULL,
+        full_name VARCHAR(255) NOT NULL,
+        email VARCHAR(255) NOT NULL,
+        phone VARCHAR(50) NOT NULL,
+        marital_status VARCHAR(50) NOT NULL,
+        roles VARCHAR(500) NOT NULL,
+        availability VARCHAR(500),
+        experience_types VARCHAR(500),
+        experience_details TEXT,
+        growth_areas VARCHAR(500),
+        notes TEXT,
+        status VARCHAR(50) NOT NULL DEFAULT 'new',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_discipleship_volunteer_signups_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+      )
+    `);
+
     await pool.query(`
       UPDATE eucharistic_adoration_available_dates
       SET start_time = COALESCE(NULLIF(start_time, ''), '08:30'),
