@@ -163,8 +163,11 @@
                 </div>
                 <div class="col-md-4">
                   <label class="form-label required"><%= t('primary_contact_phone') %></label>
-                  <input class="form-control" type="tel" name="primary_contact_phone" value="<%= parentSource ? parentSource.primary_contact_phone : '' %>" pattern="[0-9]{3}[.\- ]?[0-9]{3}[.\- ]?[0-9]{4}" title="<%= t('phone_format_hint') %>" required>
-                  <div class="invalid-feedback"><%= t('invalid_phone_feedback') %></div>
+                  <div class="input-group has-validation">
+                    <span class="input-group-text">1-</span>
+                    <input class="form-control" type="tel" name="primary_contact_phone" value="<%= parentSource ? parentSource.primary_contact_phone : '' %>" pattern="[0-9]{3}[.\- ]?[0-9]{3}[.\- ]?[0-9]{4}" title="<%= t('phone_format_hint') %>" required>
+                    <div class="invalid-feedback"><%= t('invalid_phone_feedback') %></div>
+                  </div>
                 </div>
                 <div class="col-md-4">
                   <label class="form-label required"><%= t('primary_contact_email') %></label>
@@ -243,7 +246,10 @@
                 </div>
                 <div class="col-md-4">
                   <label class="form-label"><%= t('father_cell') %></label>
-                  <input class="form-control" type="tel" name="father_cell" value="<%= parentSource ? parentSource.father_cell : '' %>" pattern="[0-9]{3}[-. ]?[0-9]{3}[-. ]?[0-9]{4}" title="<%= t('phone_format_hint') %>">
+                  <div class="input-group">
+                    <span class="input-group-text">1-</span>
+                    <input class="form-control" type="tel" name="father_cell" value="<%= parentSource ? parentSource.father_cell : '' %>" pattern="[0-9]{3}[-. ]?[0-9]{3}[-. ]?[0-9]{4}" title="<%= t('phone_format_hint') %>">
+                  </div>
                 </div>
               </div>
             </div>
@@ -261,7 +267,10 @@
                 </div>
                 <div class="col-md-4">
                   <label class="form-label"><%= t('mother_cell') %></label>
-                  <input class="form-control" type="tel" name="mother_cell" value="<%= parentSource ? parentSource.mother_cell : '' %>" pattern="[0-9]{3}[-. ]?[0-9]{3}[-. ]?[0-9]{4}" title="<%= t('phone_format_hint') %>">
+                  <div class="input-group">
+                    <span class="input-group-text">1-</span>
+                    <input class="form-control" type="tel" name="mother_cell" value="<%= parentSource ? parentSource.mother_cell : '' %>" pattern="[0-9]{3}[-. ]?[0-9]{3}[-. ]?[0-9]{4}" title="<%= t('phone_format_hint') %>">
+                  </div>
                 </div>
               </div>
             </div>

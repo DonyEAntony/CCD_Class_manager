@@ -95,7 +95,10 @@
             </div>
             <div class="col-md-4">
               <label class="form-label"><%= t('primary_contact_phone') %></label>
-              <input class="form-control" type="tel" name="primary_contact_phone" value="<%= reg ? reg.primary_contact_phone : '' %>" pattern="[0-9]{3}[.\- ]?[0-9]{3}[.\- ]?[0-9]{4}">
+              <div class="input-group">
+                <span class="input-group-text">1-</span>
+                <input class="form-control" type="tel" name="primary_contact_phone" value="<%= reg ? reg.primary_contact_phone : '' %>" pattern="[0-9]{3}[.\- ]?[0-9]{3}[.\- ]?[0-9]{4}">
+              </div>
             </div>
             <div class="col-md-4">
               <label class="form-label"><%= t('address') %></label>
