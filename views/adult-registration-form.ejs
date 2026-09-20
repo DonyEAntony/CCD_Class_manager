@@ -64,8 +64,11 @@
             </div>
             <div class="col-md-4">
               <label class="form-label"><%= t('phone') %><% if (program.key === 'ocia') { %> <span class="text-danger">*</span><% } %></label>
-              <input class="form-control" type="tel" name="phone" value="<%= reg ? (reg.phone || '') : '' %>" pattern="[0-9]{3}[.\- ]?[0-9]{3}[.\- ]?[0-9]{4}" title="Format: 123-456-7890 or 123.456.7890 or 123 456 7890" <%= program.key === 'ocia' ? 'required' : '' %>>
-              <div class="invalid-feedback">Please enter a valid phone number (XXX-XXX-XXXX format).</div>
+              <div class="input-group has-validation">
+                <span class="input-group-text">1-</span>
+                <input class="form-control" type="tel" name="phone" value="<%= reg ? (reg.phone || '') : '' %>" pattern="[0-9]{3}[.\- ]?[0-9]{3}[.\- ]?[0-9]{4}" title="Format: 123-456-7890 or 123.456.7890 or 123 456 7890" <%= program.key === 'ocia' ? 'required' : '' %>>
+                <div class="invalid-feedback">Please enter a valid phone number (XXX-XXX-XXXX format).</div>
+              </div>
             </div>
             <div class="col-md-4">
               <label class="form-label"><%= t('dob') %><% if (program.key === 'ocia') { %> <span class="text-danger">*</span><% } %></label>
