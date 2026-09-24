@@ -823,6 +823,7 @@ const init = async () => {
     await ensureColumn('student_registrations', 'primary_contact_first_name', 'VARCHAR(255)');
     await ensureColumn('student_registrations', 'primary_contact_last_name', 'VARCHAR(255)');
     await ensureColumn('student_registrations', 'primary_contact_religion', 'VARCHAR(100) NULL');
+    await ensureColumn('student_registrations', 'created_by_user_id', 'INT NULL');
     await ensureColumn('student_registrations', 'child_place_of_birth_city', 'TEXT');
     await ensureColumn('student_registrations', 'child_place_of_birth_country', 'TEXT');
     await ensureColumn('student_registrations', 'sacramental_year', 'VARCHAR(30) NULL');
@@ -961,6 +962,38 @@ const init = async () => {
     await ensureColumn('family_faith_registrations', 'visit_end', 'DATETIME NULL');
     await ensureColumn('family_faith_registrations', 'visit_label', 'VARCHAR(255) NULL');
     await ensureColumn('family_faith_registrations', 'status', "VARCHAR(50) DEFAULT 'in_progress'");
+
+    // Keep registration ownership aligned with the account matching the submitted
+    // contact email. Preserve the original child-registration submitter for audit
+    // and incomplete-wizard access before changing the owner.
+    await pool.query(`
+      UPDATE student_registrations registrations
+      INNER JOIN users matched_user
+        ON LOWER(TRIM(matched_user.email)) = LOWER(TRIM(registrations.primary_contact_email))
+      SET registrations.created_by_user_id = COALESCE(registrations.created_by_user_id, registrations.user_id),
+          registrations.user_id = matched_user.id
+      WHERE registrations.primary_contact_email IS NOT NULL
+        AND TRIM(registrations.primary_contact_email) <> ''
+        AND registrations.user_id <> matched_user.id
+    `);
+    await pool.query(`
+      UPDATE family_faith_registrations registrations
+      INNER JOIN users matched_user
+        ON LOWER(TRIM(matched_user.email)) = LOWER(TRIM(registrations.primary_contact_email))
+      SET registrations.user_id = matched_user.id
+      WHERE registrations.primary_contact_email IS NOT NULL
+        AND TRIM(registrations.primary_contact_email) <> ''
+        AND registrations.user_id <> matched_user.id
+    `);
+    await pool.query(`
+      UPDATE adult_registrations registrations
+      INNER JOIN users matched_user
+        ON LOWER(TRIM(matched_user.email)) = LOWER(TRIM(registrations.email))
+      SET registrations.user_id = matched_user.id
+      WHERE registrations.email IS NOT NULL
+        AND TRIM(registrations.email) <> ''
+        AND registrations.user_id <> matched_user.id
+    `);
 
     await ensureColumn('faith_formation_event_schedules', 'schedule_type', "VARCHAR(50) DEFAULT 'one_time'");
     await ensureColumn('faith_formation_event_schedules', 'recurrence_pattern', 'VARCHAR(50)');

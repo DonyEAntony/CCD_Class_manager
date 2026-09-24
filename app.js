@@ -3511,7 +3511,8 @@ const findUserIdByEmail = async (email) => {
   return user?.id || null;
 };
 const resolveRegistrationOwnerUserId = async (req, email) => {
-  if (req.user?.role !== 'admin') return req.user.id;
+  // New registrations belong to the account for the submitted parent/contact email
+  // whenever that account exists, even if a staff member or another helper submits it.
   return (await findUserIdByEmail(email)) || req.user.id;
 };
 const getUploadsForUser = async (userId) => {
@@ -4941,8 +4942,8 @@ app.get('/registration/children', requireAuth, asyncHandler(async (req, res) => 
   // actually lost, the stage just never looked it up.
   if (groupIds.length && (stage === 'student' || stage === 'intro')) {
     parentInfo = await db.prepare(
-      'SELECT * FROM student_registrations WHERE id = ? AND user_id = ?'
-    ).get(groupIds[0], req.user.id);
+      "SELECT * FROM student_registrations WHERE id = ? AND (user_id = ? OR (created_by_user_id = ? AND status = 'incomplete'))"
+    ).get(groupIds[0], req.user.id, req.user.id);
 
     if (parentInfo) {
       const addressParts = parentInfo.city_state_zip ? parentInfo.city_state_zip.split(', ') : ['', '', ''];
@@ -4953,8 +4954,8 @@ app.get('/registration/children', requireAuth, asyncHandler(async (req, res) => 
 
     if (stage === 'student' && studentIndex <= groupIds.length) {
       studentPrefill = await db.prepare(
-        'SELECT * FROM student_registrations WHERE id = ? AND user_id = ?'
-      ).get(groupIds[studentIndex - 1], req.user.id);
+        "SELECT * FROM student_registrations WHERE id = ? AND (user_id = ? OR (created_by_user_id = ? AND status = 'incomplete'))"
+      ).get(groupIds[studentIndex - 1], req.user.id, req.user.id);
       currentRegistrationId = studentPrefill ? studentPrefill.id : null;
     } else if (stage === 'intro') {
       // Editing the family stage of an existing group must update the anchor
@@ -5383,13 +5384,13 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
       let registrationOwnerUserId = req.user.id;
       if (existingRowId) {
         const existingOwnerRow = await db.prepare(
-          'SELECT user_id FROM student_registrations WHERE id = ? AND (user_id = ? OR ? = 1)'
-        ).get(existingRowId, req.user.id, isAdmin ? 1 : 0);
+          "SELECT user_id FROM student_registrations WHERE id = ? AND (user_id = ? OR (created_by_user_id = ? AND status = 'incomplete') OR ? = 1)"
+        ).get(existingRowId, req.user.id, req.user.id, isAdmin ? 1 : 0);
         registrationOwnerUserId = existingOwnerRow?.user_id || req.user.id;
       } else if (priorGroupIds.length) {
         const groupOwnerRow = await db.prepare(
-          'SELECT user_id FROM student_registrations WHERE id = ? AND (user_id = ? OR ? = 1)'
-        ).get(priorGroupIds[0], req.user.id, isAdmin ? 1 : 0);
+          "SELECT user_id FROM student_registrations WHERE id = ? AND (user_id = ? OR (created_by_user_id = ? AND status = 'incomplete') OR ? = 1)"
+        ).get(priorGroupIds[0], req.user.id, req.user.id, isAdmin ? 1 : 0);
         registrationOwnerUserId = groupOwnerRow?.user_id || req.user.id;
       } else {
         registrationOwnerUserId = await resolveRegistrationOwnerUserId(req, req.body.primary_contact_email);
@@ -5412,8 +5413,8 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
         ? await db.prepare(`
             SELECT baptism_certificate_path, first_communion_certificate_path
             FROM student_registrations
-            WHERE id = ? AND (user_id = ? OR ? = 1)
-          `).get(existingRowId, req.user.id, isAdmin ? 1 : 0)
+            WHERE id = ? AND (user_id = ? OR (created_by_user_id = ? AND status = 'incomplete') OR ? = 1)
+          `).get(existingRowId, req.user.id, req.user.id, isAdmin ? 1 : 0)
         : null;
       const baptismCert = existingRowId
         ? mergeUploadPaths(existingRowForUploads?.baptism_certificate_path, baptismCertFiles)
@@ -5444,7 +5445,7 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
             baptism_certificate_path = COALESCE(?, baptism_certificate_path),
             first_communion_certificate_path = COALESCE(?, first_communion_certificate_path),
             status = CASE WHEN status IN ('in_progress', 'conditionally_accepted', 'admitted') THEN status ELSE 'incomplete' END
-          WHERE id = ? AND (user_id = ? OR ? = 1)
+          WHERE id = ? AND (user_id = ? OR (created_by_user_id = ? AND status = 'incomplete') OR ? = 1)
         `).run(
           `${req.body.primary_contact_first_name || ''} ${req.body.primary_contact_last_name || ''}`,
           orNull(req.body.primary_contact_first_name), orNull(req.body.primary_contact_last_name),
@@ -5464,7 +5465,7 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
           orNull(req.body.disabilities_comments), orNull(req.body.parent_signature), orNull(req.body.email),
           rowRegistrationFee, fees.sacramentalFee, fees.lateFee,
           baptismCert, communionCert,
-          existingRowId, req.user.id, isAdmin ? 1 : 0
+          existingRowId, req.user.id, req.user.id, isAdmin ? 1 : 0
         );
         thisRowId = existingRowId;
 
@@ -5487,7 +5488,7 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
       } else {
         const result = await db.prepare(`
           INSERT INTO student_registrations (
-            user_id, school_year, parent_name, primary_contact_first_name, primary_contact_last_name,
+            user_id, created_by_user_id, school_year, parent_name, primary_contact_first_name, primary_contact_last_name,
             primary_contact_phone, primary_contact_email, primary_contact_religion,
             primary_contact_relationship, primary_contact_relationship_other, address, city_state_zip, home_phone,
             father_name, father_religion, father_cell, mother_maiden_name, mother_religion, mother_cell,
@@ -5498,9 +5499,9 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
             sacramental_year, preferred_class_time, ccd_class_id, non_sacramental_grade,
             disabilities_comments, parent_signature, email, registration_fee, sacramental_fee, late_fee,
             baptism_certificate_path, first_communion_certificate_path, status, student_id
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
-          registrationOwnerUserId, faithFormationSettings.schoolYear,
+          registrationOwnerUserId, req.user.id, faithFormationSettings.schoolYear,
           `${req.body.primary_contact_first_name || ''} ${req.body.primary_contact_last_name || ''}`,
           orNull(req.body.primary_contact_first_name), orNull(req.body.primary_contact_last_name),
           orNull(req.body.primary_contact_phone), orNull(req.body.primary_contact_email), orNull(req.body.primary_contact_religion),
@@ -5557,8 +5558,8 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
     }
 
     const existingReg = await db.prepare(
-      'SELECT id, user_id, status, baptism_certificate_path, first_communion_certificate_path FROM student_registrations WHERE id = ? AND (user_id = ? OR ? = 1)'
-    ).get(req.body.registration_id, req.user.id, isAdmin ? 1 : 0);
+      "SELECT id, user_id, status, baptism_certificate_path, first_communion_certificate_path FROM student_registrations WHERE id = ? AND (user_id = ? OR (created_by_user_id = ? AND status = 'incomplete') OR ? = 1)"
+    ).get(req.body.registration_id, req.user.id, req.user.id, isAdmin ? 1 : 0);
     if (!existingReg) {
       return res.status(404).send('Registration not found.');
     }
@@ -5592,7 +5593,7 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
         baptism_certificate_path = COALESCE(?, baptism_certificate_path),
         first_communion_certificate_path = COALESCE(?, first_communion_certificate_path),
         status = ?
-      WHERE id = ? AND (user_id = ? OR ? = 1)
+      WHERE id = ? AND (user_id = ? OR (created_by_user_id = ? AND status = 'incomplete') OR ? = 1)
     `).run(
       `${req.body.primary_contact_first_name || ''} ${req.body.primary_contact_last_name || ''}`,
       orNull(req.body.primary_contact_first_name), orNull(req.body.primary_contact_last_name),
@@ -5612,7 +5613,7 @@ const handleChildrenRegistration = asyncHandler(async (req, res) => {
       orNull(req.body.disabilities_comments), orNull(req.body.parent_signature), orNull(req.body.email),
       fees.registrationFee, fees.sacramentalFee, fees.lateFee,
       baptismCert, communionCert, nextStatus,
-      req.body.registration_id, req.user.id, isAdmin ? 1 : 0
+      req.body.registration_id, req.user.id, req.user.id, isAdmin ? 1 : 0
     );
 
     await autoEnrollFamilyFaithFormation({
@@ -5651,7 +5652,7 @@ app.get('/registration/children/review', requireAuth, asyncHandler(async (req, r
   if (!groupIds.length || groupIds.length !== total) return res.redirect('/registration/children');
   const rows = await db.prepare(`SELECT * FROM student_registrations WHERE id IN (${groupIds.map(() => '?').join(',')})
     AND archived_at IS NULL`).all(...groupIds);
-  if (rows.length !== total || (req.user.role !== 'admin' && rows.some((row) => row.user_id !== req.user.id))) return res.sendStatus(403);
+  if (rows.length !== total || (req.user.role !== 'admin' && rows.some((row) => Number(row.user_id) !== Number(req.user.id) && !(Number(row.created_by_user_id) === Number(req.user.id) && row.status === 'incomplete')))) return res.sendStatus(403);
   rows.sort((a,b) => groupIds.indexOf(a.id) - groupIds.indexOf(b.id));
   res.render('registration-family-review', { rows, group: { ids: groupIds, total, ownerId: rows[0].user_id } });
 }));
@@ -5661,8 +5662,9 @@ app.post('/registration/children/submit-family', requireAuth, asyncHandler(async
   const total = Number.parseInt(req.body.total, 10) || groupIds.length;
   if (!groupIds.length || groupIds.length !== total) return res.redirect('/registration/children');
   const ownerRows = await db.prepare(`SELECT DISTINCT user_id FROM student_registrations
-    WHERE id IN (${groupIds.map(() => '?').join(',')}) AND archived_at IS NULL`).all(...groupIds);
-  if (req.user.role !== 'admin' && (ownerRows.length !== 1 || ownerRows[0].user_id !== req.user.id)) return res.sendStatus(403);
+    WHERE id IN (${groupIds.map(() => '?').join(',')}) AND archived_at IS NULL
+      AND (user_id = ? OR (created_by_user_id = ? AND status = 'incomplete') OR ? = 1)`).all(...groupIds, req.user.id, req.user.id, req.user.role === 'admin' ? 1 : 0);
+  if (ownerRows.length !== 1) return res.sendStatus(403);
   const ownerId = ownerRows[0]?.user_id;
   const rows = await db.transaction(async tx => {
     const rows = await tx.prepare(`SELECT * FROM student_registrations WHERE id IN (${groupIds.map(() => '?').join(',')})
@@ -5795,7 +5797,7 @@ app.get('/registration/children/edit/:id', requireAuth, asyncHandler(async (req,
     return res.redirect('/dashboard');
   }
 
-  const reg = await db.prepare('SELECT * FROM student_registrations WHERE id = ? AND (user_id = ? OR ? = 1)').get(req.params.id, req.user.id, isStaff ? 1 : 0);
+  const reg = await db.prepare("SELECT * FROM student_registrations WHERE id = ? AND (user_id = ? OR (created_by_user_id = ? AND status = 'incomplete') OR ? = 1)").get(req.params.id, req.user.id, req.user.id, isStaff ? 1 : 0);
   if (!reg) return res.status(404).send('Registration not found.');
 
   // A non-staff parent's registration only ever sits at 'incomplete' mid-wizard, before
@@ -5807,8 +5809,11 @@ app.get('/registration/children/edit/:id', requireAuth, asyncHandler(async (req,
   // with no way to finish.
   if (!isStaff && reg.status === 'incomplete') {
     const siblings = await db.prepare(
-      `SELECT id FROM student_registrations WHERE user_id = ? AND school_year = ? AND status = 'incomplete' AND archived_at IS NULL ORDER BY id ASC`
-    ).all(reg.user_id, reg.school_year);
+      `SELECT id FROM student_registrations
+       WHERE user_id = ? AND school_year = ? AND status = 'incomplete' AND archived_at IS NULL
+         AND (user_id = ? OR created_by_user_id = ?)
+       ORDER BY id ASC`
+    ).all(reg.user_id, reg.school_year, req.user.id, req.user.id);
     if (siblings.length) {
       const groupIds = siblings.map((s) => s.id);
       return res.redirect(`/registration/children/review?groupIds=${groupIds.join(',')}&total=${groupIds.length}`);
@@ -5975,12 +5980,13 @@ app.post('/registration/family-faith', requireAuth, asyncHandler(async (req, res
     return res.redirect(redirectUrl);
   }
 
+  const registrationOwnerUserId = await resolveRegistrationOwnerUserId(req, req.body.primary_contact_email);
   await db.prepare(`
     INSERT INTO family_faith_registrations
       (user_id, school_year, family_name, primary_contact_name, primary_contact_email, primary_contact_phone, address, city_state_zip, notes, assigned_leader_user_id, visit_slot_id, visit_start, visit_end, visit_label, members_json, status)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
-    req.user.id,
+    registrationOwnerUserId,
     req.body.school_year || '2025-2026',
     req.body.family_name.trim(),
     req.body.primary_contact_name.trim(),
@@ -5998,7 +6004,7 @@ app.post('/registration/family-faith', requireAuth, asyncHandler(async (req, res
     'in_progress'
   );
 
-  const insertedReg = await db.prepare('SELECT id FROM family_faith_registrations WHERE user_id = ? ORDER BY id DESC LIMIT 1').get(req.user.id);
+  const insertedReg = await db.prepare('SELECT id FROM family_faith_registrations WHERE user_id = ? ORDER BY id DESC LIMIT 1').get(registrationOwnerUserId);
   if (insertedReg) {
     await db.prepare('UPDATE family_faith_visit_slots SET booked_registration_id = ? WHERE id = ?').run(insertedReg.id, selectedVisitSlot.id);
   }
@@ -6193,13 +6199,14 @@ app.post('/registration/adult/:program', requireAuth, asyncHandler(async (req, r
     return res.redirect('/dashboard');
   }
 
+  const registrationOwnerUserId = await resolveRegistrationOwnerUserId(req, req.body.email);
   await db.prepare(`
     INSERT INTO adult_registrations
       (user_id, program_type, full_name, email, phone, address, city_state_zip,
        dob, baptized, baptism_church, spouse_name, godparent_for, comments, class_schedule_id, class_date, status)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
-    req.user.id,
+    registrationOwnerUserId,
     program.key,
     orNull(req.body.full_name),
     orNull(req.body.email),
