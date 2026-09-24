@@ -1399,9 +1399,88 @@ legend {
 
     @media print {
       @page { size: A4 portrait; margin: 12mm; }
+      @page class-calendar { size: A4 landscape; margin: 7mm; }
       body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      body.calendar-class-page { page: class-calendar; }
       .no-print, .site-topbar { display: none !important; }
       .session-ledger { box-shadow: none; max-width: 100%; }
+      .calendar-class-page main {
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+      }
+      .calendar-class-page .session-ledger {
+        padding: 4mm;
+        gap: 3mm;
+      }
+      .calendar-class-page .sl-eyebrow-row {
+        font-size: 7.5px;
+        letter-spacing: .08em;
+      }
+      .calendar-class-page .sl-hero {
+        gap: 8mm;
+      }
+      .calendar-class-page .sl-hero h1 {
+        font-size: 22px;
+        margin-top: 0;
+        max-width: none;
+      }
+      .calendar-class-page .sl-hero-subtitle {
+        font-size: 10px;
+      }
+      .calendar-class-page .sl-badge {
+        width: 16mm;
+        height: 16mm;
+      }
+      .calendar-class-page .sl-badge-count {
+        font-size: 18px;
+      }
+      .calendar-class-page .sl-badge-label {
+        font-size: 6.5px;
+        letter-spacing: .06em;
+      }
+      .calendar-class-page .sl-info-pills {
+        gap: 2mm;
+      }
+      .calendar-class-page .sl-info-pill {
+        font-size: 9px;
+        padding: 1.5mm 3mm;
+      }
+      .calendar-class-page .sl-month-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 3mm 5mm;
+      }
+      .calendar-class-page .sl-month-block {
+        gap: 1.5mm;
+      }
+      .calendar-class-page .sl-month-header {
+        font-size: 11px;
+        padding-bottom: 1mm;
+      }
+      .calendar-class-page .sl-session-row {
+        gap: 2mm;
+      }
+      .calendar-class-page .sl-day-badge {
+        width: 7mm;
+        height: 7mm;
+        font-size: 9px;
+      }
+      .calendar-class-page .sl-session-label {
+        font-size: 9px;
+        line-height: 1.15;
+      }
+      .calendar-class-page .sl-type-tag {
+        font-size: 6.5px;
+        padding: 0.5mm 1.5mm;
+      }
+      .calendar-class-page .sl-footer {
+        font-size: 7.5px;
+        line-height: 1.2;
+        padding-top: 2mm;
+        gap: 5mm;
+      }
+      .calendar-class-page .footer-note {
+        display: none;
+      }
     }
 
 

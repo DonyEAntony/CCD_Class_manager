@@ -27,8 +27,22 @@
 
   <div class="year-legend">
     <div class="year-legend-item"><span class="year-legend-swatch"></span><span><%= t('year_calendar_legend') %></span></div>
+    <% if (specialEvents && specialEvents.length) { %>
+      <div class="year-legend-item"><span class="year-legend-swatch special-event"></span><span><%= t('important_event_tag') %></span></div>
+    <% } %>
     <div class="year-legend-item"><span class="year-legend-swatch off-weekday"></span><span><%= t('year_calendar_off_weekday_legend') %></span></div>
   </div>
+
+  <% if (specialEvents && specialEvents.length) { %>
+    <div class="year-special-events">
+      <% specialEvents.forEach((eventItem) => { %>
+        <div class="year-special-event <%= eventItem.isImportant ? 'important' : '' %>">
+          <span><%= eventItem.dateLabel %></span>
+          <strong><%= eventItem.title %></strong>
+        </div>
+      <% }) %>
+    </div>
+  <% } %>
 
   <div class="year-grid">
     <% months.forEach((month) => { %>
@@ -44,7 +58,10 @@
             <% month.weeks.forEach((week) => { %>
               <tr>
                 <% week.forEach((day) => { %>
-                  <td class="<%= day && day.hasClass ? 'has-class' : (day && day.isOffWeekday ? 'off-weekday' : '') %>"><%= day ? day.day : '' %></td>
+                  <td
+                    class="<%= day && day.hasSpecialEvent ? 'has-special-event' : (day && day.hasClass ? 'has-class' : (day && day.isOffWeekday ? 'off-weekday' : '')) %>"
+                    <% if (day && day.specialEventTitle) { %>title="<%= day.specialEventTitle %>"<% } %>
+                  ><%= day ? day.day : '' %><% if (day && day.hasSpecialEvent) { %><span class="year-day-marker">*</span><% } %></td>
                 <% }) %>
               </tr>
             <% }) %>

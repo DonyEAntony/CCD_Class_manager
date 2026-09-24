@@ -3439,10 +3439,9 @@ const buildCalendarWeeks = (occurrences, year, monthIndex) => {
   return weeks;
 };
 
-// Compact per-day grid (day number + hasClass flag only, no event details) for the
-// printable year-at-a-glance view — same week-grid shape as buildCalendarWeeks but
-// stripped down since a full 9-month page has no room for event text per cell.
-const buildMiniMonthWeeks = (year, monthIndex, classDayDates, classWeekdays) => {
+// Compact per-day grid for the printable year-at-a-glance view — same week-grid shape
+// as buildCalendarWeeks, with just enough metadata to flag Masses/retreats/etc.
+const buildMiniMonthWeeks = (year, monthIndex, classDayDates, classWeekdays, specialEventDates = new Map()) => {
   const startOffset = new Date(year, monthIndex, 1).getDay();
   const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
   const cells = [];
@@ -3450,8 +3449,16 @@ const buildMiniMonthWeeks = (year, monthIndex, classDayDates, classWeekdays) => 
   for (let day = 1; day <= daysInMonth; day += 1) {
     const dateKey = `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const hasClass = classDayDates.has(dateKey);
+    const specialEvent = specialEventDates.get(dateKey);
     const weekday = new Date(year, monthIndex, day).getDay();
-    cells.push({ day, hasClass, isOffWeekday: !hasClass && classWeekdays && !classWeekdays.has(weekday) });
+    cells.push({
+      day,
+      hasClass,
+      hasSpecialEvent: !!specialEvent,
+      specialEventTitle: specialEvent?.title || '',
+      isImportant: !!specialEvent?.isImportant,
+      isOffWeekday: !hasClass && !specialEvent && classWeekdays && !classWeekdays.has(weekday),
+    });
   }
   while (cells.length % 7 !== 0) cells.push(null);
 
@@ -4786,14 +4793,49 @@ app.get('/calendar/year', requireAuth, asyncHandler(async (req, res) => {
 
   const classId = Number.parseInt(req.query.class_id, 10) || null;
   let className = '';
+  let ccdClass = null;
   if (classId) {
     const ccdClasses = await getCcdClasses();
-    const ccdClass = ccdClasses.find((c) => c.id === classId);
+    ccdClass = ccdClasses.find((c) => c.id === classId) || null;
     if (ccdClass) className = `${CCD_GRADE_MEANINGS[ccdClass.grade_level] || ccdClass.grade_level}${ccdClass.sectionLabel || ''}`;
   }
 
   const classDaysByDate = await getClassSessionDatesInRange(`${startYear}-09-01`, `${startYear + 1}-05-31`, classId);
   const classDayDates = new Set(classDaysByDate.keys());
+  const specialEvents = [];
+  classDaysByDate.forEach((info, dateKey) => {
+    info.classes
+      .filter((classInfo) => classInfo.eventType && classInfo.eventType !== 'class_day')
+      .forEach((classInfo) => {
+        specialEvents.push({
+          date: dateKey,
+          title: classInfo.description || res.locals.t(`event_type_${classInfo.eventType}`),
+          isImportant: classInfo.eventType === 'mass',
+        });
+      });
+  });
+
+  if (ccdClass) {
+    const matchingGeneralEvents = await getFaithFormationEvents(getClassCalendarAudiences(ccdClass.grade_level), { includePast: true });
+    for (let monthOffset = 8; monthOffset < 8 + 9; monthOffset += 1) {
+      const year = startYear + Math.floor(monthOffset / 12);
+      const monthIndex = monthOffset % 12;
+      expandScheduledEventsForMonth(matchingGeneralEvents, year, monthIndex).forEach((occurrence) => {
+        specialEvents.push({
+          date: occurrence.occurrence_date,
+          title: occurrence.event_time
+            ? `${occurrence.title} — ${formatTimeLabel(occurrence.event_time)}`
+            : occurrence.title,
+          isImportant: occurrence.audience === 'sacrament_day',
+        });
+      });
+    }
+  }
+  const specialEventsByDate = specialEvents.reduce((acc, eventItem) => {
+    const existing = acc.get(eventItem.date);
+    if (!existing || (!existing.isImportant && eventItem.isImportant)) acc.set(eventItem.date, eventItem);
+    return acc;
+  }, new Map());
   const classWeekdays = new Set(Array.from(classDayDates, (dateKey) => new Date(`${dateKey}T00:00:00`).getDay()));
   const localeTag = res.locals.lang === 'es' ? 'es-ES' : 'en-US';
 
@@ -4803,7 +4845,7 @@ app.get('/calendar/year', requireAuth, asyncHandler(async (req, res) => {
     const monthIndex = monthOffset % 12;
     return {
       label: new Date(year, monthIndex, 1).toLocaleDateString(localeTag, { month: 'long', year: 'numeric' }),
-      weeks: buildMiniMonthWeeks(year, monthIndex, classDayDates, classWeekdays),
+      weeks: buildMiniMonthWeeks(year, monthIndex, classDayDates, classWeekdays, specialEventsByDate),
     };
   });
 
@@ -4812,6 +4854,12 @@ app.get('/calendar/year', requireAuth, asyncHandler(async (req, res) => {
     months,
     weekdayLabels: ['S', 'M', 'T', 'W', 'T', 'F', 'S'],
     className,
+    specialEvents: [...specialEventsByDate.values()]
+      .sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title))
+      .map((eventItem) => ({
+        ...eventItem,
+        dateLabel: new Date(`${eventItem.date}T00:00:00`).toLocaleDateString(localeTag, { month: 'short', day: 'numeric' }),
+      })),
   });
 }));
 

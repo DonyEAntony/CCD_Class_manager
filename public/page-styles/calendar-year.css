@@ -33,12 +33,48 @@
       width: 14px;
       height: 14px;
       border-radius: 2px;
-      background: var(--forest);
-      border: 1px solid var(--forest);
+      background: var(--gold-light);
+      border: 1px solid #74530f;
+      box-shadow: inset 0 0 0 2px var(--gold-pale);
     }
     .year-legend-swatch.off-weekday {
       background: var(--surface);
       border: 1px solid var(--border);
+    }
+    .year-legend-swatch.special-event {
+      background: #7a1f1f;
+      border-color: #7a1f1f;
+    }
+    .year-special-events {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+      margin: -0.2rem 0 1rem;
+    }
+    .year-special-event {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: var(--white);
+      color: var(--ink);
+      padding: 0.25rem 0.45rem;
+      font-size: 0.78rem;
+    }
+    .year-special-event span {
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .year-special-event strong {
+      color: var(--navy);
+    }
+    .year-special-event.important {
+      border-color: #d88;
+      background: #fdeeee;
+    }
+    .year-special-event.important strong {
+      color: #7a1f1f;
     }
     .year-grid {
       display: grid;
@@ -77,9 +113,23 @@
       height: 1.4em;
     }
     .year-month-table td.has-class {
-      background: var(--forest);
+      background: var(--gold-light);
+      color: var(--navy);
+      font-weight: 800;
+      box-shadow: inset 0 0 0 2px #74530f;
+    }
+    .year-month-table td.has-special-event {
+      position: relative;
+      background: #7a1f1f;
       color: var(--white);
-      font-weight: 700;
+      font-weight: 800;
+    }
+    .year-day-marker {
+      position: absolute;
+      top: 0.05rem;
+      right: 0.15rem;
+      font-size: 0.58rem;
+      line-height: 1;
     }
     .year-month-table td.off-weekday {
       background: var(--surface);
@@ -87,7 +137,7 @@
     }
 
     @media print {
-      @page { size: A4 portrait; margin: 10mm; }
+      @page { size: A4 landscape; margin: 10mm; }
       body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       .no-print, .site-topbar { display: none !important; }
       .year-title-bar { padding: 3mm 4mm; margin-bottom: 3mm; }
@@ -95,6 +145,8 @@
       .year-title-bar p { font-size: 3mm; }
       .year-legend { font-size: 2.6mm; margin-bottom: 3mm; }
       .year-legend-swatch { width: 3mm; height: 3mm; }
+      .year-special-events { gap: 1.5mm; margin-bottom: 3mm; }
+      .year-special-event { font-size: 2.3mm; padding: 0.8mm 1.2mm; }
       .year-grid {
         grid-template-columns: repeat(3, 1fr);
         gap: 4mm;
