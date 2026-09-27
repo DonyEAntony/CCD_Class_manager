@@ -1,0 +1,238 @@
+/* My Family's Schedule (/my-family) — phone-first; also the installed home-screen app. */
+body.family-app {
+  background: var(--off-white);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  margin: 0;
+}
+
+.family-app .site-topbar {
+  padding-top: max(.5rem, env(safe-area-inset-top));
+}
+
+.family-app-main {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 1rem max(1rem, env(safe-area-inset-right)) calc(2rem + env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+}
+
+.family-app-header h1 {
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  margin: 0 0 1rem;
+  color: var(--navy);
+}
+
+.family-eyebrow {
+  margin: 0 0 .25rem;
+  font-size: .8rem;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.family-offline-note {
+  background: var(--gold-pale);
+  color: var(--status-warning-text);
+  border-radius: var(--radius-control);
+  padding: .6rem .8rem;
+  font-size: .9rem;
+}
+
+.family-next {
+  background: var(--navy);
+  color: var(--white);
+  border-radius: var(--radius-card);
+  padding: 1rem 1.1rem;
+  margin-bottom: 1.5rem;
+  box-shadow: var(--shadow-card);
+}
+
+.family-next h2 {
+  font-size: .85rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--gold-light);
+  margin: 0 0 .25rem;
+}
+
+.family-next-date {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  margin: 0 0 .5rem;
+}
+
+.family-plain-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: .4rem;
+}
+
+.family-section-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--navy);
+  margin: 1.5rem 0 .75rem;
+}
+
+.family-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 1rem 1.1rem;
+  margin-bottom: .75rem;
+  box-shadow: var(--shadow-card);
+}
+
+.family-card h3,
+.family-card h2 {
+  font-size: 1.05rem;
+  margin: 0 0 .25rem;
+  color: var(--navy);
+}
+
+.family-card-pending {
+  background: var(--surface);
+}
+
+.family-children {
+  margin: 0 0 .5rem;
+  font-weight: 500;
+}
+
+.family-facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: .2rem .75rem;
+  margin: 0;
+  font-size: .95rem;
+}
+
+.family-facts dt {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.family-facts dd {
+  margin: 0;
+}
+
+.family-muted {
+  color: var(--muted);
+  font-size: .9rem;
+  margin: .4rem 0 0;
+}
+
+.family-month {
+  font-size: .85rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--muted);
+  margin: 1.25rem 0 .5rem;
+}
+
+.family-dates {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: .5rem;
+}
+
+.family-date {
+  display: flex;
+  gap: .85rem;
+  align-items: flex-start;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--navy-soft);
+  border-radius: var(--radius-control);
+  padding: .7rem .8rem;
+}
+
+.family-date.is-class {
+  border-left-color: var(--forest);
+}
+
+.family-date.is-important {
+  border-left-color: var(--gold);
+  background: var(--gold-pale);
+}
+
+.family-date-badge {
+  flex: 0 0 3rem;
+  text-align: center;
+  line-height: 1.1;
+  color: var(--navy);
+}
+
+.family-date-badge span {
+  display: block;
+  font-size: .75rem;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.family-date-badge strong {
+  font-size: 1.4rem;
+}
+
+.family-date-body {
+  min-width: 0;
+}
+
+.family-date-body p {
+  margin: 0;
+}
+
+.family-date-title {
+  font-weight: 600;
+}
+
+.family-date-note,
+.family-date-meta,
+.family-date-children {
+  font-size: .9rem;
+  color: var(--ink-soft);
+}
+
+.family-date-children {
+  color: var(--muted);
+}
+
+.family-actions {
+  display: grid;
+  gap: .6rem;
+  margin: 2rem 0 1rem;
+}
+
+.family-button {
+  display: block;
+  text-align: center;
+  padding: .8rem 1rem;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--navy-soft);
+  background: var(--white);
+  color: var(--navy);
+  font: inherit;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  width: 100%;
+}
+
+.family-button-primary {
+  background: var(--navy);
+  border-color: var(--navy);
+  color: var(--white);
+}
+
+.family-install p {
+  margin: 0 0 .5rem;
+}
+
+.mb-0 {
+  margin-bottom: 0;
+}

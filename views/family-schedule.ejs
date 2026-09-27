@@ -1,0 +1,178 @@
+<% const tx = (en, es) => lang === 'es' ? es : en; %>
+<% const localeTag = lang === 'es' ? 'es-US' : 'en-US'; %>
+<% const toDate = (value) => new Date(value + 'T12:00:00'); %>
+<% const timeLabel = (value) => value ? formatTimeLabel(value) : ''; %>
+<% const weekdayNames = { Sunday: 'domingo', Monday: 'lunes', Tuesday: 'martes', Wednesday: 'miércoles', Thursday: 'jueves', Friday: 'viernes', Saturday: 'sábado' }; %>
+<!doctype html>
+<html lang="<%= lang %>">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title><%= tx('My Family', 'Mi Familia') %> &mdash; <%= t('app_title') %></title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#1d3131">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="St. Matthew CCD">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/page-styles/family-schedule.css">
+</head>
+<body class="family-app">
+<%- include('_topbar') %>
+<main class="family-app-main">
+
+  <p class="family-offline-note" id="family-offline-note" hidden>
+    <%= tx('You’re offline. This is the schedule saved on', 'Estás sin conexión. Este es el horario guardado el') %>
+    <time datetime="<%= generatedAt.toISOString() %>"><%= generatedAt.toLocaleString(localeTag, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) %></time>.
+  </p>
+
+  <header class="family-app-header">
+    <p class="family-eyebrow"><%= t('faith_formation_col') %> &middot; <%= String(schoolYear || '').replace('-', ' – ') %></p>
+    <h1><%= tx('Our Family’s Schedule', 'El Horario de Nuestra Familia') %></h1>
+  </header>
+
+  <% if (schedule.nextClassDate) { %>
+    <section class="family-next" aria-labelledby="family-next-heading">
+      <h2 id="family-next-heading"><%= tx('Next class day', 'Próximo día de clase') %></h2>
+      <p class="family-next-date"><time datetime="<%= schedule.nextClassDate %>"><%= toDate(schedule.nextClassDate).toLocaleDateString(localeTag, { weekday: 'long', month: 'long', day: 'numeric' }) %></time></p>
+      <ul class="family-plain-list">
+        <% schedule.classes.filter((cls) => cls.nextDate === schedule.nextClassDate).forEach((cls) => { %>
+          <li><strong><%= cls.children.map((child) => child.name).join(', ') %></strong> &middot; <%= cls.label %><% if (cls.time) { %> &middot; <%= cls.time %><% } %><% if (cls.room) { %> &middot; <%= t('room') %> <%= cls.room %><% } %></li>
+        <% }) %>
+      </ul>
+    </section>
+  <% } %>
+
+  <section aria-labelledby="family-classes-heading">
+    <h2 class="family-section-title" id="family-classes-heading"><%= tx('Classes', 'Clases') %></h2>
+    <% if (!schedule.classes.length) { %>
+      <div class="family-card">
+        <p class="mb-0"><%= tx('None of your children has been placed in a class yet.', 'Ninguno de tus hijos ha sido asignado a una clase todavía.') %></p>
+      </div>
+    <% } %>
+    <% schedule.classes.forEach((cls) => { %>
+      <article class="family-card">
+        <h3><%= cls.label %></h3>
+        <p class="family-children"><%= cls.children.map((child) => child.name).join(', ') %></p>
+        <dl class="family-facts">
+          <dt><%= tx('When', 'Cuándo') %></dt><dd><%= cls.time || tx('Time not set', 'Horario sin confirmar') %></dd>
+          <% if (cls.room) { %><dt><%= t('room') %></dt><dd><%= cls.room %></dd><% } %>
+          <% if (cls.catechists.length) { %><dt><%= tx('Catechist', 'Catequista') %></dt><dd><%= cls.catechists.join(', ') %></dd><% } %>
+        </dl>
+        <% cls.children.filter((child) => child.conditional).forEach((child) => { %>
+          <p class="family-muted"><%= child.name %>: <%= t('conditionally_accepted') %></p>
+        <% }) %>
+      </article>
+    <% }) %>
+    <% if (schedule.pending.length) { %>
+      <div class="family-card family-card-pending">
+        <h3><%= tx('Registration under review', 'Inscripción en revisión') %></h3>
+        <p class="mb-0"><%= schedule.pending.map((child) => child.name).join(', ') %> &mdash; <%= tx('the class schedule will appear here once the office places them in a class.', 'el horario de clase aparecerá aquí cuando la oficina los asigne a una clase.') %></p>
+      </div>
+    <% } %>
+  </section>
+
+  <section aria-labelledby="family-dates-heading">
+    <h2 class="family-section-title" id="family-dates-heading"><%= tx('Upcoming dates', 'Próximas fechas') %></h2>
+    <% if (!schedule.dates.length) { %>
+      <div class="family-card"><p class="mb-0"><%= tx('No upcoming dates have been posted yet.', 'Todavía no se han publicado próximas fechas.') %></p></div>
+    <% } %>
+    <% let currentMonth = null; %>
+    <% schedule.dates.forEach((entry) => { %>
+      <% const monthKey = entry.date.slice(0, 7); %>
+      <% if (monthKey !== currentMonth) { %>
+        <% if (currentMonth) { %></ol><% } %>
+        <% currentMonth = monthKey; %>
+        <h3 class="family-month"><%= toDate(entry.date).toLocaleDateString(localeTag, { month: 'long', year: 'numeric' }) %></h3>
+        <ol class="family-dates">
+      <% } %>
+      <li class="family-date<%= entry.important ? ' is-important' : '' %><%= entry.kind === 'class_day' ? ' is-class' : '' %>">
+        <time class="family-date-badge" datetime="<%= entry.date %>">
+          <span><%= toDate(entry.date).toLocaleDateString(localeTag, { weekday: 'short' }) %></span>
+          <strong><%= toDate(entry.date).getDate() %></strong>
+        </time>
+        <div class="family-date-body">
+          <% if (entry.kind === 'event') { %>
+            <p class="family-date-title"><%= entry.title %></p>
+            <p class="family-date-meta">
+              <%= entry.important ? tx('Important date', 'Fecha importante') : t('event_type_general_event') %><% if (entry.time) { %> &middot; <%= timeLabel(entry.time) %><% if (entry.endTime) { %>–<%= timeLabel(entry.endTime) %><% } %><% } %><% if (entry.location) { %> &middot; <%= entry.location %><% } %>
+            </p>
+          <% } else { %>
+            <p class="family-date-title"><%= t('event_type_' + entry.kind) %> &middot; <%= entry.classLabel %></p>
+            <% if (entry.title) { %><p class="family-date-note"><%= entry.title %></p><% } %>
+            <% if (entry.kind === 'class_day' && entry.classTime) { %><p class="family-date-meta"><%= entry.classTime %><% if (entry.location) { %> &middot; <%= t('room') %> <%= entry.location %><% } %></p><% } %>
+          <% } %>
+          <p class="family-date-children"><%= entry.children.join(', ') %></p>
+        </div>
+      </li>
+    <% }) %>
+    <% if (currentMonth) { %></ol><% } %>
+  </section>
+
+  <% if (schedule.recurring.length) { %>
+    <section aria-labelledby="family-weekly-heading">
+      <h2 class="family-section-title" id="family-weekly-heading"><%= tx('Every week', 'Cada semana') %></h2>
+      <div class="family-card">
+        <ul class="family-plain-list">
+          <% schedule.recurring.forEach((event) => { %>
+            <li>
+              <strong><%= event.title %></strong> &middot;
+              <%= tx('every ' + event.weekday, 'cada ' + (weekdayNames[event.weekday] || event.weekday)) %><% if (event.time) { %>, <%= timeLabel(event.time) %><% } %><% if (event.location) { %> &middot; <%= event.location %><% } %>
+              <span class="family-muted">(<%= event.children.join(', ') %>)</span>
+            </li>
+          <% }) %>
+        </ul>
+      </div>
+    </section>
+  <% } %>
+
+  <section class="family-actions" aria-label="<%= tx('More options', 'Más opciones') %>">
+    <% if (schedule.dates.length) { %>
+      <a class="family-button family-button-primary" href="/my-family/calendar.ics"><%= tx('Add these dates to my phone’s calendar', 'Agregar estas fechas al calendario de mi teléfono') %></a>
+    <% } %>
+    <a class="family-button" href="/calendar"><%= tx('Parish calendar', 'Calendario parroquial') %></a>
+    <a class="family-button" href="/dashboard"><%= tx('Registrations and payments', 'Inscripciones y pagos') %></a>
+  </section>
+
+  <aside class="family-card family-install" id="family-install" hidden>
+    <h2><%= tx('Keep this on your phone', 'Ten esto en tu teléfono') %></h2>
+    <p id="family-install-ios" hidden><%= tx('In Safari, tap the Share button, then “Add to Home Screen”.', 'En Safari, toca el botón Compartir y luego “Agregar a inicio”.') %></p>
+    <button type="button" class="family-button family-button-primary" id="family-install-button" hidden><%= tx('Add to Home Screen', 'Agregar a la pantalla de inicio') %></button>
+  </aside>
+</main>
+<script>
+  (function () {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(function () {});
+    }
+    var offlineNote = document.getElementById('family-offline-note');
+    var showOffline = function () { offlineNote.hidden = navigator.onLine; };
+    window.addEventListener('online', showOffline);
+    window.addEventListener('offline', showOffline);
+    showOffline();
+
+    var standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    if (standalone) return;
+    var install = document.getElementById('family-install');
+    if (/iphone|ipad|ipod/i.test(navigator.userAgent)) {
+      install.hidden = false;
+      document.getElementById('family-install-ios').hidden = false;
+      return;
+    }
+    window.addEventListener('beforeinstallprompt', function (event) {
+      event.preventDefault();
+      var button = document.getElementById('family-install-button');
+      install.hidden = false;
+      button.hidden = false;
+      button.addEventListener('click', function () {
+        event.prompt();
+        install.hidden = true;
+      }, { once: true });
+    });
+  })();
+</script>
+</body>
+</html>

@@ -19,6 +19,7 @@ const { createCommunications } = require('./communications');
 const { getDashboardReview } = require('./dashboard-review');
 const { getDashboardClasses } = require('./dashboard-classes');
 const { getFamilyNextClasses } = require('./dashboard-family');
+const { getFamilySchedule, buildFamilyIcs } = require('./family-schedule');
 const { getDashboardPayments } = require('./dashboard-payments');
 const { getDashboardAttention } = require('./dashboard-attention');
 const { appendPayment, registrationPayments, importKey } = require('./payment-ledger');
@@ -4621,6 +4622,60 @@ app.get('/dashboard', requireAuth, asyncHandler(async (req, res) => {
   const childrenRegistrationDeadlinePassed = calculateFees(1, null, null, faithFormationSettings.schoolYear, null).afterStart;
 
   res.render('dashboard', { studentRegs, familyRegs, adultRegs, sponsorRegs, myStudents, myRegisteredChildren, ADULT_PROGRAMS, faithFormationSettings, childrenRegistrationDeadlinePassed, resolveCcdGrade, adminReview, teachingClasses, familyNextClasses, dashboardPayments, adminAttention });
+}));
+
+// Parents' phone view (and the installed home-screen app's start page): their children's
+// classes and upcoming dates. Only the signed-in user's own registrations are read.
+const loadFamilySchedule = async (user) => {
+  const regs = await db.prepare(
+    `SELECT * FROM student_registrations WHERE user_id = ? AND archived_at IS NULL AND status IN ('in_progress', 'conditionally_accepted', 'admitted') ORDER BY student_full_name ASC`
+  ).all(user.id);
+  const ccdClasses = await getCcdClasses();
+  const children = regs.map((reg) => ({
+    reg,
+    gradeLabel: CCD_GRADE_MEANINGS[resolveCcdGrade(reg)] || resolveCcdGrade(reg) || null,
+    assignedClass: findClassForStudentReg(reg, ccdClasses),
+  }));
+  return getFamilySchedule({
+    user,
+    children,
+    getSchedule: getClassSessionDates,
+    getEvents: getFaithFormationEvents,
+    audiencesFor: getClassCalendarAudiences,
+    formatDate: formatSessionDateValue,
+    today: formatSessionDateValue(new Date()),
+  });
+};
+
+const FAMILY_APP_SESSION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+
+app.get('/my-family', requireAuth, asyncHandler(async (req, res) => {
+  // Sessions normally end when the browser closes, which on a phone would mean signing in
+  // every time the home-screen app is reopened. Families (not staff, whose sessions reach
+  // admin data) are kept signed in for 30 days once they use this page.
+  if (!['admin', 'catechist', 'family_faith_leader'].includes(req.user.role) && !req.session.familyAppPersistent) {
+    req.session.familyAppPersistent = true;
+    req.session.cookie.maxAge = FAMILY_APP_SESSION_MAX_AGE_MS;
+  }
+  const [schedule, faithFormationSettings] = await Promise.all([loadFamilySchedule(req.user), getFaithFormationSettings()]);
+  res.set('Cache-Control', 'private, no-store');
+  res.render('family-schedule', { schedule, schoolYear: faithFormationSettings.schoolYear, formatTimeLabel, generatedAt: new Date() });
+}));
+
+app.get('/my-family/calendar.ics', requireAuth, asyncHandler(async (req, res) => {
+  const schedule = await loadFamilySchedule(req.user);
+  const { t } = res.locals;
+  const ics = buildFamilyIcs(schedule, {
+    labels: {
+      calendarName: res.locals.lang === 'es' ? 'Formación en la Fe de St. Matthew' : 'St. Matthew Faith Formation',
+      room: t('room'),
+      kinds: { class_day: t('event_type_class_day'), retreat: t('event_type_retreat'), rehearsal: t('event_type_rehearsal'), mass: t('event_type_mass') },
+    },
+  });
+  res.set('Cache-Control', 'private, no-store');
+  res.type('text/calendar; charset=utf-8');
+  res.attachment('st-matthew-faith-formation.ics');
+  res.send(ics);
 }));
 
 app.get('/family-faith/visits/availability', requireAuth, asyncHandler(async (req, res) => {
