@@ -60,9 +60,11 @@
           </div>
         </div>
 
-        <% if (broadcastClasses.length) { %>
-          <div class="col-12">
-            <label class="form-label mb-0"><%= t('staff_broadcast_classes_label') %></label>
+        <div class="col-12">
+          <label class="form-label mb-0"><%= t('staff_broadcast_classes_label') %></label>
+          <% if (!broadcastClasses.length) { %>
+            <div class="form-text mt-0"><%= t('staff_broadcast_classes_empty') %> <a href="/admin/users"><%= t('user_administration') %></a></div>
+          <% } else { %>
             <div class="form-text mt-0 mb-2"><%= t('staff_broadcast_classes_hint') %></div>
             <div class="row gy-1 gx-3">
               <% broadcastClasses.forEach((ccdClass) => { %>
@@ -77,8 +79,8 @@
                 </div>
               <% }) %>
             </div>
-          </div>
-        <% } %>
+          <% } %>
+        </div>
 
         <div class="col-12 col-md-4">
           <label class="form-label" for="broadcast-template"><%= t('staff_broadcast_template_label') %></label>
