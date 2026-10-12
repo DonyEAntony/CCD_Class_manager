@@ -236,7 +236,9 @@ const translations = {
     staff_broadcast_add_action_item_button: 'Add item',
     staff_broadcast_remove_action_item_button: 'Remove item',
     staff_broadcast_send_button: 'Send to Staff',
-    staff_broadcast_roles_required: 'Choose at least one group to send to.',
+    staff_broadcast_roles_required: 'Choose at least one group or class to send to.',
+    staff_broadcast_classes_label: 'Or catechists of specific classes',
+    staff_broadcast_classes_hint: 'Uncheck Catechist above to send only to the catechists of the classes you pick here.',
     staff_broadcast_no_recipients: 'No active users found for the selected group(s).',
     staff_broadcast_sent: 'Message sent — %s staff member(s) Bcc\'d.',
     staff_broadcast_partial: 'Only %s of %s staff member(s) received the message — these addresses were rejected: %s',
@@ -1374,7 +1376,9 @@ const translations = {
     staff_broadcast_add_action_item_button: 'Agregar tarea',
     staff_broadcast_remove_action_item_button: 'Quitar tarea',
     staff_broadcast_send_button: 'Enviar al Personal',
-    staff_broadcast_roles_required: 'Elija al menos un grupo para enviar.',
+    staff_broadcast_roles_required: 'Elija al menos un grupo o clase para enviar.',
+    staff_broadcast_classes_label: 'O catequistas de clases específicas',
+    staff_broadcast_classes_hint: 'Desmarque Catequista arriba para enviar solo a los catequistas de las clases que elija aquí.',
     staff_broadcast_no_recipients: 'No se encontraron usuarios activos para el/los grupo(s) seleccionado(s).',
     staff_broadcast_sent: 'Mensaje enviado — %s miembro(s) del personal en Cco.',
     staff_broadcast_partial: 'Solo %s de %s miembro(s) del personal recibieron el mensaje — estas direcciones fueron rechazadas: %s',
@@ -8702,6 +8706,16 @@ app.get('/admin/catechists', requireAuth, requireRole('admin'), asyncHandler(asy
       ...c,
       classLabels: (classesByCatechist.get(c.id) || []).map(getCcdClassShortLabel),
     })),
+    // Classes the broadcast form can target by their assigned catechists — a class with
+    // nobody assigned has no one to send to, so it isn't offered.
+    broadcastClasses: ccdClasses
+      .filter((c) => c.catechists.length)
+      .map((c) => ({
+        id: c.id,
+        label: `${CCD_GRADE_MEANINGS[c.grade_level] || ADULT_PROGRAM_LABELS[c.grade_level] || c.grade_level}${c.sectionLabel ? ` ${c.sectionLabel}` : ''}`,
+        classTime: c.class_time || '',
+        catechistNames: c.catechists.map((catechist) => catechist.name || catechist.email).join(', '),
+      })),
     templates: listTemplatesWithFields(),
     volunteerSignups: volunteerRows.map((row) => ({
       ...row,
@@ -8841,7 +8855,12 @@ const STAFF_BROADCAST_ROLES = new Set(['catechist', 'admin', 'family_faith_leade
 // already uses (see sendClassMessageEmail's bcc param).
 app.post('/admin/catechists/broadcast', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   const roles = [].concat(req.body.roles || []).filter((role) => STAFF_BROADCAST_ROLES.has(role));
-  if (!roles.length) {
+  // Specific classes add their assigned catechists on top of any whole roles picked, so an
+  // admin can reach e.g. just the First Year Communion and Confirmation teams.
+  const classIds = [...new Set([].concat(req.body.class_ids || [])
+    .map((id) => Number.parseInt(id, 10))
+    .filter((id) => Number.isInteger(id) && id > 0))];
+  if (!roles.length && !classIds.length) {
     req.flash('error', res.locals.t('staff_broadcast_roles_required'));
     return res.redirect('/admin/catechists');
   }
@@ -8861,11 +8880,29 @@ app.post('/admin/catechists/broadcast', requireAuth, requireRole('admin'), async
     return res.redirect('/admin/catechists');
   }
 
-  const recipients = await db.prepare(
-    `SELECT DISTINCT email FROM users
-     WHERE role IN (${roles.map(() => '?').join(',')}) AND COALESCE(account_status, 'active') <> 'deleted' AND email IS NOT NULL AND email <> ''`
-  ).all(...roles);
-  const bccList = recipients.map((r) => r.email);
+  const roleRecipients = roles.length
+    ? await db.prepare(
+      `SELECT DISTINCT email FROM users
+       WHERE role IN (${roles.map(() => '?').join(',')}) AND COALESCE(account_status, 'active') <> 'deleted' AND email IS NOT NULL AND email <> ''`
+    ).all(...roles)
+    : [];
+  const classRecipients = classIds.length
+    ? await db.prepare(
+      `SELECT DISTINCT u.email FROM ccd_class_catechists cc
+       JOIN users u ON u.id = cc.catechist_user_id
+       WHERE cc.ccd_class_id IN (${classIds.map(() => '?').join(',')}) AND COALESCE(u.account_status, 'active') <> 'deleted' AND u.email IS NOT NULL AND u.email <> ''`
+    ).all(...classIds)
+    : [];
+  // Someone in a picked role who also teaches a picked class gets one copy, not two.
+  const seenEmails = new Set();
+  const bccList = [...roleRecipients, ...classRecipients]
+    .map((r) => r.email)
+    .filter((email) => {
+      const key = email.toLowerCase();
+      if (seenEmails.has(key)) return false;
+      seenEmails.add(key);
+      return true;
+    });
   if (!bccList.length) {
     req.flash('error', res.locals.t('staff_broadcast_no_recipients'));
     return res.redirect('/admin/catechists');
