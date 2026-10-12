@@ -60,6 +60,26 @@
           </div>
         </div>
 
+        <% if (broadcastClasses.length) { %>
+          <div class="col-12">
+            <label class="form-label mb-0"><%= t('staff_broadcast_classes_label') %></label>
+            <div class="form-text mt-0 mb-2"><%= t('staff_broadcast_classes_hint') %></div>
+            <div class="row gy-1 gx-3">
+              <% broadcastClasses.forEach((ccdClass) => { %>
+                <div class="col-12 col-md-6">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="class_ids" value="<%= ccdClass.id %>" id="staff-class-<%= ccdClass.id %>">
+                    <label class="form-check-label" for="staff-class-<%= ccdClass.id %>">
+                      <%= ccdClass.label %><% if (ccdClass.classTime) { %> <span style="color:var(--muted)">&middot; <%= ccdClass.classTime %></span><% } %>
+                      <div style="font-size:.8rem;color:var(--muted)"><%= ccdClass.catechistNames %></div>
+                    </label>
+                  </div>
+                </div>
+              <% }) %>
+            </div>
+          </div>
+        <% } %>
+
         <div class="col-12 col-md-4">
           <label class="form-label" for="broadcast-template"><%= t('staff_broadcast_template_label') %></label>
           <select class="form-select" id="broadcast-template" name="template">
@@ -538,6 +558,7 @@
 
     function buildDraftSnapshot() {
       var roles = Array.from(form.querySelectorAll('input[name="roles"]:checked')).map(function (cb) { return cb.value; });
+      var classIds = Array.from(form.querySelectorAll('input[name="class_ids"]:checked')).map(function (cb) { return cb.value; });
       var fields = {};
       form.querySelectorAll('[name^="field_"]').forEach(function (el) { fields[el.name] = el.value; });
       var paragraphs = Array.from(document.querySelectorAll('.staff-notice-paragraph-value')).map(function (el) { return el.value; });
@@ -550,6 +571,7 @@
       return {
         savedAt: Date.now(),
         roles: roles,
+        classIds: classIds,
         template: templateSelect.value,
         subject: subjectInput ? subjectInput.value : '',
         message: messageInput ? messageInput.value : '',
@@ -583,6 +605,9 @@
     function restoreDraft(draft) {
       form.querySelectorAll('input[name="roles"]').forEach(function (cb) {
         cb.checked = draft.roles.indexOf(cb.value) !== -1;
+      });
+      form.querySelectorAll('input[name="class_ids"]').forEach(function (cb) {
+        cb.checked = (draft.classIds || []).indexOf(cb.value) !== -1;
       });
       templateSelect.value = draft.template || '';
       templateSelect.dispatchEvent(new Event('change'));
