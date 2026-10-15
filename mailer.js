@@ -228,6 +228,60 @@ const buildVolunteerNotificationEmailContent = ({
   };
 };
 
+// Heads-up to the office that a family who missed the registration cutoff is interested
+// in an additional sacramental prep session. Like the volunteer email, it takes
+// already-translated labels: `children` is [{ name, dateOfBirth, grade, sacraments: [],
+// baptized, baptismParish, priorFormation }] with every value a display string.
+const buildLateSacramentInterestEmailContent = ({
+  parentName, email, phone, parishioner, availability = [], notes, children = [], adminUrl,
+}) => {
+  const multiline = (value) => escapeHtml(value).replace(/\n/g, '<br>');
+  const cellLabel = `padding:6px 12px 6px 0;vertical-align:top;color:${BRAND.muted};font-size:13px;white-space:nowrap;`;
+  const cellValue = 'padding:6px 0;vertical-align:top;font-size:14px;';
+  const tableRows = (rows) => rows
+    .filter(([, value]) => value)
+    .map(([label, value]) => `
+      <tr>
+        <td style="${cellLabel}">${label}</td>
+        <td style="${cellValue}">${value}</td>
+      </tr>`).join('');
+
+  const parentRows = tableRows([
+    ['Parent / guardian', escapeHtml(parentName)],
+    ['Email', `<a href="mailto:${escapeHtml(email)}" style="color:${BRAND.navy};">${escapeHtml(email)}</a>`],
+    ['Phone', escapeHtml(phone)],
+    ['Parishioner', parishioner ? escapeHtml(parishioner) : ''],
+    ['Availability', availability.length ? escapeHtml(availability.join(', ')) : ''],
+    ['Notes', notes ? multiline(notes) : ''],
+  ]);
+
+  const childBlocks = children.map((child) => `
+      <p style="margin:18px 0 4px;font-weight:600;">${escapeHtml(child.name)}</p>
+      <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;">${tableRows([
+    ['Sacraments', child.sacraments && child.sacraments.length ? escapeHtml(child.sacraments.join(', ')) : ''],
+    ['Date of birth', child.dateOfBirth ? escapeHtml(child.dateOfBirth) : ''],
+    ['School grade', child.grade ? escapeHtml(child.grade) : ''],
+    ['Baptized', child.baptized ? escapeHtml(child.baptized) : ''],
+    ['Baptism parish', child.baptismParish ? escapeHtml(child.baptismParish) : ''],
+    ['Prior faith formation', child.priorFormation ? escapeHtml(child.priorFormation) : ''],
+  ])}
+      </table>`).join('');
+
+  const childCount = children.length === 1 ? '1 child' : `${children.length} children`;
+  return {
+    // Whitespace is collapsed so a crafted name can't put a line break in the subject.
+    subject: `Late sacramental prep interest: ${String(parentName).replace(/\s+/g, ' ').trim()} (${childCount})`,
+    html: wrapBrandedEmailHtml(`
+      <p style="margin:0 0 16px;">A family who missed the registration cutoff is interested in an additional sacramental preparation session.</p>
+      <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;">${parentRows}
+      </table>
+      ${childBlocks}
+      <p style="margin:16px 0 0;font-size:13px;color:${BRAND.muted};">Replying to this email goes straight to ${escapeHtml(parentName)}.</p>
+      ${adminUrl ? emailButton(escapeHtml(adminUrl), 'View sacramental prep interest') : ''}
+    `),
+  };
+};
+
 // A rough plain-text fallback for emails whose HTML body is a fully pre-built template
 // (see the `html` param on sendClassMessageEmail below) rather than one wrapped from a
 // simple message string, for mail clients that render text/plain instead of text/html.
@@ -520,7 +574,7 @@ const sendCatechistInvitationEmail = async ({ to, activationUrl, fullName }) => 
 module.exports = {
   hasSmtpConfig, sendVerificationEmail, resolvedFrom, smtpLogConfig, verifyMailConfiguration, buildVerificationEmailContent,
   sendPasswordResetEmail, buildPasswordResetEmailContent, sendClassMessageEmail, buildClassMessageEmailContent,
-  buildVolunteerNotificationEmailContent,
+  buildVolunteerNotificationEmailContent, buildLateSacramentInterestEmailContent,
   sendCatechistInvitationEmail, buildCatechistInvitationEmailContent,
   sendTemporaryPasswordEmail, buildTemporaryPasswordEmailContent,
   wrapBrandedEmailHtml, emailButton,

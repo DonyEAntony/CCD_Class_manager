@@ -199,6 +199,16 @@
                     : t('registration_closed_notice')) %></p>
               </a>
             </div>
+            <% if (childrenRegistrationDeadlinePassed) { %>
+            <div class="col-sm-6 col-lg-4">
+              <a href="/sacrament-interest" class="program-card" style="--prog-color:rgba(212,175,55,0.16);--prog-text:rgb(130,98,10)">
+                <div class="prog-icon" style="background:rgba(212,175,55,0.16);color:rgb(130,98,10)">&#10022;</div>
+                <div class="prog-title"><%= t('late_sacrament_card_title') %></div>
+                <div class="prog-subtitle"><%= t('late_sacrament_eyebrow') %></div>
+                <p class="prog-desc"><%= t('late_sacrament_card_desc') %></p>
+              </a>
+            </div>
+            <% } %>
             <% if (user.role === 'admin') { %>
             <div class="col-sm-6 col-lg-4">
               <a href="/registration/family-faith" class="program-card prog-family">

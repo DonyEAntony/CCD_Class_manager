@@ -162,6 +162,7 @@ If OAuth variables are blank, email/password authentication still works.
 - Configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, and `EMAIL_FROM` to send real verification emails.
 - Without SMTP configuration, the app shows a development-only activation link after signup so the flow can still be tested locally.
 - Set `VOLUNTEER_NOTIFY_EMAIL` (one address or a comma-separated list; defaults to `ADMIN_EMAIL`) to be emailed whenever someone submits the Discipleship Team volunteer form. The email omits marital status; replying goes to the volunteer. A mail failure never blocks the sign-up, it is only logged.
+- Set `SACRAMENT_INTEREST_NOTIFY_EMAIL` (same format; defaults to `ADMIN_EMAIL`) to be emailed whenever a family submits the additional sacramental prep interest form at `/sacrament-interest`. Once children's registration closes, parents are sent there instead of the registration form; submissions are listed at `/admin/sacrament-interest`.
 
 ## Recent registration form updates
 - Registration date is auto-set by the server and shown on the form as read-only context.

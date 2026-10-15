@@ -1053,6 +1053,43 @@ const init = async () => {
       )
     `);
 
+    // Interest in an additional sacramental prep session from families who missed the
+    // children's registration cutoff: one row per submission, one child row per child.
+    // `availability` and `sacraments` are comma-separated slugs — see
+    // late-sacrament-interest.js for the allowed values.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS late_sacrament_interest (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NULL,
+        school_year VARCHAR(20),
+        parent_name VARCHAR(255) NOT NULL,
+        email VARCHAR(255) NOT NULL,
+        phone VARCHAR(50) NOT NULL,
+        parishioner VARCHAR(10) NOT NULL,
+        availability VARCHAR(500),
+        notes TEXT,
+        status VARCHAR(50) NOT NULL DEFAULT 'new',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT fk_late_sacrament_interest_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS late_sacrament_interest_children (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        interest_id INT NOT NULL,
+        first_name VARCHAR(120) NOT NULL,
+        last_name VARCHAR(120) NOT NULL,
+        date_of_birth DATE NOT NULL,
+        grade VARCHAR(10) NOT NULL,
+        sacraments VARCHAR(200) NOT NULL,
+        baptized VARCHAR(10) NOT NULL,
+        baptism_parish VARCHAR(255),
+        prior_formation VARCHAR(50),
+        CONSTRAINT fk_late_sacrament_interest_children_interest FOREIGN KEY (interest_id) REFERENCES late_sacrament_interest(id) ON DELETE CASCADE
+      )
+    `);
+
     await pool.query(`
       UPDATE eucharistic_adoration_available_dates
       SET start_time = COALESCE(NULLIF(start_time, ''), '08:30'),

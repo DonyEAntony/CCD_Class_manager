@@ -30,7 +30,11 @@
           <span class="badge badge-role badge-<%= user.role %>"><%= user.role %></span>
           <span style="font-size:.85rem;color:var(--muted)"><%= t('signed_in_as') %> <strong style="color:var(--ink-soft)"><%= user.email %></strong></span>
           <a class="btn btn-primary" href="/dashboard"><%= t('open_dashboard') %></a>
+          <% if (childrenRegistrationDeadlinePassed && user.role !== 'admin') { %>
+          <a class="btn btn-outline-success" href="/sacrament-interest"><%= t('late_sacrament_button') %></a>
+          <% } else { %>
           <a class="btn btn-outline-success" href="/registration/children"><%= t('register_child') %></a>
+          <% } %>
           <a class="btn btn-outline-primary" href="/eucharistic-adoration">Eucharistic Adoration Signup</a>
           <a class="btn btn-outline-primary" href="/discipleship-volunteer"><%= t('volunteer_signup_title') %></a>
           <a class="btn btn-outline-primary" href="/steubenville-florida-youth-conference">Conference Page</a>
@@ -40,6 +44,9 @@
         <div class="d-flex flex-wrap gap-2">
           <a class="btn btn-primary" href="/signup"><%= t('create_account') %></a>
           <a class="btn btn-outline-primary" href="/login"><%= t('login') %></a>
+          <% if (childrenRegistrationDeadlinePassed) { %>
+          <a class="btn btn-outline-success" href="/sacrament-interest"><%= t('late_sacrament_button') %></a>
+          <% } %>
           <a class="btn btn-outline-success" href="/eucharistic-adoration">Eucharistic Adoration Signup</a>
           <a class="btn btn-outline-success" href="/discipleship-volunteer"><%= t('volunteer_signup_title') %></a>
           <a class="btn btn-outline-secondary" href="/steubenville-florida-youth-conference">Conference Page</a>
