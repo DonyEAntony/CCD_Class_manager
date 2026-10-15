@@ -1,0 +1,32 @@
+/* Shares the hero, hint, note and honeypot styles from discipleship-volunteer-signup.css. */
+.late-child {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.1rem 1.1rem;
+  margin-bottom: 0.9rem;
+  background: var(--surface);
+}
+.late-child-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+.late-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+.late-total {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.5rem 0.9rem;
+  background: var(--surface);
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.late-total strong {
+  display: block;
+  font-size: 1.25rem;
+  color: var(--navy);
+}

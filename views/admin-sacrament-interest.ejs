@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="<%= lang %>">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= t('late_sacrament_admin_header') %> &mdash; <%= t('app_title') %></title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/page-styles/late-sacrament-interest.css">
+</head>
+<body>
+<%- include('_topbar') %>
+<%- include('_admin_nav') %>
+<main class="container py-4 app-shell-wide mx-auto">
+  <% if (success.length) { %><div class="alert alert-success mb-3"><%= success[0] %></div><% } %>
+  <% if (error.length) { %><div class="alert alert-danger mb-3"><%= error[0] %></div><% } %>
+
+  <div class="mb-4">
+    <h1 class="h3 mb-1"><%= t('late_sacrament_admin_header') %></h1>
+    <p class="sub mb-0"><%= t('late_sacrament_admin_desc') %> <a href="/sacrament-interest">/sacrament-interest</a></p>
+  </div>
+
+  <div class="mb-4">
+    <div class="form-label mb-2" style="font-size:.85rem"><%= t('late_sacrament_admin_totals') %></div>
+    <div class="late-totals">
+      <% lateSacraments.forEach((slug) => { %>
+        <div class="late-total"><strong><%= sacramentTotals[slug] %></strong><%= t('late_sacrament_' + slug) %></div>
+      <% }) %>
+    </div>
+  </div>
+
+  <div class="page-card">
+    <div class="card-body p-0">
+      <% if (!interests.length) { %>
+        <div class="p-4 text-center" style="color:var(--muted);font-size:.9rem"><em><%= t('late_sacrament_admin_empty') %></em></div>
+      <% } else { %>
+        <div class="table-responsive">
+          <table class="table mb-0 align-top">
+            <thead>
+              <tr>
+                <th><%= t('late_sacrament_col_family') %></th>
+                <th><%= t('late_sacrament_col_children') %></th>
+                <th><%= t('late_sacrament_col_details') %></th>
+                <th><%= t('status') %></th>
+              </tr>
+            </thead>
+            <tbody>
+              <% interests.forEach((interest) => { %>
+                <tr>
+                  <td style="min-width:200px">
+                    <div style="font-weight:600"><%= interest.parent_name %></div>
+                    <div style="font-size:.82rem"><a href="mailto:<%= interest.email %>"><%= interest.email %></a></div>
+                    <div style="font-size:.82rem;color:var(--muted)"><%= interest.phone %></div>
+                    <div style="font-size:.8rem;color:var(--muted)"><%= t('late_sacrament_parishioner_label') %>: <%= t('late_sacrament_parishioner_' + interest.parishioner) %></div>
+                    <div style="font-size:.78rem;color:var(--muted)"><%= formatDateOnly(interest.created_at) %><% if (interest.school_year) { %> &middot; <%= interest.school_year %><% } %></div>
+                  </td>
+                  <td style="font-size:.85rem;min-width:280px">
+                    <% interest.children.forEach((child) => { %>
+                      <div class="mb-2">
+                        <div><strong><%= child.first_name %> <%= child.last_name %></strong> &mdash; <%= child.sacramentList.map((slug) => t('late_sacrament_' + slug)).join(', ') %></div>
+                        <div style="font-size:.8rem;color:var(--muted)">
+                          <%= t('late_sacrament_grade_' + child.grade) %> &middot; <%= t('dob') %> <%= formatDateOnly(child.date_of_birth) %>
+                          &middot; <%= t('late_sacrament_baptized_short') %>: <%= t('late_sacrament_baptized_' + child.baptized) %><% if (child.baptism_parish) { %> (<%= child.baptism_parish %>)<% } %>
+                          <% if (child.prior_formation) { %>&middot; <%= t('late_sacrament_label_prior') %>: <%= t('late_sacrament_prior_' + child.prior_formation) %><% } %>
+                        </div>
+                      </div>
+                    <% }) %>
+                  </td>
+                  <td style="font-size:.85rem;min-width:200px">
+                    <% if (interest.availabilityList.length) { %>
+                      <div><%= interest.availabilityList.map((slug) => t('late_sacrament_availability_' + slug)).join(', ') %></div>
+                    <% } %>
+                    <% if (interest.notes) { %>
+                      <div style="font-size:.8rem;color:var(--muted);white-space:pre-line"><%= interest.notes %></div>
+                    <% } %>
+                    <% if (!interest.availabilityList.length && !interest.notes) { %>&mdash;<% } %>
+                  </td>
+                  <td style="min-width:200px">
+                    <form class="d-flex gap-1 align-items-center mb-1" method="post" action="/admin/sacrament-interest/<%= interest.id %>/status">
+                      <select class="form-select form-select-sm" style="min-width:8.5rem" name="status" aria-label="<%= t('status') %>">
+                        <% lateSacramentStatuses.forEach((status) => { %>
+                          <option value="<%= status %>" <%= interest.status === status ? 'selected' : '' %>><%= t('late_sacrament_status_' + status) %></option>
+                        <% }) %>
+                      </select>
+                      <button class="btn btn-sm btn-outline-primary" type="submit"><%= t('late_sacrament_update') %></button>
+                    </form>
+                    <form method="post" action="/admin/sacrament-interest/<%= interest.id %>/delete" onsubmit="return confirm('<%= t('confirm_remove_late_sacrament') %>');">
+                      <button class="btn btn-sm btn-outline-danger" type="submit"><%= t('remove') %></button>
+                    </form>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+  </div>
+</main>
+</body>
+</html>

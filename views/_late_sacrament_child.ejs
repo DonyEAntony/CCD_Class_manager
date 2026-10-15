@@ -1,0 +1,73 @@
+<%
+  // One child's fields on the sacramental prep interest form. `index` is a number for a
+  // rendered child, or the literal `__INDEX__` inside the <template> the "Add another
+  // child" button clones from (the script swaps in a fresh number).
+  const c = child || {};
+  const field = (name) => `children[${index}][${name}]`;
+  const fieldId = (name) => `late-child-${index}-${name}`;
+  const pickedSacrament = (slug) => [].concat(c.sacraments || []).includes(slug);
+%>
+<div class="late-child" data-late-child>
+  <div class="late-child-head">
+    <h3 class="h6 mb-0"><%= t('late_sacrament_child_heading') %> <span data-late-child-number><%= typeof number === 'number' ? number : '' %></span></h3>
+    <button type="button" class="btn btn-sm btn-link text-danger p-0" data-late-child-remove><%= t('late_sacrament_remove_child') %></button>
+  </div>
+  <div class="row g-3">
+    <div class="col-md-6">
+      <label class="form-label required" for="<%= fieldId('first-name') %>"><%= t('late_sacrament_label_first_name') %></label>
+      <input class="form-control" id="<%= fieldId('first-name') %>" type="text" name="<%= field('first_name') %>" value="<%= c.first_name || '' %>" maxlength="120" required>
+    </div>
+    <div class="col-md-6">
+      <label class="form-label required" for="<%= fieldId('last-name') %>"><%= t('late_sacrament_label_last_name') %></label>
+      <input class="form-control" id="<%= fieldId('last-name') %>" type="text" name="<%= field('last_name') %>" value="<%= c.last_name || '' %>" maxlength="120" required>
+    </div>
+    <div class="col-md-6">
+      <label class="form-label required" for="<%= fieldId('dob') %>"><%= t('late_sacrament_label_dob') %></label>
+      <input class="form-control" id="<%= fieldId('dob') %>" type="date" name="<%= field('date_of_birth') %>" value="<%= c.date_of_birth || '' %>" required>
+    </div>
+    <div class="col-md-6">
+      <label class="form-label required" for="<%= fieldId('grade') %>"><%= t('late_sacrament_label_grade') %></label>
+      <select class="form-select" id="<%= fieldId('grade') %>" name="<%= field('grade') %>" required>
+        <option value=""><%= t('late_sacrament_grade_placeholder') %></option>
+        <% lateSacramentOptions.grades.forEach((slug) => { %>
+          <option value="<%= slug %>" <%= c.grade === slug ? 'selected' : '' %>><%= t('late_sacrament_grade_' + slug) %></option>
+        <% }) %>
+      </select>
+    </div>
+    <div class="col-12">
+      <div class="form-label required mb-1"><%= t('late_sacrament_label_sacraments') %></div>
+      <div class="d-flex flex-wrap gap-3">
+        <% lateSacramentOptions.sacraments.forEach((slug) => { %>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="<%= field('sacraments') %>" value="<%= slug %>" id="<%= fieldId('sacrament-' + slug) %>" <%= pickedSacrament(slug) ? 'checked' : '' %>>
+            <label class="form-check-label" for="<%= fieldId('sacrament-' + slug) %>"><%= t('late_sacrament_' + slug) %></label>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+    <div class="col-12">
+      <div class="form-label required mb-1"><%= t('late_sacrament_label_baptized') %></div>
+      <div class="d-flex flex-wrap gap-3">
+        <% lateSacramentOptions.baptized.forEach((slug) => { %>
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="<%= field('baptized') %>" value="<%= slug %>" id="<%= fieldId('baptized-' + slug) %>" <%= c.baptized === slug ? 'checked' : '' %> required>
+            <label class="form-check-label" for="<%= fieldId('baptized-' + slug) %>"><%= t('late_sacrament_baptized_' + slug) %></label>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <label class="form-label" for="<%= fieldId('baptism-parish') %>"><%= t('late_sacrament_label_baptism_parish') %></label>
+      <input class="form-control" id="<%= fieldId('baptism-parish') %>" type="text" name="<%= field('baptism_parish') %>" value="<%= c.baptism_parish || '' %>" maxlength="255">
+    </div>
+    <div class="col-md-6">
+      <label class="form-label" for="<%= fieldId('prior') %>"><%= t('late_sacrament_label_prior') %></label>
+      <select class="form-select" id="<%= fieldId('prior') %>" name="<%= field('prior_formation') %>">
+        <option value=""><%= t('late_sacrament_prior_placeholder') %></option>
+        <% lateSacramentOptions.priorFormation.forEach((slug) => { %>
+          <option value="<%= slug %>" <%= c.prior_formation === slug ? 'selected' : '' %>><%= t('late_sacrament_prior_' + slug) %></option>
+        <% }) %>
+      </select>
+    </div>
+  </div>
+</div>

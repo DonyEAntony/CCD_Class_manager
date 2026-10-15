@@ -11,7 +11,7 @@ const passport = require('./auth');
 const db = require('./db');
 const MySqlSessionStore = require('./session-store');
 const { processScanDocument, verifyDocumentAiConfiguration } = require('./document-ai');
-const { sendVerificationEmail, smtpLogConfig, verifyMailConfiguration, buildVerificationEmailContent, sendPasswordResetEmail, sendClassMessageEmail, sendCatechistInvitationEmail, sendTemporaryPasswordEmail, buildClassMessageEmailContent, buildVolunteerNotificationEmailContent, wrapBrandedEmailHtml } = require('./mailer');
+const { sendVerificationEmail, smtpLogConfig, verifyMailConfiguration, buildVerificationEmailContent, sendPasswordResetEmail, sendClassMessageEmail, sendCatechistInvitationEmail, sendTemporaryPasswordEmail, buildClassMessageEmailContent, buildVolunteerNotificationEmailContent, buildLateSacramentInterestEmailContent, wrapBrandedEmailHtml } = require('./mailer');
 const { listTemplatesWithFields, renderTemplate, sanitizeEmailHtml } = require('./email-templates');
 const { requireAuth, requireRole } = require('./middleware');
 const { createCommunicationStore } = require('./communications-store');
@@ -37,6 +37,17 @@ const {
   getVolunteerNotificationRecipients,
   splitList,
 } = require('./discipleship-volunteers');
+const {
+  LATE_SACRAMENTS,
+  LATE_SACRAMENT_GRADES,
+  LATE_SACRAMENT_BAPTIZED,
+  LATE_SACRAMENT_PRIOR_FORMATION,
+  LATE_SACRAMENT_AVAILABILITY,
+  LATE_SACRAMENT_STATUSES,
+  MAX_LATE_SACRAMENT_CHILDREN,
+  parseLateSacramentInterest,
+  getLateSacramentNotificationRecipients,
+} = require('./late-sacrament-interest');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -983,6 +994,98 @@ const translations = {
     volunteer_status_updated: 'Volunteer status updated.',
     volunteer_removed: 'Volunteer sign-up removed.',
     volunteer_invalid: 'Invalid volunteer sign-up.',
+    late_sacrament_card_title: 'Missed Registration? Sacramental Prep Interest',
+    late_sacrament_button: 'Sacramental Prep Interest Form',
+    late_sacrament_card_desc: 'Missed the registration deadline? Let us know your child needs First Reconciliation, First Communion, Confirmation, or Baptism and we will contact you about an additional session.',
+    late_sacrament_deadline_link: 'Missed the deadline? Tell us you are interested in an additional sacramental preparation session.',
+    late_sacrament_page_title: 'Additional Sacramental Preparation — Interest Form',
+    late_sacrament_eyebrow: 'Sacramental Preparation',
+    late_sacrament_hero_title: 'Missed the Registration Deadline?',
+    late_sacrament_hero_body: 'If your child still needs to prepare for Baptism, First Reconciliation, First Holy Communion, or Confirmation, let us know. We are gauging interest in an additional preparation session for families who did not register in time.',
+    late_sacrament_from_registration: 'Children\'s Faith Formation registration is closed for this year. You can still let us know you are interested in an additional sacramental preparation session below.',
+    late_sacrament_form_header: 'Interest Form',
+    late_sacrament_section_parent: 'Parent / Guardian',
+    late_sacrament_label_parent_name: 'Parent / guardian name',
+    late_sacrament_label_parishioner: 'Is your family registered at St. Matthew Parish?',
+    late_sacrament_parishioner_yes: 'Yes',
+    late_sacrament_parishioner_no: 'No',
+    late_sacrament_section_children: 'Children',
+    late_sacrament_children_help: 'Add each child who needs sacramental preparation (up to %s).',
+    late_sacrament_child_heading: 'Child',
+    late_sacrament_add_child: '+ Add another child',
+    late_sacrament_remove_child: 'Remove',
+    late_sacrament_label_first_name: 'First name',
+    late_sacrament_label_last_name: 'Last name',
+    late_sacrament_label_dob: 'Date of birth',
+    late_sacrament_label_grade: 'Grade in school (this year)',
+    late_sacrament_grade_placeholder: 'Select grade',
+    late_sacrament_grade_k: 'Kindergarten',
+    late_sacrament_grade_1: '1st grade',
+    late_sacrament_grade_2: '2nd grade',
+    late_sacrament_grade_3: '3rd grade',
+    late_sacrament_grade_4: '4th grade',
+    late_sacrament_grade_5: '5th grade',
+    late_sacrament_grade_6: '6th grade',
+    late_sacrament_grade_7: '7th grade',
+    late_sacrament_grade_8: '8th grade',
+    late_sacrament_grade_9: '9th grade',
+    late_sacrament_grade_10: '10th grade',
+    late_sacrament_grade_11: '11th grade',
+    late_sacrament_grade_12: '12th grade',
+    late_sacrament_label_sacraments: 'Sacrament(s) needed',
+    late_sacrament_baptism: 'Baptism',
+    late_sacrament_first_reconciliation: 'First Reconciliation',
+    late_sacrament_first_communion: 'First Holy Communion',
+    late_sacrament_confirmation: 'Confirmation',
+    late_sacrament_label_baptized: 'Has this child been baptized?',
+    late_sacrament_baptized_yes: 'Yes',
+    late_sacrament_baptized_no: 'No',
+    late_sacrament_baptized_unsure: 'Not sure',
+    late_sacrament_label_baptism_parish: 'Parish of baptism (if known)',
+    late_sacrament_label_prior: 'Prior faith formation / CCD',
+    late_sacrament_prior_placeholder: 'Select one (optional)',
+    late_sacrament_prior_none: 'None',
+    late_sacrament_prior_one_year: 'One year',
+    late_sacrament_prior_two_plus_years: 'Two or more years',
+    late_sacrament_section_schedule: 'Scheduling',
+    late_sacrament_label_availability: 'Which times could work for your family? (optional)',
+    late_sacrament_availability_sunday: 'Sundays',
+    late_sacrament_availability_weekday_evening: 'Weekday evenings',
+    late_sacrament_availability_saturday: 'Saturdays',
+    late_sacrament_availability_flexible: 'Flexible',
+    late_sacrament_label_notes: 'Anything else we should know?',
+    late_sacrament_notes_placeholder: 'For example, why you could not register in time, or special needs we should plan for.',
+    late_sacrament_submit: 'Submit Interest Form',
+    late_sacrament_next_header: 'What Happens Next',
+    late_sacrament_next_body: 'This form is not a registration and does not guarantee a place. If there is enough interest, the Faith Formation office will contact you with dates, fees, and next steps for an additional session.',
+    late_sacrament_records_note: 'If your child was baptized outside St. Matthew, you will be asked for a copy of the baptismal certificate when registering.',
+    late_sacrament_thanks: 'Thank you! We have received your interest in an additional sacramental preparation session and will contact you.',
+    late_sacrament_err_required: 'Please enter your name, email, and phone.',
+    late_sacrament_err_email: 'Please enter a valid email address.',
+    late_sacrament_err_phone: 'Invalid phone format. Use XXX-XXX-XXXX, XXX.XXX.XXXX, or XXX XXX XXXX.',
+    late_sacrament_err_parishioner: 'Please tell us whether your family is registered at the parish.',
+    late_sacrament_err_no_children: 'Please add at least one child.',
+    late_sacrament_err_child_required: 'Please enter each child\'s first and last name, date of birth, grade, and whether they have been baptized.',
+    late_sacrament_err_child_dob: 'Please check each child\'s date of birth.',
+    late_sacrament_err_child_sacraments: 'Please choose at least one sacrament for each child.',
+    late_sacrament_admin_header: 'Sacramental Prep Interest',
+    late_sacrament_admin_desc: 'Families who missed the registration cutoff and want an additional sacramental preparation session.',
+    late_sacrament_admin_empty: 'No interest forms submitted yet.',
+    late_sacrament_admin_totals: 'Children interested (excluding "Not proceeding")',
+    late_sacrament_col_family: 'Family',
+    late_sacrament_col_children: 'Children',
+    late_sacrament_col_details: 'Availability & Notes',
+    late_sacrament_status_new: 'New',
+    late_sacrament_status_contacted: 'Contacted',
+    late_sacrament_status_enrolled: 'Enrolled',
+    late_sacrament_status_not_proceeding: 'Not proceeding',
+    late_sacrament_update: 'Update',
+    late_sacrament_parishioner_label: 'Parishioner',
+    late_sacrament_baptized_short: 'Baptized',
+    confirm_remove_late_sacrament: 'Remove this interest form and its children?',
+    late_sacrament_status_updated: 'Status updated.',
+    late_sacrament_removed: 'Interest form removed.',
+    late_sacrament_invalid: 'Invalid interest form.',
     required_field: 'This field is required.',
     classes_nav: 'Classes',
     classes_header: 'Classes',
@@ -2123,6 +2226,98 @@ const translations = {
     volunteer_status_updated: 'Estado del voluntario actualizado.',
     volunteer_removed: 'Inscripción de voluntario eliminada.',
     volunteer_invalid: 'Inscripción de voluntario inválida.',
+    late_sacrament_card_title: '¿No Alcanzó a Inscribirse? Interés en Preparación Sacramental',
+    late_sacrament_button: 'Formulario de Interés en Preparación Sacramental',
+    late_sacrament_card_desc: '¿Pasó la fecha límite de inscripción? Avísenos si su hijo necesita la Primera Reconciliación, la Primera Comunión, la Confirmación o el Bautismo y nos comunicaremos con usted sobre una sesión adicional.',
+    late_sacrament_deadline_link: '¿Pasó la fecha límite? Díganos que le interesa una sesión adicional de preparación sacramental.',
+    late_sacrament_page_title: 'Preparación Sacramental Adicional — Formulario de Interés',
+    late_sacrament_eyebrow: 'Preparación Sacramental',
+    late_sacrament_hero_title: '¿Pasó la Fecha Límite de Inscripción?',
+    late_sacrament_hero_body: 'Si su hijo aún necesita prepararse para el Bautismo, la Primera Reconciliación, la Primera Comunión o la Confirmación, avísenos. Estamos evaluando el interés en una sesión de preparación adicional para las familias que no se inscribieron a tiempo.',
+    late_sacrament_from_registration: 'La inscripción de Formación en la Fe para niños está cerrada este año. Aún puede indicarnos abajo su interés en una sesión adicional de preparación sacramental.',
+    late_sacrament_form_header: 'Formulario de Interés',
+    late_sacrament_section_parent: 'Padre / Madre / Tutor',
+    late_sacrament_label_parent_name: 'Nombre del padre, madre o tutor',
+    late_sacrament_label_parishioner: '¿Su familia está registrada en la Parroquia San Mateo?',
+    late_sacrament_parishioner_yes: 'Sí',
+    late_sacrament_parishioner_no: 'No',
+    late_sacrament_section_children: 'Hijos',
+    late_sacrament_children_help: 'Agregue a cada hijo que necesite preparación sacramental (hasta %s).',
+    late_sacrament_child_heading: 'Hijo/a',
+    late_sacrament_add_child: '+ Agregar otro hijo',
+    late_sacrament_remove_child: 'Quitar',
+    late_sacrament_label_first_name: 'Nombre',
+    late_sacrament_label_last_name: 'Apellido',
+    late_sacrament_label_dob: 'Fecha de nacimiento',
+    late_sacrament_label_grade: 'Grado escolar (este año)',
+    late_sacrament_grade_placeholder: 'Seleccione el grado',
+    late_sacrament_grade_k: 'Kínder',
+    late_sacrament_grade_1: '1er grado',
+    late_sacrament_grade_2: '2do grado',
+    late_sacrament_grade_3: '3er grado',
+    late_sacrament_grade_4: '4to grado',
+    late_sacrament_grade_5: '5to grado',
+    late_sacrament_grade_6: '6to grado',
+    late_sacrament_grade_7: '7mo grado',
+    late_sacrament_grade_8: '8vo grado',
+    late_sacrament_grade_9: '9no grado',
+    late_sacrament_grade_10: '10mo grado',
+    late_sacrament_grade_11: '11vo grado',
+    late_sacrament_grade_12: '12vo grado',
+    late_sacrament_label_sacraments: 'Sacramento(s) que necesita',
+    late_sacrament_baptism: 'Bautismo',
+    late_sacrament_first_reconciliation: 'Primera Reconciliación',
+    late_sacrament_first_communion: 'Primera Comunión',
+    late_sacrament_confirmation: 'Confirmación',
+    late_sacrament_label_baptized: '¿Este niño/a ha sido bautizado/a?',
+    late_sacrament_baptized_yes: 'Sí',
+    late_sacrament_baptized_no: 'No',
+    late_sacrament_baptized_unsure: 'No estoy seguro/a',
+    late_sacrament_label_baptism_parish: 'Parroquia de bautismo (si la sabe)',
+    late_sacrament_label_prior: 'Formación en la fe / catecismo previo',
+    late_sacrament_prior_placeholder: 'Seleccione uno (opcional)',
+    late_sacrament_prior_none: 'Ninguno',
+    late_sacrament_prior_one_year: 'Un año',
+    late_sacrament_prior_two_plus_years: 'Dos años o más',
+    late_sacrament_section_schedule: 'Horarios',
+    late_sacrament_label_availability: '¿Qué horarios le funcionarían a su familia? (opcional)',
+    late_sacrament_availability_sunday: 'Domingos',
+    late_sacrament_availability_weekday_evening: 'Días de semana por la noche',
+    late_sacrament_availability_saturday: 'Sábados',
+    late_sacrament_availability_flexible: 'Flexible',
+    late_sacrament_label_notes: '¿Algo más que debamos saber?',
+    late_sacrament_notes_placeholder: 'Por ejemplo, por qué no pudo inscribirse a tiempo, o necesidades especiales que debamos tener en cuenta.',
+    late_sacrament_submit: 'Enviar Formulario de Interés',
+    late_sacrament_next_header: 'Qué Sigue',
+    late_sacrament_next_body: 'Este formulario no es una inscripción y no garantiza un lugar. Si hay suficiente interés, la oficina de Formación en la Fe se comunicará con usted con las fechas, cuotas y próximos pasos para una sesión adicional.',
+    late_sacrament_records_note: 'Si su hijo fue bautizado fuera de San Mateo, se le pedirá una copia del certificado de bautismo al inscribirse.',
+    late_sacrament_thanks: '¡Gracias! Hemos recibido su interés en una sesión adicional de preparación sacramental y nos comunicaremos con usted.',
+    late_sacrament_err_required: 'Por favor ingrese su nombre, correo electrónico y teléfono.',
+    late_sacrament_err_email: 'Por favor ingrese un correo electrónico válido.',
+    late_sacrament_err_phone: 'Formato de teléfono inválido. Use XXX-XXX-XXXX, XXX.XXX.XXXX o XXX XXX XXXX.',
+    late_sacrament_err_parishioner: 'Por favor indíquenos si su familia está registrada en la parroquia.',
+    late_sacrament_err_no_children: 'Por favor agregue al menos un hijo.',
+    late_sacrament_err_child_required: 'Por favor ingrese el nombre y apellido, la fecha de nacimiento, el grado de cada hijo y si ha sido bautizado.',
+    late_sacrament_err_child_dob: 'Por favor revise la fecha de nacimiento de cada hijo.',
+    late_sacrament_err_child_sacraments: 'Por favor elija al menos un sacramento para cada hijo.',
+    late_sacrament_admin_header: 'Interés en Preparación Sacramental',
+    late_sacrament_admin_desc: 'Familias que no alcanzaron la fecha límite de inscripción y desean una sesión adicional de preparación sacramental.',
+    late_sacrament_admin_empty: 'Aún no se han enviado formularios de interés.',
+    late_sacrament_admin_totals: 'Niños interesados (sin contar "No continúa")',
+    late_sacrament_col_family: 'Familia',
+    late_sacrament_col_children: 'Hijos',
+    late_sacrament_col_details: 'Horarios y Notas',
+    late_sacrament_status_new: 'Nuevo',
+    late_sacrament_status_contacted: 'Contactado',
+    late_sacrament_status_enrolled: 'Inscrito',
+    late_sacrament_status_not_proceeding: 'No continúa',
+    late_sacrament_update: 'Actualizar',
+    late_sacrament_parishioner_label: 'Feligrés',
+    late_sacrament_baptized_short: 'Bautizado/a',
+    confirm_remove_late_sacrament: '¿Eliminar este formulario de interés y sus hijos?',
+    late_sacrament_status_updated: 'Estado actualizado.',
+    late_sacrament_removed: 'Formulario de interés eliminado.',
+    late_sacrament_invalid: 'Formulario de interés inválido.',
     required_field: 'Este campo es obligatorio.',
     classes_nav: 'Clases',
     classes_header: 'Clases',
@@ -4009,7 +4204,12 @@ const getIncompleteStudentRegistrationFields = (reg) => {
 };
 
 // ── Public routes ────────────────────────────────────────────
-app.get('/', (req, res) => res.render('index'));
+// The additional sacramental prep interest form is only offered once children's
+// registration has closed for the year (the same cutoff /registration/children enforces).
+app.get('/', asyncHandler(async (req, res) => {
+  const { schoolYear } = await getFaithFormationSettings();
+  res.render('index', { childrenRegistrationDeadlinePassed: calculateFees(1, null, null, schoolYear, null).afterStart });
+}));
 app.get('/steubenville-florida-youth-conference', (req, res) => res.render('steubenville-florida'));
 
 app.get('/eucharistic-adoration', asyncHandler(async (req, res) => {
@@ -4187,6 +4387,137 @@ app.post('/discipleship-volunteer', asyncHandler(async (req, res) => {
 
   req.flash('success', res.locals.t('volunteer_thanks'));
   return res.redirect('/discipleship-volunteer');
+}));
+
+// ── Additional sacramental prep interest ─────────────────────
+// For families who missed the children's registration cutoff. Public like the volunteer
+// form so a family without an account can still reach the office; a signed-in parent gets
+// their details prefilled and the record linked to their account.
+
+// Field names the form posts, rebuilt from the parsed values so a failed submission
+// re-renders from clean data rather than the raw request body.
+const lateSacramentFormData = (values) => ({
+  parent_name: values.parentName,
+  email: values.email,
+  phone: values.phone,
+  parishioner: values.parishioner,
+  availability: values.availability,
+  notes: values.notes,
+  children: values.children.map((child) => ({
+    first_name: child.firstName,
+    last_name: child.lastName,
+    date_of_birth: child.dateOfBirth,
+    grade: child.grade,
+    sacraments: child.sacraments,
+    baptized: child.baptized,
+    baptism_parish: child.baptismParish,
+    prior_formation: child.priorFormation,
+  })),
+});
+
+const lateSacramentOptions = {
+  sacraments: LATE_SACRAMENTS,
+  grades: LATE_SACRAMENT_GRADES,
+  baptized: LATE_SACRAMENT_BAPTIZED,
+  priorFormation: LATE_SACRAMENT_PRIOR_FORMATION,
+  availability: LATE_SACRAMENT_AVAILABILITY,
+  maxChildren: MAX_LATE_SACRAMENT_CHILDREN,
+};
+
+const renderLateSacramentForm = (req, res, { formData = {}, errors = [], status = 200 } = {}) => {
+  const prefill = req.user ? { parent_name: req.user.full_name || '', email: req.user.email || '', phone: req.user.phone || '' } : {};
+  const data = { ...prefill, ...formData };
+  if (!Array.isArray(data.children) || !data.children.length) data.children = [{}];
+  res.status(status).render('late-sacrament-interest', {
+    fromRegistration: req.query.from === 'registration',
+    formData: data,
+    error: errors.map((key) => res.locals.t(key)),
+    lateSacramentOptions,
+  });
+};
+
+// Tells the office about a new submission. Fire-and-forget, like the volunteer
+// notification: the interest is already saved, so a mail failure is only logged.
+const notifyLateSacramentInterest = (req, values) => {
+  const recipients = getLateSacramentNotificationRecipients(process.env);
+  if (!recipients.length) {
+    console.warn('[mail] Sacramental prep interest notification skipped: set SACRAMENT_INTEREST_NOTIFY_EMAIL (or ADMIN_EMAIL)');
+    return;
+  }
+  // Office staff read the notification in English regardless of the visitor's language.
+  const en = (key) => translations.en[key] || key;
+  const { subject, html } = buildLateSacramentInterestEmailContent({
+    parentName: values.parentName,
+    email: values.email,
+    phone: values.phone,
+    parishioner: en(`late_sacrament_parishioner_${values.parishioner}`),
+    availability: values.availability.map((slug) => en(`late_sacrament_availability_${slug}`)),
+    notes: values.notes,
+    children: values.children.map((child) => ({
+      name: `${child.firstName} ${child.lastName}`,
+      dateOfBirth: child.dateOfBirth,
+      grade: en(`late_sacrament_grade_${child.grade}`),
+      sacraments: child.sacraments.map((slug) => en(`late_sacrament_${slug}`)),
+      baptized: en(`late_sacrament_baptized_${child.baptized}`),
+      baptismParish: child.baptismParish,
+      priorFormation: child.priorFormation ? en(`late_sacrament_prior_${child.priorFormation}`) : '',
+    })),
+    adminUrl: `${getBaseUrl(req)}/admin/sacrament-interest`,
+  });
+  sendClassMessageEmail({ to: recipients.join(', '), subject, html, replyTo: values.email })
+    .catch((error) => console.error('[mail] Sacramental prep interest notification failed', error && error.message));
+};
+
+app.get('/sacrament-interest', (req, res) => renderLateSacramentForm(req, res));
+
+app.post('/sacrament-interest', asyncHandler(async (req, res) => {
+  const { spam, values, errors } = parseLateSacramentInterest(req.body);
+
+  if (errors.length) {
+    return renderLateSacramentForm(req, res, { formData: lateSacramentFormData(values), errors, status: 400 });
+  }
+
+  // A bot that filled the hidden field gets the same thank-you, and nothing is stored.
+  if (!spam) {
+    const { schoolYear } = await getFaithFormationSettings();
+    await db.transaction(async (tx) => {
+      const result = await tx.prepare(`
+        INSERT INTO late_sacrament_interest
+          (user_id, school_year, parent_name, email, phone, parishioner, availability, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        req.user ? req.user.id : null,
+        schoolYear || null,
+        values.parentName,
+        values.email,
+        values.phone,
+        values.parishioner,
+        values.availability.join(',') || null,
+        values.notes || null,
+      );
+      for (const child of values.children) {
+        await tx.prepare(`
+          INSERT INTO late_sacrament_interest_children
+            (interest_id, first_name, last_name, date_of_birth, grade, sacraments, baptized, baptism_parish, prior_formation)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          result.lastInsertRowid,
+          child.firstName,
+          child.lastName,
+          child.dateOfBirth,
+          child.grade,
+          child.sacraments.join(','),
+          child.baptized,
+          child.baptismParish || null,
+          child.priorFormation || null,
+        );
+      }
+    });
+    notifyLateSacramentInterest(req, values);
+  }
+
+  req.flash('success', res.locals.t('late_sacrament_thanks'));
+  return res.redirect('/sacrament-interest');
 }));
 
 app.get('/signup', (req, res) => res.render('signup'));
@@ -4923,9 +5254,9 @@ app.get('/registration/children', requireAuth, asyncHandler(async (req, res) => 
   // Same cutoff handleChildrenRegistration enforces on submit, checked here too so a
   // parent past the deadline is turned away before filling out the form instead of
   // after — the wizard can span several stages before that POST-time check would fire.
+  // They land on the additional sacramental prep interest form, which explains why.
   if (req.user.role !== 'admin' && calculateFees(1, null, null, faithFormationSettings.schoolYear, null).afterStart) {
-    req.flash('error', res.locals.t('children_registration_deadline_passed_notice').replace('%s', parseFaithFormationStartYear(faithFormationSettings.schoolYear)));
-    return res.redirect('/dashboard');
+    return res.redirect('/sacrament-interest?from=registration');
   }
 
   const stage = req.query.stage === 'student' ? 'student' : 'intro';
@@ -8749,6 +9080,69 @@ app.post('/admin/discipleship-volunteers/:id/delete', requireAuth, requireRole('
   await db.prepare('DELETE FROM discipleship_volunteer_signups WHERE id = ?').run(signupId);
   req.flash('success', res.locals.t('volunteer_removed'));
   return res.redirect('/admin/catechists#volunteer-signups');
+}));
+
+// ── Admin: additional sacramental prep interest ──────────────
+app.get('/admin/sacrament-interest', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  // Unreviewed submissions first, then newest.
+  const interests = await db.prepare(`
+    SELECT id, user_id, school_year, parent_name, email, phone, parishioner, availability, notes, status, created_at
+    FROM late_sacrament_interest
+    ORDER BY (status = 'new') DESC, created_at DESC, id DESC
+  `).all();
+  const children = await db.prepare(`
+    SELECT id, interest_id, first_name, last_name, date_of_birth, grade, sacraments, baptized, baptism_parish, prior_formation
+    FROM late_sacrament_interest_children
+    ORDER BY id
+  `).all();
+  const childrenByInterest = new Map();
+  children.forEach((child) => {
+    const list = childrenByInterest.get(child.interest_id) || [];
+    list.push({ ...child, sacramentList: splitList(child.sacraments, LATE_SACRAMENTS) });
+    childrenByInterest.set(child.interest_id, list);
+  });
+
+  const rows = interests.map((row) => ({
+    ...row,
+    availabilityList: splitList(row.availability, LATE_SACRAMENT_AVAILABILITY),
+    children: childrenByInterest.get(row.id) || [],
+  }));
+  // Headcount per sacrament across families still in play, to help size the extra session.
+  const sacramentTotals = Object.fromEntries(LATE_SACRAMENTS.map((slug) => [slug, 0]));
+  rows.filter((row) => row.status !== 'not_proceeding').forEach((row) => row.children.forEach((child) => {
+    child.sacramentList.forEach((slug) => { sacramentTotals[slug] += 1; });
+  }));
+
+  res.render('admin-sacrament-interest', {
+    interests: rows,
+    sacramentTotals,
+    lateSacramentStatuses: LATE_SACRAMENT_STATUSES,
+    lateSacraments: LATE_SACRAMENTS,
+  });
+}));
+
+app.post('/admin/sacrament-interest/:id/status', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const interestId = Number.parseInt(req.params.id, 10);
+  const status = typeof req.body.status === 'string' ? req.body.status.trim() : '';
+  if (!Number.isInteger(interestId) || interestId <= 0 || !LATE_SACRAMENT_STATUSES.includes(status)) {
+    req.flash('error', res.locals.t('late_sacrament_invalid'));
+    return res.redirect('/admin/sacrament-interest');
+  }
+  await db.prepare('UPDATE late_sacrament_interest SET status = ? WHERE id = ?').run(status, interestId);
+  req.flash('success', res.locals.t('late_sacrament_status_updated'));
+  return res.redirect('/admin/sacrament-interest');
+}));
+
+app.post('/admin/sacrament-interest/:id/delete', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const interestId = Number.parseInt(req.params.id, 10);
+  if (!Number.isInteger(interestId) || interestId <= 0) {
+    req.flash('error', res.locals.t('late_sacrament_invalid'));
+    return res.redirect('/admin/sacrament-interest');
+  }
+  // Child rows go with it (ON DELETE CASCADE).
+  await db.prepare('DELETE FROM late_sacrament_interest WHERE id = ?').run(interestId);
+  req.flash('success', res.locals.t('late_sacrament_removed'));
+  return res.redirect('/admin/sacrament-interest');
 }));
 
 // Reads the submitted `field_<id>` inputs for a template's placeholders back into a
