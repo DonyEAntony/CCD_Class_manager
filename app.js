@@ -253,6 +253,10 @@ const translations = {
     staff_broadcast_no_recipients: 'No active users found for the selected group(s).',
     staff_broadcast_sent: 'Message sent — %s staff member(s) Bcc\'d.',
     staff_broadcast_partial: 'Only %s of %s staff member(s) received the message — these addresses were rejected: %s',
+    staff_broadcast_ccd_parents_label: 'All CCD parents',
+    staff_broadcast_ccd_parents_confirm: 'This will email every family with a child in a CCD class. Send it now?',
+    parent_broadcast_sent: 'Message sent — %s recipient(s) Bcc\'d.',
+    parent_broadcast_partial: 'Only %s of %s recipient(s) received the message — these addresses were rejected: %s',
     class_message_bcc_partial: 'Only %s of %s recipient(s) received the message — these addresses were rejected: %s',
     registration: 'Registration',
     signed_in_as: 'Signed in as',
@@ -1485,6 +1489,10 @@ const translations = {
     staff_broadcast_no_recipients: 'No se encontraron usuarios activos para el/los grupo(s) seleccionado(s).',
     staff_broadcast_sent: 'Mensaje enviado — %s miembro(s) del personal en Cco.',
     staff_broadcast_partial: 'Solo %s de %s miembro(s) del personal recibieron el mensaje — estas direcciones fueron rechazadas: %s',
+    staff_broadcast_ccd_parents_label: 'Todos los padres de CCD',
+    staff_broadcast_ccd_parents_confirm: 'Esto enviará un correo a todas las familias con un hijo en una clase de CCD. ¿Enviarlo ahora?',
+    parent_broadcast_sent: 'Mensaje enviado — %s destinatario(s) en Cco.',
+    parent_broadcast_partial: 'Solo %s de %s destinatario(s) recibieron el mensaje — estas direcciones fueron rechazadas: %s',
     class_message_bcc_partial: 'Solo %s de %s destinatario(s) recibieron el mensaje — estas direcciones fueron rechazadas: %s',
     registration: 'Inscripcion',
     signed_in_as: 'Conectado como',
@@ -9243,18 +9251,43 @@ app.post('/admin/catechists/:id/message', requireAuth, requireRole('admin'), asy
 }));
 
 const STAFF_BROADCAST_ROLES = new Set(['catechist', 'admin', 'family_faith_leader']);
+// Not a user role: picks every family with a child on a children's class roster. Parent
+// accounts aren't the right source — a family can register under one login while listing
+// different contact addresses — so this collects the same primary/secondary contact emails
+// the per-class "Message" button sends to (see /admin/classes/:id/message).
+const CCD_PARENTS_AUDIENCE = 'ccd_parents';
+
+const getCcdParentEmails = async () => {
+  const ccdClasses = (await getCcdClasses()).filter((c) => c.classKind !== 'adult');
+  const activeStudentRegs = await db.prepare('SELECT * FROM student_registrations WHERE archived_at IS NULL').all();
+  const enrolledRegistrationIds = await getEnrolledRegistrationIds();
+  const rosteredRegs = new Map();
+  ccdClasses.forEach((ccdClass) => {
+    getClassRoster(ccdClass, activeStudentRegs, enrolledRegistrationIds).forEach((r) => rosteredRegs.set(r.id, r));
+  });
+  const emails = [];
+  rosteredRegs.forEach((r) => {
+    [r.primary_contact_email, r.email].forEach((rawEmail) => {
+      const email = (rawEmail || '').trim();
+      if (email) emails.push(email);
+    });
+  });
+  return emails;
+};
 
 // One email addressed to the admin with every selected staff member Bcc'd, so recipients
 // can't see each other's addresses — same pattern the per-class "Bcc all" message option
 // already uses (see sendClassMessageEmail's bcc param).
 app.post('/admin/catechists/broadcast', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
-  const roles = [].concat(req.body.roles || []).filter((role) => STAFF_BROADCAST_ROLES.has(role));
+  const requestedRoles = [].concat(req.body.roles || []);
+  const roles = requestedRoles.filter((role) => STAFF_BROADCAST_ROLES.has(role));
+  const includeCcdParents = requestedRoles.includes(CCD_PARENTS_AUDIENCE);
   // Specific classes add their assigned catechists on top of any whole roles picked, so an
   // admin can reach e.g. just the First Year Communion and Confirmation teams.
   const classIds = [...new Set([].concat(req.body.class_ids || [])
     .map((id) => Number.parseInt(id, 10))
     .filter((id) => Number.isInteger(id) && id > 0))];
-  if (!roles.length && !classIds.length) {
+  if (!roles.length && !classIds.length && !includeCcdParents) {
     req.flash('error', res.locals.t('staff_broadcast_roles_required'));
     return res.redirect('/admin/catechists');
   }
@@ -9287,10 +9320,12 @@ app.post('/admin/catechists/broadcast', requireAuth, requireRole('admin'), async
        WHERE cc.ccd_class_id IN (${classIds.map(() => '?').join(',')}) AND COALESCE(u.account_status, 'active') <> 'deleted' AND u.email IS NOT NULL AND u.email <> ''`
     ).all(...classIds)
     : [];
-  // Someone in a picked role who also teaches a picked class gets one copy, not two.
+  const parentEmails = includeCcdParents ? await getCcdParentEmails() : [];
+  // Someone in a picked role who also teaches a picked class gets one copy, not two — and
+  // likewise siblings' shared parent address, or a catechist who is also a CCD parent.
   const seenEmails = new Set();
-  const bccList = [...roleRecipients, ...classRecipients]
-    .map((r) => r.email)
+  const bccList = [...roleRecipients, ...classRecipients].map((r) => r.email)
+    .concat(parentEmails)
     .filter((email) => {
       const key = email.toLowerCase();
       if (seenEmails.has(key)) return false;
@@ -9329,12 +9364,12 @@ app.post('/admin/catechists/broadcast', requireAuth, requireRole('admin'), async
 
   if (rejectedBcc.length) {
     console.warn('[admin] Staff broadcast partially rejected by SMTP server', { rejected: rejectedBcc });
-    req.flash('error', res.locals.t('staff_broadcast_partial')
+    req.flash('error', res.locals.t(includeCcdParents ? 'parent_broadcast_partial' : 'staff_broadcast_partial')
       .replace('%s', bccList.length - rejectedBcc.length)
       .replace('%s', bccList.length)
       .replace('%s', rejectedBcc.join(', ')));
   } else {
-    req.flash('success', res.locals.t('staff_broadcast_sent').replace('%s', bccList.length));
+    req.flash('success', res.locals.t(includeCcdParents ? 'parent_broadcast_sent' : 'staff_broadcast_sent').replace('%s', bccList.length));
   }
   return res.redirect('/admin/catechists');
 }));
