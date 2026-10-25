@@ -57,6 +57,10 @@
               <input class="form-check-input" type="checkbox" name="roles" value="family_faith_leader" id="staff-role-fff">
               <label class="form-check-label" for="staff-role-fff"><%= t('family_faith_leader') %></label>
             </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="roles" value="ccd_parents" id="staff-role-ccd-parents">
+              <label class="form-check-label" for="staff-role-ccd-parents"><%= t('staff_broadcast_ccd_parents_label') %></label>
+            </div>
           </div>
         </div>
 
@@ -676,7 +680,15 @@
     var debouncedSaveDraft = debounce(saveDraft, 800);
     form.addEventListener('input', debouncedSaveDraft);
     form.addEventListener('change', debouncedSaveDraft);
-    form.addEventListener('submit', function () {
+    var ccdParentsCheckbox = document.getElementById('staff-role-ccd-parents');
+    var ccdParentsConfirmText = <%- JSON.stringify(t('staff_broadcast_ccd_parents_confirm')) %>;
+    form.addEventListener('submit', function (event) {
+      // Every CCD family is a far bigger audience than the staff groups — make the sender
+      // confirm, and keep the draft if they back out.
+      if (ccdParentsCheckbox && ccdParentsCheckbox.checked && !window.confirm(ccdParentsConfirmText)) {
+        event.preventDefault();
+        return;
+      }
       try { window.localStorage.removeItem(DRAFT_KEY); } catch (e) { /* ignore */ }
     });
 
