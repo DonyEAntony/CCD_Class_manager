@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="<%= lang %>">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= t('ociaq_nav_title') %> &mdash; <%= t('app_title') %></title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/page-styles/ocia-questionnaire-form.css">
+</head>
+<body>
+<%- include('_topbar') %>
+
+<main class="container py-4 app-shell mx-auto ociaq-shell">
+  <section class="ociaq-hero mb-4">
+    <p class="eyebrow"><%= t('ociaq_kicker') %></p>
+    <h1><%= t('ociaq_nav_title') %></h1>
+    <p><%= t('ociaq_intro') %></p>
+  </section>
+
+  <% if (success && success.length) { %><div class="alert alert-success mb-3"><%= success[0] %></div><% } %>
+  <% if (error && error.length) { %><div class="alert alert-danger mb-3"><%= error[0] %></div><% } %>
+  <% if (typeof hasPrefill !== 'undefined' && hasPrefill) { %>
+    <div class="ociaq-note mb-3"><%= t('ociaq_prefilled_note') %></div>
+  <% } %>
+
+  <div class="page-card">
+    <div class="card-body p-4">
+      <%
+        const safePrefill = typeof prefill === 'object' && prefill ? prefill : {};
+        const v = (field) => (reg ? (reg[field] || '') : (safePrefill[field] || ''));
+        const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+
+        function textField(name, labelKey, opts) {
+          opts = opts || {};
+          const value = v(name) || opts.defaultValue || '';
+          const type = opts.type || 'text';
+          const colClass = opts.col || 'col-md-6';
+          const hint = opts.hintKey ? `<div class="form-text">${t(opts.hintKey)}</div>` : '';
+          return `<div class="${colClass}">
+            <label class="form-label${opts.required ? ' required' : ''}" for="ociaq-${name}">${t(labelKey)}</label>
+            <input class="form-control" id="ociaq-${name}" type="${type}" name="${name}" value="${esc(value)}" ${opts.required ? 'required' : ''} maxlength="255">
+            ${hint}
+          </div>`;
+        }
+
+        function yesNoField(name, labelKey, colClass) {
+          const value = v(name);
+          return `<div class="${colClass || 'col-md-4'}">
+            <label class="form-label" for="ociaq-${name}">${t(labelKey)}</label>
+            <select class="form-select" id="ociaq-${name}" name="${name}">
+              <option value="" ${value ? '' : 'selected'}></option>
+              <option value="yes" ${value === 'yes' ? 'selected' : ''}>${t('yes')}</option>
+              <option value="no" ${value === 'no' ? 'selected' : ''}>${t('no')}</option>
+            </select>
+          </div>`;
+        }
+      %>
+      <form method="post" action="/registration/ocia-questionnaire" class="row g-4 ociaq-form">
+        <input type="hidden" name="registration_id" value="<%= reg ? reg.id : '' %>">
+        <input type="hidden" name="adult_registration_id" value="<%= typeof adultRegistrationId !== 'undefined' && adultRegistrationId ? adultRegistrationId : '' %>">
+        <input type="hidden" name="save_mode" id="ociaq-save-mode" value="complete">
+
+        <fieldset class="col-12">
+          <legend><%= t('ociaq_section_form') %></legend>
+          <div class="row g-3">
+            <%- textField('form_completed_date', 'ociaq_form_completed_date', { type: 'date', col: 'col-md-4', defaultValue: reg ? '' : formCompletedDateDefault }) %>
+            <%- textField('parish_name', 'ociaq_parish_name', { col: 'col-md-4', defaultValue: reg ? '' : 'St. Matthew' }) %>
+            <%- textField('parish_town', 'ociaq_town', { col: 'col-md-4' }) %>
+          </div>
+        </fieldset>
+
+        <fieldset class="col-12">
+          <legend><%= t('ociaq_section_inquirer') %></legend>
+          <div class="row g-3">
+            <%- textField('inquirer_name', 'ociaq_inquirer_name', { col: 'col-md-6', required: true }) %>
+            <%- textField('inquirer_phone', 'phone', { type: 'tel', col: 'col-md-6' }) %>
+            <%- textField('inquirer_address', 'address', { col: 'col-md-8' }) %>
+            <%- textField('inquirer_email', 'email', { type: 'email', col: 'col-md-4' }) %>
+            <%- textField('dob', 'dob', { type: 'date', col: 'col-md-6', required: true }) %>
+            <%- textField('birth_place', 'ociaq_place_of_birth', { col: 'col-md-6' }) %>
+          </div>
+        </fieldset>
+
+        <fieldset class="col-12">
+          <legend><%= t('ociaq_section_parents') %></legend>
+          <div class="row g-3">
+            <%- textField('father_name', 'ociaq_father_name', { col: 'col-md-6' }) %>
+            <%- textField('father_religion', 'ociaq_father_religion', { col: 'col-md-6' }) %>
+            <%- textField('mother_name', 'ociaq_mother_name', { col: 'col-md-6', hintKey: 'ociaq_mother_maiden_hint' }) %>
+            <%- textField('mother_religion', 'ociaq_mother_religion', { col: 'col-md-6' }) %>
+          </div>
+        </fieldset>
+
+        <fieldset class="col-12">
+          <legend><%= t('ociaq_section_baptism') %></legend>
+          <div class="row g-3">
+            <%- yesNoField('baptized', 'ociaq_baptized_q', 'col-md-3') %>
+            <%- textField('baptism_church_name', 'ociaq_church_name', { col: 'col-md-5' }) %>
+            <%- textField('baptism_date', 'ociaq_date_of_baptism', { col: 'col-md-4' }) %>
+            <%- textField('baptism_church_address', 'ociaq_church_address', { col: 'col-md-6' }) %>
+            <%- textField('baptism_denomination', 'ociaq_denomination', { col: 'col-md-3' }) %>
+            <%- textField('baptism_officiant', 'ociaq_officiant', { col: 'col-md-3' }) %>
+          </div>
+        </fieldset>
+
+        <fieldset class="col-12">
+          <legend><%= t('ociaq_section_sacraments') %></legend>
+          <div class="row g-3">
+            <%- yesNoField('confirmed', 'ociaq_confirmed_q', 'col-md-3') %>
+            <%- textField('confirmed_church', 'ociaq_church_name', { col: 'col-md-3' }) %>
+            <%- textField('confirmed_denomination', 'ociaq_denomination', { col: 'col-md-3' }) %>
+            <%- textField('confirmed_date', 'date_col', { col: 'col-md-3' }) %>
+          </div>
+          <div class="row g-3 mt-0">
+            <%- yesNoField('received_communion', 'ociaq_received_communion_q', 'col-md-3') %>
+            <%- textField('communion_church', 'ociaq_church_name', { col: 'col-md-3' }) %>
+            <%- textField('communion_denomination', 'ociaq_denomination', { col: 'col-md-3' }) %>
+            <%- textField('communion_date', 'date_col', { col: 'col-md-3' }) %>
+          </div>
+        </fieldset>
+
+        <fieldset class="col-12">
+          <legend><%= t('ociaq_section_prior_catechumen') %></legend>
+          <div class="row g-3">
+            <%- yesNoField('previously_catechumen', 'ociaq_prior_catechumen_q', 'col-md-4') %>
+            <%- textField('previously_catechumen_when', 'ociaq_when', { col: 'col-md-4' }) %>
+            <%- textField('previously_catechumen_where', 'ociaq_where', { col: 'col-md-4' }) %>
+          </div>
+        </fieldset>
+
+        <fieldset class="col-12">
+          <legend><%= t('ociaq_section_marital') %></legend>
+          <div class="row g-3">
+            <%- yesNoField('currently_married', 'ociaq_currently_married_q', 'col-md-4') %>
+          </div>
+          <div class="row g-3 mt-0 ociaq-conditional" data-depends='[["currently_married","yes"]]'>
+            <%- textField('spouse_name', 'ociaq_married_to_whom', { col: 'col-md-6' }) %>
+            <%- textField('marriage_date', 'date_col', { col: 'col-md-3' }) %>
+            <%- textField('marriage_place', 'ociaq_place', { col: 'col-md-3' }) %>
+            <%- textField('marriage_officiant', 'ociaq_officiant', { col: 'col-md-6' }) %>
+          </div>
+          <div class="row g-3 mt-2">
+            <%- yesNoField('prior_marriage_inquirer', 'ociaq_prior_marriage_self_q', 'col-md-12') %>
+          </div>
+          <div class="row g-3 mt-0 ociaq-conditional" data-depends='[["currently_married","yes"]]'>
+            <%- yesNoField('prior_marriage_spouse', 'ociaq_prior_marriage_spouse_q', 'col-md-12') %>
+          </div>
+        </fieldset>
+
+        <fieldset class="col-12 ociaq-conditional" data-depends='[["prior_marriage_inquirer","yes"]]'>
+          <legend><%= t('ociaq_section_prev_marriage_inquirer') %></legend>
+          <div class="row g-3">
+            <%- textField('prev_marriage_inquirer_times', 'ociaq_times_married', { col: 'col-md-3' }) %>
+            <%- textField('prev_marriage_inquirer_to_whom', 'ociaq_to_whom', { col: 'col-md-5' }) %>
+            <%- textField('prev_marriage_inquirer_date', 'date_col', { col: 'col-md-2' }) %>
+            <%- textField('prev_marriage_inquirer_place', 'ociaq_place', { col: 'col-md-2' }) %>
+            <%- textField('prev_marriage_inquirer_officiant', 'ociaq_officiant', { col: 'col-md-6' }) %>
+          </div>
+          <div class="row g-3 mt-2">
+            <div class="col-12"><strong><%= t('ociaq_if_deceased_legend') %></strong></div>
+            <%- textField('prev_marriage_inquirer_deceased_date', 'ociaq_date_of_death', { col: 'col-md-6' }) %>
+            <%- textField('prev_marriage_inquirer_deceased_cert', 'ociaq_certificate_number', { col: 'col-md-6' }) %>
+          </div>
+          <div class="row g-3 mt-2">
+            <div class="col-12"><strong><%= t('ociaq_if_annulled_legend') %></strong></div>
+            <%- textField('prev_marriage_inquirer_decree_diocese', 'ociaq_decree_diocese', { col: 'col-md-6' }) %>
+            <%- textField('prev_marriage_inquirer_decree_date', 'ociaq_date_of_decree', { col: 'col-md-6' }) %>
+          </div>
+        </fieldset>
+
+        <fieldset class="col-12 ociaq-conditional" data-depends='[["currently_married","yes"],["prior_marriage_spouse","yes"]]'>
+          <legend><%= t('ociaq_section_prev_marriage_spouse') %></legend>
+          <div class="row g-3">
+            <%- textField('prev_marriage_spouse_times', 'ociaq_times_married', { col: 'col-md-3' }) %>
+            <%- textField('prev_marriage_spouse_to_whom', 'ociaq_to_whom', { col: 'col-md-5' }) %>
+            <%- textField('prev_marriage_spouse_date', 'date_col', { col: 'col-md-2' }) %>
+            <%- textField('prev_marriage_spouse_place', 'ociaq_place', { col: 'col-md-2' }) %>
+            <%- textField('prev_marriage_spouse_officiant', 'ociaq_officiant', { col: 'col-md-6' }) %>
+          </div>
+          <div class="row g-3 mt-2">
+            <div class="col-12"><strong><%= t('ociaq_if_deceased_legend') %></strong></div>
+            <%- textField('prev_marriage_spouse_deceased_date', 'ociaq_date_of_death', { col: 'col-md-6' }) %>
+            <%- textField('prev_marriage_spouse_deceased_cert', 'ociaq_certificate_number', { col: 'col-md-6' }) %>
+          </div>
+          <div class="row g-3 mt-2">
+            <div class="col-12"><strong><%= t('ociaq_if_annulled_legend') %></strong></div>
+            <%- textField('prev_marriage_spouse_decree_diocese', 'ociaq_decree_diocese', { col: 'col-md-6' }) %>
+            <%- textField('prev_marriage_spouse_decree_date', 'ociaq_date_of_decree', { col: 'col-md-6' }) %>
+          </div>
+        </fieldset>
+
+        <div class="col-12 d-flex flex-wrap gap-2">
+          <button class="btn btn-primary" type="submit" onclick="document.getElementById('ociaq-save-mode').value='complete'"><%= reg ? t('ociaq_update') : t('ociaq_submit') %></button>
+          <button class="btn btn-outline-secondary" type="submit" formnovalidate onclick="document.getElementById('ociaq-save-mode').value='incomplete'"><%= t('ociaq_save_incomplete') %></button>
+          <a class="btn btn-outline-secondary" href="/dashboard"><%= t('cancel') %></a>
+        </div>
+      </form>
+    </div>
+  </div>
+</main>
+
+<script>
+(function () {
+  const form = document.querySelector('.ociaq-form');
+  if (!form) return;
+  const sections = Array.prototype.slice.call(form.querySelectorAll('[data-depends]'));
+  function evaluate() {
+    sections.forEach((section) => {
+      let deps;
+      try { deps = JSON.parse(section.getAttribute('data-depends')); } catch (e) { deps = []; }
+      const visible = deps.every(([field, expected]) => {
+        const el = form.querySelector('[name="' + field + '"]');
+        return el && el.value === expected;
+      });
+      section.classList.toggle('d-none', !visible);
+    });
+  }
+  form.addEventListener('change', evaluate);
+  evaluate();
+})();
+</script>
+</body>
+</html>
