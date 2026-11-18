@@ -1325,6 +1325,67 @@ const translations = {
     student_status: 'Student Status',
     registration_status: 'Registration Status',
     confirm_close_year_warning: 'Closing Faith Formation registration for %s will archive every currently-Enrolled student\'s registration for this year and record their class as completed. This can\'t be easily undone. Continue?',
+    ociaq_nav_title: 'Initiation Questionnaire',
+    ociaq_nav_subtitle: 'Before the Rite of Acceptance',
+    ociaq_nav_desc: 'A background questionnaire completed with the parish office before entering the Order of Catechumens.',
+    ociaq_section_header: 'Initiation Questionnaires',
+    ociaq_none: 'No Initiation Questionnaire on file yet.',
+    ociaq_kicker: 'OCIA · Rite of Acceptance',
+    ociaq_intro: 'Page 1 and 2 of this Initiation Questionnaire are to be completed prior to the Rite of Acceptance into the Order of Catechumens or the Rite of Welcoming the Candidates.',
+    ociaq_prefilled_note: 'We\'ve filled in what we already have on file from your OCIA registration — please review and complete the rest.',
+    ociaq_section_form: 'Form & Parish',
+    ociaq_form_completed_date: 'Date Form Completed',
+    ociaq_parish_name: 'Parish Name',
+    ociaq_town: 'Town',
+    ociaq_section_inquirer: 'Inquirer\'s Information',
+    ociaq_inquirer_name: 'Inquirer\'s Name',
+    ociaq_place_of_birth: 'Place of Birth',
+    ociaq_section_parents: 'Parents',
+    ociaq_father_name: 'Father\'s Name',
+    ociaq_father_religion: 'Father\'s Religion',
+    ociaq_mother_name: 'Mother\'s Name',
+    ociaq_mother_maiden_hint: '(maiden name)',
+    ociaq_mother_religion: 'Mother\'s Religion',
+    ociaq_section_baptism: 'Baptism',
+    ociaq_baptized_q: 'Were you baptized?',
+    ociaq_church_name: 'Name of Church',
+    ociaq_church_address: 'Address of Church',
+    ociaq_denomination: 'Denomination',
+    ociaq_date_of_baptism: 'Date of Baptism',
+    ociaq_officiant: 'Officiant',
+    ociaq_section_sacraments: 'Confirmation & Communion',
+    ociaq_confirmed_q: 'Have you ever been confirmed?',
+    ociaq_received_communion_q: 'Have you ever received Communion?',
+    ociaq_section_prior_catechumen: 'Prior Catechumen or Candidate Status',
+    ociaq_prior_catechumen_q: 'Have you ever been accepted as a catechumen or a candidate in the Catholic Church?',
+    ociaq_when: 'When?',
+    ociaq_where: 'Where?',
+    ociaq_section_marital: 'Marital Status',
+    ociaq_currently_married_q: 'Are you currently married?',
+    ociaq_married_to_whom: 'To whom are you currently married?',
+    ociaq_place: 'Place',
+    ociaq_prior_marriage_self_q: 'Prior to this marriage (or if not currently married), have you ever been married before to another person — in church, civilly, or in common law?',
+    ociaq_prior_marriage_spouse_q: 'Prior to this marriage, has your spouse ever been married before to another person — in church, civilly, or in common law?',
+    ociaq_section_prev_marriage_inquirer: 'Previous Marriage of Inquirer',
+    ociaq_section_prev_marriage_spouse: 'Previous Marriage of Current Spouse',
+    ociaq_times_married: 'How many times were they married?',
+    ociaq_to_whom: 'To Whom',
+    ociaq_if_deceased_legend: 'If Former Spouse Is Deceased',
+    ociaq_date_of_death: 'Date of Death',
+    ociaq_certificate_number: 'Certificate Number',
+    ociaq_if_annulled_legend: 'If Former Marriage Was Dissolved or Declared Null by the Church',
+    ociaq_decree_diocese: 'Diocese and Protocol Number',
+    ociaq_date_of_decree: 'Date of Decree',
+    ociaq_submit: 'Save Questionnaire',
+    ociaq_update: 'Update Questionnaire',
+    ociaq_save_incomplete: 'Save Incomplete',
+    ociaq_saved_incomplete: 'Initiation Questionnaire saved as incomplete.',
+    ociaq_saved_complete: 'Initiation Questionnaire saved.',
+    confirm_delete_ocia_questionnaire: 'Delete this Initiation Questionnaire? This cannot be undone.',
+    ociaq_deleted: 'Initiation Questionnaire deleted.',
+    ociaq_admin_nav: 'Initiation Questionnaires',
+    ociaq_admin_header: 'Initiation Questionnaires',
+    ociaq_admin_subtitle: 'OCIA background questionnaires submitted by candidates.',
   },
   es: {
     app_title: 'Iglesia Católica San Mateo',
@@ -2561,6 +2622,67 @@ const translations = {
     student_status: 'Estado del Estudiante',
     registration_status: 'Estado de la Inscripción',
     confirm_close_year_warning: 'Cerrar la inscripción de Formación en la Fe para %s archivará la inscripción de este año de cada estudiante actualmente Inscrito y registrará su clase como completada. Esto no se puede deshacer fácilmente. ¿Continuar?',
+    ociaq_nav_title: 'Cuestionario de Iniciación',
+    ociaq_nav_subtitle: 'Antes del Rito de Aceptación',
+    ociaq_nav_desc: 'Un cuestionario de antecedentes que se completa con la oficina parroquial antes de ingresar a la Orden de Catecúmenos.',
+    ociaq_section_header: 'Cuestionarios de Iniciación',
+    ociaq_none: 'Todavía no hay un Cuestionario de Iniciación registrado.',
+    ociaq_kicker: 'OCIA · Rito de Aceptación',
+    ociaq_intro: 'Las páginas 1 y 2 de este Cuestionario de Iniciación deben completarse antes del Rito de Aceptación en la Orden de Catecúmenos o del Rito de Bienvenida a los Candidatos.',
+    ociaq_prefilled_note: 'Ya completamos lo que tenemos registrado de su inscripción a OCIA; por favor revise y complete el resto.',
+    ociaq_section_form: 'Formulario y Parroquia',
+    ociaq_form_completed_date: 'Fecha en que se Completó el Formulario',
+    ociaq_parish_name: 'Nombre de la Parroquia',
+    ociaq_town: 'Ciudad',
+    ociaq_section_inquirer: 'Información del Solicitante',
+    ociaq_inquirer_name: 'Nombre del Solicitante',
+    ociaq_place_of_birth: 'Lugar de Nacimiento',
+    ociaq_section_parents: 'Padres',
+    ociaq_father_name: 'Nombre del Padre',
+    ociaq_father_religion: 'Religión del Padre',
+    ociaq_mother_name: 'Nombre de la Madre',
+    ociaq_mother_maiden_hint: '(apellido de soltera)',
+    ociaq_mother_religion: 'Religión de la Madre',
+    ociaq_section_baptism: 'Bautismo',
+    ociaq_baptized_q: '¿Fue usted bautizado/a?',
+    ociaq_church_name: 'Nombre de la Iglesia',
+    ociaq_church_address: 'Dirección de la Iglesia',
+    ociaq_denomination: 'Denominación',
+    ociaq_date_of_baptism: 'Fecha de Bautismo',
+    ociaq_officiant: 'Oficiante',
+    ociaq_section_sacraments: 'Confirmación y Comunión',
+    ociaq_confirmed_q: '¿Ha sido confirmado/a alguna vez?',
+    ociaq_received_communion_q: '¿Ha recibido la Comunión alguna vez?',
+    ociaq_section_prior_catechumen: 'Estado Previo como Catecúmeno/a o Candidato/a',
+    ociaq_prior_catechumen_q: '¿Ha sido aceptado/a alguna vez como catecúmeno/a o candidato/a en la Iglesia Católica?',
+    ociaq_when: '¿Cuándo?',
+    ociaq_where: '¿Dónde?',
+    ociaq_section_marital: 'Estado Civil',
+    ociaq_currently_married_q: '¿Está casado/a actualmente?',
+    ociaq_married_to_whom: '¿Con quién está casado/a actualmente?',
+    ociaq_place: 'Lugar',
+    ociaq_prior_marriage_self_q: 'Antes de este matrimonio (o si no está casado/a actualmente), ¿ha estado casado/a antes con otra persona — por la iglesia, civilmente, o en unión libre?',
+    ociaq_prior_marriage_spouse_q: 'Antes de este matrimonio, ¿su cónyuge ha estado casado/a antes con otra persona — por la iglesia, civilmente, o en unión libre?',
+    ociaq_section_prev_marriage_inquirer: 'Matrimonio Anterior del Solicitante',
+    ociaq_section_prev_marriage_spouse: 'Matrimonio Anterior del Cónyuge Actual',
+    ociaq_times_married: '¿Cuántas veces estuvo(ieron) casado/a(s)?',
+    ociaq_to_whom: 'Con Quién',
+    ociaq_if_deceased_legend: 'Si el Ex-Cónyuge Falleció',
+    ociaq_date_of_death: 'Fecha de Fallecimiento',
+    ociaq_certificate_number: 'Número de Certificado',
+    ociaq_if_annulled_legend: 'Si el Matrimonio Anterior Fue Disuelto o Declarado Nulo por la Iglesia',
+    ociaq_decree_diocese: 'Diócesis y Número de Protocolo',
+    ociaq_date_of_decree: 'Fecha del Decreto',
+    ociaq_submit: 'Guardar Cuestionario',
+    ociaq_update: 'Actualizar Cuestionario',
+    ociaq_save_incomplete: 'Guardar Incompleto',
+    ociaq_saved_incomplete: 'El Cuestionario de Iniciación se guardó como incompleto.',
+    ociaq_saved_complete: 'El Cuestionario de Iniciación se guardó.',
+    confirm_delete_ocia_questionnaire: '¿Eliminar este Cuestionario de Iniciación? Esto no se puede deshacer.',
+    ociaq_deleted: 'Se eliminó el Cuestionario de Iniciación.',
+    ociaq_admin_nav: 'Cuestionarios de Iniciación',
+    ociaq_admin_header: 'Cuestionarios de Iniciación',
+    ociaq_admin_subtitle: 'Cuestionarios de antecedentes de OCIA enviados por los candidatos.',
   }
 };
 // ── Adult program metadata (locale-aware) ───────────────────
@@ -4914,6 +5036,8 @@ app.get('/dashboard', requireAuth, asyncHandler(async (req, res) => {
 
   const sponsorRegs = await db.prepare('SELECT * FROM sponsor_confirmations WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
 
+  const ociaQuestionnaires = await db.prepare('SELECT * FROM ocia_questionnaires WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
+
   // Persistent student records (created once a registration is Admitted) outlive any one
   // year's registration, so parents see their kids here regardless of what's happened to
   // that original registration since.
@@ -4963,7 +5087,7 @@ app.get('/dashboard', requireAuth, asyncHandler(async (req, res) => {
   // here too so the dashboard card itself reads as closed instead of only failing later.
   const childrenRegistrationDeadlinePassed = calculateFees(1, null, null, faithFormationSettings.schoolYear, null).afterStart;
 
-  res.render('dashboard', { studentRegs, familyRegs, adultRegs, sponsorRegs, myStudents, myRegisteredChildren, ADULT_PROGRAMS, faithFormationSettings, childrenRegistrationDeadlinePassed, resolveCcdGrade, adminReview, teachingClasses, familyNextClasses, dashboardPayments, adminAttention });
+  res.render('dashboard', { studentRegs, familyRegs, adultRegs, sponsorRegs, ociaQuestionnaires, myStudents, myRegisteredChildren, ADULT_PROGRAMS, faithFormationSettings, childrenRegistrationDeadlinePassed, resolveCcdGrade, adminReview, teachingClasses, familyNextClasses, dashboardPayments, adminAttention });
 }));
 
 app.get('/family-faith/visits/availability', requireAuth, asyncHandler(async (req, res) => {
@@ -5538,6 +5662,148 @@ app.post('/registration/sponsor-confirmation', requireAuth, upload.single('spons
 
   req.flash('success', shouldSaveAsIncomplete ? res.locals.t('sponsor_form_incomplete_saved') : res.locals.t('sponsor_form_submitted_saved'));
   return res.redirect('/dashboard');
+}));
+
+// ── OCIA Initiation Questionnaire ───────────────────────────
+// Every text/select field the form collects, in the order the DB columns were declared.
+// Driving INSERT/UPDATE off this single list (instead of a long hand-written column list)
+// is what keeps a ~55-field canonical form maintainable.
+const OCIAQ_FIELDS = [
+  'form_completed_date', 'parish_name', 'parish_town',
+  'inquirer_name', 'inquirer_phone', 'inquirer_address', 'inquirer_email', 'dob', 'birth_place',
+  'father_name', 'father_religion', 'mother_name', 'mother_religion',
+  'baptized', 'baptism_church_name', 'baptism_church_address', 'baptism_denomination', 'baptism_date', 'baptism_officiant',
+  'confirmed', 'confirmed_church', 'confirmed_denomination', 'confirmed_date',
+  'received_communion', 'communion_church', 'communion_denomination', 'communion_date',
+  'previously_catechumen', 'previously_catechumen_when', 'previously_catechumen_where',
+  'currently_married', 'spouse_name', 'marriage_date', 'marriage_place', 'marriage_officiant',
+  'prior_marriage_inquirer', 'prior_marriage_spouse',
+  'prev_marriage_inquirer_times', 'prev_marriage_inquirer_to_whom', 'prev_marriage_inquirer_date',
+  'prev_marriage_inquirer_officiant', 'prev_marriage_inquirer_place', 'prev_marriage_inquirer_deceased_date',
+  'prev_marriage_inquirer_deceased_cert', 'prev_marriage_inquirer_decree_diocese', 'prev_marriage_inquirer_decree_date',
+  'prev_marriage_spouse_times', 'prev_marriage_spouse_to_whom', 'prev_marriage_spouse_date',
+  'prev_marriage_spouse_officiant', 'prev_marriage_spouse_place', 'prev_marriage_spouse_deceased_date',
+  'prev_marriage_spouse_deceased_cert', 'prev_marriage_spouse_decree_diocese', 'prev_marriage_spouse_decree_date',
+];
+
+// The paper form's baptism status is a free-text option list (yes_catholic/yes_other/no/
+// unsure); the questionnaire only asks a plain yes/no, so "unsure" has nothing to map to
+// and is left blank for the candidate to answer themselves.
+const mapAdultRegBaptizedToYesNo = (value) => {
+  if (value === 'yes_catholic' || value === 'yes_other') return 'yes';
+  if (value === 'no') return 'no';
+  return '';
+};
+
+const buildOciaQuestionnairePrefill = (user, ociaReg) => {
+  if (!ociaReg) {
+    return { inquirer_name: user.full_name || '', inquirer_email: user.email || '' };
+  }
+  return {
+    inquirer_name: ociaReg.full_name || '',
+    inquirer_phone: ociaReg.phone || '',
+    inquirer_address: [ociaReg.address, ociaReg.city_state_zip].filter(Boolean).join(', '),
+    inquirer_email: ociaReg.email || '',
+    dob: ociaReg.dob || '',
+    baptized: mapAdultRegBaptizedToYesNo(ociaReg.baptized),
+    baptism_church_name: ociaReg.baptism_church || '',
+  };
+};
+
+app.get('/registration/ocia-questionnaire', requireAuth, asyncHandler(async (req, res) => {
+  // One questionnaire per person — if they already started or finished one, resume that
+  // instead of letting them spawn a duplicate blank copy.
+  const existing = await db.prepare(
+    'SELECT id FROM ocia_questionnaires WHERE user_id = ? ORDER BY created_at DESC LIMIT 1'
+  ).get(req.user.id);
+  if (existing) return res.redirect(`/registration/ocia-questionnaire/edit/${existing.id}`);
+
+  const ociaReg = await db.prepare(
+    "SELECT * FROM adult_registrations WHERE user_id = ? AND program_type = 'ocia' ORDER BY created_at DESC LIMIT 1"
+  ).get(req.user.id);
+
+  res.render('ocia-questionnaire-form', {
+    reg: null,
+    prefill: buildOciaQuestionnairePrefill(req.user, ociaReg),
+    adultRegistrationId: ociaReg ? ociaReg.id : null,
+    hasPrefill: Boolean(ociaReg),
+    formCompletedDateDefault: formatSessionDateValue(new Date()),
+  });
+}));
+
+app.get('/registration/ocia-questionnaire/edit/:id', requireAuth, asyncHandler(async (req, res) => {
+  const isStaff = req.user.role === 'admin' || req.user.role === 'catechist';
+  const reg = await db.prepare(
+    'SELECT * FROM ocia_questionnaires WHERE id = ? AND (user_id = ? OR ? = 1)'
+  ).get(req.params.id, req.user.id, isStaff ? 1 : 0);
+  if (!reg) return res.status(404).send('Initiation Questionnaire not found.');
+
+  res.render('ocia-questionnaire-form', {
+    reg,
+    prefill: {},
+    adultRegistrationId: reg.adult_registration_id,
+    hasPrefill: false,
+    formCompletedDateDefault: formatSessionDateValue(new Date()),
+  });
+}));
+
+app.post('/registration/ocia-questionnaire', requireAuth, asyncHandler(async (req, res) => {
+  const orNull = (value) => {
+    if (typeof value !== 'string') return null;
+    const trimmed = value.trim();
+    return trimmed ? trimmed : null;
+  };
+  const saveMode = typeof req.body.save_mode === 'string' ? req.body.save_mode.trim() : '';
+  const savingIncomplete = saveMode === 'incomplete';
+  const values = OCIAQ_FIELDS.map((field) => orNull(req.body[field]));
+  const inquirerName = orNull(req.body.inquirer_name);
+  const isCompleteForm = Boolean(inquirerName && orNull(req.body.dob));
+  const nextStatus = savingIncomplete || !isCompleteForm ? 'incomplete' : 'in_progress';
+
+  if (!savingIncomplete && !isCompleteForm) {
+    req.flash('error', 'Please complete all required fields: Inquirer\'s Name, Date of Birth.');
+    const redirectUrl = req.body.registration_id
+      ? `/registration/ocia-questionnaire/edit/${req.body.registration_id}`
+      : '/registration/ocia-questionnaire';
+    return res.redirect(redirectUrl);
+  }
+
+  if (req.body.registration_id) {
+    const isStaff = req.user.role === 'admin' || req.user.role === 'catechist';
+    const existing = await db.prepare(
+      'SELECT id FROM ocia_questionnaires WHERE id = ? AND (user_id = ? OR ? = 1)'
+    ).get(req.body.registration_id, req.user.id, isStaff ? 1 : 0);
+    if (!existing) return res.status(404).send('Initiation Questionnaire not found.');
+
+    const setClause = OCIAQ_FIELDS.map((field) => `${field} = ?`).join(', ');
+    await db.prepare(
+      `UPDATE ocia_questionnaires SET ${setClause}, status = ? WHERE id = ?`
+    ).run(...values, nextStatus, req.body.registration_id);
+
+    req.flash('success', nextStatus === 'incomplete' ? res.locals.t('ociaq_saved_incomplete') : res.locals.t('ociaq_saved_complete'));
+    return res.redirect('/dashboard');
+  }
+
+  const registrationOwnerUserId = await resolveRegistrationOwnerUserId(req, req.body.inquirer_email);
+  const adultRegistrationId = Number(req.body.adult_registration_id) || null;
+  const columns = ['user_id', 'adult_registration_id', ...OCIAQ_FIELDS, 'status'];
+  await db.prepare(
+    `INSERT INTO ocia_questionnaires (${columns.join(', ')}) VALUES (${columns.map(() => '?').join(', ')})`
+  ).run(registrationOwnerUserId, adultRegistrationId, ...values, nextStatus);
+
+  req.flash('success', nextStatus === 'incomplete' ? res.locals.t('ociaq_saved_incomplete') : res.locals.t('ociaq_saved_complete'));
+  return res.redirect('/dashboard');
+}));
+
+app.get('/admin/ocia-questionnaires', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const questionnaires = await db.prepare('SELECT * FROM ocia_questionnaires ORDER BY created_at DESC').all();
+  res.render('admin-ocia-questionnaires', { questionnaires });
+}));
+
+app.post('/admin/ocia-questionnaires/:id/delete', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  await db.prepare('DELETE FROM ocia_questionnaires WHERE id = ?').run(req.params.id);
+  req.flash('success', res.locals.t('ociaq_deleted'));
+  return res.redirect('/admin/ocia-questionnaires');
 }));
 
 app.post('/admin/sponsor-confirmation/:id/verify', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {

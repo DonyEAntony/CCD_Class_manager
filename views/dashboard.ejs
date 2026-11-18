@@ -258,6 +258,14 @@
             </a>
           </div>
           <div class="col-sm-6 col-lg-4">
+            <a href="/registration/ocia-questionnaire" class="program-card" style="--prog-color:rgba(37,99,235,0.12);--prog-text:rgb(29,78,216)">
+              <div class="prog-icon" style="background:rgba(37,99,235,0.12);color:rgb(29,78,216)">IQ</div>
+              <div class="prog-title"><%= t('ociaq_nav_title') %></div>
+              <div class="prog-subtitle"><%= t('ociaq_nav_subtitle') %></div>
+              <p class="prog-desc"><%= t('ociaq_nav_desc') %></p>
+            </a>
+          </div>
+          <div class="col-sm-6 col-lg-4">
             <a href="/altar-server-signup" class="program-card" style="--prog-color:rgba(168,85,247,0.12);--prog-text:rgb(109,40,217)">
               <div class="prog-icon" style="background:rgba(168,85,247,0.12);color:rgb(109,40,217)">&#9765;</div>
               <div class="prog-title"><%= t('altar_server_signup_title') %></div>
@@ -549,6 +557,48 @@
                   <a href="/registration/sponsor-confirmation/edit/<%= r.id %>" class="btn btn-sm btn-outline-primary"><%= t('edit') %></a>
                 <% } else { %>
                   <button class="btn btn-sm btn-outline-secondary" type="button" disabled><%= t('closed_status') %></button>
+                <% } %>
+              </td>
+            </tr>
+          <% }) %>
+          </tbody>
+        </table>
+      </div>
+      <% } %>
+    </div>
+  </div>
+
+  <div class="page-card mt-4">
+    <div class="card-header"><h2 class="h5"><%= t('ociaq_section_header') %></h2></div>
+    <div class="card-body p-0">
+      <% if (!ociaQuestionnaires || ociaQuestionnaires.length === 0) { %>
+        <div class="p-4 text-center" style="color:var(--muted);font-size:.9rem"><em><%= t('ociaq_none') %></em></div>
+      <% } else { %>
+      <div class="table-responsive">
+        <table class="table mb-0">
+          <thead>
+            <tr>
+              <th><%= t('ociaq_inquirer_name') %></th>
+              <th><%= t('submitted_col') %></th>
+              <th><%= t('status') %></th>
+              <th><%= t('actions') %></th>
+            </tr>
+          </thead>
+          <tbody>
+          <% ociaQuestionnaires.forEach(r => { %>
+            <tr>
+              <td style="font-weight:600"><%= r.inquirer_name %></td>
+              <td style="font-size:.8rem;color:var(--muted)"><%= r.created_at ? (typeof r.created_at === 'string' ? r.created_at.slice(0, 16).replace('T', ' ') : r.created_at.toISOString().slice(0, 16).replace('T', ' ')) : '' %></td>
+              <td>
+                <span class="badge" style="background:var(--surface);color:var(--navy-soft);font-size:.7rem;border-radius:2rem;padding:.3em .8em;font-weight:700;border:1px solid var(--border)">
+                  <%= t(r.status) %>
+                </span>
+              </td>
+              <td>
+                <% if (String(r.user_id) === String(user.id)) { %>
+                  <a href="/registration/ocia-questionnaire/edit/<%= r.id %>" class="btn btn-sm btn-outline-primary"><%= t('edit') %></a>
+                <% } else { %>
+                  <span style="color:var(--muted)">&mdash;</span>
                 <% } %>
               </td>
             </tr>
